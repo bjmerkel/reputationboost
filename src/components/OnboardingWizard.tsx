@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { GbpLocationOption } from "@/lib/google/gbp-accounts";
+import GoogleBusinessAutocomplete, {
+  type BusinessPlaceSelection,
+} from "@/components/GoogleBusinessAutocomplete";
 
 interface OnboardingWizardProps {
   step: "business" | "connect" | "location";
@@ -23,18 +26,56 @@ export default function OnboardingWizard({
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState(error ?? "");
 
+  const [placeSelected, setPlaceSelected] = useState(false);
+  const [placeId, setPlaceId] = useState("");
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [zip, setZip] = useState("");
+  const [lat, setLat] = useState(0);
+  const [lng, setLng] = useState(0);
   const [phone, setPhone] = useState("");
   const [website, setWebsite] = useState("");
   const [keywords, setKeywords] = useState("");
 
+  function handlePlaceSelect(place: BusinessPlaceSelection) {
+    setPlaceSelected(true);
+    setPlaceId(place.placeId);
+    setName(place.name);
+    setIndustry(place.industry);
+    setAddress(place.address);
+    setCity(place.city);
+    setState(place.state);
+    setZip(place.zip);
+    setLat(place.lat);
+    setLng(place.lng);
+    if (place.phone) setPhone(place.phone);
+    if (place.website) setWebsite(place.website);
+    setFormError("");
+  }
+
+  function handlePlaceClear() {
+    setPlaceSelected(false);
+    setPlaceId("");
+    setName("");
+    setIndustry("");
+    setAddress("");
+    setCity("");
+    setState("");
+    setZip("");
+    setLat(0);
+    setLng(0);
+  }
+
   async function createBusiness(e: React.FormEvent) {
     e.preventDefault();
+    if (!placeSelected || !name.trim()) {
+      setFormError("Search and select your business from Google Maps first.");
+      return;
+    }
+
     setLoading(true);
     setFormError("");
 
@@ -49,6 +90,9 @@ export default function OnboardingWizard({
           city,
           state,
           zip,
+          lat,
+          lng,
+          placeId,
           phone,
           website,
           keywords: keywords
@@ -129,19 +173,39 @@ export default function OnboardingWizard({
         <form onSubmit={createBusiness} className="space-y-4">
           <h2 className="text-2xl font-bold text-white">Add your business</h2>
           <p className="text-sm text-slate-400">
-            Tell us about your business. Next you&apos;ll connect your Google Business Profile.
+            Search for your business on Google Maps. Next you&apos;ll connect your Google
+            Business Profile for live data.
           </p>
 
-          <Field label="Business name" value={name} onChange={setName} required />
-          <Field label="Industry / category" value={industry} onChange={setIndustry} required placeholder="e.g. Plumber" />
-          <Field label="Street address" value={address} onChange={setAddress} required />
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="City" value={city} onChange={setCity} required />
-            <Field label="State" value={state} onChange={setState} required />
-            <Field label="ZIP" value={zip} onChange={setZip} required />
-          </div>
-          <Field label="Phone" value={phone} onChange={setPhone} />
-          <Field label="Website" value={website} onChange={setWebsite} />
+          <GoogleBusinessAutocomplete
+            onSelect={handlePlaceSelect}
+            onClear={handlePlaceClear}
+          />
+
+          {placeSelected && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Business name" value={name} onChange={setName} required />
+                <Field
+                  label="Industry / category"
+                  value={industry}
+                  onChange={setIndustry}
+                  required
+                />
+              </div>
+              <Field label="Street address" value={address} onChange={setAddress} required />
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="City" value={city} onChange={setCity} required />
+                <Field label="State" value={state} onChange={setState} required />
+                <Field label="ZIP" value={zip} onChange={setZip} required />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Phone" value={phone} onChange={setPhone} />
+                <Field label="Website" value={website} onChange={setWebsite} />
+              </div>
+            </>
+          )}
+
           <Field
             label="Target keywords"
             value={keywords}
@@ -152,7 +216,7 @@ export default function OnboardingWizard({
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !placeSelected}
             className="btn-primary w-full rounded-full py-3 text-sm font-semibold text-white disabled:opacity-50"
           >
             {loading ? "Saving…" : "Continue"}

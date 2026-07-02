@@ -28,6 +28,7 @@ export interface CreateBusinessInput {
   keywords: string[];
   website?: string;
   phone?: string;
+  gbpPlaceId?: string;
 }
 
 function slugify(name: string): string {
@@ -137,6 +138,7 @@ export async function createBusiness(
       industry: input.industry,
       location: input.location,
       keywords: input.keywords,
+      gbp_place_id: input.gbpPlaceId ?? null,
       website: input.website ?? null,
       phone: input.phone ?? null,
       onboarding_complete: false,

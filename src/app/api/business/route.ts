@@ -21,6 +21,7 @@ export async function POST(request: Request) {
       phone?: string;
       lat?: number;
       lng?: number;
+      placeId?: string;
     };
 
     if (!body.name?.trim() || !body.industry?.trim()) {
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
       keywords: body.keywords?.filter(Boolean) ?? [],
       website: body.website?.trim(),
       phone: body.phone?.trim(),
+      gbpPlaceId: body.placeId?.trim(),
     });
 
     return NextResponse.json({ business });

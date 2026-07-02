@@ -55,6 +55,7 @@ OAuth tokens are stored per business in Supabase (not in env vars).
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_MAPS_API_KEY=
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=   # same key, referrer-restricted — powers onboarding autocomplete
 OPENAI_API_KEY=
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
