@@ -14,15 +14,23 @@ const priorityStyles: Record<string, string> = {
   P3: "bg-slate-500/20 text-slate-300",
 };
 
-export default function StrategyPanel({ strategy }: { strategy: StrategyReport }) {
+export default function StrategyPanel({
+  strategy,
+  embedded = false,
+}: {
+  strategy: StrategyReport;
+  embedded?: boolean;
+}) {
   const { scores } = strategy;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-semibold uppercase tracking-widest text-cyan-400">
-          Phase 2 — Strategy
-        </span>
+        {!embedded && (
+          <span className="text-sm font-semibold uppercase tracking-widest text-cyan-400">
+            Phase 2 — Strategy
+          </span>
+        )}
         <span
           className={`rounded-full border px-3 py-1 text-xs font-bold uppercase ${gradeStyles[scores.grade]}`}
         >

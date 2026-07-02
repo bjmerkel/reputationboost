@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { getPrimaryBusiness } from "@/audit/businesses";
@@ -44,35 +45,31 @@ export default async function PlatformAuditPage() {
     <main className="relative overflow-hidden py-10">
       <div className="mesh-bg absolute inset-0" />
       <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mb-10">
+        <div className="mb-8">
           <span className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
-            Audit · Strategy · Execution
+            Your dashboard
           </span>
-          <h1 className="mt-2 text-4xl font-extrabold text-white">
-            {business.name}
-          </h1>
+          <h1 className="mt-2 text-4xl font-extrabold text-white">{business.name}</h1>
           <p className="mt-3 max-w-2xl text-slate-400">
-            {gbpConnected
-              ? "Live data from your connected Google Business Profile — rankings, reviews, competitors, and AI-powered monthly automation."
-              : "Your business is saved. Connect Google Business Profile to unlock live audits and automation."}
-          </p>
-          <p className="mt-2 text-sm text-slate-500">
-            Signed in as <span className="text-slate-300">{user.email}</span>
-            {gbpConnected ? (
-              <span className="ml-3 text-emerald-400/80">· GBP connected</span>
-            ) : (
-              <span className="ml-3 text-amber-400/80">· GBP not connected</span>
-            )}
+            Follow the four steps: results → plan → action → deep dive.
           </p>
         </div>
 
-        <AuditDashboard
-          clientId={business.id}
-          businessId={business.businessId}
-          gbpConnected={gbpConnected}
-          initialAudit={latestAudit}
-          initialExecutionTasks={initialExecutionTasks}
-        />
+        <Suspense
+          fallback={
+            <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-12 text-center text-slate-400">
+              Loading dashboard…
+            </div>
+          }
+        >
+          <AuditDashboard
+            clientId={business.id}
+            businessId={business.businessId}
+            gbpConnected={gbpConnected}
+            initialAudit={latestAudit}
+            initialExecutionTasks={initialExecutionTasks}
+          />
+        </Suspense>
       </div>
     </main>
   );

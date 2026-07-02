@@ -37,7 +37,8 @@ export default function ExecutionQueue({
   auditId,
   initialTasks,
   contentSource,
-}: ExecutionQueueProps) {
+  embedded = false,
+}: ExecutionQueueProps & { embedded?: boolean }) {
   const [tasks, setTasks] = useState<ExecutionTask[]>(initialTasks);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -133,10 +134,12 @@ export default function ExecutionQueue({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <span className="text-sm font-semibold uppercase tracking-widest text-violet-400">
-            Phase 3 — Execution Queue
-          </span>
-          <p className="mt-1 text-sm text-slate-400">
+          {!embedded && (
+            <span className="text-sm font-semibold uppercase tracking-widest text-violet-400">
+              Phase 3 — Execution Queue
+            </span>
+          )}
+          <p className={`text-sm text-slate-400 ${embedded ? "" : "mt-1"}`}>
             {pending} pending · {approved} approved · {completed} completed
             {contentSource === "llm" && (
               <span className="ml-2 text-violet-400">· AI-generated copy</span>

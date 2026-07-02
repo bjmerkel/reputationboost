@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import { ensureStrategy } from "@/audit/ensure-strategy";
+import AuditDataPanel from "@/components/audit/AuditDataPanel";
+import AuditStoryNav, { AuditViewFooter } from "@/components/audit/AuditStoryNav";
+import AuditSummaryStrip from "@/components/audit/AuditSummaryStrip";
+import { isAuditView, type AuditView } from "@/components/audit/types";
 import ExecutionQueue from "@/components/ExecutionQueue";
 import MonthlyReportPanel from "@/components/MonthlyReportPanel";
 import StrategyPanel from "@/components/StrategyPanel";
@@ -23,11 +28,31 @@ export default function AuditDashboard({
   initialAudit,
   initialExecutionTasks = [],
 }: AuditRunnerProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const paramView = searchParams.get("view");
+  const initialView: AuditView = isAuditView(paramView) ? paramView : "report";
+
   const [audit, setAudit] = useState<FullAuditPayload | null>(
     initialAudit ? ensureStrategy(initialAudit) : null
   );
+  const [view, setViewState] = useState<AuditView>(initialView);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const setView = useCallback(
+    (next: AuditView) => {
+      setViewState(next);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("view", next);
+      router.replace(`?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  const tasks =
+    audit?.execution?.tasks?.length ? audit.execution.tasks : initialExecutionTasks;
+  const pendingTasks = tasks.filter((t) => t.status === "pending_approval").length;
 
   async function runAudit() {
     setLoading(true);
@@ -41,6 +66,7 @@ export default function AuditDashboard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Audit failed");
       setAudit(ensureStrategy(data.audit));
+      setView("report");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Audit failed");
     } finally {
@@ -51,13 +77,12 @@ export default function AuditDashboard({
   if (!audit) {
     return (
       <div className="space-y-6">
-        {!gbpConnected && (
-          <GbpConnectBanner businessId={businessId} />
-        )}
+        {!gbpConnected && <GbpConnectBanner businessId={businessId} />}
         <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-12 text-center">
-          <p className="text-slate-400">
+          <p className="text-lg font-medium text-white">Ready to see where you stand?</p>
+          <p className="mt-2 text-slate-400">
             {gbpConnected
-              ? "No audit data yet for this client."
+              ? "Run your first audit to get a monthly report, action plan, and execution queue."
               : "Connect Google Business Profile to run your first live audit."}
           </p>
           {gbpConnected ? (
@@ -67,7 +92,7 @@ export default function AuditDashboard({
               disabled={loading}
               className="btn-primary mt-6 rounded-full px-8 py-3 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {loading ? "Running audit (AI strategy + content)…" : "Run Full Audit"}
+              {loading ? "Running audit…" : "Run Full Audit"}
             </button>
           ) : (
             businessId && (
@@ -86,279 +111,66 @@ export default function AuditDashboard({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {!gbpConnected && <GbpConnectBanner businessId={businessId} />}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">{audit.clientName}</h2>
-          <p className="text-sm text-slate-400">
-            {audit.period} · {audit.trigger} audit · {new Date(audit.completedAt).toLocaleString()}
+          <p className="text-sm text-slate-500">
+            {audit.period} · Last updated {new Date(audit.completedAt).toLocaleString()}
           </p>
         </div>
         <button
           type="button"
           onClick={runAudit}
           disabled={loading || !gbpConnected}
-          className="btn-primary rounded-full px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+          className="btn-primary shrink-0 rounded-full px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {loading ? "Running audit (AI strategy + content)…" : "Re-run Audit"}
+          {loading ? "Running audit…" : "Re-run Audit"}
         </button>
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      {audit.strategy?.monthlyReport && (
-        <MonthlyReportPanel report={audit.strategy.monthlyReport} />
-      )}
+      <AuditSummaryStrip audit={audit} />
 
-      {audit.strategy && <StrategyPanel strategy={audit.strategy} />}
+      <AuditStoryNav active={view} onChange={setView} pendingTasks={pendingTasks} />
 
-      <section className="rounded-2xl border border-white/8 bg-white/[0.02] p-6">
-        <ExecutionQueue
-          key={audit.auditId}
-          clientId={clientId}
-          auditId={audit.auditId}
-          contentSource={audit.execution?.contentSource}
-          initialTasks={
-            audit.execution?.tasks?.length
-              ? audit.execution.tasks
-              : initialExecutionTasks
-          }
-        />
-      </section>
-
-      <div className="border-t border-white/10 pt-8">
-        <p className="mb-6 text-sm font-semibold uppercase tracking-widest text-slate-500">
-          Phase 1 — Raw Data
-        </p>
-      </div>
-
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Local 3-Pack"
-          value={`${audit.rankings.keywordsInPack}/${audit.rankings.totalKeywords}`}
-          sub="keywords in top 3"
-        />
-        <StatCard
-          label="Share of Voice"
-          value={`${audit.rankings.shareOfVoice}%`}
-          sub="keywords in pack"
-        />
-        <StatCard
-          label="GBP Completeness"
-          value={`${audit.gbp.completeness.completenessScore}%`}
-          sub="profile score"
-        />
-        <StatCard
-          label="Engagement (30d)"
-          value={`${audit.gbp.performance.calls + audit.gbp.performance.directionRequests}`}
-          sub="calls + directions"
-        />
-      </div>
-
-      <Section title="1A — Google Business Profile">
-        <div className="grid gap-4 md:grid-cols-2">
-          <DataBlock title="Identity" rows={[
-            ["Name", audit.gbp.identity.name],
-            ["Category", audit.gbp.identity.primaryCategory],
-            ["Phone", audit.gbp.identity.phone],
-            ["Website", audit.gbp.identity.website],
-          ]} />
-          <DataBlock title="Content & Issues" rows={[
-            ["Photos", String(audit.gbp.content.photoCount)],
-            ["Last post", formatDate(audit.gbp.content.lastPostDate)],
-            ["Unanswered Q&A", String(audit.gbp.content.unansweredQa)],
-            ["Verified", audit.gbp.issues.isVerified ? "Yes" : "No"],
-          ]} />
-          <DataBlock title="Engagement" rows={[
-            ["Reviews", `${audit.gbp.engagement.reviewCount} (${audit.gbp.engagement.averageRating}★)`],
-            ["New (30d)", String(audit.gbp.engagement.reviewsLast30Days)],
-            ["Response rate", `${Math.round(audit.gbp.engagement.responseRate * 100)}%`],
-          ]} />
-          <DataBlock title="Performance (30d)" rows={[
-            ["Calls", String(audit.gbp.performance.calls)],
-            ["Directions", String(audit.gbp.performance.directionRequests)],
-            ["Website clicks", String(audit.gbp.performance.websiteClicks)],
-          ]} />
-        </div>
-      </Section>
-
-      <Section title="1B — Rank & Visibility">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-white/10 text-slate-400">
-                <th className="pb-3 pr-4">Keyword</th>
-                <th className="pb-3 pr-4">3-Pack</th>
-                <th className="pb-3 pr-4">1 mi</th>
-                <th className="pb-3 pr-4">3 mi</th>
-                <th className="pb-3 pr-4">5 mi</th>
-                <th className="pb-3">10 mi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {audit.rankings.keywords.map((kw) => (
-                <tr key={kw.keyword} className="border-b border-white/5">
-                  <td className="py-3 pr-4 text-white">{kw.keyword}</td>
-                  <td className="py-3 pr-4">
-                    <PackBadge inPack={kw.inLocalPack} position={kw.localPackPosition} />
-                  </td>
-                  {kw.geoRanks.map((g) => (
-                    <td key={g.distanceMiles} className="py-3 pr-4 text-slate-300">
-                      {g.rank ? `#${g.rank}` : "—"}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Section>
-
-      <Section title="1C — Competitor Intelligence">
-        {audit.competitors.map((snap) => (
-          <div key={snap.keyword} className="mb-6 last:mb-0">
-            <h4 className="mb-3 font-semibold text-emerald-400">{snap.keyword}</h4>
-            <div className="space-y-2">
-              {snap.competitors.slice(0, 3).map((c, i) => (
-                <div
-                  key={c.placeId}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/[0.03] px-4 py-3"
-                >
-                  <span className="text-white">
-                    #{i + 1} {c.name}
-                  </span>
-                  <span className="text-sm text-slate-400">
-                    {c.averageRating}★ · {c.reviewCount} reviews · {c.postsLast30Days} posts/mo
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </Section>
-
-      <Section title="1D — Reputation & Sentiment">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">Praise themes</p>
-            <TagList items={audit.reviews.sentiment.positiveThemes} color="emerald" />
-          </div>
-          <div>
-            <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">Complaint themes</p>
-            <TagList items={audit.reviews.sentiment.negativeThemes} color="red" />
-          </div>
-        </div>
-        <p className="mt-4 text-sm text-slate-400">
-          Unresponded negative reviews: {audit.reviews.unrespondedNegative} ·
-          Dispute candidates: {audit.reviews.disputeCandidates.length}
-        </p>
-      </Section>
-
-      <Section title="1E — Off-Google Signals">
-        <DataBlock
-          title="Citations"
-          rows={[
-            ["Consistency score", `${audit.offGoogle.citationConsistencyScore}%`],
-            ["NAP on website", audit.offGoogle.website.napMatch ? "Match" : "Mismatch"],
-            ["LocalBusiness schema", audit.offGoogle.website.hasLocalBusinessSchema ? "Yes" : "Missing"],
-            ["Social posts (30d)", String(audit.offGoogle.socialPostCountLast30Days)],
-          ]}
-        />
-        {audit.offGoogle.website.issues.length > 0 && (
-          <ul className="mt-4 list-inside list-disc text-sm text-amber-400/90">
-            {audit.offGoogle.website.issues.map((issue) => (
-              <li key={issue}>{issue}</li>
-            ))}
-          </ul>
+      <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-6 md:p-8">
+        {view === "report" && audit.strategy?.monthlyReport && (
+          <MonthlyReportPanel report={audit.strategy.monthlyReport} embedded />
         )}
-      </Section>
+        {view === "report" && !audit.strategy?.monthlyReport && (
+          <p className="text-slate-400">Monthly report will appear after your first audit completes.</p>
+        )}
+
+        {view === "strategy" && audit.strategy && (
+          <StrategyPanel strategy={audit.strategy} embedded />
+        )}
+
+        {view === "execute" && (
+          <ExecutionQueue
+            key={audit.auditId}
+            clientId={clientId}
+            auditId={audit.auditId}
+            contentSource={audit.execution?.contentSource}
+            initialTasks={tasks}
+            embedded
+          />
+        )}
+
+        {view === "data" && <AuditDataPanel audit={audit} />}
+
+        <AuditViewFooter active={view} onChange={setView} />
+      </div>
     </div>
   );
-}
-
-function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
-  return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-5">
-      <p className="text-xs uppercase tracking-wider text-slate-500">{label}</p>
-      <p className="mt-1 text-3xl font-bold text-white">{value}</p>
-      <p className="mt-1 text-xs text-slate-400">{sub}</p>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-white/8 bg-white/[0.02] p-6">
-      <h3 className="mb-4 text-lg font-bold text-white">{title}</h3>
-      {children}
-    </section>
-  );
-}
-
-function DataBlock({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: [string, string][];
-}) {
-  return (
-    <div className="rounded-xl bg-white/[0.03] p-4">
-      <p className="mb-3 text-sm font-semibold text-slate-300">{title}</p>
-      <dl className="space-y-2">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-4 text-sm">
-            <dt className="text-slate-500">{k}</dt>
-            <dd className="text-right text-slate-200">{v}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
-  );
-}
-
-function PackBadge({
-  inPack,
-  position,
-}: {
-  inPack: boolean;
-  position: number | string;
-}) {
-  if (!inPack) {
-    return <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-400">Not in pack</span>;
-  }
-  return (
-    <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">
-      #{position}
-    </span>
-  );
-}
-
-function TagList({ items, color }: { items: string[]; color: "emerald" | "red" }) {
-  const cls = color === "emerald" ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300";
-  return (
-    <div className="flex flex-wrap gap-2">
-      {items.map((item) => (
-        <span key={item} className={`rounded-full px-3 py-1 text-xs ${cls}`}>
-          {item}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function formatDate(iso: string | null) {
-  if (!iso) return "Never";
-  return new Date(iso).toLocaleDateString();
 }
 
 function GbpConnectBanner({ businessId }: { businessId?: string }) {
   return (
     <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-4">
-      <p className="text-sm font-medium text-amber-200">
-        Google Business Profile not connected
-      </p>
+      <p className="text-sm font-medium text-amber-200">Google Business Profile not connected</p>
       <p className="mt-1 text-sm text-slate-400">
         Connect to pull live reviews, performance metrics, and run full audits.
       </p>

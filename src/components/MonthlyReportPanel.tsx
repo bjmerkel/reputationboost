@@ -8,9 +8,21 @@ const priorityStyles: Record<string, string> = {
   P3: "bg-slate-500/20 text-slate-300",
 };
 
-export default function MonthlyReportPanel({ report }: { report: MonthlyReport }) {
+export default function MonthlyReportPanel({
+  report,
+  embedded = false,
+}: {
+  report: MonthlyReport;
+  embedded?: boolean;
+}) {
   return (
-    <section className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-white/[0.02] to-cyan-500/5 p-6 md:p-8">
+    <section
+      className={
+        embedded
+          ? "space-y-6"
+          : "rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-white/[0.02] to-cyan-500/5 p-6 md:p-8"
+      }
+    >
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <span className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
           Monthly Report
