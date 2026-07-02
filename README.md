@@ -51,7 +51,17 @@ curl -X POST http://localhost:3000/api/audit -H "Content-Type: application/json"
 
 Set `GOOGLE_MAPS_API_KEY` for live Local 3-Pack rankings (Geocoding + Places Nearby Search). Without it, rankings and competitors use demo data.
 
-Set `GOOGLE_BUSINESS_API_KEY` for live GBP profile data and Phase 3 execution.
+Set `GOOGLE_BUSINESS_API_KEY` (or `GOOGLE_MAPS_API_KEY`) + a real `gbpPlaceId` on the client for live GBP profile data via **Places Details**.
+
+For full performance metrics (calls, directions, clicks), posts, Q&A, and all reviews, also set OAuth credentials:
+
+```
+GOOGLE_BUSINESS_ACCESS_TOKEN=ya29...
+GOOGLE_BUSINESS_LOCATION_ID=12345678901234567890
+GOOGLE_BUSINESS_ACCOUNT_ID=12345678901234567890
+```
+
+Obtain OAuth tokens via [Google Business Profile API](https://developers.google.com/my-business/content/implement-oauth) with scope `https://www.googleapis.com/auth/business.manage`.
 
 ### How rankings work
 

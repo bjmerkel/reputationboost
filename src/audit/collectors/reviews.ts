@@ -1,4 +1,7 @@
 import type { ClientConfig, ReviewRecord, ReviewSnapshot } from "../types";
+import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
+import { fetchGbpEnrichment } from "@/lib/google/business-profile";
+import { fetchPlaceDetails } from "@/lib/google/place-details";
 
 /**
  * Collects reviews, sentiment themes, and dispute candidates.
@@ -6,17 +9,107 @@ import type { ClientConfig, ReviewRecord, ReviewSnapshot } from "../types";
 export async function collectReviewSnapshot(
   client: ClientConfig
 ): Promise<ReviewSnapshot> {
-  if (process.env.GOOGLE_BUSINESS_API_KEY && client.gbpPlaceId) {
-    return collectReviewsFromApi(client);
+  if (client.gbpPlaceId && isGoogleBusinessApiConfigured()) {
+    try {
+      return await collectReviewsFromApi(client);
+    } catch (error) {
+      console.error("[reviews] Live API failed, falling back to demo data:", error);
+    }
   }
   return collectReviewsDemo(client);
 }
 
 async function collectReviewsFromApi(client: ClientConfig): Promise<ReviewSnapshot> {
-  void client;
-  throw new Error(
-    "Live review collector pending. Wire to GBP Reviews API in collectReviewsFromApi."
+  const now = new Date().toISOString();
+  const enrichment = await fetchGbpEnrichment();
+  const place = await fetchPlaceDetails(client.gbpPlaceId!);
+
+  const sourceReviews =
+    enrichment?.reviews && enrichment.reviews.length > 0
+      ? enrichment.reviews.map((r) => ({
+          id: r.reviewId,
+          rating: r.rating,
+          text: r.comment,
+          author: r.reviewer,
+          publishedAt: r.createTime,
+          responded: Boolean(r.reviewReply),
+          responseTimeHours: null as number | null,
+        }))
+      : place.reviews.map((r, i) => ({
+          id: `place-review-${i}`,
+          rating: r.rating,
+          text: r.text,
+          author: r.authorName,
+          publishedAt: r.publishedAt,
+          responded: false,
+          responseTimeHours: null as number | null,
+        }));
+
+  const reviews: ReviewRecord[] = sourceReviews.map((r) => ({
+    id: r.id,
+    rating: r.rating,
+    text: r.text,
+    author: r.author,
+    publishedAt: r.publishedAt,
+    responded: r.responded,
+    responseTimeHours: r.responseTimeHours,
+    sentiment: ratingToSentiment(r.rating),
+  }));
+
+  const positiveThemes = extractThemes(
+    reviews.filter((r) => r.sentiment === "positive").map((r) => r.text)
   );
+  const negativeThemes = extractThemes(
+    reviews.filter((r) => r.sentiment === "negative").map((r) => r.text)
+  );
+
+  const unrespondedNegative = reviews.filter(
+    (r) => r.rating <= 3 && !r.responded
+  ).length;
+
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const velocityVsPriorMonth = reviews.filter(
+    (r) => new Date(r.publishedAt).getTime() >= thirtyDaysAgo
+  ).length;
+
+  return {
+    collectedAt: now,
+    reviews,
+    sentiment: {
+      positiveThemes,
+      negativeThemes,
+      praiseCount: reviews.filter((r) => r.sentiment === "positive").length,
+      complaintCount: reviews.filter((r) => r.sentiment === "negative").length,
+      neutralCount: reviews.filter((r) => r.sentiment === "neutral").length,
+    },
+    unrespondedNegative,
+    disputeCandidates: reviews
+      .filter((r) => r.rating <= 2 && !r.responded)
+      .map((r) => r.id),
+    velocityVsPriorMonth,
+  };
+}
+
+function ratingToSentiment(rating: number): ReviewRecord["sentiment"] {
+  if (rating >= 4) return "positive";
+  if (rating <= 2) return "negative";
+  return "neutral";
+}
+
+const THEME_KEYWORDS: Record<string, string[]> = {
+  "quality work": ["quality", "excellent", "great job", "professional"],
+  "fair pricing": ["fair", "price", "affordable", "value"],
+  "good communication": ["communication", "responsive", "reachable", "phone"],
+  "scheduling delays": ["late", "delay", "schedule", "wait"],
+  "hard to reach": ["reach", "callback", "no answer", "unresponsive"],
+};
+
+function extractThemes(texts: string[]): string[] {
+  const joined = texts.join(" ").toLowerCase();
+  return Object.entries(THEME_KEYWORDS)
+    .filter(([, keywords]) => keywords.some((kw) => joined.includes(kw)))
+    .map(([theme]) => theme)
+    .slice(0, 4);
 }
 
 function collectReviewsDemo(client: ClientConfig): ReviewSnapshot {
