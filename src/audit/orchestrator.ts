@@ -7,12 +7,14 @@ import {
   collectReviewSnapshot,
 } from "./collectors";
 import { generateStrategy } from "./phase2";
+import { generateExecutionQueue } from "./phase3";
 import {
   ensureDemoBusiness,
   isSupabaseConfigured,
   loadPriorAuditFromSupabase,
   saveAuditToSupabase,
 } from "./storage-supabase";
+import { saveExecutionTasks } from "./storage-execution";
 import { isLocalStorageAvailable } from "./storage-env";
 import { loadPriorAudit, saveAudit } from "./storage";
 import type {
@@ -100,12 +102,19 @@ export async function runPhase1Audit(
 
   const strategy = generateStrategy(phase1, priorAudit);
 
+  const execution = generateExecutionQueue({ ...phase1, strategy });
+
   const audit: FullAuditPayload = {
     ...phase1,
     strategy,
+    execution,
   };
 
   const storagePath = await persistAudit(audit, options.userId, client);
+
+  if (options.userId && isSupabaseConfigured()) {
+    await saveExecutionTasks(options.userId, client, audit.auditId, execution.tasks);
+  }
 
   return {
     success: true,

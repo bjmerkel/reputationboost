@@ -60,13 +60,42 @@ After Phase 1 data collection, the engine automatically:
 - **Diffs** month-over-month vs. prior audit
 - **Generates** executive summary, KPI targets, and 30-day action plan with draft copy
 
+## Phase 3 — Execution & Approval Queue
+
+After strategy generation, the engine builds an execution queue from the 30-day action plan:
+
+- **Google Posts** — 4 monthly posts with localized copy
+- **GBP optimization** — business description, photos/services checklist
+- **Review responses** — draft replies for unresponded reviews
+- **Review requests** — SMS template for happy customers
+- **Technical & citations** — schema markup and NAP fix tasks
+
+Tasks that publish public content require approval. Approve individually or use **Approve All**, then **Run Approved** to execute (simulated until `GOOGLE_BUSINESS_API_KEY` is wired).
+
+```bash
+# List tasks for current audit
+curl http://localhost:3000/api/execution?clientId=san-diego-stucco&auditId=2026-07-02
+
+# Approve a task
+curl -X PATCH http://localhost:3000/api/execution/{taskId} \
+  -H "Content-Type: application/json" \
+  -d '{"status":"approved"}'
+
+# Execute an approved task
+curl -X POST http://localhost:3000/api/execution/{taskId}
+```
+
+Run `supabase/migrations/002_execution_queue.sql` in the Supabase SQL Editor after migration 001.
+
 ## Supabase Auth
 
-Protected routes: `/platform/*`, `/api/audit/*`
+Protected routes: `/platform/*`, `/api/audit/*`, `/api/execution/*`
 
 1. Create a project at [supabase.com](https://supabase.com)
 2. Copy `.env.example` → `.env.local` and add your URL + anon key
-3. Run the migration in `supabase/migrations/001_initial_schema.sql` via the Supabase SQL Editor
+3. Run migrations in order via the Supabase SQL Editor:
+   - `supabase/migrations/001_initial_schema.sql`
+   - `supabase/migrations/002_execution_queue.sql`
 4. In Supabase **Authentication → URL Configuration**, set:
    - Site URL: `http://localhost:3000` (or your Vercel URL)
    - Redirect URLs: `http://localhost:3000/auth/callback`, `https://your-domain.vercel.app/auth/callback`

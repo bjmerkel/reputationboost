@@ -275,4 +275,52 @@ export interface StrategyReport {
 
 export interface FullAuditPayload extends Phase1AuditPayload {
   strategy: StrategyReport;
+  execution?: Phase3ExecutionReport;
+}
+
+// ─── Phase 3: Execution & Approval Queue ───────────────────────────────────
+
+export type ExecutionStatus =
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "scheduled"
+  | "completed"
+  | "failed";
+
+export type ExecutionType =
+  | "google_post"
+  | "gbp_description"
+  | "gbp_services"
+  | "review_response"
+  | "review_request"
+  | "qa_answer"
+  | "schema_markup"
+  | "citation_fix"
+  | "social_post";
+
+export interface ExecutionTask {
+  id: string;
+  auditId: string;
+  actionItemId: string;
+  type: ExecutionType;
+  title: string;
+  description: string;
+  priority: ActionPriority;
+  status: ExecutionStatus;
+  draftContent: string;
+  payload: Record<string, unknown>;
+  requiresApproval: boolean;
+  scheduledFor: string | null;
+  completedAt: string | null;
+  result: string | null;
+  createdAt: string;
+}
+
+export interface Phase3ExecutionReport {
+  generatedAt: string;
+  tasksCreated: number;
+  pendingApproval: number;
+  autoApproved: number;
+  tasks: ExecutionTask[];
 }

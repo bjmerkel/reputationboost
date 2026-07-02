@@ -9,6 +9,7 @@ export const config = {
   matcher: [
     "/platform/:path*",
     "/api/audit/:path*",
+    "/api/execution/:path*",
     "/login",
   ],
 };

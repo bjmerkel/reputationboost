@@ -1,16 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import type { FullAuditPayload } from "@/audit/types";
+import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import { ensureStrategy } from "@/audit/ensure-strategy";
+import ExecutionQueue from "@/components/ExecutionQueue";
 import StrategyPanel from "@/components/StrategyPanel";
 
 interface AuditRunnerProps {
   clientId: string;
   initialAudit: FullAuditPayload | null;
+  initialExecutionTasks?: ExecutionTask[];
 }
 
-export default function AuditDashboard({ clientId, initialAudit }: AuditRunnerProps) {
+export default function AuditDashboard({
+  clientId,
+  initialAudit,
+  initialExecutionTasks = [],
+}: AuditRunnerProps) {
   const [audit, setAudit] = useState<FullAuditPayload | null>(
     initialAudit ? ensureStrategy(initialAudit) : null
   );
@@ -75,6 +81,19 @@ export default function AuditDashboard({ clientId, initialAudit }: AuditRunnerPr
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {audit.strategy && <StrategyPanel strategy={audit.strategy} />}
+
+      <section className="rounded-2xl border border-white/8 bg-white/[0.02] p-6">
+        <ExecutionQueue
+          key={audit.auditId}
+          clientId={clientId}
+          auditId={audit.auditId}
+          initialTasks={
+            audit.execution?.tasks?.length
+              ? audit.execution.tasks
+              : initialExecutionTasks
+          }
+        />
+      </section>
 
       <div className="border-t border-white/10 pt-8">
         <p className="mb-6 text-sm font-semibold uppercase tracking-widest text-slate-500">
