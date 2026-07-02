@@ -55,12 +55,25 @@ OAuth tokens are stored per business in Supabase (not in env vars).
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_MAPS_API_KEY=
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=   # same key, referrer-restricted — powers onboarding autocomplete
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
 OPENAI_API_KEY=
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_SITE_URL=https://your-domain.vercel.app
 ```
+
+### Google Maps API keys (two uses)
+
+| Variable | Used for | APIs to enable |
+|----------|----------|----------------|
+| `GOOGLE_MAPS_API_KEY` | Server: rankings, geocoding | Places API, Geocoding API |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Client: onboarding autocomplete | **Maps JavaScript API**, Places API |
+
+`ApiNotActivatedMapError` means **Maps JavaScript API** is not enabled — enable it in [Google Cloud Console → APIs & Services → Library](https://console.cloud.google.com/apis/library), then redeploy.
+
+Restrict the public key by HTTP referrer:
+- `https://reputationboost.vercel.app/*`
+- `http://localhost:3000/*`
 
 Run migrations `001`, `002`, and `003` in the Supabase SQL Editor.
 

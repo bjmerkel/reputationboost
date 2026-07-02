@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { isMapsAutocompleteAvailable, loadGoogleMaps } from "@/lib/google/maps-loader";
+import { isMapsAutocompleteAvailable, loadGoogleMaps, MAPS_SETUP_HELP } from "@/lib/google/maps-loader";
 
 export interface BusinessPlaceSelection {
   placeId: string;
@@ -132,8 +132,8 @@ export default function GoogleBusinessAutocomplete({
   if (!isMapsAutocompleteAvailable()) {
     return (
       <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-        Add <code className="text-amber-100">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> to enable
-        business search.
+        Add <code className="text-amber-100">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> to Vercel.{" "}
+        {MAPS_SETUP_HELP}
       </p>
     );
   }
@@ -159,9 +159,41 @@ export default function GoogleBusinessAutocomplete({
       </div>
 
       {error && (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-          {error}
-        </p>
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-3 text-sm text-red-300">
+          <p>{error}</p>
+          {error.includes("not enabled") && (
+            <ol className="mt-2 list-inside list-decimal space-y-1 text-xs text-red-200/90">
+              <li>
+                Open{" "}
+                <a
+                  href="https://console.cloud.google.com/apis/library/maps-backend.googleapis.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  Maps JavaScript API
+                </a>{" "}
+                → Enable
+              </li>
+              <li>
+                Open{" "}
+                <a
+                  href="https://console.cloud.google.com/apis/library/places-backend.googleapis.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  Places API
+                </a>{" "}
+                → Enable
+              </li>
+              <li>
+                Ensure <code className="text-red-100">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> in
+                Vercel matches that project (referrer-restricted to your domain)
+              </li>
+            </ol>
+          )}
+        </div>
       )}
 
       {selected && (
