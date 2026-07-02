@@ -1,3 +1,5 @@
+import { SIGNUP_URL } from "@/lib/constants";
+
 export default function Hero() {
   return (
     <section className="relative min-h-screen overflow-hidden pt-32 pb-20 lg:pt-40">
@@ -29,10 +31,10 @@ export default function Hero() {
 
           <div className="animate-fade-up animate-delay-300 mt-10 flex flex-col gap-4 sm:flex-row">
             <a
-              href="#cta"
+              href={SIGNUP_URL}
               className="btn-primary inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-semibold text-white"
             >
-              Get My Free AI Report
+              Get Free Account
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>

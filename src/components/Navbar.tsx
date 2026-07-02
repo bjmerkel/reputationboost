@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SIGNUP_URL } from "@/lib/constants";
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -50,16 +51,16 @@ export default function Navbar() {
 
           <div className="hidden items-center gap-3 md:flex">
             <a
-              href="#cta"
+              href={SIGNUP_URL}
               className="btn-secondary rounded-full px-5 py-2.5 text-sm font-semibold text-white"
             >
               Sign In
             </a>
             <a
-              href="#cta"
+              href={SIGNUP_URL}
               className="btn-primary rounded-full px-5 py-2.5 text-sm font-semibold text-white"
             >
-              Get Started Free
+              Get Free Account
             </a>
           </div>
 
@@ -93,16 +94,16 @@ export default function Navbar() {
             ))}
             <div className="flex flex-col gap-2 pt-2">
               <a
-                href="#cta"
+                href={SIGNUP_URL}
                 className="btn-secondary rounded-full px-5 py-2.5 text-center text-sm font-semibold text-white"
               >
                 Sign In
               </a>
               <a
-                href="#cta"
+                href={SIGNUP_URL}
                 className="btn-primary rounded-full px-5 py-2.5 text-center text-sm font-semibold text-white"
               >
-                Get Started Free
+                Get Free Account
               </a>
             </div>
           </div>

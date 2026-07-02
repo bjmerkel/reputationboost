@@ -33,5 +33,5 @@ Open [http://localhost:3000](http://localhost:3000) to view the site.
 - **Features** — Get Data, Geo-Located Heatmap, Top Competitors, Customized Suggestions
 - **How It Works** — Three-step flow with before/after rankings comparison
 - **Testimonial** — Customer quote
-- **CTA** — Free trial signup
+- **CTA** — Get Free Account signup
 - **Footer** — Navigation and links
