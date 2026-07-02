@@ -128,7 +128,7 @@ function buildKpiTargets(audit: Phase1AuditPayload, gaps: GapFlag[]): string[] {
   return targets.slice(0, 5);
 }
 
-export function generateStrategy(
+export function buildStrategy(
   audit: Phase1AuditPayload,
   priorAudit: Phase1AuditPayload | null = null
 ): StrategyReport {

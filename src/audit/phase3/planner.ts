@@ -5,13 +5,9 @@ import type {
   FullAuditPayload,
   Phase3ExecutionReport,
 } from "../types";
-import {
-  generateGbpDescription,
-  generateGooglePosts,
-  generateReviewRequestSms,
-  generateReviewResponses,
-  mapActionToExecutionType,
-} from "./content";
+import type { AuditGeneratedContent } from "@/lib/llm/content";
+import { buildTemplateContent } from "@/lib/llm/content";
+import { mapActionToExecutionType } from "./content";
 
 function requiresApproval(type: ExecutionTask["type"]): boolean {
   return ["google_post", "review_response", "social_post", "gbp_description"].includes(type);
@@ -44,8 +40,11 @@ function buildTask(
   };
 }
 
-function tasksFromGooglePosts(audit: FullAuditPayload, action: ActionItem): ExecutionTask[] {
-  const posts = generateGooglePosts(audit);
+function tasksFromGooglePosts(
+  audit: FullAuditPayload,
+  action: ActionItem,
+  posts: string[]
+): ExecutionTask[] {
   return posts.map((content, i) =>
     buildTask(audit, action, "google_post", content, {
       postIndex: i + 1,
@@ -55,8 +54,11 @@ function tasksFromGooglePosts(audit: FullAuditPayload, action: ActionItem): Exec
   );
 }
 
-function tasksFromReviewResponses(audit: FullAuditPayload, action: ActionItem): ExecutionTask[] {
-  const responses = generateReviewResponses(audit);
+function tasksFromReviewResponses(
+  audit: FullAuditPayload,
+  action: ActionItem,
+  responses: AuditGeneratedContent["reviewResponses"]
+): ExecutionTask[] {
   if (responses.length === 0) {
     return [
       buildTask(
@@ -76,7 +78,11 @@ function tasksFromReviewResponses(audit: FullAuditPayload, action: ActionItem): 
   );
 }
 
-function createTaskForAction(audit: FullAuditPayload, action: ActionItem): ExecutionTask[] {
+function createTaskForAction(
+  audit: FullAuditPayload,
+  action: ActionItem,
+  content: AuditGeneratedContent
+): ExecutionTask[] {
   const index = audit.strategy.actionPlan.indexOf(action);
   const gapId = audit.strategy.gaps[index]?.id ?? "";
   const type =
@@ -97,19 +103,19 @@ function createTaskForAction(audit: FullAuditPayload, action: ActionItem): Execu
 
   switch (type) {
     case "google_post":
-      return tasksFromGooglePosts(audit, action);
+      return tasksFromGooglePosts(audit, action, content.googlePosts);
     case "review_response":
-      return tasksFromReviewResponses(audit, action);
+      return tasksFromReviewResponses(audit, action, content.reviewResponses);
     case "review_request":
       return [
-        buildTask(audit, action, "review_request", generateReviewRequestSms(audit), {
+        buildTask(audit, action, "review_request", content.reviewRequestSms, {
           channel: "sms",
           batchSize: 15,
         }),
       ];
     case "gbp_description":
       return [
-        buildTask(audit, action, "gbp_description", generateGbpDescription(audit), {
+        buildTask(audit, action, "gbp_description", content.gbpDescription, {
           field: "description",
         }),
       ];
@@ -128,13 +134,7 @@ function createTaskForAction(audit: FullAuditPayload, action: ActionItem): Execu
       ];
     case "qa_answer":
       return [
-        buildTask(
-          audit,
-          action,
-          "qa_answer",
-          `Q: What areas do you serve?\nA: We proudly serve ${audit.gbp.identity.address} and surrounding neighborhoods. Call ${audit.gbp.identity.phone} for availability.`,
-          { qaTemplate: true }
-        ),
+        buildTask(audit, action, "qa_answer", content.qaAnswer, { qaTemplate: true }),
       ];
     case "schema_markup":
       return [
@@ -161,13 +161,10 @@ function createTaskForAction(audit: FullAuditPayload, action: ActionItem): Execu
       ];
     case "social_post":
       return [
-        buildTask(
-          audit,
-          action,
-          "social_post",
-          generateGooglePosts(audit)[0] ?? action.draftCopy ?? "",
-          { platforms: ["facebook", "instagram"], frequency: "1x_week" }
-        ),
+        buildTask(audit, action, "social_post", content.socialPost || action.draftCopy || "", {
+          platforms: ["facebook", "instagram"],
+          frequency: "1x_week",
+        }),
       ];
     default:
       return [
@@ -176,11 +173,15 @@ function createTaskForAction(audit: FullAuditPayload, action: ActionItem): Execu
   }
 }
 
-export function generateExecutionQueue(audit: FullAuditPayload): Phase3ExecutionReport {
+export function generateExecutionQueue(
+  audit: FullAuditPayload,
+  content?: AuditGeneratedContent
+): Phase3ExecutionReport {
+  const resolvedContent = content ?? buildTemplateContent(audit);
   const tasks: ExecutionTask[] = [];
 
   for (const action of audit.strategy.actionPlan) {
-    tasks.push(...createTaskForAction(audit, action));
+    tasks.push(...createTaskForAction(audit, action, resolvedContent));
   }
 
   const pendingApproval = tasks.filter((t) => t.status === "pending_approval").length;
@@ -192,5 +193,6 @@ export function generateExecutionQueue(audit: FullAuditPayload): Phase3Execution
     pendingApproval,
     autoApproved,
     tasks,
+    contentSource: resolvedContent.contentSource,
   };
 }

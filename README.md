@@ -79,6 +79,8 @@ After Phase 1 data collection, the engine automatically:
 - **Diffs** month-over-month vs. prior audit
 - **Generates** executive summary, KPI targets, and 30-day action plan with draft copy
 
+With `OPENAI_API_KEY` set, strategy narratives and action draft copy are **AI-generated** from real audit data (falls back to templates if unavailable).
+
 ## Phase 3 — Execution & Approval Queue
 
 After strategy generation, the engine builds an execution queue from the 30-day action plan:
@@ -90,6 +92,8 @@ After strategy generation, the engine builds an execution queue from the 30-day 
 - **Technical & citations** — schema markup and NAP fix tasks
 
 Tasks that publish public content require approval. Approve individually or use **Approve All**, then **Run Approved** to execute (simulated until `GOOGLE_BUSINESS_API_KEY` is wired).
+
+With `OPENAI_API_KEY`, Google Posts, GBP descriptions, and review responses are **AI-written** from audit context.
 
 ```bash
 # List tasks for current audit

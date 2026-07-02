@@ -1,13 +1,16 @@
 import type { FullAuditPayload } from "@/audit/types";
-import { generateStrategy } from "@/audit/phase2";
+import { buildStrategy } from "@/audit/phase2/strategy";
+import { buildTemplateContent } from "@/lib/llm/content";
 import { generateExecutionQueue } from "@/audit/phase3";
 
 /** Backfill strategy and execution queue for audits saved before Phase 2/3. */
 export function ensureStrategy(audit: FullAuditPayload): FullAuditPayload {
   const withStrategy = audit.strategy
     ? audit
-    : { ...audit, strategy: generateStrategy(audit, null) };
+    : { ...audit, strategy: buildStrategy(audit, null) };
 
   if (withStrategy.execution) return withStrategy;
-  return { ...withStrategy, execution: generateExecutionQueue(withStrategy) };
+
+  const content = buildTemplateContent(withStrategy);
+  return { ...withStrategy, execution: generateExecutionQueue(withStrategy, content) };
 }

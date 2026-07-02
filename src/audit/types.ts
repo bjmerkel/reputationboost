@@ -271,6 +271,7 @@ export interface StrategyReport {
   gaps: GapFlag[];
   actionPlan: ActionItem[];
   monthOverMonth: MonthOverMonthDelta | null;
+  contentSource?: "llm" | "template";
 }
 
 export interface FullAuditPayload extends Phase1AuditPayload {
@@ -323,4 +324,5 @@ export interface Phase3ExecutionReport {
   pendingApproval: number;
   autoApproved: number;
   tasks: ExecutionTask[];
+  contentSource?: "llm" | "template";
 }

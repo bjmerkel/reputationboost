@@ -52,7 +52,7 @@ export default function AuditDashboard({
           disabled={loading}
           className="btn-primary mt-6 rounded-full px-8 py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {loading ? "Running audit…" : "Run Full Audit"}
+          {loading ? "Running audit (AI strategy + content)…" : "Run Full Audit"}
         </button>
         {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
       </div>
@@ -74,7 +74,7 @@ export default function AuditDashboard({
           disabled={loading}
           className="btn-primary rounded-full px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {loading ? "Running…" : "Re-run Audit"}
+          {loading ? "Running audit (AI strategy + content)…" : "Re-run Audit"}
         </button>
       </div>
 
@@ -87,6 +87,7 @@ export default function AuditDashboard({
           key={audit.auditId}
           clientId={clientId}
           auditId={audit.auditId}
+          contentSource={audit.execution?.contentSource}
           initialTasks={
             audit.execution?.tasks?.length
               ? audit.execution.tasks

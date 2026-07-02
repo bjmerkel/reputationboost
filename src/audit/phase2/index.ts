@@ -1,4 +1,5 @@
 export { computeHealthScores } from "./scoring";
 export { detectGaps } from "./gaps";
 export { computeMonthOverMonth } from "./diff";
-export { generateStrategy } from "./strategy";
+export { buildStrategy } from "./strategy";
+export { generateStrategy } from "@/lib/llm/strategy";

@@ -7,6 +7,7 @@ interface ExecutionQueueProps {
   clientId: string;
   auditId: string;
   initialTasks: ExecutionTask[];
+  contentSource?: "llm" | "template";
 }
 
 const statusColors: Record<ExecutionTask["status"], string> = {
@@ -34,6 +35,7 @@ export default function ExecutionQueue({
   clientId,
   auditId,
   initialTasks,
+  contentSource,
 }: ExecutionQueueProps) {
   const [tasks, setTasks] = useState<ExecutionTask[]>(initialTasks);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -135,6 +137,9 @@ export default function ExecutionQueue({
           </span>
           <p className="mt-1 text-sm text-slate-400">
             {pending} pending · {approved} approved · {completed} completed
+            {contentSource === "llm" && (
+              <span className="ml-2 text-violet-400">· AI-generated copy</span>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

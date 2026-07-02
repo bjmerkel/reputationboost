@@ -28,6 +28,11 @@ export default function StrategyPanel({ strategy }: { strategy: StrategyReport }
           {scores.grade.replace("_", " ")}
         </span>
         <span className="text-2xl font-bold text-white">{scores.overall}/100</span>
+        {strategy.contentSource === "llm" && (
+          <span className="rounded-full bg-violet-500/20 px-2.5 py-0.5 text-xs font-medium text-violet-300">
+            AI-generated
+          </span>
+        )}
       </div>
 
       <div className="rounded-xl border border-white/8 bg-white/[0.03] p-6">

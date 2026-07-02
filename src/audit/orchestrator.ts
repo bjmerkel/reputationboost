@@ -8,7 +8,8 @@ import {
 } from "./collectors";
 import { collectPlacesRankData } from "./collectors/places";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
-import { generateStrategy } from "./phase2";
+import { generateStrategy } from "@/lib/llm/strategy";
+import { generateAuditContent } from "@/lib/llm/content";
 import { generateExecutionQueue } from "./phase3";
 import {
   ensureDemoBusiness,
@@ -113,13 +114,14 @@ export async function runPhase1Audit(
     phase1.completedAt
   );
 
-  const strategy = generateStrategy(phase1, priorAudit);
+  const strategy = await generateStrategy(phase1, priorAudit);
 
-  const execution = generateExecutionQueue({ ...phase1, strategy });
+  const auditWithStrategy = { ...phase1, strategy };
+  const content = await generateAuditContent(auditWithStrategy);
+  const execution = generateExecutionQueue(auditWithStrategy, content);
 
   const audit: FullAuditPayload = {
-    ...phase1,
-    strategy,
+    ...auditWithStrategy,
     execution,
   };
 
