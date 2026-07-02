@@ -40,8 +40,9 @@ export default function Footer() {
               <span className="text-lg font-bold text-white">Reputation Boost</span>
             </a>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
-              AI-powered local rankings, competitor tracking, and reputation
-              management to help your business get found and trusted online.
+              Optimize your Google Business Profile to rank higher on Google
+              Maps, break into the Local 3-Pack, and turn searches into calls,
+              visits, and engagement.
             </p>
           </div>
 

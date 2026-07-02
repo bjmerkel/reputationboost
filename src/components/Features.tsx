@@ -3,7 +3,7 @@ const features = [
     id: "get-data",
     title: "Get Data",
     description:
-      "Add keywords that best discover where your business stands in local search results with our powerful Google Maps Rank Tracker. Enter your target keywords manually or let our AI-powered keyword suggestion tool find the best opportunities for you.",
+      "Track where your Google Business Profile ranks in the Local 3-Pack for every target keyword. Enter keywords manually or let our AI suggest the best opportunities to increase your Maps visibility and engagement.",
     icon: (
       <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path
@@ -20,7 +20,7 @@ const features = [
     id: "heatmap",
     title: "Geo-Located Heatmap",
     description:
-      "Gain a clear view of how your business ranks on Google Maps across different distances. Our interactive map lets you track your rankings 1 mile, 3 miles, 5 miles, and 10 miles from your location, so you can see exactly where you dominate and where you need improvement.",
+      "See exactly how your GBP ranks across 1, 3, 5, and 10 miles from your location. Identify where you dominate the map pack and where competitors are stealing visibility and engagement.",
     icon: (
       <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path
@@ -37,7 +37,7 @@ const features = [
     id: "competitors",
     title: "Top Competitors",
     description:
-      "Know exactly where you stand against your top 5 competitors for every keyword. Our tool tracks their rankings, ratings, and reviews, so you can spot trends and opportunities. Plus, our AI-generated Competition Summary delivers key insights like market share and competitor movement, helping you make smarter decisions and outperform the competition.",
+      "Benchmark against your top 5 competitors on every keyword — their map rankings, star ratings, and review counts. Our AI Competition Summary reveals why customers click them instead of you, and how to outrank them with stronger social proof.",
     icon: (
       <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path
@@ -54,7 +54,7 @@ const features = [
     id: "suggestions",
     title: "Customized Suggestions",
     description:
-      "Take your Google Business Profile to the next level with our AI-driven analysis and suggestion tool. Get specific, actionable recommendations tailored to boost your rankings and increase visibility. Whether it's optimizing your business description, improving customer engagement, or enhancing your photos, our AI provides data-backed insights to help you outrank the competition.",
+      "Get AI-driven recommendations to optimize your Google Business Profile — descriptions, categories, photos, posts, and review strategy — so you rank higher in Google Maps and convert more searches into calls, directions, and website visits.",
     icon: (
       <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path
@@ -80,12 +80,13 @@ export default function Features() {
             Features
           </span>
           <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            Powerful features to boost your{" "}
-            <span className="gradient-text">rankings and visibility</span>
+            Tools to optimize your{" "}
+            <span className="gradient-text">Google Business Profile</span>
           </h2>
           <p className="mt-4 text-lg text-slate-400">
-            Everything you need to dominate local search, track competitors, and
-            grow your business with data-driven insights.
+            Everything you need to climb into the Local 3-Pack, outrank
+            competitors, and turn Google Maps searches into real customer
+            engagement.
           </p>
         </div>
 

@@ -1,21 +1,21 @@
 const steps = [
   {
     step: "01",
-    title: "Enter Your Business",
+    title: "Audit Your GBP",
     description:
-      "Add your business location and target keywords. Our AI instantly analyzes your current Google Maps presence.",
+      "Connect your Google Business Profile and target keywords. We instantly analyze your current Maps rankings, review strength, and competitor positions.",
   },
   {
     step: "02",
-    title: "Get Your AI Report",
+    title: "Get Your Action Plan",
     description:
-      "Receive a comprehensive breakdown of your rankings, competitor positions, and a prioritized action plan.",
+      "Receive AI-driven recommendations prioritized to move you into the Local 3-Pack — profile optimizations, review strategies, and keyword targets.",
   },
   {
     step: "03",
-    title: "Implement & Grow",
+    title: "Rank Higher & Engage More",
     description:
-      "Follow AI-driven recommendations to optimize your profile, track progress, and watch your visibility soar.",
+      "Implement changes, track your climb on Google Maps, and watch calls, direction requests, and website clicks grow as you break into the top 3.",
   },
 ];
 
@@ -28,9 +28,13 @@ export default function HowItWorks() {
             How It Works
           </span>
           <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            From insight to action in{" "}
-            <span className="gradient-text">three simple steps</span>
+            From invisible to{" "}
+            <span className="gradient-text">Local 3-Pack</span>
           </h2>
+          <p className="mt-4 text-lg text-slate-400">
+            Three steps to optimize your Google Business Profile and start
+            capturing the 70%+ of map clicks that go to the top three.
+          </p>
         </div>
 
         <div className="relative mt-16">
@@ -65,23 +69,23 @@ export default function HowItWorks() {
               <div className="mb-4 inline-flex rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-red-400">
                 Before
               </div>
-              <h4 className="text-lg font-bold text-white">Low Local Visibility</h4>
+              <h4 className="text-lg font-bold text-white">Outside the Local 3-Pack</h4>
               <p className="mt-2 text-sm text-slate-400">
-                Rankings scattered across the map with inconsistent positions and
-                competitors dominating key search terms.
+                Ranked position 4 or lower — missing 70–75% of map clicks and
+                losing high-intent customers to competitors above you.
               </p>
               <div className="mt-6 space-y-2">
                 {[
-                  { pos: 18, kw: "san diego stucco" },
-                  { pos: 24, kw: "stucco repair" },
-                  { pos: 31, kw: "exterior plaster" },
+                  { pos: 18, kw: "san diego stucco", label: "Not in pack" },
+                  { pos: 24, kw: "stucco repair", label: "Not in pack" },
+                  { pos: 31, kw: "exterior plaster", label: "Not in pack" },
                 ].map((r) => (
                   <div
                     key={r.kw}
                     className="flex items-center justify-between rounded-lg bg-red-500/5 px-4 py-2.5"
                   >
                     <span className="text-sm text-slate-400">{r.kw}</span>
-                    <span className="font-bold text-red-400">#{r.pos}</span>
+                    <span className="text-xs font-medium text-red-400">{r.label}</span>
                   </div>
                 ))}
               </div>
@@ -93,23 +97,23 @@ export default function HowItWorks() {
               <div className="mb-4 inline-flex rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-400">
                 After
               </div>
-              <h4 className="text-lg font-bold text-white">Top Local Rankings</h4>
+              <h4 className="text-lg font-bold text-white">In the Local 3-Pack</h4>
               <p className="mt-2 text-sm text-slate-400">
-                After implementing AI recommendations, consistent top-3 positions
-                across all target keywords.
+                Top-3 Google Maps positions driving 126% more traffic and 93%
+                more calls and direction requests.
               </p>
               <div className="mt-6 space-y-2">
                 {[
-                  { pos: 1, kw: "san diego stucco" },
-                  { pos: 2, kw: "stucco repair" },
-                  { pos: 1, kw: "exterior plaster" },
+                  { pos: 1, kw: "san diego stucco", label: "Map #1" },
+                  { pos: 2, kw: "stucco repair", label: "Map #2" },
+                  { pos: 1, kw: "exterior plaster", label: "Map #1" },
                 ].map((r) => (
                   <div
                     key={r.kw}
                     className="flex items-center justify-between rounded-lg bg-emerald-500/5 px-4 py-2.5"
                   >
                     <span className="text-sm text-slate-400">{r.kw}</span>
-                    <span className="font-bold text-emerald-400">#{r.pos}</span>
+                    <span className="text-xs font-medium text-emerald-400">{r.label}</span>
                   </div>
                 ))}
               </div>

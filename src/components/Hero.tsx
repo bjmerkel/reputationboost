@@ -16,17 +16,18 @@ export default function Hero() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
             </span>
-            AI-Powered Local Rankings Platform
+            Google Business Profile Optimization
           </div>
 
           <h1 className="animate-fade-up animate-delay-100 max-w-4xl text-5xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-6xl lg:text-7xl">
-            Enhance Your{" "}
-            <span className="gradient-text">Online Presence</span>
+            Rank Higher on{" "}
+            <span className="gradient-text">Google Maps</span>
           </h1>
 
           <p className="animate-fade-up animate-delay-200 mt-6 max-w-2xl text-lg leading-relaxed text-slate-400 sm:text-xl">
-            Discover where your business stands, get an AI-driven action plan,
-            and learn how to outrank competitors and improve your visibility.
+            Optimize your Google Business Profile to break into the Local 3-Pack,
+            increase visibility, and drive more calls, direction requests, and
+            website visits from customers ready to buy.
           </p>
 
           <div className="animate-fade-up animate-delay-300 mt-10 flex flex-col gap-4 sm:flex-row">
@@ -40,18 +41,18 @@ export default function Hero() {
               </svg>
             </a>
             <a
-              href="#features"
+              href="#local-pack"
               className="btn-secondary inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-semibold text-white"
             >
-              Explore Features
+              Why the Local 3-Pack
             </a>
           </div>
 
           <div className="animate-fade-up animate-delay-400 mt-16 grid w-full max-w-3xl grid-cols-3 gap-8 border-t border-white/10 pt-10">
             {[
-              { value: "10K+", label: "Businesses Tracked" },
-              { value: "4.9★", label: "Average Rating" },
-              { value: "3x", label: "Avg. Visibility Boost" },
+              { value: "70–75%", label: "Map Clicks to Top 3" },
+              { value: "126%", label: "Traffic Lift in Top 3" },
+              { value: "93%", label: "More Calls & Directions" },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <div className="text-2xl font-bold text-white sm:text-3xl">{stat.value}</div>
@@ -68,18 +69,18 @@ export default function Hero() {
                 <div className="h-3 w-3 rounded-full bg-red-500/80" />
                 <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
                 <div className="h-3 w-3 rounded-full bg-green-500/80" />
-                <span className="ml-3 text-xs text-slate-500">Rankings Dashboard</span>
+                <span className="ml-3 text-xs text-slate-500">Local 3-Pack Tracker</span>
               </div>
 
               <div className="grid gap-4 p-6 md:grid-cols-2">
                 <div className="space-y-3">
                   <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                    Keyword Rankings
+                    Google Maps Rankings
                   </div>
                   {[
-                    { keyword: "plumber near me", rank: 2, change: "+5" },
-                    { keyword: "emergency plumbing", rank: 4, change: "+3" },
-                    { keyword: "water heater repair", rank: 1, change: "+8" },
+                    { keyword: "plumber near me", rank: 2, change: "In Pack" },
+                    { keyword: "emergency plumbing", rank: 1, change: "In Pack" },
+                    { keyword: "water heater repair", rank: 4, change: "+2 to Pack" },
                   ].map((item) => (
                     <div
                       key={item.keyword}
@@ -139,8 +140,8 @@ export default function Hero() {
                 </svg>
               </div>
               <div>
-                <div className="text-sm font-semibold text-white">Rank Improved!</div>
-                <div className="text-xs text-slate-400">+5 positions this week</div>
+                <div className="text-sm font-semibold text-white">Entered Local 3-Pack!</div>
+                <div className="text-xs text-slate-400">Position #2 on Google Maps</div>
               </div>
             </div>
           </div>

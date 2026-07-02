@@ -1,5 +1,6 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
+import LocalPack from "@/components/LocalPack";
 import Features from "@/components/Features";
 import HowItWorks from "@/components/HowItWorks";
 import Testimonial from "@/components/Testimonial";
@@ -12,6 +13,7 @@ export default function Home() {
       <Navbar />
       <main>
         <Hero />
+        <LocalPack />
         <Features />
         <HowItWorks />
         <Testimonial />

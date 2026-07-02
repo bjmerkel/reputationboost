@@ -4,9 +4,9 @@ import { useState } from "react";
 import { SIGNUP_URL } from "@/lib/constants";
 
 const navLinks = [
+  { label: "Local 3-Pack", href: "#local-pack" },
   { label: "Features", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },
-  { label: "Pricing", href: "#cta" },
 ];
 
 export default function Navbar() {

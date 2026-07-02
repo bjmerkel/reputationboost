@@ -14,11 +14,12 @@ export default function CTA() {
 
             <div className="relative">
               <h2 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-                Ready to improve your rankings?
+                Ready to rank in the Local 3-Pack?
               </h2>
               <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-400">
-                Join thousands of businesses that have improved their online
-                visibility with our platform.
+                Join businesses optimizing their Google Business Profile to
+                capture more map clicks, calls, direction requests, and website
+                visits.
               </p>
 
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">

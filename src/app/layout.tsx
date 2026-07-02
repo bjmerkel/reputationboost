@@ -9,16 +9,16 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Reputation Boost | Enhance Your Online Presence",
+  title: "Reputation Boost | Rank Higher on Google Maps",
   description:
-    "Discover where your business stands, get an AI-driven action plan, and learn how to outrank competitors and improve your visibility.",
+    "Optimize your Google Business Profile to rank in the Local 3-Pack. Increase visibility, calls, direction requests, and website traffic from Google Maps.",
   icons: {
     icon: "/favicon.svg",
   },
   openGraph: {
-    title: "Reputation Boost | Enhance Your Online Presence",
+    title: "Reputation Boost | Rank Higher on Google Maps",
     description:
-      "AI-powered local rankings, competitor tracking, and actionable insights to boost your Google Maps visibility.",
+      "AI-powered Google Business Profile optimization to break into the Local 3-Pack and drive more customer engagement.",
     url: "https://reputationboost.com",
     siteName: "Reputation Boost",
     type: "website",
