@@ -33,10 +33,10 @@ export default function CTA() {
                   </svg>
                 </a>
                 <a
-                  href="#"
+                  href="/pricing-plan"
                   className="btn-secondary inline-flex items-center justify-center gap-2 rounded-full px-10 py-4 text-base font-semibold text-white"
                 >
-                  Contact Us
+                  View Pricing
                 </a>
               </div>
 

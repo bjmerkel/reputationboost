@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { SIGNUP_URL } from "@/lib/constants";
 
 const navLinks = [
-  { label: "Local 3-Pack", href: "#local-pack" },
-  { label: "Features", href: "#features" },
-  { label: "How It Works", href: "#how-it-works" },
+  { label: "Local 3-Pack", href: "/#local-pack" },
+  { label: "Features", href: "/#features" },
+  { label: "How It Works", href: "/#how-it-works" },
+  { label: "Pricing", href: "/pricing-plan" },
 ];
 
 export default function Navbar() {
@@ -16,7 +18,7 @@ export default function Navbar() {
     <header className="fixed top-0 left-0 right-0 z-50">
       <nav className="glass mx-4 mt-4 rounded-2xl px-6 py-4 lg:mx-auto lg:max-w-6xl">
         <div className="flex items-center justify-between">
-          <a href="#" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500">
               <svg
                 className="h-5 w-5 text-white"
@@ -35,17 +37,17 @@ export default function Navbar() {
             <span className="text-lg font-bold tracking-tight text-white">
               Reputation Boost
             </span>
-          </a>
+          </Link>
 
           <div className="hidden items-center gap-8 md:flex">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 className="text-sm font-medium text-slate-400 transition-colors hover:text-white"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </div>
 
@@ -83,14 +85,14 @@ export default function Navbar() {
         {open && (
           <div className="mt-4 flex flex-col gap-4 border-t border-white/10 pt-4 md:hidden">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 className="text-sm font-medium text-slate-300"
                 onClick={() => setOpen(false)}
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
             <div className="flex flex-col gap-2 pt-2">
               <a

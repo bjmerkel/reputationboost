@@ -1,13 +1,16 @@
+import Link from "next/link";
+import { SIGNUP_URL } from "@/lib/constants";
+
 const footerLinks = {
   Product: [
-    { label: "Features", href: "#features" },
-    { label: "Pricing", href: "#cta" },
-    { label: "AI Report", href: "#cta" },
+    { label: "Features", href: "/#features" },
+    { label: "Pricing", href: "/pricing-plan" },
+    { label: "Get Free Account", href: SIGNUP_URL },
   ],
   Company: [
-    { label: "About", href: "#" },
-    { label: "Contact", href: "#cta" },
-    { label: "Blog", href: "#" },
+    { label: "About", href: "/" },
+    { label: "Contact", href: "mailto:info@reputationboost.com" },
+    { label: "Local 3-Pack", href: "/#local-pack" },
   ],
   Legal: [
     { label: "Privacy Policy", href: "#" },
@@ -21,7 +24,7 @@ export default function Footer() {
       <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">
-            <a href="#" className="flex items-center gap-2.5">
+            <Link href="/" className="flex items-center gap-2.5">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500">
                 <svg
                   className="h-5 w-5 text-white"
@@ -38,7 +41,7 @@ export default function Footer() {
                 </svg>
               </div>
               <span className="text-lg font-bold text-white">Reputation Boost</span>
-            </a>
+            </Link>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
               Optimize your Google Business Profile to rank higher on Google
               Maps, break into the Local 3-Pack, and turn searches into calls,
