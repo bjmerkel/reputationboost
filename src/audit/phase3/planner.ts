@@ -7,6 +7,7 @@ import type {
 } from "../types";
 import type { AuditGeneratedContent } from "@/lib/llm/content";
 import { buildTemplateContent } from "@/lib/llm/content";
+import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { mapActionToExecutionType } from "./content";
 
 function requiresApproval(type: ExecutionTask["type"]): boolean {
@@ -21,6 +22,7 @@ function buildTask(
   payload: Record<string, unknown> = {}
 ): ExecutionTask {
   const needsApproval = requiresApproval(type);
+  const content = normalizeTextContent(draftContent);
   return {
     id: randomUUID(),
     auditId: audit.auditId,
@@ -30,7 +32,7 @@ function buildTask(
     description: action.description,
     priority: action.priority,
     status: needsApproval ? "pending_approval" : "approved",
-    draftContent,
+    draftContent: content,
     payload,
     requiresApproval: needsApproval,
     scheduledFor: needsApproval ? null : new Date().toISOString(),

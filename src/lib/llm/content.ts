@@ -8,6 +8,11 @@ import {
 import { buildContentContext } from "./audit-context";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
+import {
+  normalizeOptionalText,
+  normalizeTextContent,
+  normalizeTextList,
+} from "./normalize-content";
 
 export interface AuditGeneratedContent {
   googlePosts: string[];
@@ -20,12 +25,12 @@ export interface AuditGeneratedContent {
 }
 
 interface LlmContentResponse {
-  googlePosts: string[];
-  gbpDescription: string;
-  reviewResponses: Array<{ reviewId: string; response: string }>;
-  reviewRequestSms: string;
-  qaAnswer: string;
-  socialPost: string;
+  googlePosts: unknown[];
+  gbpDescription: unknown;
+  reviewResponses: Array<{ reviewId: string; response: unknown }>;
+  reviewRequestSms: unknown;
+  qaAnswer: unknown;
+  socialPost: unknown;
 }
 
 const CONTENT_SYSTEM = `You are a local marketing copywriter for Google Business Profile.
@@ -82,13 +87,15 @@ ${JSON.stringify(pendingReviews)}
 
 Return JSON:
 {
-  "googlePosts": ["4 unique monthly Google Posts"],
+  "googlePosts": ["4 unique monthly Google Posts as plain strings"],
   "gbpDescription": "optimized business description",
   "reviewResponses": [{ "reviewId": "id from input", "response": "published reply" }],
   "reviewRequestSms": "SMS under 160 chars with [REVIEW_LINK] placeholder",
   "qaAnswer": "Q: ... A: ... format for service area question",
-  "socialPost": "1 Facebook/Instagram post"
-}`,
+  "socialPost": "1 Facebook/Instagram post as a plain string"
+}
+
+Each googlePosts entry must be a string, not an object.`,
         },
       ],
       { maxTokens: 3500 }
@@ -100,18 +107,23 @@ Return JSON:
       return {
         reviewId: review.reviewId,
         rating: review.rating,
-        response: llmResponse?.response ?? template?.response ?? fallback.reviewRequestSms,
+        response:
+          normalizeOptionalText(
+            llmResponse?.response,
+            template?.response ?? fallback.reviewRequestSms
+          ),
       };
     });
 
+    const googlePosts = normalizeTextList(llm.googlePosts, fallback.googlePosts);
+
     return {
-      googlePosts:
-        llm.googlePosts?.length >= 4 ? llm.googlePosts.slice(0, 4) : fallback.googlePosts,
-      gbpDescription: llm.gbpDescription || fallback.gbpDescription,
+      googlePosts: googlePosts.length >= 4 ? googlePosts.slice(0, 4) : fallback.googlePosts,
+      gbpDescription: normalizeOptionalText(llm.gbpDescription, fallback.gbpDescription),
       reviewResponses,
-      reviewRequestSms: llm.reviewRequestSms || fallback.reviewRequestSms,
-      qaAnswer: llm.qaAnswer || fallback.qaAnswer,
-      socialPost: llm.socialPost || fallback.socialPost,
+      reviewRequestSms: normalizeOptionalText(llm.reviewRequestSms, fallback.reviewRequestSms),
+      qaAnswer: normalizeOptionalText(llm.qaAnswer, fallback.qaAnswer),
+      socialPost: normalizeOptionalText(llm.socialPost, fallback.socialPost),
       contentSource: "llm",
     };
   } catch (error) {

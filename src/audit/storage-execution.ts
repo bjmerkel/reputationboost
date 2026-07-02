@@ -1,5 +1,6 @@
 import type { ClientConfig, ExecutionTask } from "@/audit/types";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { getBusinessIdForSlug } from "./storage-supabase";
 
 function rowToTask(row: Record<string, unknown>): ExecutionTask {
@@ -12,7 +13,7 @@ function rowToTask(row: Record<string, unknown>): ExecutionTask {
     description: row.description as string,
     priority: row.priority as ExecutionTask["priority"],
     status: row.status as ExecutionTask["status"],
-    draftContent: row.draft_content as string,
+    draftContent: normalizeTextContent(row.draft_content),
     payload: (row.payload as Record<string, unknown>) ?? {},
     requiresApproval: row.requires_approval as boolean,
     scheduledFor: (row.scheduled_for as string) ?? null,

@@ -1,4 +1,5 @@
 import type { HealthGrade, StrategyReport } from "@/audit/types";
+import { normalizeTextContent } from "@/lib/llm/normalize-content";
 
 const gradeStyles: Record<HealthGrade, string> = {
   healthy: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
@@ -128,7 +129,7 @@ export default function StrategyPanel({ strategy }: { strategy: StrategyReport }
               <p className="mt-1 text-sm text-slate-400">{action.description}</p>
               {action.draftCopy && (
                 <p className="mt-3 rounded-lg bg-white/5 p-3 text-sm italic text-slate-300">
-                  {action.draftCopy}
+                  {normalizeTextContent(action.draftCopy)}
                 </p>
               )}
             </div>

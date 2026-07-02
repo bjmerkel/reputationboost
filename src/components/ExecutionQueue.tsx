@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ExecutionTask } from "@/audit/types";
+import { normalizeTextContent } from "@/lib/llm/normalize-content";
 
 interface ExecutionQueueProps {
   clientId: string;
@@ -221,7 +222,7 @@ export default function ExecutionQueue({
 
             <p className="mt-3 font-medium text-white">{task.title}</p>
             <p className="mt-2 rounded-lg bg-white/5 p-3 text-sm leading-relaxed text-slate-300">
-              {task.draftContent}
+              {normalizeTextContent(task.draftContent)}
             </p>
 
             {task.result && (

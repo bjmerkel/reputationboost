@@ -3,13 +3,14 @@ import { buildStrategy as buildStrategyBase } from "@/audit/phase2/strategy";
 import { buildAuditContext } from "./audit-context";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
+import { normalizeTextContent } from "./normalize-content";
 
 interface LlmStrategyResponse {
   executiveSummary: string;
   biggestThreat: string;
   biggestWin: string | null;
   kpiTargets: string[];
-  actionDrafts: Record<string, string>;
+  actionDrafts: Record<string, unknown>;
 }
 
 const STRATEGY_SYSTEM = `You are a local SEO strategist for Google Business Profile and Google Maps Local 3-Pack optimization.
@@ -66,10 +67,11 @@ Return JSON:
 
     const actionPlan = base.actionPlan.map((action, i) => {
       const gapId = base.gaps[i]?.id ?? "";
-      const draftCopy =
+      const rawDraft =
         llm.actionDrafts[gapId] ??
         llm.actionDrafts[action.id] ??
         action.draftCopy;
+      const draftCopy = normalizeTextContent(rawDraft);
 
       return draftCopy ? { ...action, draftCopy } : action;
     });
