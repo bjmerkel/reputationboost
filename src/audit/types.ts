@@ -184,6 +184,7 @@ export interface OffGoogleSnapshot {
 export interface Phase1AuditPayload {
   clientId: string;
   clientName: string;
+  userId?: string;
   auditId: string;
   trigger: AuditTrigger;
   period: string;

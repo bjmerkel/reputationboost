@@ -51,6 +51,18 @@ curl -X POST http://localhost:3000/api/audit -H "Content-Type: application/json"
 
 Set `GOOGLE_BUSINESS_API_KEY` and `RANK_TRACKER_API_KEY` for live API collectors (stubs included).
 
+## Supabase Auth
+
+Protected routes: `/platform/*`, `/api/audit/*`
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Copy `.env.example` → `.env.local` and add your URL + anon key
+3. Run the migration in `supabase/migrations/001_initial_schema.sql` via the Supabase SQL Editor
+4. In Supabase **Authentication → URL Configuration**, set:
+   - Site URL: `http://localhost:3000` (or your Vercel URL)
+   - Redirect URLs: `http://localhost:3000/auth/callback`, `https://your-domain.vercel.app/auth/callback`
+5. Sign in at `/login` to access `/platform/audit`
+
 ## Page Sections
 
 - **Hero** — Headline, CTA, stats, and interactive dashboard preview

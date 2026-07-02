@@ -6,6 +6,11 @@ import {
   collectRankSnapshot,
   collectReviewSnapshot,
 } from "./collectors";
+import {
+  ensureDemoBusiness,
+  isSupabaseConfigured,
+  saveAuditToSupabase,
+} from "./storage-supabase";
 import { saveAudit } from "./storage";
 import type { AuditRunResult, AuditTrigger, Phase1AuditPayload } from "./types";
 
@@ -17,16 +22,27 @@ function periodLabel(date: Date): string {
   return date.toLocaleString("en-US", { month: "long", year: "numeric" });
 }
 
+export interface RunAuditOptions {
+  clientId: string;
+  trigger?: AuditTrigger;
+  userId?: string;
+}
+
 /**
  * Phase 1 — Data collection orchestrator.
  * Runs all collectors in parallel, persists snapshot, returns payload.
  */
 export async function runPhase1Audit(
-  clientId: string,
+  clientIdOrOptions: string | RunAuditOptions,
   trigger: AuditTrigger = "manual"
 ): Promise<AuditRunResult> {
+  const options: RunAuditOptions =
+    typeof clientIdOrOptions === "string"
+      ? { clientId: clientIdOrOptions, trigger }
+      : { trigger, ...clientIdOrOptions };
+
   const startedAt = new Date();
-  const client = getClientConfig(clientId);
+  const client = getClientConfig(options.clientId);
 
   const [gbp, rankings, competitors, reviews, offGoogle] = await Promise.all([
     collectGbpSnapshot(client),
@@ -41,8 +57,9 @@ export async function runPhase1Audit(
   const audit: Phase1AuditPayload = {
     clientId: client.id,
     clientName: client.name,
+    userId: options.userId,
     auditId: auditIdForDate(completedAt),
-    trigger,
+    trigger: options.trigger ?? "manual",
     period: periodLabel(completedAt),
     startedAt: startedAt.toISOString(),
     completedAt: completedAt.toISOString(),
@@ -53,7 +70,13 @@ export async function runPhase1Audit(
     offGoogle,
   };
 
-  const storagePath = await saveAudit(audit);
+  let storagePath = await saveAudit(audit);
+
+  if (options.userId && isSupabaseConfigured()) {
+    const businessId = await ensureDemoBusiness(options.userId, client);
+    await saveAuditToSupabase(options.userId, businessId, audit);
+    storagePath = `supabase://audit_runs/${businessId}/${audit.auditId}`;
+  }
 
   return {
     success: true,

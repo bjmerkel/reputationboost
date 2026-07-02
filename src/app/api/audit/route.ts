@@ -1,22 +1,36 @@
 import { NextResponse } from "next/server";
 import { listClients } from "@/audit/clients";
 import { runPhase1Audit } from "@/audit/orchestrator";
+import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { loadLatestAudit } from "@/audit/storage";
+import { getUser } from "@/lib/supabase/server";
 import type { AuditTrigger } from "@/audit/types";
 
 export async function GET() {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const clients = listClients();
   const latest = await Promise.all(
     clients.map(async (c) => ({
       client: c,
-      latestAudit: await loadLatestAudit(c.id),
+      latestAudit:
+        (await loadLatestAuditFromSupabase(user.id, c.id)) ??
+        (await loadLatestAudit(c.id)),
     }))
   );
 
-  return NextResponse.json({ clients: latest });
+  return NextResponse.json({ user: { id: user.id, email: user.email }, clients: latest });
 }
 
 export async function POST(request: Request) {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = (await request.json()) as {
       clientId?: string;
@@ -28,7 +42,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No client configured" }, { status: 400 });
     }
 
-    const result = await runPhase1Audit(clientId, body.trigger ?? "manual");
+    const result = await runPhase1Audit({
+      clientId,
+      trigger: body.trigger ?? "manual",
+      userId: user.id,
+    });
 
     return NextResponse.json(result);
   } catch (error) {

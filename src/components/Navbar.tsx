@@ -52,12 +52,12 @@ export default function Navbar() {
           </div>
 
           <div className="hidden items-center gap-3 md:flex">
-            <a
-              href={SIGNUP_URL}
+            <Link
+              href="/login"
               className="btn-secondary rounded-full px-5 py-2.5 text-sm font-semibold text-white"
             >
               Sign In
-            </a>
+            </Link>
             <a
               href={SIGNUP_URL}
               className="btn-primary rounded-full px-5 py-2.5 text-sm font-semibold text-white"
@@ -95,12 +95,12 @@ export default function Navbar() {
               </Link>
             ))}
             <div className="flex flex-col gap-2 pt-2">
-              <a
-                href={SIGNUP_URL}
+              <Link
+                href="/login"
                 className="btn-secondary rounded-full px-5 py-2.5 text-center text-sm font-semibold text-white"
               >
                 Sign In
-              </a>
+              </Link>
               <a
                 href={SIGNUP_URL}
                 className="btn-primary rounded-full px-5 py-2.5 text-center text-sm font-semibold text-white"
