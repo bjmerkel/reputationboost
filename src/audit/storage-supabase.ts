@@ -1,4 +1,4 @@
-import type { ClientConfig, Phase1AuditPayload } from "@/audit/types";
+import type { ClientConfig, FullAuditPayload, Phase1AuditPayload } from "@/audit/types";
 import { createClient } from "@/lib/supabase/server";
 
 export function isSupabaseConfigured(): boolean {
@@ -46,7 +46,7 @@ export async function ensureDemoBusiness(
 export async function saveAuditToSupabase(
   userId: string,
   businessId: string,
-  audit: Phase1AuditPayload
+  audit: FullAuditPayload | Phase1AuditPayload
 ): Promise<void> {
   const supabase = await createClient();
 
@@ -70,7 +70,7 @@ export async function saveAuditToSupabase(
 export async function loadLatestAuditFromSupabase(
   userId: string,
   businessSlug: string
-): Promise<Phase1AuditPayload | null> {
+): Promise<FullAuditPayload | null> {
   const supabase = await createClient();
 
   const { data: business } = await supabase
@@ -92,13 +92,43 @@ export async function loadLatestAuditFromSupabase(
     .maybeSingle();
 
   if (error || !data?.payload) return null;
-  return data.payload as Phase1AuditPayload;
+  return data.payload as FullAuditPayload;
+}
+
+export async function loadPriorAuditFromSupabase(
+  userId: string,
+  businessSlug: string,
+  beforeCompletedAt: string
+): Promise<FullAuditPayload | null> {
+  const supabase = await createClient();
+
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("slug", businessSlug)
+    .maybeSingle();
+
+  if (!business?.id) return null;
+
+  const { data, error } = await supabase
+    .from("audit_runs")
+    .select("payload")
+    .eq("user_id", userId)
+    .eq("business_id", business.id)
+    .lt("completed_at", beforeCompletedAt)
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data?.payload) return null;
+  return data.payload as FullAuditPayload;
 }
 
 export async function listAuditsFromSupabase(
   userId: string,
   businessSlug: string
-): Promise<Phase1AuditPayload[]> {
+): Promise<FullAuditPayload[]> {
   const supabase = await createClient();
 
   const { data: business } = await supabase
@@ -118,5 +148,5 @@ export async function listAuditsFromSupabase(
     .order("completed_at", { ascending: false });
 
   if (error || !data) return [];
-  return data.map((row) => row.payload as Phase1AuditPayload);
+  return data.map((row) => row.payload as FullAuditPayload);
 }

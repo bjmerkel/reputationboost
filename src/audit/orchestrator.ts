@@ -6,14 +6,21 @@ import {
   collectRankSnapshot,
   collectReviewSnapshot,
 } from "./collectors";
+import { generateStrategy } from "./phase2";
 import {
   ensureDemoBusiness,
   isSupabaseConfigured,
+  loadPriorAuditFromSupabase,
   saveAuditToSupabase,
 } from "./storage-supabase";
 import { isLocalStorageAvailable } from "./storage-env";
-import { saveAudit } from "./storage";
-import type { AuditRunResult, AuditTrigger, Phase1AuditPayload } from "./types";
+import { loadPriorAudit, saveAudit } from "./storage";
+import type {
+  AuditRunResult,
+  AuditTrigger,
+  FullAuditPayload,
+  Phase1AuditPayload,
+} from "./types";
 
 function auditIdForDate(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -29,9 +36,23 @@ export interface RunAuditOptions {
   userId?: string;
 }
 
+async function loadPriorForDiff(
+  clientId: string,
+  userId: string | undefined,
+  beforeCompletedAt: string
+): Promise<Phase1AuditPayload | null> {
+  if (userId && isSupabaseConfigured()) {
+    const prior = await loadPriorAuditFromSupabase(userId, clientId, beforeCompletedAt);
+    return prior;
+  }
+  if (isLocalStorageAvailable()) {
+    return loadPriorAudit(clientId, beforeCompletedAt);
+  }
+  return null;
+}
+
 /**
- * Phase 1 — Data collection orchestrator.
- * Runs all collectors in parallel, persists snapshot, returns payload.
+ * Full audit pipeline: Phase 1 data collection + Phase 2 scoring & strategy.
  */
 export async function runPhase1Audit(
   clientIdOrOptions: string | RunAuditOptions,
@@ -55,7 +76,7 @@ export async function runPhase1Audit(
 
   const completedAt = new Date();
 
-  const audit: Phase1AuditPayload = {
+  const phase1: Phase1AuditPayload = {
     clientId: client.id,
     clientName: client.name,
     userId: options.userId,
@@ -71,6 +92,19 @@ export async function runPhase1Audit(
     offGoogle,
   };
 
+  const priorAudit = await loadPriorForDiff(
+    client.id,
+    options.userId,
+    phase1.completedAt
+  );
+
+  const strategy = generateStrategy(phase1, priorAudit);
+
+  const audit: FullAuditPayload = {
+    ...phase1,
+    strategy,
+  };
+
   const storagePath = await persistAudit(audit, options.userId, client);
 
   return {
@@ -81,7 +115,7 @@ export async function runPhase1Audit(
 }
 
 async function persistAudit(
-  audit: Phase1AuditPayload,
+  audit: FullAuditPayload,
   userId: string | undefined,
   client: ReturnType<typeof getClientConfig>
 ): Promise<string> {

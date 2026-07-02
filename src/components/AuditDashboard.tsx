@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import type { Phase1AuditPayload } from "@/audit/types";
+import type { FullAuditPayload } from "@/audit/types";
+import { ensureStrategy } from "@/audit/ensure-strategy";
+import StrategyPanel from "@/components/StrategyPanel";
 
 interface AuditRunnerProps {
   clientId: string;
-  initialAudit: Phase1AuditPayload | null;
+  initialAudit: FullAuditPayload | null;
 }
 
 export default function AuditDashboard({ clientId, initialAudit }: AuditRunnerProps) {
-  const [audit, setAudit] = useState<Phase1AuditPayload | null>(initialAudit);
+  const [audit, setAudit] = useState<FullAuditPayload | null>(
+    initialAudit ? ensureStrategy(initialAudit) : null
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +28,7 @@ export default function AuditDashboard({ clientId, initialAudit }: AuditRunnerPr
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Audit failed");
-      setAudit(data.audit);
+      setAudit(ensureStrategy(data.audit));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Audit failed");
     } finally {
@@ -42,7 +46,7 @@ export default function AuditDashboard({ clientId, initialAudit }: AuditRunnerPr
           disabled={loading}
           className="btn-primary mt-6 rounded-full px-8 py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {loading ? "Running Phase 1…" : "Run Phase 1 Audit"}
+          {loading ? "Running audit…" : "Run Full Audit"}
         </button>
         {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
       </div>
@@ -64,11 +68,19 @@ export default function AuditDashboard({ clientId, initialAudit }: AuditRunnerPr
           disabled={loading}
           className="btn-primary rounded-full px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {loading ? "Running…" : "Re-run Phase 1"}
+          {loading ? "Running…" : "Re-run Audit"}
         </button>
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
+
+      {audit.strategy && <StrategyPanel strategy={audit.strategy} />}
+
+      <div className="border-t border-white/10 pt-8">
+        <p className="mb-6 text-sm font-semibold uppercase tracking-widest text-slate-500">
+          Phase 1 — Raw Data
+        </p>
+      </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

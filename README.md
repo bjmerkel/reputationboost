@@ -51,6 +51,15 @@ curl -X POST http://localhost:3000/api/audit -H "Content-Type: application/json"
 
 Set `GOOGLE_BUSINESS_API_KEY` and `RANK_TRACKER_API_KEY` for live API collectors (stubs included).
 
+## Phase 2 — Scoring & Strategy
+
+After Phase 1 data collection, the engine automatically:
+
+- **Scores** GBP completeness, Local 3-Pack coverage, review strength, engagement, competitive gap (0–100)
+- **Detects gaps** with P0–P3 priority (outside 3-Pack, review gaps, stale posts, etc.)
+- **Diffs** month-over-month vs. prior audit
+- **Generates** executive summary, KPI targets, and 30-day action plan with draft copy
+
 ## Supabase Auth
 
 Protected routes: `/platform/*`, `/api/audit/*`

@@ -199,6 +199,80 @@ export interface Phase1AuditPayload {
 
 export interface AuditRunResult {
   success: boolean;
-  audit: Phase1AuditPayload;
+  audit: FullAuditPayload;
   storagePath: string;
+}
+
+// ─── Phase 2: Scoring & Strategy ───────────────────────────────────────────
+
+export type HealthGrade = "healthy" | "at_risk" | "urgent";
+export type ActionPriority = "P0" | "P1" | "P2" | "P3";
+export type ActionCategory =
+  | "gbp_profile"
+  | "content"
+  | "reviews"
+  | "rankings"
+  | "social"
+  | "disputes"
+  | "technical";
+
+export interface HealthScores {
+  overall: number;
+  grade: HealthGrade;
+  gbpCompleteness: number;
+  localPackCoverage: number;
+  reviewStrength: number;
+  engagement: number;
+  competitiveGap: number;
+}
+
+export interface GapFlag {
+  id: string;
+  priority: ActionPriority;
+  category: ActionCategory;
+  title: string;
+  description: string;
+  impact: number;
+  effort: number;
+  impactScore: number;
+}
+
+export interface ActionItem {
+  id: string;
+  priority: ActionPriority;
+  category: ActionCategory;
+  title: string;
+  description: string;
+  owner: "system" | "client" | "account_manager";
+  dueDays: number;
+  expectedImpact: string;
+  draftCopy?: string;
+}
+
+export interface MonthOverMonthDelta {
+  keywordsInPackChange: number;
+  reviewCountChange: number;
+  callsChange: number;
+  directionRequestsChange: number;
+  shareOfVoiceChange: number;
+  overallScoreChange: number;
+  improvedKeywords: string[];
+  declinedKeywords: string[];
+}
+
+export interface StrategyReport {
+  generatedAt: string;
+  executiveSummary: string;
+  biggestWin: string | null;
+  biggestThreat: string;
+  localPackStatus: string;
+  kpiTargets: string[];
+  scores: HealthScores;
+  gaps: GapFlag[];
+  actionPlan: ActionItem[];
+  monthOverMonth: MonthOverMonthDelta | null;
+}
+
+export interface FullAuditPayload extends Phase1AuditPayload {
+  strategy: StrategyReport;
 }

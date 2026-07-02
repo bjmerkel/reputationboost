@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ensureStrategy } from "@/audit/ensure-strategy";
 import AuditDashboard from "@/components/AuditDashboard";
 import { demoClient } from "@/audit/clients";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
@@ -14,9 +15,10 @@ export const metadata: Metadata = {
 
 export default async function PlatformAuditPage() {
   const user = await getUser();
-  const latestAudit =
+  const raw =
     (user ? await loadLatestAuditFromSupabase(user.id, demoClient.id) : null) ??
     (isLocalStorageAvailable() ? await loadLatestAudit(demoClient.id) : null);
+  const latestAudit = raw ? ensureStrategy(raw) : null;
 
   return (
     <main className="relative overflow-hidden py-10">
@@ -24,7 +26,7 @@ export default async function PlatformAuditPage() {
       <div className="relative mx-auto max-w-6xl px-6">
         <div className="mb-10">
           <span className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
-            Phase 1 — Data Collection
+            Phase 1 + 2 — Audit & Strategy
           </span>
           <h1 className="mt-2 text-4xl font-extrabold text-white">
             Monthly Audit Engine
