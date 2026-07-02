@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = ["/platform", "/api/audit", "/api/execution"];
+const PROTECTED_PREFIXES = ["/platform", "/api/audit", "/api/execution", "/api/places"];
 
 export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

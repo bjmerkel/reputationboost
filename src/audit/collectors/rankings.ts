@@ -1,23 +1,22 @@
 import type { ClientConfig, KeywordRankSnapshot, RankSnapshot } from "../types";
+import { isGoogleMapsConfigured } from "@/lib/google/config";
+import { collectPlacesRankData } from "@/lib/google/local-rankings";
 
 const DISTANCES = [1, 3, 5, 10] as const;
 
 /**
  * Collects Local 3-Pack positions and geo-grid rankings per keyword.
- * Uses rank tracker API when RANK_TRACKER_API_KEY is set; otherwise demo data.
+ * Uses Google Places (Nearby Search) when GOOGLE_MAPS_API_KEY is set; otherwise demo data.
+ *
+ * Ranking = position in Google's ordered Places result list for keyword + radius.
+ * Rank null / not in pack = business not found in that result set.
  */
 export async function collectRankSnapshot(client: ClientConfig): Promise<RankSnapshot> {
-  if (process.env.RANK_TRACKER_API_KEY) {
-    return collectRanksFromApi(client);
+  if (isGoogleMapsConfigured()) {
+    const { rankings } = await collectPlacesRankData(client);
+    return rankings;
   }
   return collectRanksDemo(client);
-}
-
-async function collectRanksFromApi(client: ClientConfig): Promise<RankSnapshot> {
-  void client;
-  throw new Error(
-    "Live rank tracker integration pending. Set RANK_TRACKER_API_KEY and implement collectRanksFromApi."
-  );
 }
 
 function collectRanksDemo(client: ClientConfig): RankSnapshot {

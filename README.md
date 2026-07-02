@@ -33,8 +33,8 @@ Open [http://localhost:3000](http://localhost:3000) to view the site.
 Automated monthly data collection for local business audits:
 
 - **1A** — Google Business Profile snapshot (identity, completeness, content, engagement, performance)
-- **1B** — Local 3-Pack rankings and geo-grid (1/3/5/10 mile)
-- **1C** — Competitor intelligence (top 5 per keyword)
+- **1B** — Local 3-Pack rankings and geo-grid (1/3/5/10 mile) via **Google Places Nearby Search**
+- **1C** — Competitor intelligence (top 5 per keyword, discovered from same Places result list)
 - **1D** — Review sentiment and dispute candidates
 - **1E** — Citation consistency and website signals
 
@@ -49,7 +49,26 @@ open http://localhost:3000/platform/audit
 curl -X POST http://localhost:3000/api/audit -H "Content-Type: application/json" -d '{"clientId":"san-diego-stucco"}'
 ```
 
-Set `GOOGLE_BUSINESS_API_KEY` and `RANK_TRACKER_API_KEY` for live API collectors (stubs included).
+Set `GOOGLE_MAPS_API_KEY` for live Local 3-Pack rankings (Geocoding + Places Nearby Search). Without it, rankings and competitors use demo data.
+
+Set `GOOGLE_BUSINESS_API_KEY` for live GBP profile data and Phase 3 execution.
+
+### How rankings work
+
+For each keyword and business address:
+
+1. **Geocode** the address to lat/lng (skipped if coordinates are already on the client)
+2. **Places Nearby Search** at 1, 3, 5, and 10 mile radii
+3. **Rank** = position in Google's ordered result list (1-indexed); `null` = not found in that set
+4. **Local 3-Pack** = rank ≤ 3 at the 1-mile radius
+5. **Competitors** = other businesses in the same result list (not pre-registered)
+
+This measures **Google Maps / Local Pack ordering**, not desktop organic web results. Nearby Search and Text Search can return different orderings for the same keyword.
+
+```bash
+# Places search proxy (requires sign-in)
+curl "http://localhost:3000/api/places/search?keyword=plumber&radiusMiles=1" -H "Cookie: ..."
+```
 
 ## Phase 2 — Scoring & Strategy
 
@@ -89,7 +108,7 @@ Run `supabase/migrations/002_execution_queue.sql` in the Supabase SQL Editor aft
 
 ## Supabase Auth
 
-Protected routes: `/platform/*`, `/api/audit/*`, `/api/execution/*`
+Protected routes: `/platform/*`, `/api/audit/*`, `/api/execution/*`, `/api/places/*`
 
 1. Create a project at [supabase.com](https://supabase.com)
 2. Copy `.env.example` → `.env.local` and add your URL + anon key

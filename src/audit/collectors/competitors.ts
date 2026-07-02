@@ -1,24 +1,21 @@
 import type { ClientConfig, CompetitorProfile, CompetitorSnapshot } from "../types";
+import { isGoogleMapsConfigured } from "@/lib/google/config";
+import { collectPlacesRankData } from "@/lib/google/local-rankings";
 
 /**
- * Collects top-5 competitor snapshots per target keyword.
+ * Collects top competitor snapshots per target keyword.
+ * Uses Google Places when GOOGLE_MAPS_API_KEY is set; otherwise demo data.
+ *
+ * Competitors = other businesses in the same ordered Places result list (discovered dynamically).
  */
 export async function collectCompetitorSnapshots(
   client: ClientConfig
 ): Promise<CompetitorSnapshot[]> {
-  if (process.env.RANK_TRACKER_API_KEY) {
-    return collectCompetitorsFromApi(client);
+  if (isGoogleMapsConfigured()) {
+    const { competitors } = await collectPlacesRankData(client);
+    return competitors;
   }
   return collectCompetitorsDemo(client);
-}
-
-async function collectCompetitorsFromApi(
-  client: ClientConfig
-): Promise<CompetitorSnapshot[]> {
-  void client;
-  throw new Error(
-    "Live competitor collector pending. Set RANK_TRACKER_API_KEY and implement collectCompetitorsFromApi."
-  );
 }
 
 function collectCompetitorsDemo(client: ClientConfig): CompetitorSnapshot[] {

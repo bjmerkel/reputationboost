@@ -10,6 +10,7 @@ export const config = {
     "/platform/:path*",
     "/api/audit/:path*",
     "/api/execution/:path*",
+    "/api/places/:path*",
     "/login",
   ],
 };

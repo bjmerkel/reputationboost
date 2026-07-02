@@ -6,6 +6,8 @@ import {
   collectRankSnapshot,
   collectReviewSnapshot,
 } from "./collectors";
+import { collectPlacesRankData } from "./collectors/places";
+import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { generateStrategy } from "./phase2";
 import { generateExecutionQueue } from "./phase3";
 import {
@@ -68,13 +70,24 @@ export async function runPhase1Audit(
   const startedAt = new Date();
   const client = getClientConfig(options.clientId);
 
-  const [gbp, rankings, competitors, reviews, offGoogle] = await Promise.all([
+  const useGooglePlaces = isGoogleMapsConfigured();
+
+  const [gbp, reviews, offGoogle, placesData] = await Promise.all([
     collectGbpSnapshot(client),
-    collectRankSnapshot(client),
-    collectCompetitorSnapshots(client),
     collectReviewSnapshot(client),
     collectOffGoogleSnapshot(client),
+    useGooglePlaces ? collectPlacesRankData(client) : Promise.resolve(null),
   ]);
+
+  let rankings = placesData?.rankings;
+  let competitors = placesData?.competitors;
+
+  if (!placesData) {
+    [rankings, competitors] = await Promise.all([
+      collectRankSnapshot(client),
+      collectCompetitorSnapshots(client),
+    ]);
+  }
 
   const completedAt = new Date();
 
@@ -88,8 +101,8 @@ export async function runPhase1Audit(
     startedAt: startedAt.toISOString(),
     completedAt: completedAt.toISOString(),
     gbp,
-    rankings,
-    competitors,
+    rankings: rankings!,
+    competitors: competitors!,
     reviews,
     offGoogle,
   };
