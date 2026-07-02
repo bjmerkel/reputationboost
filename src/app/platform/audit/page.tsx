@@ -18,9 +18,11 @@ export default async function PlatformAuditPage() {
   if (!user) redirect("/login?next=/platform/audit");
 
   const business = await getPrimaryBusiness(user.id);
-  if (!business?.onboardingComplete || !business.gbpConnection) {
+  if (!business) {
     redirect("/platform/onboard");
   }
+
+  const gbpConnected = Boolean(business.onboardingComplete && business.gbpConnection);
 
   const raw = await loadLatestAuditFromSupabase(user.id, business.id);
   const priorRaw = raw
@@ -50,19 +52,24 @@ export default async function PlatformAuditPage() {
             {business.name}
           </h1>
           <p className="mt-3 max-w-2xl text-slate-400">
-            Live data from your connected Google Business Profile — rankings,
-            reviews, competitors, and AI-powered monthly automation.
+            {gbpConnected
+              ? "Live data from your connected Google Business Profile — rankings, reviews, competitors, and AI-powered monthly automation."
+              : "Your business is saved. Connect Google Business Profile to unlock live audits and automation."}
           </p>
           <p className="mt-2 text-sm text-slate-500">
             Signed in as <span className="text-slate-300">{user.email}</span>
-            {business.gbpConnection && (
+            {gbpConnected ? (
               <span className="ml-3 text-emerald-400/80">· GBP connected</span>
+            ) : (
+              <span className="ml-3 text-amber-400/80">· GBP not connected</span>
             )}
           </p>
         </div>
 
         <AuditDashboard
           clientId={business.id}
+          businessId={business.businessId}
+          gbpConnected={gbpConnected}
           initialAudit={latestAudit}
           initialExecutionTasks={initialExecutionTasks}
         />

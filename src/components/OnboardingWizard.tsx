@@ -125,6 +125,10 @@ export default function OnboardingWizard({
     window.location.href = `/api/google/gbp/connect?businessId=${businessId}`;
   }
 
+  function skipGbpForLater() {
+    router.push("/platform/audit?skipped_gbp=1");
+  }
+
   async function selectLocation(loc: GbpLocationOption) {
     setLoading(true);
     setFormError("");
@@ -264,6 +268,17 @@ export default function OnboardingWizard({
             <GoogleIcon />
             Connect with Google
           </button>
+
+          <button
+            type="button"
+            onClick={skipGbpForLater}
+            className="w-full rounded-full py-3 text-sm font-medium text-slate-400 transition hover:text-white"
+          >
+            Skip for later
+          </button>
+          <p className="text-center text-xs text-slate-500">
+            You can connect anytime from Settings. Live audits require a GBP link.
+          </p>
         </div>
       )}
 

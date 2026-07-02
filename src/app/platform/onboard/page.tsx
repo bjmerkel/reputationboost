@@ -45,9 +45,12 @@ export default async function OnboardPage({ searchParams }: PageProps) {
   const step =
     params.step === "location" && params.businessId
       ? "location"
-      : params.businessId
+      : params.businessId || (existing?.businessId && !existing.onboardingComplete)
         ? "connect"
         : "business";
+
+  const wizardBusinessId =
+    params.businessId ?? (existing?.businessId && !existing.onboardingComplete ? existing.businessId : undefined);
 
   return (
     <main className="relative overflow-hidden py-10">
@@ -68,7 +71,7 @@ export default async function OnboardPage({ searchParams }: PageProps) {
 
         <OnboardingWizard
           step={step}
-          businessId={params.businessId}
+          businessId={wizardBusinessId}
           locations={locations}
           error={params.error}
           disconnected={params.disconnected === "1"}

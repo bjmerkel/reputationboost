@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import ExecutionQueue from "@/components/ExecutionQueue";
@@ -9,12 +10,16 @@ import StrategyPanel from "@/components/StrategyPanel";
 
 interface AuditRunnerProps {
   clientId: string;
+  businessId?: string;
+  gbpConnected?: boolean;
   initialAudit: FullAuditPayload | null;
   initialExecutionTasks?: ExecutionTask[];
 }
 
 export default function AuditDashboard({
   clientId,
+  businessId,
+  gbpConnected = true,
   initialAudit,
   initialExecutionTasks = [],
 }: AuditRunnerProps) {
@@ -45,23 +50,44 @@ export default function AuditDashboard({
 
   if (!audit) {
     return (
-      <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-12 text-center">
-        <p className="text-slate-400">No audit data yet for this client.</p>
-        <button
-          type="button"
-          onClick={runAudit}
-          disabled={loading}
-          className="btn-primary mt-6 rounded-full px-8 py-3 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          {loading ? "Running audit (AI strategy + content)…" : "Run Full Audit"}
-        </button>
-        {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+      <div className="space-y-6">
+        {!gbpConnected && (
+          <GbpConnectBanner businessId={businessId} />
+        )}
+        <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-12 text-center">
+          <p className="text-slate-400">
+            {gbpConnected
+              ? "No audit data yet for this client."
+              : "Connect Google Business Profile to run your first live audit."}
+          </p>
+          {gbpConnected ? (
+            <button
+              type="button"
+              onClick={runAudit}
+              disabled={loading}
+              className="btn-primary mt-6 rounded-full px-8 py-3 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {loading ? "Running audit (AI strategy + content)…" : "Run Full Audit"}
+            </button>
+          ) : (
+            businessId && (
+              <Link
+                href={`/platform/onboard?businessId=${businessId}`}
+                className="btn-primary mt-6 inline-block rounded-full px-8 py-3 text-sm font-semibold text-white"
+              >
+                Connect Google Business Profile
+              </Link>
+            )
+          )}
+          {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
+      {!gbpConnected && <GbpConnectBanner businessId={businessId} />}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">{audit.clientName}</h2>
@@ -72,7 +98,7 @@ export default function AuditDashboard({
         <button
           type="button"
           onClick={runAudit}
-          disabled={loading}
+          disabled={loading || !gbpConnected}
           className="btn-primary rounded-full px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
         >
           {loading ? "Running audit (AI strategy + content)…" : "Re-run Audit"}
@@ -325,4 +351,25 @@ function TagList({ items, color }: { items: string[]; color: "emerald" | "red" }
 function formatDate(iso: string | null) {
   if (!iso) return "Never";
   return new Date(iso).toLocaleDateString();
+}
+
+function GbpConnectBanner({ businessId }: { businessId?: string }) {
+  return (
+    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-4">
+      <p className="text-sm font-medium text-amber-200">
+        Google Business Profile not connected
+      </p>
+      <p className="mt-1 text-sm text-slate-400">
+        Connect to pull live reviews, performance metrics, and run full audits.
+      </p>
+      {businessId && (
+        <Link
+          href={`/platform/onboard?businessId=${businessId}`}
+          className="mt-3 inline-block text-sm font-semibold text-emerald-400 hover:text-emerald-300"
+        >
+          Connect now →
+        </Link>
+      )}
+    </div>
+  );
 }
