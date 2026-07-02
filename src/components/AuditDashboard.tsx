@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import ExecutionQueue from "@/components/ExecutionQueue";
+import MonthlyReportPanel from "@/components/MonthlyReportPanel";
 import StrategyPanel from "@/components/StrategyPanel";
 
 interface AuditRunnerProps {
@@ -79,6 +80,10 @@ export default function AuditDashboard({
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
+
+      {audit.strategy?.monthlyReport && (
+        <MonthlyReportPanel report={audit.strategy.monthlyReport} />
+      )}
 
       {audit.strategy && <StrategyPanel strategy={audit.strategy} />}
 

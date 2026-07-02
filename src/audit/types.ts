@@ -262,15 +262,54 @@ export interface ActionItem {
   draftCopy?: string;
 }
 
+export interface RankMovement {
+  keyword: string;
+  fromPosition: number | null;
+  toPosition: number | null;
+  improved: boolean;
+}
+
+export interface CompetitorDelta {
+  competitorName: string;
+  competitorReviewGain: number;
+  clientReviewGain: number;
+}
+
+export interface EngagementMetricDelta {
+  current: number;
+  prior: number;
+  change: number;
+  changePercent: number | null;
+}
+
 export interface MonthOverMonthDelta {
   keywordsInPackChange: number;
   reviewCountChange: number;
   callsChange: number;
   directionRequestsChange: number;
+  websiteClicksChange: number;
   shareOfVoiceChange: number;
   overallScoreChange: number;
   improvedKeywords: string[];
   declinedKeywords: string[];
+  rankMovements: RankMovement[];
+  competitorDeltas: CompetitorDelta[];
+}
+
+export interface MonthlyReport {
+  generatedAt: string;
+  hasPriorPeriod: boolean;
+  priorPeriod: string | null;
+  headline: string;
+  rankMovements: RankMovement[];
+  engagement: {
+    calls: EngagementMetricDelta;
+    directions: EngagementMetricDelta;
+    websiteClicks: EngagementMetricDelta;
+  };
+  competitorDeltas: CompetitorDelta[];
+  nextMonthPlan: ActionItem[];
+  contentSource?: "llm" | "template";
 }
 
 export interface StrategyReport {
@@ -284,6 +323,7 @@ export interface StrategyReport {
   gaps: GapFlag[];
   actionPlan: ActionItem[];
   monthOverMonth: MonthOverMonthDelta | null;
+  monthlyReport: MonthlyReport | null;
   contentSource?: "llm" | "template";
 }
 

@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import { detectGaps } from "./gaps";
 import { computeMonthOverMonth } from "./diff";
+import { buildMonthlyReport } from "./monthly-report";
 import { computeHealthScores } from "./scoring";
 
 function gapToAction(gap: GapFlag, index: number): ActionItem {
@@ -139,7 +140,7 @@ export function buildStrategy(
 
   const localPackStatus = `In the Local 3-Pack for ${audit.rankings.keywordsInPack} of ${audit.rankings.totalKeywords} target keywords (${audit.rankings.shareOfVoice}% share of voice).`;
 
-  return {
+  const baseReport: StrategyReport = {
     generatedAt: new Date().toISOString(),
     executiveSummary: buildExecutiveSummary(audit, scores, gaps, mom),
     biggestWin: buildBiggestWin(mom),
@@ -150,5 +151,15 @@ export function buildStrategy(
     gaps,
     actionPlan,
     monthOverMonth: mom,
+    monthlyReport: null,
+  };
+
+  const monthlyReport = priorAudit
+    ? buildMonthlyReport(audit, priorAudit, baseReport)
+    : null;
+
+  return {
+    ...baseReport,
+    monthlyReport,
   };
 }

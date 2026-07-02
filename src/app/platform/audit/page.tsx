@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { listExecutionTasks } from "@/audit/storage-execution";
-import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
+import { loadLatestAuditFromSupabase, loadPriorAuditFromSupabase } from "@/audit/storage-supabase";
 import AuditDashboard from "@/components/AuditDashboard";
 import { getUser } from "@/lib/supabase/server";
 
@@ -23,7 +23,10 @@ export default async function PlatformAuditPage() {
   }
 
   const raw = await loadLatestAuditFromSupabase(user.id, business.id);
-  const latestAudit = raw ? ensureStrategy(raw) : null;
+  const priorRaw = raw
+    ? await loadPriorAuditFromSupabase(user.id, business.id, raw.completedAt)
+    : null;
+  const latestAudit = raw ? ensureStrategy(raw, priorRaw) : null;
 
   const executionTasks =
     latestAudit
