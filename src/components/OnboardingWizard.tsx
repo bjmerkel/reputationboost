@@ -13,6 +13,7 @@ interface OnboardingWizardProps {
   businessId?: string;
   locations?: GbpLocationOption[];
   error?: string;
+  disconnected?: boolean;
 }
 
 export default function OnboardingWizard({
@@ -20,6 +21,7 @@ export default function OnboardingWizard({
   businessId: initialBusinessId,
   locations = [],
   error,
+  disconnected,
 }: OnboardingWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState(initialStep);
@@ -170,6 +172,12 @@ export default function OnboardingWizard({
       {(formError || error) && (
         <p className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
           {formError || error}
+        </p>
+      )}
+
+      {disconnected && (
+        <p className="mb-6 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          Google Business Profile disconnected. Reconnect below to resume live audits.
         </p>
       )}
 

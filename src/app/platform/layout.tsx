@@ -30,7 +30,7 @@ export default async function PlatformLayout({
             <Link href="/platform/audit" className="hidden text-sm text-slate-400 hover:text-white sm:inline">
               Dashboard
             </Link>
-            <Link href="/platform/onboard" className="hidden text-sm text-slate-400 hover:text-white sm:inline">
+            <Link href="/platform/settings" className="hidden text-sm text-slate-400 hover:text-white sm:inline">
               Settings
             </Link>
             {user && (

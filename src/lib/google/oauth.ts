@@ -102,3 +102,19 @@ export async function refreshAccessToken(refreshToken: string): Promise<OAuthTok
     scope: data.scope,
   };
 }
+
+/** Revoke a Google OAuth token (refresh or access). Best-effort — failures are non-fatal. */
+export async function revokeOAuthToken(token: string): Promise<void> {
+  try {
+    const res = await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }),
+    });
+    if (!res.ok) {
+      console.warn("[oauth] token revoke returned", res.status);
+    }
+  } catch (error) {
+    console.warn("[oauth] token revoke failed:", error);
+  }
+}

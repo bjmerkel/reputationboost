@@ -16,6 +16,7 @@ interface PageProps {
     businessId?: string;
     locations?: string;
     error?: string;
+    disconnected?: string;
   }>;
 }
 
@@ -26,7 +27,7 @@ export default async function OnboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const existing = await getPrimaryBusiness(user.id);
 
-  if (existing?.onboardingComplete && !params.step) {
+  if (existing?.onboardingComplete && !params.step && !params.disconnected) {
     redirect("/platform/audit");
   }
 
@@ -70,6 +71,7 @@ export default async function OnboardPage({ searchParams }: PageProps) {
           businessId={params.businessId}
           locations={locations}
           error={params.error}
+          disconnected={params.disconnected === "1"}
         />
       </div>
     </main>
