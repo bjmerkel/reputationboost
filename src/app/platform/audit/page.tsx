@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import AuditDashboard from "@/components/AuditDashboard";
 import { demoClient } from "@/audit/clients";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
+import { isLocalStorageAvailable } from "@/audit/storage-env";
 import { loadLatestAudit } from "@/audit/storage";
 import { getUser } from "@/lib/supabase/server";
 
@@ -15,7 +16,7 @@ export default async function PlatformAuditPage() {
   const user = await getUser();
   const latestAudit =
     (user ? await loadLatestAuditFromSupabase(user.id, demoClient.id) : null) ??
-    (await loadLatestAudit(demoClient.id));
+    (isLocalStorageAvailable() ? await loadLatestAudit(demoClient.id) : null);
 
   return (
     <main className="relative overflow-hidden py-10">

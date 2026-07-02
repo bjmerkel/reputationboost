@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { listClients } from "@/audit/clients";
 import { runPhase1Audit } from "@/audit/orchestrator";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
+import { isLocalStorageAvailable } from "@/audit/storage-env";
 import { loadLatestAudit } from "@/audit/storage";
 import { getUser } from "@/lib/supabase/server";
 import type { AuditTrigger } from "@/audit/types";
@@ -18,7 +19,7 @@ export async function GET() {
       client: c,
       latestAudit:
         (await loadLatestAuditFromSupabase(user.id, c.id)) ??
-        (await loadLatestAudit(c.id)),
+        (isLocalStorageAvailable() ? await loadLatestAudit(c.id) : null),
     }))
   );
 

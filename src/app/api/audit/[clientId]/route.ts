@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { listAuditsFromSupabase } from "@/audit/storage-supabase";
+import { isLocalStorageAvailable } from "@/audit/storage-env";
 import { listAudits } from "@/audit/storage";
 import { getUser } from "@/lib/supabase/server";
 
@@ -17,7 +18,7 @@ export async function GET(
   try {
     const audits =
       (await listAuditsFromSupabase(user.id, clientId)) ||
-      (await listAudits(clientId));
+      (isLocalStorageAvailable() ? await listAudits(clientId) : []);
     return NextResponse.json({ clientId, audits });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to list audits";

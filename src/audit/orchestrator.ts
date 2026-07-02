@@ -11,6 +11,7 @@ import {
   isSupabaseConfigured,
   saveAuditToSupabase,
 } from "./storage-supabase";
+import { isLocalStorageAvailable } from "./storage-env";
 import { saveAudit } from "./storage";
 import type { AuditRunResult, AuditTrigger, Phase1AuditPayload } from "./types";
 
@@ -70,17 +71,31 @@ export async function runPhase1Audit(
     offGoogle,
   };
 
-  let storagePath = await saveAudit(audit);
-
-  if (options.userId && isSupabaseConfigured()) {
-    const businessId = await ensureDemoBusiness(options.userId, client);
-    await saveAuditToSupabase(options.userId, businessId, audit);
-    storagePath = `supabase://audit_runs/${businessId}/${audit.auditId}`;
-  }
+  const storagePath = await persistAudit(audit, options.userId, client);
 
   return {
     success: true,
     audit,
     storagePath,
   };
+}
+
+async function persistAudit(
+  audit: Phase1AuditPayload,
+  userId: string | undefined,
+  client: ReturnType<typeof getClientConfig>
+): Promise<string> {
+  if (userId && isSupabaseConfigured()) {
+    const businessId = await ensureDemoBusiness(userId, client);
+    await saveAuditToSupabase(userId, businessId, audit);
+    return `supabase://audit_runs/${businessId}/${audit.auditId}`;
+  }
+
+  if (isLocalStorageAvailable()) {
+    return saveAudit(audit);
+  }
+
+  throw new Error(
+    "Cannot persist audit: sign in and configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel."
+  );
 }
