@@ -13,17 +13,25 @@ const DATA_TABS: { id: DataTab; label: string }[] = [
   { id: "citations", label: "Citations" },
 ];
 
-export default function AuditDataPanel({ audit }: { audit: FullAuditPayload }) {
+export default function AuditDataPanel({
+  audit,
+  embedded = false,
+}: {
+  audit: FullAuditPayload;
+  embedded?: boolean;
+}) {
   const [tab, setTab] = useState<DataTab>("profile");
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-white">Audit data</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Raw signals collected from Google Maps, your GBP, and off-platform sources.
-        </p>
-      </div>
+      {!embedded && (
+        <div>
+          <h2 className="text-xl font-bold text-white">Audit data</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Raw signals collected from Google Maps, your GBP, and off-platform sources.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 border-b border-white/8 pb-3">
         {DATA_TABS.map((t) => (

@@ -42,34 +42,33 @@ export default async function PlatformAuditPage() {
       : (latestAudit?.execution?.tasks ?? []);
 
   return (
-    <main className="relative overflow-hidden py-10">
+    <main className="relative flex min-h-[calc(100vh-4rem)] flex-col overflow-hidden">
       <div className="mesh-bg absolute inset-0" />
-      <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mb-8">
-          <span className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
-            Your dashboard
-          </span>
-          <h1 className="mt-2 text-4xl font-extrabold text-white">{business.name}</h1>
-          <p className="mt-3 max-w-2xl text-slate-400">
-            Follow the four steps: results → plan → action → deep dive.
+      <div className="relative flex min-h-0 flex-1 flex-col px-4 py-6 sm:px-6">
+        <div className="mb-6 shrink-0">
+          <h1 className="text-2xl font-extrabold text-white sm:text-3xl">{business.name}</h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Select a section from the sidebar to review results, plan, and take action.
           </p>
         </div>
 
-        <Suspense
-          fallback={
-            <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-12 text-center text-slate-400">
-              Loading dashboard…
-            </div>
-          }
-        >
-          <AuditDashboard
-            clientId={business.id}
-            businessId={business.businessId}
-            gbpConnected={gbpConnected}
-            initialAudit={latestAudit}
-            initialExecutionTasks={initialExecutionTasks}
-          />
-        </Suspense>
+        <div className="min-h-0 flex-1">
+          <Suspense
+            fallback={
+              <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-12 text-center text-slate-400">
+                Loading dashboard…
+              </div>
+            }
+          >
+            <AuditDashboard
+              clientId={business.id}
+              businessId={business.businessId}
+              gbpConnected={gbpConnected}
+              initialAudit={latestAudit}
+              initialExecutionTasks={initialExecutionTasks}
+            />
+          </Suspense>
+        </div>
       </div>
     </main>
   );

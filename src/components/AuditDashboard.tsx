@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import AuditDataPanel from "@/components/audit/AuditDataPanel";
-import AuditStoryNav, { AuditViewFooter } from "@/components/audit/AuditStoryNav";
+import AuditSidebar, { AuditViewHeader } from "@/components/audit/AuditSidebar";
 import AuditSummaryStrip from "@/components/audit/AuditSummaryStrip";
 import { isAuditView, type AuditView } from "@/components/audit/types";
 import ExecutionQueue from "@/components/ExecutionQueue";
@@ -111,15 +111,13 @@ export default function AuditDashboard({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {!gbpConnected && <GbpConnectBanner businessId={businessId} />}
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm text-slate-500">
-            {audit.period} · Last updated {new Date(audit.completedAt).toLocaleString()}
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-slate-500">
+          {audit.period} · Last updated {new Date(audit.completedAt).toLocaleString()}
+        </p>
         <button
           type="button"
           onClick={runAudit}
@@ -134,34 +132,38 @@ export default function AuditDashboard({
 
       <AuditSummaryStrip audit={audit} />
 
-      <AuditStoryNav active={view} onChange={setView} pendingTasks={pendingTasks} />
+      <div className="flex min-h-[calc(100vh-14rem)] flex-col overflow-hidden rounded-2xl border border-white/8 bg-slate-950/40 lg:flex-row">
+        <AuditSidebar active={view} onChange={setView} pendingTasks={pendingTasks} />
 
-      <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-6 md:p-8">
-        {view === "report" && audit.strategy?.monthlyReport && (
-          <MonthlyReportPanel report={audit.strategy.monthlyReport} embedded />
-        )}
-        {view === "report" && !audit.strategy?.monthlyReport && (
-          <p className="text-slate-400">Monthly report will appear after your first audit completes.</p>
-        )}
+        <div className="min-w-0 flex-1 overflow-y-auto p-6 md:p-8">
+          <AuditViewHeader view={view} />
 
-        {view === "strategy" && audit.strategy && (
-          <StrategyPanel strategy={audit.strategy} embedded />
-        )}
+          {view === "report" && audit.strategy?.monthlyReport && (
+            <MonthlyReportPanel report={audit.strategy.monthlyReport} embedded />
+          )}
+          {view === "report" && !audit.strategy?.monthlyReport && (
+            <p className="text-slate-400">
+              Monthly report will appear after your first audit completes.
+            </p>
+          )}
 
-        {view === "execute" && (
-          <ExecutionQueue
-            key={audit.auditId}
-            clientId={clientId}
-            auditId={audit.auditId}
-            contentSource={audit.execution?.contentSource}
-            initialTasks={tasks}
-            embedded
-          />
-        )}
+          {view === "strategy" && audit.strategy && (
+            <StrategyPanel strategy={audit.strategy} embedded />
+          )}
 
-        {view === "data" && <AuditDataPanel audit={audit} />}
+          {view === "execute" && (
+            <ExecutionQueue
+              key={audit.auditId}
+              clientId={clientId}
+              auditId={audit.auditId}
+              contentSource={audit.execution?.contentSource}
+              initialTasks={tasks}
+              embedded
+            />
+          )}
 
-        <AuditViewFooter active={view} onChange={setView} />
+          {view === "data" && <AuditDataPanel audit={audit} embedded />}
+        </div>
       </div>
     </div>
   );
