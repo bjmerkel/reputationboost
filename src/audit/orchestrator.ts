@@ -1,4 +1,4 @@
-import { getClientConfig } from "./clients";
+import { loadBusinessConfig } from "./businesses";
 import {
   collectCompetitorSnapshots,
   collectGbpSnapshot,
@@ -8,21 +8,21 @@ import {
 } from "./collectors";
 import { collectPlacesRankData } from "./collectors/places";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
+import { getValidGbpConnection } from "@/lib/google/token-store";
 import { generateStrategy } from "@/lib/llm/strategy";
 import { generateAuditContent } from "@/lib/llm/content";
 import { generateExecutionQueue } from "./phase3";
 import {
-  ensureDemoBusiness,
+  getBusinessIdForSlug,
   isSupabaseConfigured,
   loadPriorAuditFromSupabase,
   saveAuditToSupabase,
 } from "./storage-supabase";
 import { saveExecutionTasks } from "./storage-execution";
-import { isLocalStorageAvailable } from "./storage-env";
-import { loadPriorAudit, saveAudit } from "./storage";
 import type {
   AuditRunResult,
   AuditTrigger,
+  ClientConfig,
   FullAuditPayload,
   Phase1AuditPayload,
 } from "./types";
@@ -38,26 +38,26 @@ function periodLabel(date: Date): string {
 export interface RunAuditOptions {
   clientId: string;
   trigger?: AuditTrigger;
-  userId?: string;
+  userId: string;
 }
 
 async function loadPriorForDiff(
   clientId: string,
-  userId: string | undefined,
+  userId: string,
   beforeCompletedAt: string
 ): Promise<Phase1AuditPayload | null> {
-  if (userId && isSupabaseConfigured()) {
-    const prior = await loadPriorAuditFromSupabase(userId, clientId, beforeCompletedAt);
-    return prior;
-  }
-  if (isLocalStorageAvailable()) {
-    return loadPriorAudit(clientId, beforeCompletedAt);
+  if (isSupabaseConfigured()) {
+    return loadPriorAuditFromSupabase(userId, clientId, beforeCompletedAt);
   }
   return null;
 }
 
+async function resolveClient(options: RunAuditOptions): Promise<ClientConfig> {
+  return loadBusinessConfig(options.userId, options.clientId);
+}
+
 /**
- * Full audit pipeline: Phase 1 data collection + Phase 2 scoring & strategy.
+ * Full audit pipeline: Phase 1 data collection + Phase 2 strategy + Phase 3 execution queue.
  */
 export async function runPhase1Audit(
   clientIdOrOptions: string | RunAuditOptions,
@@ -65,17 +65,30 @@ export async function runPhase1Audit(
 ): Promise<AuditRunResult> {
   const options: RunAuditOptions =
     typeof clientIdOrOptions === "string"
-      ? { clientId: clientIdOrOptions, trigger }
+      ? { clientId: clientIdOrOptions, trigger, userId: "" }
       : { trigger, ...clientIdOrOptions };
 
+  if (!options.userId) {
+    throw new Error("Sign in required to run audits.");
+  }
+
   const startedAt = new Date();
-  const client = getClientConfig(options.clientId);
+  const client = await resolveClient(options);
+
+  if (!client.onboardingComplete || !client.gbpConnection) {
+    throw new Error("Connect your Google Business Profile in onboarding before running an audit.");
+  }
+
+  const connection = await getValidGbpConnection(options.userId, client);
+  if (!connection) {
+    throw new Error("GBP connection expired. Reconnect your Google Business Profile.");
+  }
 
   const useGooglePlaces = isGoogleMapsConfigured();
 
   const [gbp, reviews, offGoogle, placesData] = await Promise.all([
-    collectGbpSnapshot(client),
-    collectReviewSnapshot(client),
+    collectGbpSnapshot(client, connection),
+    collectReviewSnapshot(client, connection),
     collectOffGoogleSnapshot(client),
     useGooglePlaces ? collectPlacesRankData(client) : Promise.resolve(null),
   ]);
@@ -115,7 +128,6 @@ export async function runPhase1Audit(
   );
 
   const strategy = await generateStrategy(phase1, priorAudit);
-
   const auditWithStrategy = { ...phase1, strategy };
   const content = await generateAuditContent(auditWithStrategy);
   const execution = generateExecutionQueue(auditWithStrategy, content);
@@ -126,10 +138,7 @@ export async function runPhase1Audit(
   };
 
   const storagePath = await persistAudit(audit, options.userId, client);
-
-  if (options.userId && isSupabaseConfigured()) {
-    await saveExecutionTasks(options.userId, client, audit.auditId, execution.tasks);
-  }
+  await saveExecutionTasks(options.userId, client, audit.auditId, execution.tasks);
 
   return {
     success: true,
@@ -140,20 +149,21 @@ export async function runPhase1Audit(
 
 async function persistAudit(
   audit: FullAuditPayload,
-  userId: string | undefined,
-  client: ReturnType<typeof getClientConfig>
+  userId: string,
+  client: ClientConfig
 ): Promise<string> {
-  if (userId && isSupabaseConfigured()) {
-    const businessId = await ensureDemoBusiness(userId, client);
-    await saveAuditToSupabase(userId, businessId, audit);
-    return `supabase://audit_runs/${businessId}/${audit.auditId}`;
+  if (!isSupabaseConfigured()) {
+    throw new Error(
+      "Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
+    );
   }
 
-  if (isLocalStorageAvailable()) {
-    return saveAudit(audit);
+  const businessId =
+    client.businessId ?? (await getBusinessIdForSlug(userId, client.id));
+  if (!businessId) {
+    throw new Error("Business record not found.");
   }
 
-  throw new Error(
-    "Cannot persist audit: sign in and configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel."
-  );
+  await saveAuditToSupabase(userId, businessId, audit);
+  return `supabase://audit_runs/${businessId}/${audit.auditId}`;
 }

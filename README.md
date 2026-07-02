@@ -26,42 +26,59 @@ Open [http://localhost:3000](http://localhost:3000) to view the site.
 | `npm run build` | Production build |
 | `npm run start` | Start production server |
 | `npm run lint` | Run ESLint |
-| `npm run audit:run` | Run Phase 1 audit (CLI / cron) |
+| `npm run audit:run` | Deprecated — use platform UI |
+
+## User Onboarding
+
+Live users sign in and connect their own Google Business Profile:
+
+1. **Sign up / sign in** at `/login`
+2. **Add business** at `/platform/onboard` — name, address, industry, keywords
+3. **Connect Google** — OAuth with `business.manage` scope
+4. **Select location** — if the account has multiple GBP locations
+5. **Run audit** at `/platform/audit` — live GBP data, rankings, AI strategy, execution queue
+
+OAuth tokens are stored per business in Supabase (not in env vars).
+
+### Google Cloud setup
+
+1. Create a project and enable:
+   - **Google Business Profile APIs** (Account Management, Business Information, Performance, Q&A)
+   - **Places API** + **Geocoding API** (for rankings)
+2. Create **OAuth 2.0 Client** (Web application)
+3. Authorized redirect URI: `https://your-domain.com/api/google/gbp/callback`
+4. Apply for [GBP API access](https://developers.google.com/my-business/content/prereqs) if quota is 0
+
+### Environment variables
+
+```
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_MAPS_API_KEY=
+OPENAI_API_KEY=
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SITE_URL=https://your-domain.vercel.app
+```
+
+Run migrations `001`, `002`, and `003` in the Supabase SQL Editor.
 
 ## Phase 1 Audit Engine
 
 Automated monthly data collection for local business audits:
 
-- **1A** — Google Business Profile snapshot (identity, completeness, content, engagement, performance)
+- **1A** — Google Business Profile (live via OAuth: performance, posts, Q&A, reviews)
 - **1B** — Local 3-Pack rankings and geo-grid (1/3/5/10 mile) via **Google Places Nearby Search**
 - **1C** — Competitor intelligence (top 5 per keyword, discovered from same Places result list)
 - **1D** — Review sentiment and dispute candidates
 - **1E** — Citation consistency and website signals
 
 ```bash
-# Run monthly audit for demo client
-npm run audit:run -- --client=san-diego-stucco --trigger=monthly
-
-# Dashboard
+# Dashboard (requires sign-in + GBP connected)
 open http://localhost:3000/platform/audit
-
-# API
-curl -X POST http://localhost:3000/api/audit -H "Content-Type: application/json" -d '{"clientId":"san-diego-stucco"}'
 ```
 
-Set `GOOGLE_MAPS_API_KEY` for live Local 3-Pack rankings (Geocoding + Places Nearby Search). Without it, rankings and competitors use demo data.
-
-Set `GOOGLE_BUSINESS_API_KEY` (or `GOOGLE_MAPS_API_KEY`) + a real `gbpPlaceId` on the client for live GBP profile data via **Places Details**.
-
-For full performance metrics (calls, directions, clicks), posts, Q&A, and all reviews, also set OAuth credentials:
-
-```
-GOOGLE_BUSINESS_ACCESS_TOKEN=ya29...
-GOOGLE_BUSINESS_LOCATION_ID=12345678901234567890
-GOOGLE_BUSINESS_ACCOUNT_ID=12345678901234567890
-```
-
-Obtain OAuth tokens via [Google Business Profile API](https://developers.google.com/my-business/content/implement-oauth) with scope `https://www.googleapis.com/auth/business.manage`.
+Set `GOOGLE_MAPS_API_KEY` for live Local 3-Pack rankings.
 
 ### How rankings work
 
@@ -122,13 +139,14 @@ Run `supabase/migrations/002_execution_queue.sql` in the Supabase SQL Editor aft
 
 ## Supabase Auth
 
-Protected routes: `/platform/*`, `/api/audit/*`, `/api/execution/*`, `/api/places/*`
+Protected routes: `/platform/*`, `/api/audit/*`, `/api/execution/*`, `/api/places/*`, `/api/business`, `/api/google/gbp/connect`
 
 1. Create a project at [supabase.com](https://supabase.com)
 2. Copy `.env.example` → `.env.local` and add your URL + anon key
 3. Run migrations in order via the Supabase SQL Editor:
    - `supabase/migrations/001_initial_schema.sql`
    - `supabase/migrations/002_execution_queue.sql`
+   - `supabase/migrations/003_gbp_oauth.sql`
 4. In Supabase **Authentication → URL Configuration**, set:
    - Site URL: `http://localhost:3000` (or your Vercel URL)
    - Redirect URLs: `http://localhost:3000/auth/callback`, `https://your-domain.vercel.app/auth/callback`

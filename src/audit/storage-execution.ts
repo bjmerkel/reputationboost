@@ -1,6 +1,6 @@
 import type { ClientConfig, ExecutionTask } from "@/audit/types";
 import { createClient } from "@/lib/supabase/server";
-import { ensureDemoBusiness } from "./storage-supabase";
+import { getBusinessIdForSlug } from "./storage-supabase";
 
 function rowToTask(row: Record<string, unknown>): ExecutionTask {
   return {
@@ -56,7 +56,9 @@ export async function saveExecutionTasks(
   tasks: ExecutionTask[]
 ): Promise<void> {
   const supabase = await createClient();
-  const businessId = await ensureDemoBusiness(userId, client);
+  const businessId =
+    client.businessId ?? (await getBusinessIdForSlug(userId, client.id));
+  if (!businessId) throw new Error("Business not found");
 
   await supabase
     .from("execution_tasks")

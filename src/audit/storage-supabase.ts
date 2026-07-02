@@ -1,4 +1,4 @@
-import type { ClientConfig, FullAuditPayload, Phase1AuditPayload } from "@/audit/types";
+import type { FullAuditPayload, Phase1AuditPayload } from "@/audit/types";
 import { createClient } from "@/lib/supabase/server";
 
 export function isSupabaseConfigured(): boolean {
@@ -8,39 +8,18 @@ export function isSupabaseConfigured(): boolean {
   );
 }
 
-export async function ensureDemoBusiness(
+export async function getBusinessIdForSlug(
   userId: string,
-  config: ClientConfig
-): Promise<string> {
+  slug: string
+): Promise<string | null> {
   const supabase = await createClient();
-
-  const { data: existing } = await supabase
+  const { data } = await supabase
     .from("businesses")
     .select("id")
     .eq("user_id", userId)
-    .eq("slug", config.id)
+    .eq("slug", slug)
     .maybeSingle();
-
-  if (existing?.id) return existing.id;
-
-  const { data, error } = await supabase
-    .from("businesses")
-    .insert({
-      user_id: userId,
-      slug: config.id,
-      name: config.name,
-      industry: config.industry,
-      location: config.location,
-      keywords: config.keywords,
-      gbp_place_id: config.gbpPlaceId ?? null,
-      website: config.website ?? null,
-      phone: config.phone ?? null,
-    })
-    .select("id")
-    .single();
-
-  if (error) throw new Error(`Failed to create business: ${error.message}`);
-  return data.id;
+  return data?.id ?? null;
 }
 
 export async function saveAuditToSupabase(

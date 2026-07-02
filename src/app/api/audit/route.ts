@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { listClients } from "@/audit/clients";
+import { getPrimaryBusiness, listUserBusinesses } from "@/audit/businesses";
 import { runPhase1Audit } from "@/audit/orchestrator";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
-import { isLocalStorageAvailable } from "@/audit/storage-env";
-import { loadLatestAudit } from "@/audit/storage";
 import { getUser } from "@/lib/supabase/server";
 import type { AuditTrigger } from "@/audit/types";
 
@@ -13,14 +11,21 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const clients = listClients();
+  const businesses = await listUserBusinesses(user.id);
   const latest = await Promise.all(
-    clients.map(async (c) => ({
-      client: c,
-      latestAudit:
-        (await loadLatestAuditFromSupabase(user.id, c.id)) ??
-        (isLocalStorageAvailable() ? await loadLatestAudit(c.id) : null),
-    }))
+    businesses.map(async (row) => {
+      const latestAudit = await loadLatestAuditFromSupabase(user.id, row.slug);
+      return {
+        client: {
+          id: row.slug,
+          businessId: row.id,
+          name: row.name,
+          onboardingComplete: row.onboarding_complete,
+          gbpConnected: Boolean(row.gbp_location_id),
+        },
+        latestAudit,
+      };
+    })
   );
 
   return NextResponse.json({ user: { id: user.id, email: user.email }, clients: latest });
@@ -38,13 +43,21 @@ export async function POST(request: Request) {
       trigger?: AuditTrigger;
     };
 
-    const clientId = body.clientId ?? listClients()[0]?.id;
-    if (!clientId) {
-      return NextResponse.json({ error: "No client configured" }, { status: 400 });
+    const business = body.clientId
+      ? await import("@/audit/businesses").then((m) =>
+          m.loadBusinessConfig(user.id, body.clientId!)
+        )
+      : await getPrimaryBusiness(user.id);
+
+    if (!business) {
+      return NextResponse.json(
+        { error: "No business found. Complete onboarding first." },
+        { status: 400 }
+      );
     }
 
     const result = await runPhase1Audit({
-      clientId,
+      clientId: business.id,
       trigger: body.trigger ?? "manual",
       userId: user.id,
     });

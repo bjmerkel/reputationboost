@@ -1,7 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = ["/platform", "/api/audit", "/api/execution", "/api/places"];
+const PROTECTED_PREFIXES = [
+  "/platform",
+  "/api/audit",
+  "/api/execution",
+  "/api/places",
+  "/api/business",
+  "/api/google/gbp/connect",
+  "/api/google/gbp/select-location",
+];
 
 export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -47,7 +55,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user && isLogin) {
     const url = request.nextUrl.clone();
-    url.pathname = request.nextUrl.searchParams.get("next") || "/platform/audit";
+    url.pathname = request.nextUrl.searchParams.get("next") || "/platform/onboard";
     url.searchParams.delete("next");
     return NextResponse.redirect(url);
   }

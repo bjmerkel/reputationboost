@@ -27,8 +27,14 @@ export default async function PlatformLayout({
           </Link>
 
           <div className="flex items-center gap-4">
+            <Link href="/platform/audit" className="hidden text-sm text-slate-400 hover:text-white sm:inline">
+              Dashboard
+            </Link>
+            <Link href="/platform/onboard" className="hidden text-sm text-slate-400 hover:text-white sm:inline">
+              Settings
+            </Link>
             {user && (
-              <span className="hidden text-sm text-slate-400 sm:inline">{user.email}</span>
+              <span className="hidden text-sm text-slate-400 md:inline">{user.email}</span>
             )}
             <form action="/auth/signout" method="post">
               <button

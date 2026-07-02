@@ -4,6 +4,7 @@ export type LocalPackPosition = 1 | 2 | 3 | "not_in_pack";
 
 export interface ClientConfig {
   id: string;
+  businessId?: string;
   name: string;
   industry: string;
   location: {
@@ -18,6 +19,18 @@ export interface ClientConfig {
   gbpPlaceId?: string;
   website?: string;
   phone?: string;
+  gbpConnection?: GbpConnection;
+  onboardingComplete?: boolean;
+}
+
+export interface GbpConnection {
+  businessId: string;
+  accountId: string;
+  locationId: string;
+  placeId?: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
 }
 
 export interface GbpIdentity {

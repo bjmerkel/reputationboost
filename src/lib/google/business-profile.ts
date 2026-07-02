@@ -1,9 +1,5 @@
-import {
-  getGbpAccessToken,
-  getGbpAccountId,
-  getGbpLocationId,
-  isGbpOAuthConfigured,
-} from "./business-config";
+import type { GbpConnection } from "@/audit/types";
+import { authHeadersForConnection } from "./token-store";
 
 export interface GbpPerformanceMetrics {
   calls: number;
@@ -49,18 +45,8 @@ function dateParts(d: Date): DateParts {
   return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
 }
 
-function authHeaders(): HeadersInit {
-  const token = getGbpAccessToken();
-  if (!token) throw new Error("GOOGLE_BUSINESS_ACCESS_TOKEN is not configured.");
-  return { Authorization: `Bearer ${token}` };
-}
-
-/**
- * Business Profile Performance API — requires OAuth + location ID.
- * https://developers.google.com/my-business/reference/performance/rest
- */
 async function fetchPerformanceMetrics(
-  locationId: string,
+  connection: GbpConnection,
   periodDays = 30
 ): Promise<GbpPerformanceMetrics> {
   const end = new Date();
@@ -68,7 +54,7 @@ async function fetchPerformanceMetrics(
   start.setDate(start.getDate() - periodDays);
 
   const url = new URL(
-    `https://businessprofileperformance.googleapis.com/v1/locations/${locationId}:fetchMultiDailyMetricsTimeSeries`
+    `https://businessprofileperformance.googleapis.com/v1/locations/${connection.locationId}:fetchMultiDailyMetricsTimeSeries`
   );
 
   for (const metric of ["CALL_CLICKS", "BUSINESS_DIRECTION_REQUESTS", "WEBSITE_CLICKS"]) {
@@ -84,7 +70,7 @@ async function fetchPerformanceMetrics(
   url.searchParams.set("dailyRange.end_date.month", String(endParts.month));
   url.searchParams.set("dailyRange.end_date.day", String(endParts.day));
 
-  const res = await fetch(url.toString(), { headers: authHeaders() });
+  const res = await fetch(url.toString(), { headers: authHeadersForConnection(connection) });
   const data = (await res.json()) as {
     multiDailyMetricTimeSeries?: Array<{
       dailyMetricTimeSeries?: Array<{
@@ -115,10 +101,9 @@ async function fetchPerformanceMetrics(
   };
 }
 
-/** Local posts via Business Profile API v4. */
-async function fetchLocalPosts(accountId: string, locationId: string): Promise<GbpLocalPost[]> {
-  const url = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/localPosts`;
-  const res = await fetch(url, { headers: authHeaders() });
+async function fetchLocalPosts(connection: GbpConnection): Promise<GbpLocalPost[]> {
+  const url = `https://mybusiness.googleapis.com/v4/accounts/${connection.accountId}/locations/${connection.locationId}/localPosts`;
+  const res = await fetch(url, { headers: authHeadersForConnection(connection) });
   const data = (await res.json()) as {
     localPosts?: Array<{ createTime?: string; summary?: string }>;
     error?: { message?: string };
@@ -134,10 +119,9 @@ async function fetchLocalPosts(accountId: string, locationId: string): Promise<G
   }));
 }
 
-/** Q&A via Business Profile Q&A API. */
-async function fetchQuestions(locationId: string): Promise<GbpQuestion[]> {
-  const url = `https://mybusinessqanda.googleapis.com/v1/locations/${locationId}/questions`;
-  const res = await fetch(url, { headers: authHeaders() });
+async function fetchQuestions(connection: GbpConnection): Promise<GbpQuestion[]> {
+  const url = `https://mybusinessqanda.googleapis.com/v1/locations/${connection.locationId}/questions`;
+  const res = await fetch(url, { headers: authHeadersForConnection(connection) });
   const data = (await res.json()) as {
     questions?: Array<{
       text?: string;
@@ -158,19 +142,18 @@ async function fetchQuestions(locationId: string): Promise<GbpQuestion[]> {
   }));
 }
 
-/** Reviews via Business Profile API v4 (full list with replies). */
-async function fetchGbpReviews(accountId: string, locationId: string): Promise<GbpReview[]> {
+async function fetchGbpReviews(connection: GbpConnection): Promise<GbpReview[]> {
   const reviews: GbpReview[] = [];
   let pageToken: string | undefined;
 
   do {
     const url = new URL(
-      `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews`
+      `https://mybusiness.googleapis.com/v4/accounts/${connection.accountId}/locations/${connection.locationId}/reviews`
     );
     url.searchParams.set("pageSize", "50");
     if (pageToken) url.searchParams.set("pageToken", pageToken);
 
-    const res = await fetch(url.toString(), { headers: authHeaders() });
+    const res = await fetch(url.toString(), { headers: authHeadersForConnection(connection) });
     const data = (await res.json()) as {
       reviews?: Array<{
         reviewId?: string;
@@ -216,22 +199,15 @@ function starRatingToNumber(starRating: string | undefined): number {
   return starRating ? (map[starRating] ?? 0) : 0;
 }
 
-/**
- * Optional OAuth enrichment from Business Profile APIs.
- * Requires GOOGLE_BUSINESS_ACCESS_TOKEN, GOOGLE_BUSINESS_LOCATION_ID,
- * and GOOGLE_BUSINESS_ACCOUNT_ID (for posts/reviews).
- */
-export async function fetchGbpEnrichment(): Promise<GbpEnrichment | null> {
-  if (!isGbpOAuthConfigured()) return null;
-
-  const locationId = getGbpLocationId()!;
-  const accountId = getGbpAccountId();
-
+/** Full GBP management data using per-business OAuth connection. */
+export async function fetchGbpEnrichment(
+  connection: GbpConnection
+): Promise<GbpEnrichment> {
   const [performance, posts, questions, reviews] = await Promise.all([
-    fetchPerformanceMetrics(locationId).catch(() => null),
-    accountId ? fetchLocalPosts(accountId, locationId).catch(() => []) : Promise.resolve([]),
-    fetchQuestions(locationId).catch(() => []),
-    accountId ? fetchGbpReviews(accountId, locationId).catch(() => []) : Promise.resolve([]),
+    fetchPerformanceMetrics(connection).catch(() => null),
+    fetchLocalPosts(connection).catch(() => []),
+    fetchQuestions(connection).catch(() => []),
+    fetchGbpReviews(connection).catch(() => []),
   ]);
 
   return { performance, posts, questions, reviews };

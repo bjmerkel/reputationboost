@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { demoClient } from "@/audit/clients";
+import { getPrimaryBusiness } from "@/audit/businesses";
 import { getUser } from "@/lib/supabase/server";
 import {
   extractCompetitors,
@@ -18,10 +18,6 @@ export interface PlacesSearchResponse {
   competitors: PlaceResult[];
 }
 
-/**
- * Proxies Google Places Nearby Search for keyword + location + radius.
- * Used by KeywordTracker-style flows; audit engine calls the lib directly.
- */
 export async function GET(request: Request) {
   const user = await getUser();
   if (!user) {
@@ -35,10 +31,15 @@ export async function GET(request: Request) {
     );
   }
 
+  const business = await getPrimaryBusiness(user.id);
+  if (!business) {
+    return NextResponse.json({ error: "Complete onboarding first" }, { status: 400 });
+  }
+
   const { searchParams } = new URL(request.url);
   const keyword = searchParams.get("keyword");
-  const businessName = searchParams.get("business") ?? demoClient.name;
-  const placeId = searchParams.get("placeId") ?? demoClient.gbpPlaceId;
+  const businessName = searchParams.get("business") ?? business.name;
+  const placeId = searchParams.get("placeId") ?? business.gbpPlaceId;
   const address = searchParams.get("address");
   const radiusMilesParam = searchParams.get("radiusMiles");
   const radiusRaw = searchParams.get("radius");
@@ -54,7 +55,6 @@ export async function GET(request: Request) {
     radiusMeters = milesToMeters(Number(radiusMilesParam));
   } else if (radiusRaw) {
     const r = Number(radiusRaw);
-    // Legacy clients pass meters (e.g. 1609); small values are treated as miles
     radiusMeters = r > 100 ? r : milesToMeters(r);
   } else {
     radiusMeters = milesToMeters(1);
@@ -69,11 +69,8 @@ export async function GET(request: Request) {
   let location: { lat: number; lng: number };
   if (lat && lng) {
     location = { lat: Number(lat), lng: Number(lng) };
-  } else if (address) {
-    const client = { ...demoClient, location: { ...demoClient.location, address } };
-    location = await resolveBusinessLocation(client);
   } else {
-    location = await resolveBusinessLocation(demoClient);
+    location = await resolveBusinessLocation(business);
   }
 
   const matchOptions = {
@@ -86,14 +83,12 @@ export async function GET(request: Request) {
   const businessRank = findBusinessRank(businesses, matchOptions);
   const competitors = extractCompetitors(businesses, matchOptions, 3);
 
-  const payload: PlacesSearchResponse = {
+  return NextResponse.json({
     keyword,
     radiusMiles: Math.round(radiusMiles * 10) / 10,
     location,
     businesses,
     businessRank,
     competitors,
-  };
-
-  return NextResponse.json(payload);
+  } satisfies PlacesSearchResponse);
 }

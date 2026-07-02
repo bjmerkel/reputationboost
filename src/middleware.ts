@@ -11,6 +11,9 @@ export const config = {
     "/api/audit/:path*",
     "/api/execution/:path*",
     "/api/places/:path*",
+    "/api/business",
+    "/api/google/gbp/connect",
+    "/api/google/gbp/select-location",
     "/login",
   ],
 };

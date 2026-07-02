@@ -10,7 +10,7 @@ type Mode = "signin" | "signup";
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/platform/audit";
+  const next = searchParams.get("next") ?? "/platform/onboard";
   const initialMode = searchParams.get("mode") === "signup" ? "signup" : "signin";
 
   const [mode, setMode] = useState<Mode>(initialMode);
