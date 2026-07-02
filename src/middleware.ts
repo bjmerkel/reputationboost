@@ -12,6 +12,7 @@ export const config = {
     "/api/execution/:path*",
     "/api/places/:path*",
     "/api/business",
+    "/api/keywords/:path*",
     "/api/google/gbp/connect",
     "/api/google/gbp/select-location",
     "/login",

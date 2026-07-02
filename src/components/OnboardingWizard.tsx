@@ -6,6 +6,7 @@ import type { GbpLocationOption } from "@/lib/google/gbp-accounts";
 import GoogleBusinessAutocomplete, {
   type BusinessPlaceSelection,
 } from "@/components/GoogleBusinessAutocomplete";
+import { KeywordSuggestions } from "@/components/KeywordSuggestions";
 
 interface OnboardingWizardProps {
   step: "business" | "connect" | "location";
@@ -38,7 +39,7 @@ export default function OnboardingWizard({
   const [lng, setLng] = useState(0);
   const [phone, setPhone] = useState("");
   const [website, setWebsite] = useState("");
-  const [keywords, setKeywords] = useState("");
+  const [keywords, setKeywords] = useState<string[]>([]);
 
   function handlePlaceSelect(place: BusinessPlaceSelection) {
     setPlaceSelected(true);
@@ -53,6 +54,7 @@ export default function OnboardingWizard({
     setLng(place.lng);
     if (place.phone) setPhone(place.phone);
     if (place.website) setWebsite(place.website);
+    setKeywords([]);
     setFormError("");
   }
 
@@ -67,12 +69,17 @@ export default function OnboardingWizard({
     setZip("");
     setLat(0);
     setLng(0);
+    setKeywords([]);
   }
 
   async function createBusiness(e: React.FormEvent) {
     e.preventDefault();
     if (!placeSelected || !name.trim()) {
       setFormError("Search and select your business from Google Maps first.");
+      return;
+    }
+    if (keywords.length < 3) {
+      setFormError("Select at least 3 target keywords for rank tracking.");
       return;
     }
 
@@ -95,10 +102,7 @@ export default function OnboardingWizard({
           placeId,
           phone,
           website,
-          keywords: keywords
-            .split(",")
-            .map((k) => k.trim())
-            .filter(Boolean),
+          keywords,
         }),
       });
       const data = await res.json();
@@ -203,20 +207,25 @@ export default function OnboardingWizard({
                 <Field label="Phone" value={phone} onChange={setPhone} />
                 <Field label="Website" value={website} onChange={setWebsite} />
               </div>
+
+              <KeywordSuggestions
+                businessName={name}
+                industry={industry}
+                address={address}
+                city={city}
+                state={state}
+                zip={zip}
+                website={website}
+                selected={keywords}
+                onChange={setKeywords}
+                disabled={loading}
+              />
             </>
           )}
 
-          <Field
-            label="Target keywords"
-            value={keywords}
-            onChange={setKeywords}
-            placeholder="plumber, emergency plumber, drain cleaning"
-            hint="Comma-separated — used for Local 3-Pack rank tracking"
-          />
-
           <button
             type="submit"
-            disabled={loading || !placeSelected}
+            disabled={loading || !placeSelected || keywords.length < 3}
             className="btn-primary w-full rounded-full py-3 text-sm font-semibold text-white disabled:opacity-50"
           >
             {loading ? "Saving…" : "Continue"}
