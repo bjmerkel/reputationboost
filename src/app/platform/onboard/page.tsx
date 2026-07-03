@@ -58,7 +58,7 @@ export default async function OnboardPage({ searchParams }: PageProps) {
       (existing?.businessId && !existing.onboardingComplete ? existing.businessId : undefined);
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col py-6">
+    <main className="flex min-h-0 flex-1 flex-col overflow-y-auto py-6">
       <div className="shrink-0 px-4 pb-6 sm:px-6">
         <h1 className="text-2xl font-semibold text-[#202124]">Connect your business</h1>
         <p className="mt-2 max-w-2xl text-sm text-[#5f6368]">

@@ -22,7 +22,7 @@ export default function PlaceCardTabNav({
   return (
     <nav
       aria-label="Business sections"
-      className="flex shrink-0 gap-0 overflow-x-auto border-b border-[#dadce0] px-1 scroll-smooth snap-x snap-mandatory sm:px-2"
+      className="sticky top-0 z-10 flex shrink-0 gap-0 overflow-x-auto border-b border-[#dadce0] bg-white px-1 scroll-smooth snap-x snap-mandatory sm:px-2"
     >
       {PLACE_CARD_TABS.map((tab) => {
         const isActive = activeView === tab.id;

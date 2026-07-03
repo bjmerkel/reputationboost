@@ -33,7 +33,7 @@ export default function PlaceCard({
   const category = gbp.identity.primaryCategory || gbp.liveProfile?.primaryCategory;
 
   return (
-    <aside className="flex min-h-0 w-full flex-[1_1_60%] flex-col overflow-hidden border-[#dadce0] bg-white lg:flex-[0_0_40%] lg:self-stretch lg:border-r">
+    <aside className="flex h-full min-h-0 w-full flex-[1_1_60%] flex-col overflow-hidden border-[#dadce0] bg-white lg:flex-[0_0_40%] lg:border-r">
       {heroPhoto && (
         <div className="relative h-36 w-full shrink-0 overflow-hidden bg-[#e8eaed]">
           <ExternalImage
@@ -44,38 +44,40 @@ export default function PlaceCard({
         </div>
       )}
 
-      <div className="shrink-0 border-b border-[#dadce0] px-4 py-4">
-        <h1 className="text-xl font-normal leading-snug text-[#202124]">
-          {gbp.identity.name || audit.clientName}
-        </h1>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain">
+        <div className="shrink-0 border-b border-[#dadce0] px-4 py-4">
+          <h1 className="text-xl font-normal leading-snug text-[#202124]">
+            {gbp.identity.name || audit.clientName}
+          </h1>
 
-        {(rating > 0 || reviewCount > 0) && (
-          <div className="mt-1 flex items-center gap-1.5 text-sm">
-            <span className="font-medium text-[#202124]">{rating.toFixed(1)}</span>
-            <StarRating rating={rating} />
-            <span className="text-[#5f6368]">({reviewCount})</span>
+          {(rating > 0 || reviewCount > 0) && (
+            <div className="mt-1 flex items-center gap-1.5 text-sm">
+              <span className="font-medium text-[#202124]">{rating.toFixed(1)}</span>
+              <StarRating rating={rating} />
+              <span className="text-[#5f6368]">({reviewCount})</span>
+            </div>
+          )}
+
+          {category && (
+            <p className="mt-1 text-sm text-[#5f6368]">{category}</p>
+          )}
+
+          <div className="mt-4">
+            <ActionMetricsBar audit={audit} sparklines={sparklines} />
           </div>
-        )}
-
-        {category && (
-          <p className="mt-1 text-sm text-[#5f6368]">{category}</p>
-        )}
-
-        <div className="mt-4">
-          <ActionMetricsBar audit={audit} sparklines={sparklines} />
         </div>
-      </div>
 
-      <PlaceCardDetails audit={audit} onPreviewCustomer={onPreviewCustomer} />
+        <PlaceCardDetails audit={audit} onPreviewCustomer={onPreviewCustomer} />
 
-      <PlaceCardTabNav
-        activeView={activeView}
-        onViewChange={onViewChange}
-        planPendingCount={planPendingCount}
-      />
+        <PlaceCardTabNav
+          activeView={activeView}
+          onViewChange={onViewChange}
+          planPendingCount={planPendingCount}
+        />
 
-      <div className="maps-panel-light min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-5">
-        {children}
+        <div className="maps-panel-light px-4 py-5">
+          {children}
+        </div>
       </div>
     </aside>
   );

@@ -50,7 +50,7 @@ export default async function PlatformLayout({
           </div>
         </div>
       </header>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
     </div>
   );
 }

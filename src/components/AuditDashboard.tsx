@@ -291,7 +291,7 @@ export default function AuditDashboard({
           )}
         </PlaceCard>
 
-        <div className="relative flex min-h-[200px] w-full flex-[0_0_40%] flex-col overflow-hidden lg:min-h-0 lg:flex-[0_0_60%] lg:self-stretch">
+        <div className="relative flex h-full min-h-[200px] w-full flex-[0_0_40%] flex-col overflow-hidden lg:flex-[0_0_60%]">
           <RankingMap
             lat={businessLocation.lat}
             lng={businessLocation.lng}
