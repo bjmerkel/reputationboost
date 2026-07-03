@@ -57,11 +57,20 @@ export interface GbpCompleteness {
   completenessScore: number;
 }
 
+export interface GbpMediaPreview {
+  thumbnailUrl: string;
+  googleUrl: string;
+  mediaFormat: "PHOTO" | "VIDEO";
+  category: string | null;
+  description?: string;
+}
+
 export interface GbpContent {
   photoCount: number;
   videoCount: number;
   photosByType: Record<string, number>;
   lastPhotoUpload: string | null;
+  mediaPreviews?: GbpMediaPreview[];
   postCount: number;
   lastPostDate: string | null;
   qaCount: number;

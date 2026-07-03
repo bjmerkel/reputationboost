@@ -108,11 +108,13 @@ export function parseGbpReview(raw: ReviewApi, index = 0): GbpReview {
           policyViolation: raw.reviewReply.policyViolation,
         }
       : undefined,
-    mediaItems: (raw.reviewMediaItems ?? []).map((item) => ({
-      thumbnailUrl: item.thumbnailUrl ?? "",
-      thumbnailLabel: item.thumbnailLabel,
-      videoUrl: item.videoUrl,
-    })),
+    mediaItems: (raw.reviewMediaItems ?? [])
+      .map((item) => ({
+        thumbnailUrl: item.thumbnailUrl ?? "",
+        thumbnailLabel: item.thumbnailLabel,
+        videoUrl: item.videoUrl,
+      }))
+      .filter((item) => Boolean(item.thumbnailUrl || item.videoUrl)),
   };
 }
 

@@ -179,7 +179,9 @@ export default function AuditDashboard({
             />
           )}
 
-          {view === "data" && <AuditDataPanel audit={audit} embedded />}
+          {view === "data" && (
+            <AuditDataPanel audit={audit} embedded gbpConnected={gbpConnected} />
+          )}
         </div>
       </div>
     </div>

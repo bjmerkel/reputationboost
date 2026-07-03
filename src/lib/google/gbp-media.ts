@@ -95,12 +95,14 @@ export async function listGbpMedia(connection: GbpConnection): Promise<GbpMediaI
     }
 
     for (const item of data.mediaItems ?? []) {
+      const googleUrl = item.googleUrl ?? "";
+      const thumbnailUrl = item.thumbnailUrl || googleUrl;
       items.push({
         name: item.name ?? "",
         mediaFormat: normalizeFormat(item.mediaFormat),
         category: normalizeCategory(item.locationAssociation?.category),
-        googleUrl: item.googleUrl ?? "",
-        thumbnailUrl: item.thumbnailUrl ?? "",
+        googleUrl,
+        thumbnailUrl,
         createTime: item.createTime ?? "",
         description: item.description ?? "",
         viewCount: item.insights?.viewCount ?? "0",

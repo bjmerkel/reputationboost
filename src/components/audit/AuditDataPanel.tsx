@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import type { FullAuditPayload, ReviewRecord } from "@/audit/types";
+import { useEffect, useState } from "react";
+import type { FullAuditPayload, GbpMediaPreview, ReviewRecord } from "@/audit/types";
+import ExternalImage from "@/components/ExternalImage";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 
 type DataTab = "profile" | "rankings" | "competitors" | "reviews" | "citations";
@@ -17,11 +18,63 @@ const DATA_TABS: { id: DataTab; label: string }[] = [
 export default function AuditDataPanel({
   audit,
   embedded = false,
+  gbpConnected = false,
 }: {
   audit: FullAuditPayload;
   embedded?: boolean;
+  gbpConnected?: boolean;
 }) {
   const [tab, setTab] = useState<DataTab>("profile");
+  const [liveMedia, setLiveMedia] = useState<GbpMediaPreview[] | null>(null);
+
+  const storedMedia = audit.gbp.content.mediaPreviews ?? [];
+  const mediaPreviews = liveMedia ?? storedMedia;
+
+  useEffect(() => {
+    if (!gbpConnected || storedMedia.length > 0 || audit.gbp.content.photoCount === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadMedia() {
+      try {
+        const res = await fetch("/api/google/gbp/media");
+        const data = (await res.json()) as {
+          items?: Array<{
+            thumbnailUrl?: string;
+            googleUrl?: string;
+            mediaFormat?: string;
+            category?: string | null;
+            description?: string;
+          }>;
+        };
+        if (!res.ok || cancelled) return;
+
+        const previews: GbpMediaPreview[] = (data.items ?? [])
+          .filter((item) => item.thumbnailUrl || item.googleUrl)
+          .slice(0, 24)
+          .map((item) => ({
+            thumbnailUrl: item.thumbnailUrl || item.googleUrl || "",
+            googleUrl: item.googleUrl || item.thumbnailUrl || "",
+            mediaFormat: item.mediaFormat === "VIDEO" ? "VIDEO" : "PHOTO",
+            category: item.category ?? null,
+            description: item.description || undefined,
+          }));
+
+        if (!cancelled && previews.length > 0) {
+          setLiveMedia(previews);
+        }
+      } catch {
+        // Keep audit snapshot data only
+      }
+    }
+
+    void loadMedia();
+    return () => {
+      cancelled = true;
+    };
+  }, [audit.auditId, gbpConnected, storedMedia.length, audit.gbp.content.photoCount]);
 
   return (
     <div className="space-y-6">
@@ -120,6 +173,15 @@ export default function AuditDataPanel({
                   ? "< threshold"
                   : String(kw.impressions ?? 0) + " impressions",
               ])}
+            />
+          )}
+
+          {(audit.gbp.content.photoCount > 0 || mediaPreviews.length > 0) && (
+            <MediaGallery
+              photoCount={audit.gbp.content.photoCount}
+              videoCount={audit.gbp.content.videoCount ?? 0}
+              photosByType={audit.gbp.content.photosByType}
+              previews={mediaPreviews}
             />
           )}
         </div>
@@ -337,11 +399,15 @@ function ReviewCard({ review }: { review: ReviewRecord }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           {review.authorPhotoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <ExternalImage
               src={review.authorPhotoUrl}
               alt=""
-              className="h-8 w-8 rounded-full bg-white/10"
+              className="h-8 w-8 rounded-full bg-white/10 object-cover"
+              fallback={
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs text-slate-400">
+                  {review.isAnonymous ? "?" : review.author.charAt(0)}
+                </div>
+              }
             />
           ) : (
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs text-slate-400">
@@ -375,11 +441,10 @@ function ReviewCard({ review }: { review: ReviewRecord }) {
               rel="noopener noreferrer"
               className="block overflow-hidden rounded-lg border border-white/10"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <ExternalImage
                 src={item.thumbnailUrl}
                 alt={item.thumbnailLabel ?? "Review media"}
-                className="h-16 w-16 object-cover"
+                className="h-20 w-20 object-cover"
               />
             </a>
           ))}
@@ -437,4 +502,69 @@ function formatViolation(code: string): string {
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function MediaGallery({
+  photoCount,
+  videoCount,
+  photosByType,
+  previews,
+}: {
+  photoCount: number;
+  videoCount: number;
+  photosByType: Record<string, number>;
+  previews: GbpMediaPreview[];
+}) {
+  const typeSummary = Object.entries(photosByType)
+    .map(([type, count]) => `${type.replace(/_/g, " ").toLowerCase()}: ${count}`)
+    .join(" · ");
+
+  return (
+    <div className="md:col-span-2 rounded-xl border border-white/8 bg-white/[0.02] p-4">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-slate-300">Photos & videos</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {photoCount} photos · {videoCount} videos
+            {typeSummary ? ` · ${typeSummary}` : ""}
+          </p>
+        </div>
+        {previews.length > 0 && (
+          <p className="text-xs text-slate-500">Showing {previews.length} previews</p>
+        )}
+      </div>
+
+      {previews.length > 0 ? (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+          {previews.map((item, i) => (
+            <a
+              key={`${item.googleUrl}-${i}`}
+              href={item.googleUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-slate-900/50"
+              title={item.description || item.category || undefined}
+            >
+              <ExternalImage
+                src={item.thumbnailUrl}
+                alt={item.description || item.category || "GBP media"}
+                className="h-full w-full object-cover transition group-hover:scale-105"
+              />
+              {item.mediaFormat === "VIDEO" && (
+                <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                  Video
+                </span>
+              )}
+            </a>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-500">
+          {photoCount > 0
+            ? "Photo count is available but thumbnails could not be loaded. Re-run the audit or check GBP media permissions."
+            : "No media on profile yet."}
+        </p>
+      )}
+    </div>
+  );
 }

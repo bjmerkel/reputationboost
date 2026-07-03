@@ -1,4 +1,4 @@
-import type { ClientConfig, GbpConnection, GbpSnapshot } from "../types";
+import type { ClientConfig, GbpConnection, GbpSnapshot, GbpMediaPreview } from "../types";
 import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
 import { isReviewResponded } from "@/lib/google/gbp-reviews";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
@@ -17,6 +17,28 @@ function completenessScore(fields: boolean[]): number {
 function reviewsSince(reviews: Array<{ createTime: string }>, days: number): number {
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
   return reviews.filter((r) => new Date(r.createTime).getTime() >= cutoff).length;
+}
+
+function mediaPreviewsFromEnrichment(
+  items: Array<{
+    thumbnailUrl: string;
+    googleUrl: string;
+    mediaFormat: "PHOTO" | "VIDEO";
+    category: string | null;
+    description: string;
+  }>,
+  limit = 24
+): GbpMediaPreview[] {
+  return items
+    .filter((item) => item.thumbnailUrl || item.googleUrl)
+    .slice(0, limit)
+    .map((item) => ({
+      thumbnailUrl: item.thumbnailUrl || item.googleUrl,
+      googleUrl: item.googleUrl || item.thumbnailUrl,
+      mediaFormat: item.mediaFormat,
+      category: item.category,
+      description: item.description || undefined,
+    }));
 }
 
 /**
@@ -134,6 +156,7 @@ async function collectGbpFromApi(
           ? enrichment.media.photosByType
           : { all: place?.photoCount ?? 0 },
       lastPhotoUpload: enrichment.media.lastPhotoUpload,
+      mediaPreviews: mediaPreviewsFromEnrichment(enrichment.media.items),
       postCount: posts.length,
       lastPostDate: sortedPosts[0]?.createTime ?? null,
       qaCount: questions.length,
