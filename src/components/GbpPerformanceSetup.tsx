@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import type { GbpLocationAccessCheck } from "@/lib/google/gbp-access";
 import type { PerformanceEndpointStatus } from "@/lib/google/gbp-performance";
+import { PerformanceAccessDetails } from "@/components/PerformancePermissionBanner";
 import {
   GBP_API_ACCESS_FORM_URL,
   PERFORMANCE_API_ENABLE_URL,
@@ -25,6 +27,7 @@ interface PerformanceProbe {
     impressions: PerformanceEndpointStatus;
     searchKeywords: PerformanceEndpointStatus;
   };
+  accessCheck?: GbpLocationAccessCheck;
 }
 
 function endpointLabel(status: PerformanceEndpointStatus | undefined): string {
@@ -103,21 +106,35 @@ export default function GbpPerformanceSetup({
         )}
         {probe.partial && (
           <p className="mt-3 text-sm text-slate-300">
-            GCP may show Performance API traffic with a low error rate — some endpoints can fail per
-            location while calls and clicks still work.
+            Some endpoints can fail per location while calls and clicks still work.
           </p>
         )}
       </div>
     );
   }
 
+  const accessCheck = probe?.accessCheck;
+  const severity = accessCheck?.severity ?? "warning";
+  const containerClass =
+    severity === "info"
+      ? "rounded-2xl border border-slate-500/25 bg-slate-500/10 p-6"
+      : "rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6";
+  const titleClass = severity === "info" ? "text-slate-100" : "text-amber-100";
+
   return (
-    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6">
-      <h2 className="text-lg font-bold text-amber-100">Performance API not authorized</h2>
-      <p className="mt-2 text-sm text-amber-200/90">
-        {probe?.error ??
+    <div className={containerClass}>
+      <h2 className={`text-lg font-bold ${titleClass}`}>
+        {accessCheck?.headline ?? "Performance API not authorized"}
+      </h2>
+      <p className="mt-2 text-sm text-slate-300">
+        {accessCheck?.detail ??
+          probe?.error ??
           "Google returned permission denied for profile views, calls, and direction clicks."}
       </p>
+      {accessCheck?.suggestion && (
+        <p className="mt-3 text-sm text-slate-300">{accessCheck.suggestion}</p>
+      )}
+      {accessCheck && <PerformanceAccessDetails accessCheck={accessCheck} />}
       {probe?.endpoints && (
         <ul className="mt-3 space-y-1 text-xs text-slate-400">
           <li>Core metrics: {endpointLabel(probe.endpoints.coreMetrics)}</li>
@@ -125,44 +142,48 @@ export default function GbpPerformanceSetup({
           <li>Search keywords: {endpointLabel(probe.endpoints.searchKeywords)}</li>
         </ul>
       )}
-      <p className="mt-3 text-sm text-slate-300">
-        Reviews and profile edits work because they use different APIs. If GCP already shows
-        Performance API requests, the API is enabled — this is usually a location permission issue.
-      </p>
 
-      <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-slate-300">
-        {(probe?.setupSteps ?? []).map((step) => (
-          <li key={step}>{step}</li>
-        ))}
-      </ol>
+      {severity === "warning" && (
+        <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-slate-300">
+          {(probe?.setupSteps ?? []).map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      )}
 
       <div className="mt-5 flex flex-wrap gap-3">
-        <a
-          href={PERFORMANCE_API_ENABLE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-primary rounded-full px-5 py-2 text-sm font-semibold text-white"
-        >
-          Enable Performance API
-        </a>
-        <a
-          href={GBP_API_ACCESS_FORM_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-secondary rounded-full px-5 py-2 text-sm font-semibold text-white"
-        >
-          GBP API access form
-        </a>
-        <Link
-          href={reconnectHref}
-          className="rounded-full border border-white/15 px-5 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5"
-        >
-          Reconnect GBP
-        </Link>
+        {severity === "warning" && (
+          <>
+            <a
+              href={PERFORMANCE_API_ENABLE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary rounded-full px-5 py-2 text-sm font-semibold text-white"
+            >
+              Enable Performance API
+            </a>
+            <a
+              href={GBP_API_ACCESS_FORM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary rounded-full px-5 py-2 text-sm font-semibold text-white"
+            >
+              GBP API access form
+            </a>
+          </>
+        )}
+        {severity !== "info" && (
+          <Link
+            href={reconnectHref}
+            className="rounded-full border border-white/15 px-5 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5"
+          >
+            Reconnect GBP
+          </Link>
+        )}
       </div>
 
       <p className="mt-4 text-xs text-slate-500">
-        Business ID: {businessId} — use the GCP project tied to GOOGLE_CLIENT_ID in Vercel env.
+        Business ID: {businessId} — access verified via Account Management API.
       </p>
     </div>
   );

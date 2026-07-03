@@ -20,6 +20,8 @@ export async function GET() {
     return NextResponse.json({ error: "GBP connection expired" }, { status: 401 });
   }
 
-  const probe = await probePerformanceApiAccess(connection);
+  const probe = await probePerformanceApiAccess(connection, {
+    connectedEmail: user.email ?? undefined,
+  });
   return NextResponse.json(probe);
 }

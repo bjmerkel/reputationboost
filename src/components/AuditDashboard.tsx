@@ -115,9 +115,11 @@ export default function AuditDashboard({
     <div className="space-y-4">
       {!gbpConnected && <GbpConnectBanner businessId={businessId} />}
 
-      {audit.gbp.performance.error && audit.gbp.performance.source !== "api" && (
+      {audit.gbp.performance.source !== "api" &&
+        (audit.gbp.performance.accessCheck || audit.gbp.performance.error) && (
         <PerformancePermissionBanner
           error={audit.gbp.performance.error}
+          accessCheck={audit.gbp.performance.accessCheck}
           businessId={businessId}
         />
       )}

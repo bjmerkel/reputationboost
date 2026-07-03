@@ -60,6 +60,7 @@ export async function POST(request: Request) {
       clientId: business.id,
       trigger: body.trigger ?? "manual",
       userId: user.id,
+      userEmail: user.email ?? undefined,
     });
 
     return NextResponse.json(result);

@@ -1,4 +1,5 @@
 import type { GbpConnection } from "@/audit/types";
+import { checkGbpLocationAccess, type GbpLocationAccessCheck } from "./gbp-access";
 import { authHeadersForConnection } from "./auth-headers";
 import { getGbpLocationProfile } from "./gbp-location";
 import {
@@ -47,6 +48,7 @@ export interface GbpPerformanceData {
   source: "api" | "unavailable";
   error?: string;
   warnings?: string[];
+  accessCheck?: GbpLocationAccessCheck;
 }
 
 export type PerformanceEndpointStatus = "ok" | "failed" | "denied" | "skipped";
@@ -64,6 +66,7 @@ export interface PerformanceApiProbe {
     impressions: PerformanceEndpointStatus;
     searchKeywords: PerformanceEndpointStatus;
   };
+  accessCheck?: GbpLocationAccessCheck;
 }
 
 function performanceHeaders(connection: GbpConnection): HeadersInit {
@@ -389,7 +392,11 @@ function buildPerformanceFromTotals(
   };
 }
 
-export function emptyPerformanceData(periodDays = 30, error?: string): GbpPerformanceData {
+export function emptyPerformanceData(
+  periodDays = 30,
+  error?: string,
+  accessCheck?: GbpLocationAccessCheck
+): GbpPerformanceData {
   return {
     periodDays,
     calls: 0,
@@ -403,6 +410,7 @@ export function emptyPerformanceData(periodDays = 30, error?: string): GbpPerfor
     searchKeywords: [],
     source: "unavailable",
     error,
+    accessCheck,
   };
 }
 
@@ -420,7 +428,8 @@ async function probeEndpoint(
 
 /** Quick health check for Settings / onboarding — uses last 7 days. */
 export async function probePerformanceApiAccess(
-  connection: GbpConnection
+  connection: GbpConnection,
+  options?: { connectedEmail?: string }
 ): Promise<PerformanceApiProbe> {
   const setupSteps = performanceSetupSteps();
   const resolved = await resolvePerformanceConnection(connection);
@@ -441,6 +450,7 @@ export async function probePerformanceApiAccess(
   const partial =
     coreOk &&
     (endpoints.impressions !== "ok" || endpoints.searchKeywords !== "ok");
+  const performanceDenied = endpoints.coreMetrics === "denied";
 
   if (coreOk) {
     try {
@@ -464,10 +474,15 @@ export async function probePerformanceApiAccess(
     }
   }
 
+  const accessCheck = await checkGbpLocationAccess(resolved, {
+    connectedEmail: options?.connectedEmail,
+    performanceDenied,
+  });
+
   const httpStatus = endpoints.coreMetrics === "denied" ? 403 : undefined;
   const error =
     endpoints.coreMetrics === "denied"
-      ? formatPerformanceError(new Error("permission denied"), 403)
+      ? accessCheck.detail
       : "Performance API: core metrics unavailable for this location.";
 
   return {
@@ -478,13 +493,15 @@ export async function probePerformanceApiAccess(
     partial,
     setupSteps,
     endpoints,
+    accessCheck,
   };
 }
 
 /** Fetch GBP Performance API metrics: calls, directions, website clicks, profile views, search keywords. */
 export async function fetchGbpPerformanceData(
   connection: GbpConnection,
-  periodDays = 30
+  periodDays = 30,
+  options?: { connectedEmail?: string }
 ): Promise<GbpPerformanceData> {
   const resolved = await resolvePerformanceConnection(connection);
 
@@ -508,13 +525,25 @@ export async function fetchGbpPerformanceData(
   } catch (error) {
     const httpStatus = (error as Error & { httpStatus?: number }).httpStatus;
     const message = formatPerformanceError(error, httpStatus);
-    if (isPerformancePermissionError(message)) {
-      console.error(
-        "[gbp-performance] permission denied for location — check GBP manager access or location eligibility"
-      );
+    const performanceDenied = isPerformancePermissionError(message) || httpStatus === 403;
+    const accessCheck = await checkGbpLocationAccess(resolved, {
+      connectedEmail: options?.connectedEmail,
+      performanceDenied,
+    });
+
+    if (performanceDenied) {
+      if (accessCheck.status === "confirmed_manager") {
+        console.warn(
+          "[gbp-performance] manager access confirmed but metrics denied for location",
+          resolved.locationId
+        );
+      } else {
+        console.error("[gbp-performance] permission denied:", accessCheck.detail);
+      }
     } else {
       console.error("[gbp-performance] fetch failed:", message);
     }
-    return emptyPerformanceData(periodDays, message);
+
+    return emptyPerformanceData(periodDays, accessCheck.detail, accessCheck);
   }
 }

@@ -39,6 +39,7 @@ export interface RunAuditOptions {
   clientId: string;
   trigger?: AuditTrigger;
   userId: string;
+  userEmail?: string;
 }
 
 async function loadPriorForDiff(
@@ -87,7 +88,7 @@ export async function runPhase1Audit(
   const useGooglePlaces = isGoogleMapsConfigured();
 
   const [gbp, reviews, offGoogle, placesData] = await Promise.all([
-    collectGbpSnapshot(client, connection),
+    collectGbpSnapshot(client, connection, { userEmail: options.userEmail }),
     collectReviewSnapshot(client, connection),
     collectOffGoogleSnapshot(client),
     useGooglePlaces ? collectPlacesRankData(client) : Promise.resolve(null),

@@ -90,6 +90,7 @@ export interface GbpPerformance {
   source?: "api" | "unavailable";
   error?: string;
   warnings?: string[];
+  accessCheck?: import("@/lib/google/gbp-access").GbpLocationAccessCheck;
 }
 
 export interface GbpIssues {

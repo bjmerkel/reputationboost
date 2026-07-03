@@ -23,10 +23,11 @@ function reviewsSince(reviews: Array<{ createTime: string }>, days: number): num
  */
 export async function collectGbpSnapshot(
   client: ClientConfig,
-  connection?: GbpConnection | null
+  connection?: GbpConnection | null,
+  options?: { userEmail?: string }
 ): Promise<GbpSnapshot> {
   if (connection) {
-    return collectGbpFromApi(client, connection);
+    return collectGbpFromApi(client, connection, options);
   }
 
   if (client.gbpPlaceId && isGoogleBusinessApiConfigured()) {
@@ -40,12 +41,13 @@ export async function collectGbpSnapshot(
 
 async function collectGbpFromApi(
   client: ClientConfig,
-  connection: GbpConnection
+  connection: GbpConnection,
+  options?: { userEmail?: string }
 ): Promise<GbpSnapshot> {
   const now = new Date().toISOString();
 
   const [enrichment, liveProfileResult, place] = await Promise.all([
-    fetchGbpEnrichment(connection),
+    fetchGbpEnrichment(connection, { userEmail: options?.userEmail }),
     getGbpLocationProfile(connection).catch(() => null),
     (connection.placeId ?? client.gbpPlaceId)
       ? fetchPlaceDetails(connection.placeId ?? client.gbpPlaceId!).catch(() => null)
@@ -143,6 +145,7 @@ async function collectGbpFromApi(
       source: performance.source,
       error: performance.error,
       warnings: performance.warnings,
+      accessCheck: performance.accessCheck,
     },
     issues: {
       isSuspended: place?.businessStatus === "CLOSED_PERMANENTLY",

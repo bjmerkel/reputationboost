@@ -134,10 +134,11 @@ function starRatingToNumber(starRating: string | undefined): number {
 
 /** Full GBP management data using per-business OAuth connection. */
 export async function fetchGbpEnrichment(
-  connection: GbpConnection
+  connection: GbpConnection,
+  options?: { userEmail?: string }
 ): Promise<GbpEnrichment> {
   const [performance, posts, questions, reviews] = await Promise.all([
-    fetchGbpPerformanceData(connection),
+    fetchGbpPerformanceData(connection, 30, { connectedEmail: options?.userEmail }),
     fetchLocalPosts(connection).catch(() => []),
     fetchQuestions(connection).catch(() => []),
     fetchGbpReviews(connection).catch(() => []),
