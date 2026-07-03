@@ -86,6 +86,7 @@ async function collectGbpFromApi(
   const address = place?.address || formatAddress(client);
   const phone = place?.phone || client.phone || "";
   const website = place?.website || client.website || "";
+  const placeId = connection.placeId ?? client.gbpPlaceId ?? place?.placeId;
 
   return {
     collectedAt: now,
@@ -96,6 +97,7 @@ async function collectGbpFromApi(
       website,
       primaryCategory,
       secondaryCategories,
+      placeId,
     },
     completeness: {
       hasHours,
@@ -187,6 +189,7 @@ async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<GbpSnap
       website: place.website || client.website || "",
       primaryCategory: primaryCategoryFromTypes(place.types) || client.industry,
       secondaryCategories: secondaryCategoriesFromTypes(place.types),
+      placeId: place.placeId,
     },
     completeness: {
       hasHours: place.hasHours,

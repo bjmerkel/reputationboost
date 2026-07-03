@@ -41,6 +41,7 @@ export interface GbpIdentity {
   website: string;
   primaryCategory: string;
   secondaryCategories: string[];
+  placeId?: string;
 }
 
 export interface GbpCompleteness {

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getBusinessRecord, getPrimaryBusiness } from "@/audit/businesses";
 import GbpPerformanceSetup from "@/components/GbpPerformanceSetup";
 import GbpDisconnect from "@/components/GbpDisconnect";
+import GoogleMapsLink from "@/components/GoogleMapsLink";
 import { getUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -73,6 +74,13 @@ export default async function SettingsPage() {
                 <dd className="text-right text-slate-200">{business.keywords.length} tracked</dd>
               </div>
             </dl>
+            <div className="mt-4">
+              <GoogleMapsLink
+                placeId={business.gbpPlaceId}
+                name={business.name}
+                address={`${business.location.address}, ${business.location.city}, ${business.location.state} ${business.location.zip}`}
+              />
+            </div>
           </div>
 
           {isConnected && business.businessId ? (

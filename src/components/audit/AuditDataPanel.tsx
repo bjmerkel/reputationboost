@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { FullAuditPayload } from "@/audit/types";
+import GoogleMapsLink from "@/components/GoogleMapsLink";
 
 type DataTab = "profile" | "rankings" | "competitors" | "reviews" | "citations";
 
@@ -52,15 +53,22 @@ export default function AuditDataPanel({
 
       {tab === "profile" && (
         <div className="grid gap-4 md:grid-cols-2">
-          <DataBlock
-            title="Identity"
-            rows={[
-              ["Name", audit.gbp.identity.name],
-              ["Category", audit.gbp.identity.primaryCategory],
-              ["Phone", audit.gbp.identity.phone],
-              ["Website", audit.gbp.identity.website],
-            ]}
-          />
+          <div className="space-y-3">
+            <DataBlock
+              title="Identity"
+              rows={[
+                ["Name", audit.gbp.identity.name],
+                ["Category", audit.gbp.identity.primaryCategory],
+                ["Phone", audit.gbp.identity.phone],
+                ["Website", audit.gbp.identity.website],
+              ]}
+            />
+            <GoogleMapsLink
+              placeId={audit.gbp.identity.placeId}
+              name={audit.gbp.identity.name}
+              address={audit.gbp.identity.address}
+            />
+          </div>
           <DataBlock
             title="Content & issues"
             rows={[
