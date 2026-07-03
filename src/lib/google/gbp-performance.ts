@@ -293,8 +293,8 @@ async function fetchDailyMetrics(
     const status = endpointStatusFromError(error);
     warnings.push(
       status === "denied"
-        ? "Profile view impressions denied for this location."
-        : "Profile view impressions could not be loaded."
+        ? "Profile view counts aren't available for this location."
+        : "Profile view counts couldn't be loaded."
     );
   }
 
@@ -528,9 +528,9 @@ export async function fetchGbpPerformanceData(
     } catch (kwError) {
       const httpStatus = (kwError as Error & { httpStatus?: number }).httpStatus;
       if (httpStatus === 403) {
-        warnings.push("Search keywords denied for this location (calls and views may still work).");
+        warnings.push("Search terms people used to find you aren't available for this location.");
       } else {
-        warnings.push("Search keywords could not be loaded.");
+        warnings.push("Search terms people used to find you couldn't be loaded.");
         console.warn("[gbp-performance] search keywords fetch failed:", kwError);
       }
     }

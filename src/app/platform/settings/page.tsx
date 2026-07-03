@@ -96,11 +96,11 @@ export default async function SettingsPage() {
           )}
 
           <p className="text-center text-sm text-slate-500">
-            App sign-in: <span className="text-slate-300">{user.email}</span>
+            App login: <span className="text-slate-300">{user.email}</span>
             {(record?.gbp_google_email ?? business.gbpConnection?.googleEmail) && (
               <>
                 {" "}
-                · GBP Google account:{" "}
+                · Profile manager:{" "}
                 <span className="text-slate-300">
                   {record?.gbp_google_email ?? business.gbpConnection?.googleEmail}
                 </span>

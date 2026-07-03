@@ -31,16 +31,12 @@ export function formatPerformanceError(error: unknown, httpStatus?: number): str
   const raw = error instanceof Error ? error.message : String(error);
 
   if (isPerformancePermissionError(raw) || httpStatus === 403) {
-    return [
-      "Performance API: permission denied for this location.",
-      "If GCP already shows Performance API traffic, the API is enabled — check that your Google account is Owner/Manager on this GBP location.",
-      "Otherwise enable Business Profile Performance API in Google Cloud and reconnect GBP in Settings.",
-    ].join(" ");
+    return "Call clicks and profile views aren't available for this location right now.";
   }
 
   if (httpStatus === 404) {
-    return `Performance API: location not found (${raw}). Re-select your GBP location in onboarding.`;
+    return "This Google Business Profile location could not be found. Try reconnecting in Settings.";
   }
 
-  return raw || "Performance API unavailable";
+  return "Google insights are temporarily unavailable.";
 }

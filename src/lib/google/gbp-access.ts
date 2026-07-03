@@ -1,5 +1,6 @@
 import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
+import { getGbpLocationProfile } from "./gbp-location";
 
 const ACCOUNT_MANAGEMENT_BASE = "https://mybusinessaccountmanagement.googleapis.com/v1";
 
@@ -166,6 +167,43 @@ function withLegacyEmail<T extends GbpLocationAccessCheck>(check: T): T {
   return { ...check, connectedEmail: check.googleAccountEmail };
 }
 
+async function canReadLocationProfile(connection: GbpConnection): Promise<boolean> {
+  try {
+    await getGbpLocationProfile(connection);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function confirmedManagerCheck(
+  input: {
+    googleAccountEmail?: string;
+    platformEmail?: string;
+    accountMismatch: boolean;
+    matchedRole?: GbpAdminRole;
+    performanceDenied: boolean;
+    admins: GbpAdminRecord[];
+  }
+): GbpLocationAccessCheck {
+  const role = input.matchedRole ?? "MANAGER";
+  const guidance = buildAccessGuidance({
+    status: "confirmed_manager",
+    ...input,
+    matchedRole: role,
+  });
+  return withLegacyEmail({
+    status: "confirmed_manager",
+    googleAccountEmail: input.googleAccountEmail,
+    platformEmail: input.platformEmail,
+    accountMismatch: input.accountMismatch,
+    gbpAccessVerified: true,
+    matchedRole: role,
+    admins: input.admins,
+    ...guidance,
+  });
+}
+
 function buildAccessGuidance(input: {
   status: GbpAccessStatus;
   googleAccountEmail?: string;
@@ -179,78 +217,60 @@ function buildAccessGuidance(input: {
     googleAccountEmail,
     platformEmail,
     accountMismatch,
-    matchedRole,
     performanceDenied,
   } = input;
 
   if (status === "confirmed_manager" && performanceDenied) {
-    const roleLabel = matchedRole?.replace(/_/g, " ").toLowerCase() ?? "manager";
-    const mismatchNote =
-      accountMismatch && platformEmail && googleAccountEmail
-        ? ` Your Reputation Boost sign-in (${platformEmail}) is separate from the GBP account (${googleAccountEmail}) — that is expected and fine.`
-        : "";
-
     return {
       severity: "info",
-      headline: "Performance insights not available for this location",
-      detail: googleAccountEmail
-        ? `GBP is correctly authorized via ${googleAccountEmail} (${roleLabel} access verified), but Google is not returning call and view metrics.${mismatchNote}`
-        : `Your connected Google account has Manager access, but Google is not returning call and view metrics for this location.`,
+      headline: "Call & view insights aren't available right now",
+      detail:
+        "Google isn't sharing call clicks, profile views, or direction requests for this location. Your profile details, reviews, and keyword rankings are still included in your audit.",
       suggestion:
-        "No need to reconnect GBP if the Google account above is your Manager. This is a known Google limitation for some listings — your audit will continue using profile, review, and ranking data.",
+        accountMismatch && platformEmail && googleAccountEmail
+          ? `You sign in as ${platformEmail} and manage the profile through ${googleAccountEmail} — that's a normal setup. No changes needed.`
+          : "Nothing you need to change — your Google Business Profile connection looks correct.",
+    };
+  }
+
+  if (status === "confirmed_manager") {
+    return {
+      severity: "info",
+      headline: "Profile connected",
+      detail: "Your Google Business Profile is linked and ready.",
+      suggestion: "",
     };
   }
 
   if (status === "site_manager_only") {
     return {
       severity: "warning",
-      headline: "Performance metrics need a higher access level",
-      detail: googleAccountEmail
-        ? `GBP is authorized via ${googleAccountEmail} as Site Manager, which cannot read performance insights.`
-        : "The connected Google account has Site Manager access, which cannot read performance insights.",
+      headline: "More access is needed for insights",
+      detail:
+        "The connected Google account has limited access and can't load call or view data.",
       suggestion:
-        "Reconnect GBP with a Google account that is Owner or Manager on this Business Profile location.",
+        "Reconnect your Google Business Profile using an account with Owner or Manager access.",
     };
   }
 
-  if (status === "no_admin_match") {
-    const mismatchNote =
-      accountMismatch && platformEmail && googleAccountEmail
-        ? ` App sign-in (${platformEmail}) and GBP account (${googleAccountEmail}) differ.`
-        : "";
-
+  if (status === "no_admin_match" || status === "cannot_list_admins" || status === "check_failed") {
     return {
       severity: "warning",
-      headline: "GBP Google account may not manage this location",
+      headline: "Couldn't verify Google Business Profile access",
       detail: googleAccountEmail
-        ? `GBP is authorized via ${googleAccountEmail}, but we could not verify Owner/Manager access on this location.${mismatchNote}`
-        : "The Google account used for GBP access could not be verified as an Owner or Manager on this location.",
-      suggestion: googleAccountEmail
-        ? `Reconnect GBP and choose the Google account that is Owner or Manager on this business in Google Business Profile (keep using ${googleAccountEmail} if that account is the Manager).`
-        : "Reconnect GBP with the Google account that manages this business in Google Business Profile.",
-    };
-  }
-
-  if (status === "cannot_list_admins") {
-    return {
-      severity: "warning",
-      headline: "Unable to verify Business Profile access",
-      detail: googleAccountEmail
-        ? `Google would not let ${googleAccountEmail} list administrators for this location.`
-        : "Google would not let the connected account list administrators for this location.",
+        ? `We're connected through ${googleAccountEmail}, but couldn't confirm full access to this location.`
+        : "We couldn't confirm full access to this Google Business Profile location.",
       suggestion:
-        "Reconnect GBP with an Owner or Manager Google account for this location, then re-run the audit.",
+        "Try reconnecting your Google Business Profile in Settings. Use the Google account that manages this business.",
     };
   }
 
   return {
     severity: "warning",
-    headline: "Performance metrics unavailable",
-    detail: googleAccountEmail
-      ? `GBP is authorized via ${googleAccountEmail}, but Google returned permission denied for calls, profile views, and direction clicks.`
-      : "Google returned permission denied for calls, profile views, and direction clicks.",
-    suggestion:
-      "Open Settings to review which Google account is connected to GBP, then reconnect with an Owner or Manager account if needed.",
+    headline: "Insights temporarily unavailable",
+    detail:
+      "Call clicks and profile views aren't loading for this location right now.",
+    suggestion: "Your audit will still include profile, review, and ranking data.",
   };
 }
 
@@ -284,6 +304,16 @@ export async function checkGbpLocationAccess(
       admins = [...admins, ...accountResult.admins];
     }
   } catch {
+    if (await canReadLocationProfile(connection)) {
+      return confirmedManagerCheck({
+        googleAccountEmail,
+        platformEmail,
+        accountMismatch,
+        performanceDenied,
+        admins: [],
+      });
+    }
+
     const guidance = buildAccessGuidance({
       status: "check_failed",
       googleAccountEmail,
@@ -303,6 +333,16 @@ export async function checkGbpLocationAccess(
   }
 
   if (locationAdminsDenied) {
+    if (await canReadLocationProfile(connection)) {
+      return confirmedManagerCheck({
+        googleAccountEmail,
+        platformEmail,
+        accountMismatch,
+        performanceDenied,
+        admins: [],
+      });
+    }
+
     const guidance = buildAccessGuidance({
       status: "cannot_list_admins",
       googleAccountEmail,
@@ -330,24 +370,13 @@ export async function checkGbpLocationAccess(
   const impliedManager = !managerMatch && !siteManagerMatch && !locationAdminsDenied;
 
   if (managerMatch || impliedManager) {
-    const role = managerMatch?.role ?? "MANAGER";
-    const guidance = buildAccessGuidance({
-      status: "confirmed_manager",
+    return confirmedManagerCheck({
       googleAccountEmail,
       platformEmail,
       accountMismatch,
-      matchedRole: role,
+      matchedRole: managerMatch?.role ?? "MANAGER",
       performanceDenied,
-    });
-    return withLegacyEmail({
-      status: "confirmed_manager",
-      googleAccountEmail,
-      platformEmail,
-      accountMismatch,
-      gbpAccessVerified: true,
-      matchedRole: role,
       admins,
-      ...guidance,
     });
   }
 
@@ -369,6 +398,16 @@ export async function checkGbpLocationAccess(
       matchedRole: siteManagerMatch.role,
       admins,
       ...guidance,
+    });
+  }
+
+  if (await canReadLocationProfile(connection)) {
+    return confirmedManagerCheck({
+      googleAccountEmail,
+      platformEmail,
+      accountMismatch,
+      performanceDenied,
+      admins,
     });
   }
 

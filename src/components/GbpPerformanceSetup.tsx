@@ -3,20 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import GbpAccountSummary from "@/components/GbpAccountSummary";
-import { PerformanceAccessDetails } from "@/components/PerformancePermissionBanner";
 import type { GbpLocationAccessCheck } from "@/lib/google/gbp-access";
-import type { PerformanceEndpointStatus } from "@/lib/google/gbp-performance";
-import {
-  GBP_API_ACCESS_FORM_URL,
-  PERFORMANCE_API_ENABLE_URL,
-} from "@/lib/google/performance-errors";
 
 interface PerformanceProbe {
   ok: boolean;
   partial?: boolean;
-  permissionDenied?: boolean;
   error?: string;
-  setupSteps?: string[];
   platformEmail?: string;
   googleAccountEmail?: string;
   accountMismatch?: boolean;
@@ -26,31 +18,10 @@ interface PerformanceProbe {
     websiteClicks: number;
     profileViews: number;
   };
-  endpoints?: {
-    coreMetrics: PerformanceEndpointStatus;
-    impressions: PerformanceEndpointStatus;
-    searchKeywords: PerformanceEndpointStatus;
-  };
   accessCheck?: GbpLocationAccessCheck;
 }
 
-function endpointLabel(status: PerformanceEndpointStatus | undefined): string {
-  switch (status) {
-    case "ok":
-      return "OK";
-    case "denied":
-      return "Permission denied";
-    case "failed":
-      return "Failed";
-    case "skipped":
-      return "Skipped";
-    default:
-      return "Unknown";
-  }
-}
-
 export default function GbpPerformanceSetup({
-  businessId,
   reconnectHref,
   platformEmail,
   storedGoogleEmail,
@@ -71,7 +42,7 @@ export default function GbpPerformanceSetup({
         const data = await res.json();
         if (!cancelled) setProbe(data);
       } catch {
-        if (!cancelled) setProbe({ ok: false, error: "Could not reach performance API" });
+        if (!cancelled) setProbe({ ok: false });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -99,6 +70,18 @@ export default function GbpPerformanceSetup({
     probe?.accessCheck?.gbpAccessVerified ??
     probe?.accessCheck?.status === "confirmed_manager";
 
+  const accessCheck = probe?.accessCheck;
+  const severity = accessCheck?.severity ?? (gbpAccessVerified ? "info" : "warning");
+  const headline =
+    accessCheck?.headline ??
+    (gbpAccessVerified
+      ? "Call & view insights aren't available right now"
+      : "Couldn't load Google insights");
+  const detail =
+    accessCheck?.detail ??
+    "Call clicks and profile views aren't loading for this location. Your profile, reviews, and rankings still work.";
+  const suggestion = accessCheck?.suggestion;
+
   const accountSummary = (
     <GbpAccountSummary
       platformEmail={resolvedPlatformEmail}
@@ -113,13 +96,14 @@ export default function GbpPerformanceSetup({
       <div className="space-y-4">
         {accountSummary}
         <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-6 text-sm text-slate-400">
-          Checking Business Profile Performance API access…
+          Checking your Google Business Profile connection…
         </div>
       </div>
     );
   }
 
   if (probe?.ok) {
+    const metrics = probe.sampleMetrics;
     return (
       <div className="space-y-4">
         {accountSummary}
@@ -130,97 +114,38 @@ export default function GbpPerformanceSetup({
               : "border-emerald-500/25 bg-emerald-500/10"
           }`}
         >
-          <h2 className="text-lg font-bold text-white">Performance API</h2>
+          <h2 className="text-lg font-bold text-white">Profile insights</h2>
           <p className={`mt-2 text-sm ${probe.partial ? "text-amber-200" : "text-emerald-200"}`}>
-            {probe.partial ? "Partially connected" : "Connected"} — last 7 days:{" "}
-            {probe.sampleMetrics?.profileViews ?? 0} profile views,{" "}
-            {probe.sampleMetrics?.calls ?? 0} call clicks,{" "}
-            {probe.sampleMetrics?.directionRequests ?? 0} direction requests.
+            Last 7 days: {metrics?.profileViews ?? 0} profile views, {metrics?.calls ?? 0} calls,{" "}
+            {metrics?.directionRequests ?? 0} direction requests.
           </p>
-          {probe.endpoints && (
-            <ul className="mt-3 space-y-1 text-xs text-slate-400">
-              <li>Core metrics: {endpointLabel(probe.endpoints.coreMetrics)}</li>
-              <li>Profile views: {endpointLabel(probe.endpoints.impressions)}</li>
-              <li>Search keywords: {endpointLabel(probe.endpoints.searchKeywords)}</li>
-            </ul>
-          )}
         </div>
       </div>
     );
   }
 
-  const accessCheck = probe?.accessCheck;
-  const severity = accessCheck?.severity ?? "warning";
   const containerClass =
     severity === "info"
-      ? "rounded-2xl border border-slate-500/25 bg-slate-500/10 p-6"
-      : "rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6";
-  const titleClass = severity === "info" ? "text-slate-100" : "text-amber-100";
+      ? "rounded-2xl border border-slate-500/20 bg-slate-500/5 p-6"
+      : "rounded-2xl border border-amber-500/25 bg-amber-500/5 p-6";
+  const titleClass = severity === "info" ? "text-slate-200" : "text-amber-100";
 
   return (
     <div className="space-y-4">
       {accountSummary}
       <div className={containerClass}>
-        <h2 className={`text-lg font-bold ${titleClass}`}>
-          {accessCheck?.headline ?? "Performance API not authorized"}
-        </h2>
-        <p className="mt-2 text-sm text-slate-300">
-          {accessCheck?.detail ??
-            probe?.error ??
-            "Google returned permission denied for profile views, calls, and direction clicks."}
-        </p>
-        {accessCheck?.suggestion && (
-          <p className="mt-3 text-sm text-slate-300">{accessCheck.suggestion}</p>
-        )}
-        {accessCheck && <PerformanceAccessDetails accessCheck={accessCheck} />}
-        {probe?.endpoints && (
-          <ul className="mt-3 space-y-1 text-xs text-slate-400">
-            <li>Core metrics: {endpointLabel(probe.endpoints.coreMetrics)}</li>
-            <li>Profile views: {endpointLabel(probe.endpoints.impressions)}</li>
-            <li>Search keywords: {endpointLabel(probe.endpoints.searchKeywords)}</li>
-          </ul>
-        )}
+        <h2 className={`text-lg font-bold ${titleClass}`}>{headline}</h2>
+        <p className="mt-2 text-sm text-slate-400">{detail}</p>
+        {suggestion && <p className="mt-3 text-sm text-slate-300">{suggestion}</p>}
 
-        {severity === "warning" && (
-          <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-slate-300">
-            {(probe?.setupSteps ?? []).map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-        )}
-
-        <div className="mt-5 flex flex-wrap gap-3">
-          {severity === "warning" && (
-            <>
-              <a
-                href={PERFORMANCE_API_ENABLE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-primary rounded-full px-5 py-2 text-sm font-semibold text-white"
-              >
-                Enable Performance API
-              </a>
-              <a
-                href={GBP_API_ACCESS_FORM_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-secondary rounded-full px-5 py-2 text-sm font-semibold text-white"
-              >
-                GBP API access form
-              </a>
-            </>
-          )}
-        {severity !== "info" && !gbpAccessVerified && (
+        {severity === "warning" && !gbpAccessVerified && (
           <Link
             href={reconnectHref}
-            className="rounded-full border border-white/15 px-5 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5"
+            className="mt-5 inline-block rounded-full border border-white/15 px-5 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5"
           >
-            Reconnect with a different Google account
+            Reconnect Google Business Profile
           </Link>
         )}
-        </div>
-
-        <p className="mt-4 text-xs text-slate-500">Business ID: {businessId}</p>
       </div>
     </div>
   );
