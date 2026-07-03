@@ -1,5 +1,6 @@
 import type { FullAuditPayload, Phase1AuditPayload } from "@/audit/types";
 import { createClient } from "@/lib/supabase/server";
+import { auditBelongsToBusiness } from "./audit-validation";
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(
@@ -48,13 +49,14 @@ export async function saveAuditToSupabase(
 
 export async function loadLatestAuditFromSupabase(
   userId: string,
-  businessSlug: string
+  businessSlug: string,
+  options?: { businessName?: string; businessUuid?: string }
 ): Promise<FullAuditPayload | null> {
   const supabase = await createClient();
 
   const { data: business } = await supabase
     .from("businesses")
-    .select("id")
+    .select("id, slug, name")
     .eq("user_id", userId)
     .eq("slug", businessSlug)
     .maybeSingle();
@@ -71,7 +73,19 @@ export async function loadLatestAuditFromSupabase(
     .maybeSingle();
 
   if (error || !data?.payload) return null;
-  return data.payload as FullAuditPayload;
+
+  const audit = data.payload as FullAuditPayload;
+  const belongs = auditBelongsToBusiness(
+    audit,
+    {
+      id: business.slug,
+      name: options?.businessName ?? business.name,
+      businessId: options?.businessUuid ?? business.id,
+    },
+    userId
+  );
+
+  return belongs ? audit : null;
 }
 
 export async function loadPriorAuditFromSupabase(
@@ -83,7 +97,7 @@ export async function loadPriorAuditFromSupabase(
 
   const { data: business } = await supabase
     .from("businesses")
-    .select("id")
+    .select("id, slug, name")
     .eq("user_id", userId)
     .eq("slug", businessSlug)
     .maybeSingle();
@@ -101,7 +115,15 @@ export async function loadPriorAuditFromSupabase(
     .maybeSingle();
 
   if (error || !data?.payload) return null;
-  return data.payload as FullAuditPayload;
+
+  const audit = data.payload as FullAuditPayload;
+  const belongs = auditBelongsToBusiness(
+    audit,
+    { id: business.slug, name: business.name, businessId: business.id },
+    userId
+  );
+
+  return belongs ? audit : null;
 }
 
 export async function listAuditsFromSupabase(
@@ -112,7 +134,7 @@ export async function listAuditsFromSupabase(
 
   const { data: business } = await supabase
     .from("businesses")
-    .select("id")
+    .select("id, slug, name")
     .eq("user_id", userId)
     .eq("slug", businessSlug)
     .maybeSingle();
@@ -127,5 +149,13 @@ export async function listAuditsFromSupabase(
     .order("completed_at", { ascending: false });
 
   if (error || !data) return [];
-  return data.map((row) => row.payload as FullAuditPayload);
+  return data
+    .map((row) => row.payload as FullAuditPayload)
+    .filter((audit) =>
+      auditBelongsToBusiness(
+        audit,
+        { id: business.slug, name: business.name, businessId: business.id },
+        userId
+      )
+    );
 }

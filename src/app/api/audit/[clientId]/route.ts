@@ -16,9 +16,13 @@ export async function GET(
   const { clientId } = await params;
 
   try {
+    const fromDb = await listAuditsFromSupabase(user.id, clientId);
     const audits =
-      (await listAuditsFromSupabase(user.id, clientId)) ||
-      (isLocalStorageAvailable() ? await listAudits(clientId) : []);
+      fromDb.length > 0
+        ? fromDb
+        : isLocalStorageAvailable()
+          ? await listAudits(clientId)
+          : [];
     return NextResponse.json({ clientId, audits });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to list audits";

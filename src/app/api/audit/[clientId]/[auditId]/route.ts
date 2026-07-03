@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { loadBusinessConfig } from "@/audit/businesses";
+import { auditBelongsToBusiness } from "@/audit/audit-validation";
 import { loadAudit } from "@/audit/storage";
 import { getUser } from "@/lib/supabase/server";
 
@@ -20,6 +22,15 @@ export async function GET(
 
   if (audit.userId && audit.userId !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  try {
+    const business = await loadBusinessConfig(user.id, clientId);
+    if (!auditBelongsToBusiness(audit, business, user.id)) {
+      return NextResponse.json({ error: "Audit not found" }, { status: 404 });
+    }
+  } catch {
+    return NextResponse.json({ error: "Business not found" }, { status: 404 });
   }
 
   return NextResponse.json(audit);

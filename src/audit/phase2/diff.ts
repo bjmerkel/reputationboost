@@ -111,6 +111,11 @@ export function buildCompetitorDeltas(
 export function describeRankMovement(movement: RankMovement): string {
   const from = formatPosition(movement.fromPosition);
   const to = formatPosition(movement.toPosition);
+
+  if (movement.fromPosition === null && movement.toPosition !== null) {
+    return `Currently ${to} on "${movement.keyword}"`;
+  }
+
   if (movement.improved) {
     return `You moved from ${from} → ${to} on "${movement.keyword}"`;
   }

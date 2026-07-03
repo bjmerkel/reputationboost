@@ -25,7 +25,10 @@ export default async function PlatformAuditPage() {
 
   const gbpConnected = Boolean(business.onboardingComplete && business.gbpConnection);
 
-  const raw = await loadLatestAuditFromSupabase(user.id, business.id);
+  const raw = await loadLatestAuditFromSupabase(user.id, business.id, {
+    businessName: business.name,
+    businessUuid: business.businessId,
+  });
   const priorRaw = raw
     ? await loadPriorAuditFromSupabase(user.id, business.id, raw.completedAt)
     : null;
