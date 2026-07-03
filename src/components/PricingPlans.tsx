@@ -1,4 +1,4 @@
-import { SIGNUP_URL } from "@/lib/constants";
+import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 import { baseFeatures, pricingPlans } from "@/lib/pricing";
 
 function CheckIcon() {
@@ -63,7 +63,7 @@ export default function PricingPlans() {
                 : "btn-secondary text-white"
             }`}
           >
-            Get Free Account
+            {SIGNUP_CTA_LABEL}
           </a>
 
           <ul className="mt-8 flex flex-1 flex-col gap-3 border-t border-white/8 pt-8">

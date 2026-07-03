@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { SIGNUP_URL } from "@/lib/constants";
+import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 
 const navLinks = [
-  { label: "Local 3-Pack", href: "/#local-pack" },
+  { label: "Score", href: "/#reputation-score" },
   { label: "Features", href: "/#features" },
   { label: "How It Works", href: "/#how-it-works" },
-  { label: "Pricing", href: "/pricing-plan" },
+  { label: "Pricing", href: "/#pricing" },
 ];
 
 export default function Navbar() {
@@ -62,7 +62,7 @@ export default function Navbar() {
               href={SIGNUP_URL}
               className="btn-primary rounded-full px-5 py-2.5 text-sm font-semibold text-white"
             >
-              Get Free Account
+              {SIGNUP_CTA_LABEL}
             </a>
           </div>
 
@@ -105,7 +105,7 @@ export default function Navbar() {
                 href={SIGNUP_URL}
                 className="btn-primary rounded-full px-5 py-2.5 text-center text-sm font-semibold text-white"
               >
-                Get Free Account
+                {SIGNUP_CTA_LABEL}
               </a>
             </div>
           </div>

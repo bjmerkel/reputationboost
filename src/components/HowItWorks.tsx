@@ -1,21 +1,21 @@
 const steps = [
   {
     step: "01",
-    title: "Audit Your GBP",
+    title: "Audit & Score",
     description:
-      "Connect your Google Business Profile and target keywords. We instantly analyze your current Maps rankings, review strength, and competitor positions.",
+      "Connect your Google Business Profile and target keywords. We analyze rankings, competitors, and profile gaps — then calculate your Reputation Boost Score.",
   },
   {
     step: "02",
-    title: "Get Your Action Plan",
+    title: "Get Your Plan",
     description:
-      "Receive AI-driven recommendations prioritized to move you into the Local 3-Pack — profile optimizations, review strategies, and keyword targets.",
+      "AI builds a prioritized 16-step action plan with projected score and revenue impact for each step. Review AI-drafted copy before anything goes live.",
   },
   {
     step: "03",
-    title: "Rank Higher & Engage More",
+    title: "Execute & Grow",
     description:
-      "Implement changes, track your climb on Google Maps, and watch calls, direction requests, and website clicks grow as you break into the top 3.",
+      "Approve changes, we publish to Google. Track daily score movement, rank improvements, and attributed revenue from calls, directions, and profile views.",
   },
 ];
 
@@ -28,12 +28,12 @@ export default function HowItWorks() {
             How It Works
           </span>
           <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            From invisible to{" "}
-            <span className="gradient-text">Local 3-Pack</span>
+            From score to{" "}
+            <span className="gradient-text">revenue</span>
           </h2>
           <p className="mt-4 text-lg text-slate-400">
-            Three steps to optimize your Google Business Profile and start
-            capturing the 70%+ of map clicks that go to the top three.
+            Three steps to know your score, fix what&apos;s holding you back,
+            and prove the results with real attribution data.
           </p>
         </div>
 
@@ -69,11 +69,17 @@ export default function HowItWorks() {
               <div className="mb-4 inline-flex rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-red-400">
                 Before
               </div>
-              <h4 className="text-lg font-bold text-white">Outside the Local 3-Pack</h4>
+              <h4 className="text-lg font-bold text-white">Score 47 — At Risk</h4>
               <p className="mt-2 text-sm text-slate-400">
-                Ranked position 4 or lower — missing 70–75% of map clicks and
-                losing high-intent customers to competitors above you.
+                Outside the Local 3-Pack on most keywords. Missing calls and
+                direction requests that go to competitors above you.
               </p>
+              <div className="mt-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-orange-500 text-sm font-bold text-orange-400">
+                  47
+                </div>
+                <p className="text-sm text-slate-400">Reputation Boost Score</p>
+              </div>
               <div className="mt-6 space-y-2">
                 {[
                   { pos: 18, kw: "san diego stucco", label: "Not in pack" },
@@ -97,11 +103,17 @@ export default function HowItWorks() {
               <div className="mb-4 inline-flex rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-400">
                 After
               </div>
-              <h4 className="text-lg font-bold text-white">In the Local 3-Pack</h4>
+              <h4 className="text-lg font-bold text-white">Score 72 — Healthy</h4>
               <p className="mt-2 text-sm text-slate-400">
-                Top-3 Google Maps positions driving 126% more traffic and 93%
-                more calls and direction requests.
+                In the Local 3-Pack on key keywords. +$4,200/mo estimated revenue
+                from more calls, directions, and profile views.
               </p>
+              <div className="mt-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-emerald-500 text-sm font-bold text-emerald-400">
+                  72
+                </div>
+                <p className="text-sm text-emerald-400">+25 pts · +$4,200/mo</p>
+              </div>
               <div className="mt-6 space-y-2">
                 {[
                   { pos: 1, kw: "san diego stucco", label: "Map #1" },

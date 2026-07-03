@@ -1,4 +1,16 @@
-import { SIGNUP_URL } from "@/lib/constants";
+import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
+
+const keywords = [
+  { keyword: "emergency plumber austin", rank: 8, revenue: "$2,400/mo at #1", inPack: false },
+  { keyword: "water heater repair", rank: 3, revenue: "$1,850/mo at #1", inPack: true },
+  { keyword: "drain cleaning near me", rank: 5, revenue: "$1,200/mo at #1", inPack: false },
+];
+
+const planSteps = [
+  { title: "Add 15 service photos", impact: 8 },
+  { title: "Optimize business description", impact: 6 },
+  { title: "Publish weekly Google Post", impact: 5 },
+];
 
 export default function Hero() {
   return (
@@ -16,18 +28,18 @@ export default function Hero() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
             </span>
-            Google Business Profile Optimization
+            Free Reputation Boost Score Audit
           </div>
 
           <h1 className="animate-fade-up animate-delay-100 max-w-4xl text-5xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-6xl lg:text-7xl">
-            Rank Higher on{" "}
-            <span className="gradient-text">Google Maps</span>
+            Your Score. Your Plan.{" "}
+            <span className="gradient-text">Your Revenue.</span>
           </h1>
 
           <p className="animate-fade-up animate-delay-200 mt-6 max-w-2xl text-lg leading-relaxed text-slate-400 sm:text-xl">
-            Optimize your Google Business Profile to break into the Local 3-Pack,
-            increase visibility, and drive more calls, direction requests, and
-            website visits from customers ready to buy.
+            Enter your keywords. We audit your Google Business Profile, calculate
+            your Reputation Boost Score, and build a step-by-step plan to
+            increase rankings, calls, and revenue.
           </p>
 
           <div className="animate-fade-up animate-delay-300 mt-10 flex flex-col gap-4 sm:flex-row">
@@ -35,24 +47,28 @@ export default function Hero() {
               href={SIGNUP_URL}
               className="btn-primary inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-semibold text-white"
             >
-              Get Free Account
+              {SIGNUP_CTA_LABEL}
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </a>
             <a
-              href="#local-pack"
+              href="#how-it-works"
               className="btn-secondary inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-semibold text-white"
             >
-              Why the Local 3-Pack
+              See How It Works
             </a>
           </div>
 
+          <p className="animate-fade-up animate-delay-300 mt-4 text-sm text-slate-500">
+            No credit card · 3-minute setup · Real GBP data
+          </p>
+
           <div className="animate-fade-up animate-delay-400 mt-16 grid w-full max-w-3xl grid-cols-3 gap-8 border-t border-white/10 pt-10">
             {[
-              { value: "70–75%", label: "Map Clicks to Top 3" },
-              { value: "126%", label: "Traffic Lift in Top 3" },
-              { value: "93%", label: "More Calls & Directions" },
+              { value: "16-step", label: "GBP Action Plan" },
+              { value: "4 radii", label: "Geo-Grid Tracking" },
+              { value: "$4,200", label: "Avg. Monthly Gain" },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <div className="text-2xl font-bold text-white sm:text-3xl">{stat.value}</div>
@@ -69,47 +85,88 @@ export default function Hero() {
                 <div className="h-3 w-3 rounded-full bg-red-500/80" />
                 <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
                 <div className="h-3 w-3 rounded-full bg-green-500/80" />
-                <span className="ml-3 text-xs text-slate-500">Local 3-Pack Tracker</span>
+                <span className="ml-3 text-xs text-slate-500">Reputation Boost Dashboard</span>
               </div>
 
-              <div className="grid gap-4 p-6 md:grid-cols-2">
+              <div className="grid gap-4 p-6 lg:grid-cols-3">
+                <div className="space-y-4">
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                    Reputation Boost Score
+                  </div>
+                  <div className="flex items-center gap-4 rounded-lg bg-white/5 p-4">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-4 border-orange-500 text-xl font-bold text-orange-400">
+                      47
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-white">47/100</p>
+                      <p className="text-xs text-slate-400">Profile 52 · Outcome 38</p>
+                      <p className="mt-1 text-xs font-medium text-orange-400">At risk</p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-white/5 p-3">
+                    <p className="text-xs font-medium text-slate-500">Path to 70</p>
+                    <p className="mt-1 text-sm font-semibold text-white">
+                      47 → <span className="text-emerald-400">72</span>
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-emerald-400">
+                      +$4,200/mo estimated revenue
+                    </p>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full w-[65%] rounded-full bg-emerald-500" />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-3">
                   <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                    Google Maps Rankings
+                    Keyword Scores
                   </div>
-                  {[
-                    { keyword: "plumber near me", rank: 2, change: "In Pack" },
-                    { keyword: "emergency plumbing", rank: 1, change: "In Pack" },
-                    { keyword: "water heater repair", rank: 4, change: "+2 to Pack" },
-                  ].map((item) => (
+                  {keywords.map((item) => (
                     <div
                       key={item.keyword}
-                      className="flex items-center justify-between rounded-lg bg-white/5 px-4 py-3"
+                      className="rounded-lg bg-white/5 px-4 py-3"
                     >
-                      <span className="text-sm text-slate-300">{item.keyword}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg font-bold text-white">#{item.rank}</span>
-                        <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">
-                          {item.change}
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm text-slate-300">{item.keyword}</span>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                            item.inPack
+                              ? "bg-emerald-500/20 text-emerald-400"
+                              : "bg-red-500/20 text-red-400"
+                          }`}
+                        >
+                          #{item.rank}
                         </span>
                       </div>
+                      <p className="mt-1 text-xs text-emerald-400">{item.revenue}</p>
                     </div>
                   ))}
                 </div>
 
                 <div className="space-y-3">
                   <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                    Geo Heatmap Preview
+                    Top Actions
                   </div>
-                  <div className="relative flex h-48 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-800 to-slate-900">
+                  {planSteps.map((step) => (
+                    <div
+                      key={step.title}
+                      className="flex items-center justify-between rounded-lg bg-white/5 px-4 py-2.5"
+                    >
+                      <span className="text-sm text-slate-300">{step.title}</span>
+                      <span className="text-xs font-semibold text-emerald-400">
+                        +{step.impact} pts
+                      </span>
+                    </div>
+                  ))}
+                  <div className="relative mt-2 flex h-28 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-800 to-slate-900">
                     <div className="absolute inset-0 opacity-30">
-                      {[...Array(5)].map((_, i) => (
+                      {[...Array(4)].map((_, i) => (
                         <div
                           key={i}
                           className="absolute rounded-full border border-emerald-500/30"
                           style={{
-                            width: `${(i + 1) * 60}px`,
-                            height: `${(i + 1) * 60}px`,
+                            width: `${(i + 1) * 50}px`,
+                            height: `${(i + 1) * 50}px`,
                             top: "50%",
                             left: "50%",
                             transform: "translate(-50%, -50%)",
@@ -117,15 +174,12 @@ export default function Hero() {
                         />
                       ))}
                     </div>
-                    <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50">
-                      <div className="h-3 w-3 rounded-full bg-white" />
+                    <div className="relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50">
+                      <div className="h-2 w-2 rounded-full bg-white" />
                     </div>
-                    <div className="absolute bottom-3 left-3 flex gap-2 text-xs text-slate-400">
-                      <span className="rounded bg-white/10 px-2 py-1">1 mi</span>
-                      <span className="rounded bg-white/10 px-2 py-1">3 mi</span>
-                      <span className="rounded bg-emerald-500/20 px-2 py-1 text-emerald-400">5 mi</span>
-                      <span className="rounded bg-white/10 px-2 py-1">10 mi</span>
-                    </div>
+                    <span className="absolute bottom-2 left-2 text-[10px] text-slate-500">
+                      Geo heatmap
+                    </span>
                   </div>
                 </div>
               </div>
@@ -140,8 +194,8 @@ export default function Hero() {
                 </svg>
               </div>
               <div>
-                <div className="text-sm font-semibold text-white">Entered Local 3-Pack!</div>
-                <div className="text-xs text-slate-400">Position #2 on Google Maps</div>
+                <div className="text-sm font-semibold text-white">+12 pts this month</div>
+                <div className="text-xs text-slate-400">Score trending up</div>
               </div>
             </div>
           </div>

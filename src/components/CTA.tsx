@@ -1,4 +1,4 @@
-import { SIGNUP_URL } from "@/lib/constants";
+import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 
 export default function CTA() {
   return (
@@ -14,12 +14,12 @@ export default function CTA() {
 
             <div className="relative">
               <h2 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-                Ready to rank in the Local 3-Pack?
+                What&apos;s your Reputation Boost Score?
               </h2>
               <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-400">
-                Join businesses optimizing their Google Business Profile to
-                capture more map clicks, calls, direction requests, and website
-                visits.
+                Free audit. Personalized plan. No credit card required.
+                Every day outside the Local 3-Pack, competitors capture the
+                calls meant for you.
               </p>
 
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -27,16 +27,16 @@ export default function CTA() {
                   href={SIGNUP_URL}
                   className="btn-primary inline-flex items-center justify-center gap-2 rounded-full px-10 py-4 text-base font-semibold text-white"
                 >
-                  Get Free Account
+                  {SIGNUP_CTA_LABEL}
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                 </a>
                 <a
-                  href="/pricing-plan"
+                  href="mailto:info@reputationboost.com"
                   className="btn-secondary inline-flex items-center justify-center gap-2 rounded-full px-10 py-4 text-base font-semibold text-white"
                 >
-                  View Pricing
+                  Talk to an Expert
                 </a>
               </div>
 
