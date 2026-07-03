@@ -10,6 +10,7 @@ import { buildTemplateContent } from "@/lib/llm/content";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { mapActionToExecutionType } from "./content";
 import { SUPPLEMENTARY_GAP_IDS, tasksFromGbpPlan } from "./gbp-plan-tasks";
+import { matchKeywordsInText } from "@/audit/attribution/keywords";
 
 function requiresApproval(type: ExecutionTask["type"]): boolean {
   return [
@@ -62,13 +63,18 @@ function tasksFromGooglePosts(
   action: ActionItem,
   posts: string[]
 ): ExecutionTask[] {
-  return posts.map((content, i) =>
-    buildTask(audit, action, "google_post", content, {
+  const keywords = audit.rankings.keywords.map((k) => k.keyword);
+  return posts.map((content, i) => {
+    const matched = matchKeywordsInText(content, keywords);
+    const targetKeywords =
+      matched.length > 0 ? matched : keywords[i % keywords.length] ? [keywords[i % keywords.length]] : [];
+    return buildTask(audit, action, "google_post", content, {
       postIndex: i + 1,
       totalPosts: posts.length,
       platform: "google_business",
-    })
-  );
+      targetKeywords,
+    });
+  });
 }
 
 function tasksFromReviewResponses(
@@ -104,6 +110,10 @@ function tasksFromReviewResponses(
         replyState: review?.replyState,
         policyViolation: review?.policyViolation,
         previousReply: isRedraft ? review?.replyText : undefined,
+        targetKeywords: matchKeywordsInText(
+          `${r.response} ${review?.text ?? ""}`,
+          audit.rankings.keywords.map((k) => k.keyword)
+        ),
       },
       isRedraft
         ? `Rewrite rejected reply for ${author} (${r.rating}★)`
@@ -151,6 +161,7 @@ function createTaskForAction(
       return [
         buildTask(audit, action, "gbp_description", content.gbpDescription, {
           field: "description",
+          targetKeywords: audit.rankings.keywords.map((k) => k.keyword),
         }),
       ];
     case "gbp_services":
@@ -163,7 +174,10 @@ function createTaskForAction(
             .slice(0, 3)
             .map((k) => k.keyword)
             .join(", ")}.`,
-          { photoCount: 5 }
+          {
+            photoCount: 5,
+            targetKeywords: audit.rankings.keywords.slice(0, 3).map((k) => k.keyword),
+          }
         ),
       ];
     case "gbp_photo":
@@ -214,6 +228,10 @@ function createTaskForAction(
         buildTask(audit, action, "social_post", content.socialPost || action.draftCopy || "", {
           platforms: ["facebook", "instagram"],
           frequency: "1x_week",
+          targetKeywords: matchKeywordsInText(
+            content.socialPost || action.draftCopy || "",
+            audit.rankings.keywords.map((k) => k.keyword)
+          ),
         }),
       ];
     default:

@@ -43,3 +43,39 @@ export interface IngestRunResult {
   rankRowsUpserted: number;
   errors: Array<{ businessId: string; step: string; message: string }>;
 }
+
+export interface ActionAttribution {
+  id: string;
+  executionTaskId: string;
+  businessId: string;
+  taskType: string;
+  actionItemId: string;
+  title: string;
+  publishedAt: string;
+  windowDays: number;
+  primaryKeyword: string | null;
+  rankBefore: number | null;
+  rankAfter: number | null;
+  rankDelta: number | null;
+  keywordsImproved: number;
+  callsDelta: number | null;
+  directionsDelta: number | null;
+  websiteClicksDelta: number | null;
+  impressionsDelta: number | null;
+  estimatedRevenue: number | null;
+  narrative: string;
+  preliminary: boolean;
+  computedAt: string;
+}
+
+export interface AttributionSummary {
+  period: string;
+  periodDays: number;
+  tasksCompleted: number;
+  keywordsImproved: number;
+  totalCallsDelta: number;
+  totalDirectionsDelta: number;
+  totalWebsiteClicksDelta: number;
+  totalEstimatedRevenue: number | null;
+  topWins: ActionAttribution[];
+}

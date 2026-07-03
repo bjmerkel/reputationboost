@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { executeTask } from "@/audit/phase3/executor";
 import { getExecutionTask, updateExecutionTask } from "@/audit/storage-execution";
+import { computeAttributionAfterTaskCompletion } from "@/audit/attribution";
 import {
   uploadGbpMediaFile,
   type GbpMediaCategory,
@@ -76,6 +77,8 @@ export async function POST(
         payload: { ...task.payload, uploadedMediaName: item.name },
       });
 
+      void computeAttributionAfterTaskCompletion(user.id, taskId);
+
       return NextResponse.json({ task: saved, message: saved?.result });
     }
 
@@ -108,6 +111,10 @@ export async function POST(
         previewDataUrl: undefined,
       },
     });
+
+    if (saved?.status === "completed") {
+      void computeAttributionAfterTaskCompletion(user.id, taskId);
+    }
 
     return NextResponse.json({ task: saved, message: saved?.result });
   } catch (error) {

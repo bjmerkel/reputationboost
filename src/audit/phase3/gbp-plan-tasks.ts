@@ -11,6 +11,7 @@ import type { GbpMediaCategory } from "@/lib/google/gbp-media";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
+import { matchKeywordsInText } from "@/audit/attribution/keywords";
 
 function mediaUploadDraft(hint: string, category: GbpMediaCategory): string {
   return [
@@ -124,6 +125,10 @@ export function buildPhotoExecutionTasks(
       imagePrompt: job.imagePrompt,
       aiGenerated: job.aiGenerated ?? false,
       hint: job.hint,
+      targetKeywords: matchKeywordsInText(
+        `${job.title} ${job.hint ?? ""}`,
+        audit.rankings.keywords.map((k) => k.keyword)
+      ),
     })
   );
 }
@@ -178,7 +183,10 @@ export function tasksFromGbpPlanStep(
           data.description ??
             step.copyBlocks?.[0]?.content ??
             content.gbpDescription,
-          { field: "description" }
+          {
+            field: "description",
+            targetKeywords: audit.rankings.keywords.map((k) => k.keyword),
+          }
         ),
       ];
     case "add_service_items": {
@@ -252,7 +260,12 @@ export function tasksFromGbpPlanStep(
             `30-60 second video featuring "${kw.keyword}" for ${city} customers.`,
             "AT_WORK"
           ),
-          { mediaFormat: "VIDEO", category: "AT_WORK", videoIndex: i + 1 }
+          {
+            mediaFormat: "VIDEO",
+            category: "AT_WORK",
+            videoIndex: i + 1,
+            targetKeywords: [kw.keyword],
+          }
         )
       );
     }
@@ -260,13 +273,18 @@ export function tasksFromGbpPlanStep(
       const posts = content.googlePosts.length
         ? content.googlePosts
         : [data.postSummary ?? step.copyBlocks?.[0]?.content ?? step.instruction];
-      return posts.map((post, i) =>
-        buildGbpTask(audit, step, "google_post", `${step.title} (${i + 1}/${posts.length})`, post, {
+      const allKeywords = audit.rankings.keywords.map((k) => k.keyword);
+      return posts.map((post, i) => {
+        const matched = matchKeywordsInText(post, allKeywords);
+        const targetKeywords =
+          matched.length > 0 ? matched : allKeywords[i % allKeywords.length] ? [allKeywords[i % allKeywords.length]] : [];
+        return buildGbpTask(audit, step, "google_post", `${step.title} (${i + 1}/${posts.length})`, post, {
           postIndex: i + 1,
           totalPosts: posts.length,
           platform: "google_business",
-        })
-      );
+          targetKeywords,
+        });
+      });
     }
     default:
       break;
@@ -328,7 +346,13 @@ export function tasksFromGbpPlanStep(
             ? `Rewrite rejected reply for ${author} (${r.rating}★)`
             : `Respond to ${author} (${r.rating}★)`,
           r.response,
-          reviewPayload(audit, r.reviewId, r.rating)
+          {
+            ...reviewPayload(audit, r.reviewId, r.rating),
+            targetKeywords: matchKeywordsInText(
+              `${r.response} ${review?.text ?? ""}`,
+              audit.rankings.keywords.map((k) => k.keyword)
+            ),
+          }
         );
       });
       return [...rejectedDeletes, ...replyTasks];

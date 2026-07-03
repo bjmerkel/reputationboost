@@ -1,4 +1,5 @@
 import { listOnboardedBusinesses } from "@/audit/businesses-admin";
+import { recomputeAttributionsForBusiness } from "@/audit/attribution";
 import { businessRecordToClientConfig, type BusinessRecord } from "@/audit/businesses";
 import {
   completeIngestRun,
@@ -164,6 +165,16 @@ async function ingestBusiness(
     result.errors.push({
       businessId: row.id,
       step: "ranks",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  try {
+    await recomputeAttributionsForBusiness(row.id);
+  } catch (error) {
+    result.errors.push({
+      businessId: row.id,
+      step: "attribution",
       message: error instanceof Error ? error.message : String(error),
     });
   }
