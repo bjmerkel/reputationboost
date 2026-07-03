@@ -95,12 +95,16 @@ export default function GbpPerformanceSetup({
         googleAccountEmail &&
         resolvedPlatformEmail.toLowerCase() !== googleAccountEmail.toLowerCase()
     );
+  const gbpAccessVerified =
+    probe?.accessCheck?.gbpAccessVerified ??
+    probe?.accessCheck?.status === "confirmed_manager";
 
   const accountSummary = (
     <GbpAccountSummary
       platformEmail={resolvedPlatformEmail}
       googleAccountEmail={loading ? storedGoogleEmail : googleAccountEmail}
       accountMismatch={accountMismatch}
+      gbpAccessVerified={gbpAccessVerified}
     />
   );
 
@@ -206,14 +210,14 @@ export default function GbpPerformanceSetup({
               </a>
             </>
           )}
-          {severity !== "info" && (
-            <Link
-              href={reconnectHref}
-              className="rounded-full border border-white/15 px-5 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5"
-            >
-              Reconnect with a different Google account
-            </Link>
-          )}
+        {severity !== "info" && !gbpAccessVerified && (
+          <Link
+            href={reconnectHref}
+            className="rounded-full border border-white/15 px-5 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5"
+          >
+            Reconnect with a different Google account
+          </Link>
+        )}
         </div>
 
         <p className="mt-4 text-xs text-slate-500">Business ID: {businessId}</p>

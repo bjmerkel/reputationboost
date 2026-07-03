@@ -33,7 +33,10 @@ export function PerformanceAccessDetails({
         <p>
           Google Business Profile authorized via:{" "}
           <span className="text-slate-300">{accessCheck.googleAccountEmail}</span>
-          {accessCheck.matchedRole && (
+          {accessCheck.gbpAccessVerified && (
+            <span className="text-emerald-400"> · Manager access verified</span>
+          )}
+          {!accessCheck.gbpAccessVerified && accessCheck.matchedRole && (
             <>
               {" "}
               · <span className="text-slate-300">{roleLabel(accessCheck.matchedRole)}</span>
@@ -41,10 +44,9 @@ export function PerformanceAccessDetails({
           )}
         </p>
       )}
-      {accessCheck.accountMismatch && (
-        <p className="text-amber-200/90">
-          These are different accounts. GBP data comes from the Google account above, not your
-          Reputation Boost sign-in.
+      {accessCheck.accountMismatch && accessCheck.gbpAccessVerified && (
+        <p className="text-slate-400">
+          App sign-in and GBP account differ — that is expected when an agency Manager connects GBP.
         </p>
       )}
       {managerAdmins.length > 0 && (
