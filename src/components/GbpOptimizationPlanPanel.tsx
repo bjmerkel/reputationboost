@@ -8,6 +8,7 @@ interface GbpOptimizationPlanPanelProps {
   kpiTargets?: string[];
   gbpConnected?: boolean;
   onOpenPhotos?: () => void;
+  variant?: "dark" | "light";
 }
 
 export default function GbpOptimizationPlanPanel({
@@ -15,32 +16,54 @@ export default function GbpOptimizationPlanPanel({
   kpiTargets = [],
   gbpConnected = false,
   onOpenPhotos,
+  variant = "dark",
 }: GbpOptimizationPlanPanelProps) {
+  const isLight = variant === "light";
   const [expanded, setExpanded] = useState<number | null>(plan.steps[0]?.stepNumber ?? 1);
 
   return (
     <div className="space-y-6">
       {gbpConnected && (
-        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            isLight
+              ? "border-[#ceead6] bg-[#e6f4ea] text-[#137333]"
+              : "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
+          }`}
+        >
           Connected to Google Business Profile — use <strong>Apply to GBP</strong> on supported
           steps to publish changes directly. No need to log into Google manually.
         </div>
       )}
 
-      <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-5 md:p-6">
-        <h3 className="text-lg font-bold text-white">{plan.title}</h3>
-        <p className="mt-1 text-sm font-medium text-slate-300">{plan.businessName}</p>
-        <p className="text-sm text-slate-500">{plan.address}</p>
+      <div
+        className={`rounded-xl border p-5 md:p-6 ${
+          isLight ? "border-[#dadce0] bg-white" : "border-cyan-500/20 bg-cyan-500/5"
+        }`}
+      >
+        <h3 className={`text-lg font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
+          {plan.title}
+        </h3>
+        <p className={`mt-1 text-sm font-medium ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
+          {plan.businessName}
+        </p>
+        <p className={`text-sm ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>{plan.address}</p>
 
         <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <p
+            className={`text-xs font-semibold uppercase tracking-wider ${
+              isLight ? "text-[#80868b]" : "text-slate-500"
+            }`}
+          >
             Target keywords
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {plan.targetKeywords.map((kw) => (
               <span
                 key={kw}
-                className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-slate-200"
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  isLight ? "bg-[#e8f0fe] text-[#1a73e8]" : "bg-white/10 text-slate-200"
+                }`}
               >
                 {kw}
               </span>
@@ -48,9 +71,15 @@ export default function GbpOptimizationPlanPanel({
           </div>
         </div>
 
-        <p className="mt-4 text-sm leading-relaxed text-slate-300">{plan.objective}</p>
+        <p className={`mt-4 text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
+          {plan.objective}
+        </p>
         {plan.contentSource === "llm" && (
-          <span className="mt-3 inline-block rounded-full bg-violet-500/20 px-2.5 py-0.5 text-xs font-medium text-violet-300">
+          <span
+            className={`mt-3 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+              isLight ? "bg-[#f3e8fd] text-[#9334e6]" : "bg-violet-500/20 text-violet-300"
+            }`}
+          >
             AI-generated comprehensive plan
           </span>
         )}

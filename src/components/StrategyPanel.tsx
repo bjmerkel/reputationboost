@@ -95,6 +95,7 @@ export default function StrategyPanel({
           kpiTargets={strategy.kpiTargets}
           gbpConnected={gbpConnected}
           onOpenPhotos={onOpenPhotos}
+          variant={variant}
         />
       ) : (
         <p className={isLight ? "text-[#5f6368]" : "text-slate-400"}>

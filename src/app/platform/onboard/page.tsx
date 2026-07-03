@@ -58,22 +58,16 @@ export default async function OnboardPage({ searchParams }: PageProps) {
       (existing?.businessId && !existing.onboardingComplete ? existing.businessId : undefined);
 
   return (
-    <main className="relative overflow-hidden py-10">
-      <div className="mesh-bg absolute inset-0" />
-      <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mb-10">
-          <span className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
-            Get Started
-          </span>
-          <h1 className="mt-2 text-4xl font-extrabold text-white">
-            Connect your business
-          </h1>
-          <p className="mt-3 max-w-2xl text-slate-400">
-            Link your Google Business Profile to unlock live audits, AI strategy,
-            and automated execution.
-          </p>
-        </div>
+    <main className="flex min-h-0 flex-1 flex-col py-6">
+      <div className="shrink-0 px-4 pb-6 sm:px-6">
+        <h1 className="text-2xl font-semibold text-[#202124]">Connect your business</h1>
+        <p className="mt-2 max-w-2xl text-sm text-[#5f6368]">
+          Search Google Maps, confirm your location, and link your Google Business Profile for
+          live audits and optimization.
+        </p>
+      </div>
 
+      <div className="min-h-0 flex-1 px-4 sm:px-6">
         <OnboardingWizard
           step={step}
           businessId={wizardBusinessId}
@@ -81,6 +75,7 @@ export default async function OnboardPage({ searchParams }: PageProps) {
           error={params.error}
           disconnected={params.disconnected === "1"}
           changingBusiness={changingBusiness}
+          theme="light"
         />
       </div>
     </main>

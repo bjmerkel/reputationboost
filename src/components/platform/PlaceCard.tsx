@@ -13,6 +13,8 @@ interface PlaceCardProps {
   onViewChange: (view: AuditView) => void;
   pendingTasks?: number;
   pendingPhotoTasks?: number;
+  unrespondedReviews?: number;
+  onPreviewCustomer?: () => void;
   children: React.ReactNode;
 }
 
@@ -22,6 +24,8 @@ export default function PlaceCard({
   onViewChange,
   pendingTasks = 0,
   pendingPhotoTasks = 0,
+  unrespondedReviews = 0,
+  onPreviewCustomer,
   children,
 }: PlaceCardProps) {
   const { gbp } = audit;
@@ -64,7 +68,7 @@ export default function PlaceCard({
         </div>
       </div>
 
-      <PlaceCardDetails audit={audit} />
+      <PlaceCardDetails audit={audit} onPreviewCustomer={onPreviewCustomer} />
 
       <nav
         aria-label="Business sections"
@@ -77,7 +81,9 @@ export default function PlaceCard({
               ? pendingTasks
               : tab.id === "photos"
                 ? pendingPhotoTasks
-                : 0;
+                : tab.id === "reviews"
+                  ? unrespondedReviews
+                  : 0;
 
           return (
             <button

@@ -12,10 +12,12 @@ import MonthlyReportPanel from "@/components/MonthlyReportPanel";
 import PerformancePermissionBanner from "@/components/PerformancePermissionBanner";
 import PhotosPanel from "@/components/PhotosPanel";
 import MapsSearchBar from "@/components/platform/MapsSearchBar";
-import InlineOptimizationCards from "@/components/platform/InlineOptimizationCards";
+import ListingDiffCards from "@/components/platform/ListingDiffCards";
 import PlaceCard from "@/components/platform/PlaceCard";
+import PlaceCardReviewsPanel from "@/components/platform/PlaceCardReviewsPanel";
 import PlatformShell from "@/components/platform/PlatformShell";
 import RankingMap from "@/components/platform/RankingMap";
+import ViewAsCustomerModal from "@/components/platform/ViewAsCustomerModal";
 import StrategyPanel from "@/components/StrategyPanel";
 
 interface BusinessLocation {
@@ -57,6 +59,7 @@ export default function AuditDashboard({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const setView = useCallback(
     (next: AuditView) => {
@@ -76,6 +79,9 @@ export default function AuditDashboard({
 
   const pendingPhotoTasks = photoTasks.filter((t) => t.status === "pending_approval").length;
   const pendingTasks = actionTasks.filter((t) => t.status === "pending_approval").length;
+  const pendingReviewReplies = actionTasks.filter(
+    (t) => t.type === "review_response" && t.status === "pending_approval"
+  ).length;
 
   const keywordRank = useMemo(() => {
     if (!audit) return undefined;
@@ -206,9 +212,12 @@ export default function AuditDashboard({
           onViewChange={setView}
           pendingTasks={pendingTasks}
           pendingPhotoTasks={pendingPhotoTasks}
+          unrespondedReviews={audit.reviews.unrespondedNegative}
+          onPreviewCustomer={() => setPreviewOpen(true)}
         >
           {view === "report" && (
-            <InlineOptimizationCards
+            <ListingDiffCards
+              audit={audit}
               clientId={clientId}
               auditId={audit.auditId}
               tasks={tasks}
@@ -223,6 +232,14 @@ export default function AuditDashboard({
             <p className="text-sm text-[#5f6368]">
               Your monthly overview will appear after your first audit completes.
             </p>
+          )}
+
+          {view === "reviews" && (
+            <PlaceCardReviewsPanel
+              audit={audit}
+              unrespondedCount={pendingReviewReplies}
+              onOpenUpdates={() => setView("execute")}
+            />
           )}
 
           {view === "strategy" && audit.strategy && (
@@ -275,6 +292,13 @@ export default function AuditDashboard({
           />
         </div>
       </PlatformShell>
+
+      <ViewAsCustomerModal
+        audit={audit}
+        tasks={tasks}
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+      />
     </div>
   );
 }

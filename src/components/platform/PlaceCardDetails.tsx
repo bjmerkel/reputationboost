@@ -5,9 +5,10 @@ import GoogleMapsLink from "@/components/GoogleMapsLink";
 
 interface PlaceCardDetailsProps {
   audit: FullAuditPayload;
+  onPreviewCustomer?: () => void;
 }
 
-export default function PlaceCardDetails({ audit }: PlaceCardDetailsProps) {
+export default function PlaceCardDetails({ audit, onPreviewCustomer }: PlaceCardDetailsProps) {
   const { gbp, strategy } = audit;
   const score = strategy?.scores.overall ?? 0;
   const grade = strategy?.scores.grade ?? "at_risk";
@@ -76,13 +77,24 @@ export default function PlaceCardDetails({ audit }: PlaceCardDetailsProps) {
         )}
       </ul>
 
-      <GoogleMapsLink
-        mapsUrl={gbp.identity.mapsUrl}
-        name={gbp.identity.name}
-        address={gbp.identity.address}
-        className="inline-flex text-xs font-medium text-[#1a73e8] hover:underline"
-        label="View on Google Maps →"
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <GoogleMapsLink
+          mapsUrl={gbp.identity.mapsUrl}
+          name={gbp.identity.name}
+          address={gbp.identity.address}
+          className="inline-flex text-xs font-medium text-[#1a73e8] hover:underline"
+          label="View on Google Maps →"
+        />
+        {onPreviewCustomer && (
+          <button
+            type="button"
+            onClick={onPreviewCustomer}
+            className="text-xs font-medium text-[#007b83] hover:underline"
+          >
+            Preview as customer
+          </button>
+        )}
+      </div>
     </div>
   );
 }

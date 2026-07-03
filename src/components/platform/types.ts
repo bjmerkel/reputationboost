@@ -9,6 +9,7 @@ export interface PlaceCardTab {
 /** Maps-native tab labels mapped to existing audit views (?view= stays compatible). */
 export const PLACE_CARD_TABS: PlaceCardTab[] = [
   { id: "report", label: "Overview", mapsLabel: "Overview" },
+  { id: "reviews", label: "Reviews", mapsLabel: "Reviews" },
   { id: "strategy", label: "Plan", mapsLabel: "Plan" },
   { id: "photos", label: "Photos", mapsLabel: "Photos" },
   { id: "execute", label: "Updates", mapsLabel: "Updates" },

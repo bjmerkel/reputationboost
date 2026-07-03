@@ -7,6 +7,7 @@ import GoogleBusinessAutocomplete, {
   type BusinessPlaceSelection,
 } from "@/components/GoogleBusinessAutocomplete";
 import { KeywordSuggestions } from "@/components/KeywordSuggestions";
+import RankingMap from "@/components/platform/RankingMap";
 
 interface OnboardingWizardProps {
   step: "business" | "connect" | "location";
@@ -15,6 +16,7 @@ interface OnboardingWizardProps {
   error?: string;
   disconnected?: boolean;
   changingBusiness?: boolean;
+  theme?: "light" | "dark";
 }
 
 export default function OnboardingWizard({
@@ -24,7 +26,9 @@ export default function OnboardingWizard({
   error,
   disconnected,
   changingBusiness = false,
+  theme = "dark",
 }: OnboardingWizardProps) {
+  const isLight = theme === "light";
   const router = useRouter();
   const [step, setStep] = useState(initialStep);
   const [businessId, setBusinessId] = useState(initialBusinessId ?? "");
@@ -164,15 +168,19 @@ export default function OnboardingWizard({
   }
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className={isLight ? "mx-auto max-w-6xl" : "mx-auto max-w-xl"}>
       <div className="mb-8 flex gap-2">
         {(["business", "connect", "location"] as const).map((s, i) => (
           <div
             key={s}
             className={`h-1 flex-1 rounded-full ${
               step === s || (step === "location" && s !== "business")
-                ? "bg-emerald-400"
-                : "bg-white/10"
+                ? isLight
+                  ? "bg-[#1a73e8]"
+                  : "bg-emerald-400"
+                : isLight
+                  ? "bg-[#dadce0]"
+                  : "bg-white/10"
             }`}
             title={`Step ${i + 1}`}
           />
@@ -180,23 +188,51 @@ export default function OnboardingWizard({
       </div>
 
       {(formError || error) && (
-        <p className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <p
+          className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+            isLight
+              ? "border-[#f6aea9] bg-[#fce8e6] text-[#c5221f]"
+              : "border-red-500/30 bg-red-500/10 text-red-300"
+          }`}
+        >
           {formError || error}
         </p>
       )}
 
       {disconnected && (
-        <p className="mb-6 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+        <p
+          className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+            isLight
+              ? "border-[#ceead6] bg-[#e6f4ea] text-[#137333]"
+              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+          }`}
+        >
           Google Business Profile disconnected. Reconnect below to resume live audits.
         </p>
       )}
 
       {step === "business" && (
-        <form onSubmit={createBusiness} className="space-y-4">
-          <h2 className="text-2xl font-bold text-white">
+        <div
+          className={
+            placeSelected && lat && lng && isLight
+              ? "flex min-h-[520px] flex-col overflow-hidden rounded-xl border border-[#dadce0] bg-white lg:flex-row"
+              : ""
+          }
+        >
+          <form
+            onSubmit={createBusiness}
+            className={`space-y-4 ${
+              placeSelected && lat && lng && isLight
+                ? "w-full shrink-0 overflow-y-auto p-6 lg:w-[420px]"
+                : ""
+            }`}
+          >
+          <h2
+            className={`text-2xl font-bold ${isLight ? "text-[#202124]" : "text-white"}`}
+          >
             {changingBusiness ? "Change your business" : "Add your business"}
           </h2>
-          <p className="text-sm text-slate-400">
+          <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
             {changingBusiness
               ? "Search for a different business on Google Maps. You'll connect its Google Business Profile in the next steps."
               : "Search for your business on Google Maps. Next you'll connect your Google Business Profile for live data."}
@@ -210,23 +246,24 @@ export default function OnboardingWizard({
           {placeSelected && (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Business name" value={name} onChange={setName} required />
+                <Field label="Business name" value={name} onChange={setName} required light={isLight} />
                 <Field
                   label="Industry / category"
                   value={industry}
                   onChange={setIndustry}
                   required
+                  light={isLight}
                 />
               </div>
-              <Field label="Street address" value={address} onChange={setAddress} required />
+              <Field label="Street address" value={address} onChange={setAddress} required light={isLight} />
               <div className="grid gap-4 sm:grid-cols-3">
-                <Field label="City" value={city} onChange={setCity} required />
-                <Field label="State" value={state} onChange={setState} required />
-                <Field label="ZIP" value={zip} onChange={setZip} required />
+                <Field label="City" value={city} onChange={setCity} required light={isLight} />
+                <Field label="State" value={state} onChange={setState} required light={isLight} />
+                <Field label="ZIP" value={zip} onChange={setZip} required light={isLight} />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Phone" value={phone} onChange={setPhone} />
-                <Field label="Website" value={website} onChange={setWebsite} />
+                <Field label="Phone" value={phone} onChange={setPhone} light={isLight} />
+                <Field label="Website" value={website} onChange={setWebsite} light={isLight} />
               </div>
 
               <KeywordSuggestions
@@ -252,17 +289,31 @@ export default function OnboardingWizard({
             {loading ? "Saving…" : "Continue"}
           </button>
         </form>
+
+          {placeSelected && lat && lng && isLight && (
+            <div className="min-h-[280px] flex-1 border-t border-[#dadce0] lg:min-h-0 lg:border-t-0 lg:border-l">
+              <RankingMap
+                lat={lat}
+                lng={lng}
+                address={`${address}, ${city}, ${state} ${zip}`}
+                businessName={name}
+              />
+            </div>
+          )}
+        </div>
       )}
 
       {step === "connect" && (
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-white">Connect Google Business Profile</h2>
-          <p className="text-sm leading-relaxed text-slate-400">
+        <div className={`mx-auto max-w-xl space-y-6 ${isLight ? "" : ""}`}>
+          <h2 className={`text-2xl font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
+            Connect Google Business Profile
+          </h2>
+          <p className={`text-sm leading-relaxed ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
             Sign in with the Google account that manages your business on Google Maps.
             We&apos;ll pull live profile data, reviews, posts, and performance metrics.
           </p>
 
-          <ul className="space-y-2 text-sm text-slate-300">
+          <ul className={`space-y-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
             <li>✓ Performance: profile views, calls, directions, website clicks, search keywords</li>
             <li>✓ Reviews and response status</li>
             <li>✓ Google Posts and Q&amp;A</li>
@@ -281,20 +332,26 @@ export default function OnboardingWizard({
           <button
             type="button"
             onClick={skipGbpForLater}
-            className="w-full rounded-full py-3 text-sm font-medium text-slate-400 transition hover:text-white"
+            className={`w-full rounded-full py-3 text-sm font-medium transition ${
+              isLight
+                ? "text-[#5f6368] hover:text-[#202124]"
+                : "text-slate-400 hover:text-white"
+            }`}
           >
             Skip for later
           </button>
-          <p className="text-center text-xs text-slate-500">
+          <p className={`text-center text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
             You can connect anytime from Settings. Live audits require a GBP link.
           </p>
         </div>
       )}
 
       {step === "location" && (
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-white">Select your location</h2>
-          <p className="text-sm text-slate-400">
+        <div className="mx-auto max-w-xl space-y-4">
+          <h2 className={`text-2xl font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
+            Select your location
+          </h2>
+          <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
             Your Google account manages multiple locations. Choose the one to optimize.
           </p>
 
@@ -304,11 +361,19 @@ export default function OnboardingWizard({
               type="button"
               disabled={loading}
               onClick={() => selectLocation(loc)}
-              className="w-full rounded-xl border border-white/10 bg-white/[0.03] p-4 text-left transition hover:border-emerald-500/40 hover:bg-white/[0.05] disabled:opacity-50"
+              className={`w-full rounded-xl border p-4 text-left transition disabled:opacity-50 ${
+                isLight
+                  ? "border-[#dadce0] bg-white hover:border-[#1a73e8] hover:bg-[#f8f9fa]"
+                  : "border-white/10 bg-white/[0.03] hover:border-emerald-500/40 hover:bg-white/[0.05]"
+              }`}
             >
-              <p className="font-semibold text-white">{loc.title}</p>
-              <p className="mt-1 text-sm text-slate-400">{loc.address}</p>
-              <p className="mt-1 text-xs text-slate-500">{loc.primaryCategory}</p>
+              <p className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+                {loc.title}
+              </p>
+              <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                {loc.address}
+              </p>
+              <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>{loc.primaryCategory}</p>
             </button>
           ))}
         </div>
@@ -324,6 +389,7 @@ function Field({
   required,
   placeholder,
   hint,
+  light = false,
 }: {
   label: string;
   value: string;
@@ -331,18 +397,31 @@ function Field({
   required?: boolean;
   placeholder?: string;
   hint?: string;
+  light?: boolean;
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-slate-300">{label}</label>
+      <label
+        className={`mb-1.5 block text-sm font-medium ${
+          light ? "text-[#3c4043]" : "text-slate-300"
+        }`}
+      >
+        {label}
+      </label>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:outline-none"
+        className={`w-full rounded-xl border px-4 py-2.5 text-sm focus:outline-none ${
+          light
+            ? "border-[#dadce0] bg-white text-[#202124] placeholder:text-[#80868b] focus:border-[#1a73e8]"
+            : "border-white/10 bg-white/5 text-white placeholder:text-slate-500 focus:border-emerald-500/50"
+        }`}
       />
-      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+      {hint && (
+        <p className={`mt-1 text-xs ${light ? "text-[#80868b]" : "text-slate-500"}`}>{hint}</p>
+      )}
     </div>
   );
 }
