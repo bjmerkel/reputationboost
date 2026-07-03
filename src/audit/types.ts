@@ -493,6 +493,74 @@ export interface GbpOptimizationPlan {
   contentSource?: "llm" | "template";
 }
 
+// ─── Unified Plan (computed from gbpPlan + execution_tasks) ────────────────
+
+export type PlanPhaseId = "foundation" | "content" | "reputation" | "ongoing";
+
+export type PlanStepStatus =
+  | "pending"
+  | "needs_approval"
+  | "approved"
+  | "completed"
+  | "skipped";
+
+export interface PlanPhase {
+  id: PlanPhaseId;
+  title: string;
+  stepNumbers: number[];
+}
+
+export interface PlanStepContext {
+  targetKeywords: string[];
+  primaryKeyword?: string;
+  expectedEffect: string;
+  currentValue?: string;
+  recommendedValue?: string;
+  healthScoreImpact?: number;
+}
+
+export interface PlanStepOutcome {
+  publishedAt: string;
+  attributionId?: string;
+  rankBefore?: number | null;
+  rankAfter?: number | null;
+  keyword?: string;
+  narrative?: string;
+}
+
+export interface PlanStep {
+  stepNumber: number;
+  phaseId: PlanPhaseId;
+  title: string;
+  instruction: string;
+  context: PlanStepContext;
+  gbpAction?: GbpPlanActionType;
+  actionData?: GbpPlanActionData;
+  copyBlocks?: GbpPlanCopyBlock[];
+  bullets?: string[];
+  tasks: ExecutionTask[];
+  status: PlanStepStatus;
+  outcome?: PlanStepOutcome;
+}
+
+export interface PlanProgress {
+  totalSteps: number;
+  completedSteps: number;
+  needsApproval: number;
+  currentHealthScore: number;
+  projectedHealthScore: number;
+}
+
+export interface Plan {
+  title: string;
+  businessName: string;
+  objective: string;
+  targetKeywords: string[];
+  phases: PlanPhase[];
+  steps: PlanStep[];
+  progress: PlanProgress;
+}
+
 export interface StrategyReport {
   generatedAt: string;
   executiveSummary: string;
@@ -560,6 +628,8 @@ export interface ExecutionTask {
   completedAt: string | null;
   result: string | null;
   createdAt: string;
+  planStepNumber?: number | null;
+  planPhaseId?: PlanPhaseId | null;
 }
 
 export interface Phase3ExecutionReport {

@@ -126,6 +126,42 @@ export async function loadPriorAuditFromSupabase(
   return belongs ? audit : null;
 }
 
+export async function loadAuditByIdFromSupabase(
+  userId: string,
+  businessSlug: string,
+  auditId: string
+): Promise<FullAuditPayload | null> {
+  const supabase = await createClient();
+
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("id, slug, name")
+    .eq("user_id", userId)
+    .eq("slug", businessSlug)
+    .maybeSingle();
+
+  if (!business?.id) return null;
+
+  const { data, error } = await supabase
+    .from("audit_runs")
+    .select("payload")
+    .eq("user_id", userId)
+    .eq("business_id", business.id)
+    .eq("audit_id", auditId)
+    .maybeSingle();
+
+  if (error || !data?.payload) return null;
+
+  const audit = data.payload as FullAuditPayload;
+  const belongs = auditBelongsToBusiness(
+    audit,
+    { id: business.slug, name: business.name, businessId: business.id },
+    userId
+  );
+
+  return belongs ? audit : null;
+}
+
 export async function listAuditsFromSupabase(
   userId: string,
   businessSlug: string

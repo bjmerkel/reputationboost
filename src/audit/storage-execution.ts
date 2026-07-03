@@ -2,9 +2,14 @@ import type { ClientConfig, ExecutionTask } from "@/audit/types";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { getBusinessIdForSlug } from "./storage-supabase";
+import { backfillTaskPlanFields, resolvePlanStepNumber } from "./phase3/plan-task-utils";
 
 function rowToTask(row: Record<string, unknown>): ExecutionTask {
-  return {
+  const payload = (row.payload as Record<string, unknown>) ?? {};
+  const rawStep = row.plan_step_number;
+  const rawPhase = row.plan_phase_id;
+
+  const task: ExecutionTask = {
     id: row.id as string,
     auditId: row.audit_id as string,
     actionItemId: row.action_item_id as string,
@@ -14,13 +19,18 @@ function rowToTask(row: Record<string, unknown>): ExecutionTask {
     priority: row.priority as ExecutionTask["priority"],
     status: row.status as ExecutionTask["status"],
     draftContent: normalizeTextContent(row.draft_content),
-    payload: (row.payload as Record<string, unknown>) ?? {},
+    payload,
     requiresApproval: row.requires_approval as boolean,
     scheduledFor: (row.scheduled_for as string) ?? null,
     completedAt: (row.completed_at as string) ?? null,
     result: (row.result as string) ?? null,
     createdAt: row.created_at as string,
+    planStepNumber: typeof rawStep === "number" ? rawStep : null,
+    planPhaseId:
+      typeof rawPhase === "string" ? (rawPhase as ExecutionTask["planPhaseId"]) : null,
   };
+
+  return backfillTaskPlanFields(task);
 }
 
 function taskToRow(
@@ -46,6 +56,8 @@ function taskToRow(
     completed_at: task.completedAt,
     result: task.result,
     created_at: task.createdAt,
+    plan_step_number: task.planStepNumber ?? resolvePlanStepNumber(task),
+    plan_phase_id: task.planPhaseId ?? null,
     updated_at: new Date().toISOString(),
   };
 }

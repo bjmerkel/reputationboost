@@ -12,6 +12,8 @@ import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
+import { getPhaseForStep } from "./plan-phases";
+import { buildTaskPayloadContext } from "./step-context";
 
 function mediaUploadDraft(hint: string, category: GbpMediaCategory): string {
   return [
@@ -55,6 +57,8 @@ function buildGbpTask(
 ): ExecutionTask {
   const content = normalizeTextContent(draftContent);
   const needsApproval = requiresApproval(type);
+  const phaseId = getPhaseForStep(step.stepNumber);
+  const contextPayload = buildTaskPayloadContext(audit, step);
   return {
     id: randomUUID(),
     auditId: audit.auditId,
@@ -65,12 +69,20 @@ function buildGbpTask(
     priority: stepPriority(step.stepNumber),
     status: needsApproval ? "pending_approval" : "approved",
     draftContent: content,
-    payload: { gbpStepNumber: step.stepNumber, gbpStepTitle: step.title, ...payload },
+    payload: {
+      gbpStepNumber: step.stepNumber,
+      gbpStepTitle: step.title,
+      planPhaseId: phaseId,
+      ...contextPayload,
+      ...payload,
+    },
     requiresApproval: needsApproval,
     scheduledFor: needsApproval ? null : new Date().toISOString(),
     completedAt: null,
     result: null,
     createdAt: new Date().toISOString(),
+    planStepNumber: step.stepNumber,
+    planPhaseId: phaseId,
   };
 }
 
