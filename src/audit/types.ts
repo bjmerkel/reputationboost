@@ -303,6 +303,26 @@ export interface Phase1AuditPayload {
   competitors: CompetitorSnapshot[];
   reviews: ReviewSnapshot;
   offGoogle: OffGoogleSnapshot;
+  /** Per-keyword profile relevance signals (LLM + heuristic), cached on audit payload. */
+  keywordRelevance?: KeywordRelevanceFeatures[];
+}
+
+/** Structured relevance features for one tracked keyword — feeds conversion scoring. */
+export interface KeywordRelevanceFeatures {
+  keyword: string;
+  /** 0–100 blended relevance score */
+  score: number;
+  /** Primary/secondary category alignment with keyword intent (0–100) */
+  categoryFit: number;
+  servicesCoverage: boolean;
+  descriptionCoverage: boolean;
+  /** Reviews in corpus mentioning this keyword or its core terms */
+  reviewMentions: number;
+  postCoverage: boolean;
+  /** What top pack competitors have that this profile lacks */
+  competitorGaps: string[];
+  recommendation: string | null;
+  source: "llm" | "heuristic" | "hybrid";
 }
 
 export interface AuditRunResult {
@@ -326,6 +346,8 @@ export interface KeywordScoreCard {
   keyword: string;
   visibilityScore: number;
   revenueCaptureScore: number;
+  /** Profile relevance for this keyword (0–100) */
+  relevanceScore: number;
   position: number | "not_in_pack";
   positionLabel: string;
   inLocalPack: boolean;

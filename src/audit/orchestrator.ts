@@ -11,6 +11,7 @@ import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { getValidGbpConnection } from "@/lib/google/token-store";
 import { generateStrategy } from "@/lib/llm/strategy";
 import { generateAuditContent } from "@/lib/llm/content";
+import { extractKeywordRelevance } from "@/lib/llm/relevance";
 import { generateExecutionQueue } from "./phase3";
 import {
   getBusinessIdForSlug,
@@ -135,8 +136,11 @@ export async function runPhase1Audit(
     priorAudit as FullAuditPayload | null
   );
 
-  const strategy = await generateStrategy(phase1, priorAudit, outcomes);
-  const auditWithStrategy = { ...phase1, strategy };
+  const { features: keywordRelevance } = await extractKeywordRelevance(phase1);
+  const phase1Enriched: Phase1AuditPayload = { ...phase1, keywordRelevance };
+
+  const strategy = await generateStrategy(phase1Enriched, priorAudit, outcomes);
+  const auditWithStrategy = { ...phase1Enriched, strategy };
   const content = await generateAuditContent(auditWithStrategy);
   const execution = generateExecutionQueue(auditWithStrategy, content);
 

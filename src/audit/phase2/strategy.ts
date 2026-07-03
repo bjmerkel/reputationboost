@@ -44,6 +44,9 @@ function buildDraftCopy(gap: GapFlag): string | undefined {
     const keyword = gap.id.replace("rank-outside-pack-", "");
     return `Focus optimization on "${keyword}": strengthen GBP description with this service, collect 5+ reviews mentioning it, and publish 2 Google Posts targeting local searchers.`;
   }
+  if (gap.id.startsWith("relevance-gap-")) {
+    return gap.description;
+  }
   if (gap.id === "unresponded-negative") {
     return `"Thank you for your feedback. We're sorry your experience didn't meet expectations. We'd like to make this right — please call us at [PHONE] so we can resolve this personally."`;
   }

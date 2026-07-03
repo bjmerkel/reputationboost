@@ -5,6 +5,7 @@ import type {
   Phase1AuditPayload,
 } from "../types";
 import type { OutcomesContext } from "../outcomes/types";
+import { resolveKeywordRelevance } from "./relevance-heuristic";
 import { gapScoreComponent, gapScoreImpact } from "./score-impact";
 
 function daysSince(iso: string | null): number {
@@ -99,6 +100,27 @@ export function detectGaps(
         `You are missing 70%+ of map clicks for this keyword. Position: ${kw.localPackPosition}. Pack leader has ${kw.packLeaderReviewCount} reviews.`,
         10,
         6
+      )
+    );
+  }
+
+  for (const rel of resolveKeywordRelevance(audit).filter((r) => r.score < 50)) {
+    const priority: ActionPriority = rel.score < 30 ? "P0" : "P1";
+    const gapText =
+      rel.recommendation ??
+      `Profile weakly matches "${rel.keyword}" — strengthen category, services, and review corpus alignment.`;
+    const competitorNote =
+      rel.competitorGaps.length > 0 ? ` ${rel.competitorGaps[0]}` : "";
+
+    gaps.push(
+      gap(
+        `relevance-gap-${rel.keyword}`,
+        priority,
+        "gbp_profile",
+        `Weak relevance for "${rel.keyword}" (${rel.score}/100)`,
+        `${gapText}${competitorNote}`,
+        rel.score < 30 ? 9 : 7,
+        4
       )
     );
   }

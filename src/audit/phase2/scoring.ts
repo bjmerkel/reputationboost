@@ -7,6 +7,7 @@ import type {
   ScoreComponent,
   ScoreInsight,
 } from "../types";
+import { resolveKeywordRelevance } from "./relevance-heuristic";
 
 function clamp(n: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(n)));
@@ -178,6 +179,26 @@ export function computeVisibilityScore(audit: Phase1AuditPayload): number {
   return clamp(weightedKeywordVisibility(audit.rankings.keywords, searchKeywords));
 }
 
+export function computeKeywordRelevanceScore(audit: Phase1AuditPayload): number {
+  const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+  const floor = impressionWeightFloor(searchKeywords);
+  const byKeyword = new Map(
+    resolveKeywordRelevance(audit).map((r) => [r.keyword.toLowerCase(), r])
+  );
+
+  let totalWeight = 0;
+  let weightedSum = 0;
+
+  for (const kw of audit.rankings.keywords) {
+    const weight = keywordImpressionWeight(kw.keyword, searchKeywords, floor);
+    const relevance = byKeyword.get(kw.keyword.toLowerCase());
+    totalWeight += weight;
+    weightedSum += (relevance?.score ?? 50) * weight;
+  }
+
+  return totalWeight > 0 ? weightedSum / totalWeight : 0;
+}
+
 export function computeConversionScore(audit: Phase1AuditPayload): number {
   const { gbp, reviews } = audit;
 
@@ -199,7 +220,7 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
   const qaScore =
     gbp.content.unansweredQa === 0 ? 100 : clamp(100 - gbp.content.unansweredQa * 15);
 
-  let score =
+  let profileTrust =
     reviewStrength * 0.35 +
     completeness * 0.2 +
     photoScore * 0.15 +
@@ -208,10 +229,11 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
     qaScore * 0.05;
 
   if (reviews.unrespondedNegative > 0) {
-    score -= Math.min(15, reviews.unrespondedNegative * 8);
+    profileTrust -= Math.min(15, reviews.unrespondedNegative * 8);
   }
 
-  return clamp(score);
+  const relevance = computeKeywordRelevanceScore(audit);
+  return clamp(profileTrust * 0.55 + relevance * 0.45);
 }
 
 /** Share of available map clicks captured, weighted by keyword impressions. */
@@ -268,7 +290,12 @@ export function buildScoreInsight(
     const posLabel = pos === "not_in_pack" ? "outside the 3-Pack" : `#${pos}`;
     nextAction = `Improve "${topOpportunityKeyword}" (${posLabel}) — highest revenue opportunity`;
   } else if (weakest.id === "conversion") {
-    if (audit.reviews.unrespondedNegative > 0) {
+    const relevance = resolveKeywordRelevance(audit)
+      .filter((r) => r.score < 60)
+      .sort((a, b) => a.score - b.score)[0];
+    if (relevance?.recommendation) {
+      nextAction = relevance.recommendation;
+    } else if (audit.reviews.unrespondedNegative > 0) {
       nextAction = `Respond to ${audit.reviews.unrespondedNegative} negative review(s) to boost click-through`;
     } else if (audit.gbp.engagement.responseRate < 0.85) {
       nextAction = "Raise review response rate above 85%";

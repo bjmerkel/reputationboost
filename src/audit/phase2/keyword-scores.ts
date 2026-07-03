@@ -9,6 +9,7 @@ import {
   positionVisibilityScore,
   resolveKeywordPosition,
 } from "./scoring";
+import { relevanceByKeyword } from "./relevance-heuristic";
 
 function clamp(n: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(n)));
@@ -45,8 +46,10 @@ function estimateKeywordRevenue(
 function suggestedAction(
   keyword: string,
   position: number | "not_in_pack",
-  inLocalPack: boolean
+  inLocalPack: boolean,
+  relevanceRecommendation: string | null
 ): string {
+  if (relevanceRecommendation) return relevanceRecommendation;
   if (!inLocalPack) {
     return `2 Google Posts + 5 reviews mentioning "${keyword}"`;
   }
@@ -102,15 +105,18 @@ export function computeKeywordScores(
 ): KeywordScoreCard[] {
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
   const floor = impressionWeightFloor(searchKeywords);
+  const relevanceMap = relevanceByKeyword(audit);
 
   return audit.rankings.keywords
     .map((kw) => {
       const position = resolveKeywordPosition(kw);
       const matchedImpressions = matchSearchKeywordImpressions(kw.keyword, searchKeywords);
       const impressions = matchedImpressions ?? null;
+      const relevance = relevanceMap.get(kw.keyword.toLowerCase());
 
       const visibilityScore = keywordGeoGridVisibilityScore(kw);
       const revenueCaptureScore = clamp((positionClickShare(position) / 45) * 100);
+      const relevanceScore = relevance?.score ?? 50;
       const estimatedMonthlyRevenue = impressions
         ? estimateKeywordRevenue(impressions, position, options.avgCustomerValue)
         : null;
@@ -122,6 +128,7 @@ export function computeKeywordScores(
         keyword: kw.keyword,
         visibilityScore,
         revenueCaptureScore,
+        relevanceScore,
         position,
         positionLabel: positionLabel(position),
         inLocalPack: kw.inLocalPack,
@@ -130,7 +137,12 @@ export function computeKeywordScores(
         estimatedMonthlyRevenue,
         potentialAtRank1,
         scoreImpactIfRank1: overallImpactIfRank1(audit, kw.keyword, position),
-        suggestedAction: suggestedAction(kw.keyword, position, kw.inLocalPack),
+        suggestedAction: suggestedAction(
+          kw.keyword,
+          position,
+          kw.inLocalPack,
+          relevance?.recommendation ?? null
+        ),
       };
     })
     .sort((a, b) => {

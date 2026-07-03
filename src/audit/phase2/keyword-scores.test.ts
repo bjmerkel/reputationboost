@@ -15,6 +15,7 @@ describe("computeKeywordScores", () => {
     for (const card of cards) {
       assert.ok(card.keyword.length > 0);
       assert.ok(card.visibilityScore >= 0 && card.visibilityScore <= 100);
+      assert.ok(card.relevanceScore >= 0 && card.relevanceScore <= 100);
       assert.ok(card.suggestedAction.length > 0);
       assert.ok(card.positionLabel.length > 0);
     }

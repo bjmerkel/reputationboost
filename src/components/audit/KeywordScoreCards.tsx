@@ -57,8 +57,9 @@ function KeywordCard({
         </span>
       </div>
 
-      <div className={`mt-2 grid grid-cols-2 gap-2 ${compact ? "text-[10px]" : "text-xs"}`}>
+      <div className={`mt-2 grid grid-cols-3 gap-2 ${compact ? "text-[10px]" : "text-xs"}`}>
         <Metric label="Visibility" value={`${kw.visibilityScore}/100`} />
+        <Metric label="Relevance" value={`${kw.relevanceScore}/100`} />
         <Metric label="Revenue capture" value={`${kw.revenueCaptureScore}/100`} />
       </div>
 
