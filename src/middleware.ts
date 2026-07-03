@@ -17,6 +17,7 @@ export const config = {
     "/api/google/gbp/disconnect",
     "/api/google/gbp/apply",
     "/api/google/gbp/media",
+    "/api/google/gbp/media/generate",
     "/api/google/gbp/performance",
     "/api/google/gbp/select-location",
     "/login",
