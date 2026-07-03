@@ -1,6 +1,8 @@
 import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "@/audit/types";
+import type { OutcomesContext } from "@/audit/outcomes/types";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { buildAuditContext } from "./audit-context";
+import { buildOutcomesContext, OUTCOMES_STRATEGY_INSTRUCTION } from "./outcomes-context";
 import { resolvePlanStepAction } from "@/audit/phase3/gbp-plan-actions";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
@@ -14,6 +16,7 @@ Write detailed, step-by-step GBP optimization reports. Every recommendation must
 - Honest about current audit data (review count, photos, pack positions)
 - ALWAYS reference the LIVE GBP profile data (current description, categories, services) vs recommended changes
 - For each keyword, explain current ranking position and which GBP fields to update to improve it
+- ${OUTCOMES_STRATEGY_INSTRUCTION}
 
 Return valid JSON only. Be comprehensive — each step should have enough detail that the owner can execute without guessing.`;
 
@@ -37,7 +40,8 @@ interface LlmGbpPlanResponse {
 }
 
 export async function generateGbpOptimizationPlan(
-  audit: Phase1AuditPayload
+  audit: Phase1AuditPayload,
+  outcomes: OutcomesContext | null = null
 ): Promise<GbpOptimizationPlan> {
   const fallback = buildTemplateGbpPlan(audit);
   const targetKeywords = audit.rankings.keywords.map((k) => k.keyword);
@@ -48,6 +52,7 @@ export async function generateGbpOptimizationPlan(
 
   try {
     const context = buildAuditContext(audit);
+    const outcomesBlock = buildOutcomesContext(outcomes);
 
     const llm = await completeJson<LlmGbpPlanResponse>(
       [
@@ -78,6 +83,7 @@ ${JSON.stringify(fallback.currentState.profileGaps, null, 2)}
 
 AUDIT DATA:
 ${context}
+${outcomesBlock ? `\nACTION OUTCOMES (prioritize steps that replicate proven wins):\n${outcomesBlock}\n` : ""}
 
 Write exactly 16 steps covering ONLY GBP optimization. For EVERY step include a "current" field quoting live profile data and a "recommended" field with the specific update needed.
 1. Primary Category

@@ -6,6 +6,7 @@ import type {
   Phase1AuditPayload,
   StrategyReport,
 } from "../types";
+import type { OutcomesContext } from "../outcomes/types";
 import { detectGaps } from "./gaps";
 import { computeMonthOverMonth } from "./diff";
 import { buildMonthlyReport } from "./monthly-report";
@@ -93,7 +94,15 @@ function buildBiggestThreat(audit: Phase1AuditPayload, gaps: GapFlag[]): string 
   return "Maintain momentum with consistent posts, reviews, and profile updates.";
 }
 
-function buildBiggestWin(mom: MonthOverMonthDelta | null): string | null {
+function buildBiggestWin(
+  mom: MonthOverMonthDelta | null,
+  outcomes?: OutcomesContext | null
+): string | null {
+  const topWin = outcomes?.provenWins[0];
+  if (topWin?.narrative) {
+    return topWin.narrative.replace(/\s*\(tracking in progress\)\s*$/i, "");
+  }
+
   if (!mom) return null;
   if (mom.improvedKeywords.length > 0) {
     return `Improved rankings on: ${mom.improvedKeywords.join(", ")}`;
@@ -107,8 +116,18 @@ function buildBiggestWin(mom: MonthOverMonthDelta | null): string | null {
   return null;
 }
 
-function buildKpiTargets(audit: Phase1AuditPayload, gaps: GapFlag[]): string[] {
+function buildKpiTargets(
+  audit: Phase1AuditPayload,
+  gaps: GapFlag[],
+  outcomes?: OutcomesContext | null
+): string[] {
   const targets: string[] = [];
+
+  if (outcomes?.topPerformingKeywords.length) {
+    targets.push(
+      `Publish 2 Google Posts per week highlighting: ${outcomes.topPerformingKeywords.slice(0, 2).join(", ")}`
+    );
+  }
 
   const outsideCount = audit.rankings.keywords.filter((k) => !k.inLocalPack).length;
   if (outsideCount > 0) {
@@ -116,10 +135,22 @@ function buildKpiTargets(audit: Phase1AuditPayload, gaps: GapFlag[]): string[] {
   }
 
   targets.push(`Collect ${Math.max(5, 8 - audit.gbp.engagement.reviewsLast30Days)} new Google reviews`);
-  targets.push("Publish 4 Google Posts this month");
+
+  if (!outcomes?.topPerformingKeywords.length) {
+    targets.push("Publish 4 Google Posts this month");
+  }
 
   if (gaps.some((g) => g.id === "unresponded-negative")) {
     targets.push("Respond to all negative reviews within 24 hours");
+  }
+
+  if (outcomes?.tasksSkipped && outcomes.tasksSkipped >= 2) {
+    targets.push(`Complete ${Math.min(outcomes.tasksSkipped, 5)} pending actions from your last plan`);
+  }
+
+  const unmetPrior = outcomes?.priorKpiTargets?.[0];
+  if (unmetPrior && !targets.some((t) => t.toLowerCase().includes(unmetPrior.slice(0, 20).toLowerCase()))) {
+    targets.push(`Carry forward: ${unmetPrior}`);
   }
 
   targets.push(
@@ -131,10 +162,11 @@ function buildKpiTargets(audit: Phase1AuditPayload, gaps: GapFlag[]): string[] {
 
 export function buildStrategy(
   audit: Phase1AuditPayload,
-  priorAudit: Phase1AuditPayload | null = null
+  priorAudit: Phase1AuditPayload | null = null,
+  outcomes?: OutcomesContext | null
 ): StrategyReport {
   const scores = computeHealthScores(audit);
-  const gaps = detectGaps(audit);
+  const gaps = detectGaps(audit, outcomes);
   const mom = computeMonthOverMonth(audit, priorAudit);
   const actionPlan = gaps.slice(0, 12).map(gapToAction);
 
@@ -143,10 +175,10 @@ export function buildStrategy(
   const baseReport: StrategyReport = {
     generatedAt: new Date().toISOString(),
     executiveSummary: buildExecutiveSummary(audit, scores, gaps, mom),
-    biggestWin: buildBiggestWin(mom),
+    biggestWin: buildBiggestWin(mom, outcomes),
     biggestThreat: buildBiggestThreat(audit, gaps),
     localPackStatus,
-    kpiTargets: buildKpiTargets(audit, gaps),
+    kpiTargets: buildKpiTargets(audit, gaps, outcomes),
     scores,
     gaps,
     actionPlan,

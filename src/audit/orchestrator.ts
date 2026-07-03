@@ -19,6 +19,7 @@ import {
   saveAuditToSupabase,
 } from "./storage-supabase";
 import { saveExecutionTasks } from "./storage-execution";
+import { loadOutcomesForStrategy } from "./outcomes/load-outcomes";
 import type {
   AuditRunResult,
   AuditTrigger,
@@ -128,7 +129,13 @@ export async function runPhase1Audit(
     phase1.completedAt
   );
 
-  const strategy = await generateStrategy(phase1, priorAudit);
+  const outcomes = await loadOutcomesForStrategy(
+    options.userId,
+    client.id,
+    priorAudit as FullAuditPayload | null
+  );
+
+  const strategy = await generateStrategy(phase1, priorAudit, outcomes);
   const auditWithStrategy = { ...phase1, strategy };
   const content = await generateAuditContent(auditWithStrategy);
   const execution = generateExecutionQueue(auditWithStrategy, content);

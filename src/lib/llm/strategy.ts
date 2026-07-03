@@ -1,6 +1,8 @@
 import type { Phase1AuditPayload, StrategyReport } from "@/audit/types";
+import type { OutcomesContext } from "@/audit/outcomes/types";
 import { buildStrategy as buildStrategyBase } from "@/audit/phase2/strategy";
 import { buildAuditContext } from "./audit-context";
+import { buildOutcomesContext, OUTCOMES_STRATEGY_INSTRUCTION } from "./outcomes-context";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
 import { generateGbpOptimizationPlan } from "./gbp-plan";
@@ -17,14 +19,16 @@ interface LlmStrategyResponse {
 const STRATEGY_SYSTEM = `You are a local SEO strategist for Google Business Profile and Google Maps Local 3-Pack optimization.
 Write concise, actionable copy for local service businesses. Use real data from the audit — never invent metrics.
 Tone: direct, professional, encouraging. Reference specific keywords, review counts, and competitors when relevant.
+${OUTCOMES_STRATEGY_INSTRUCTION}
 Return valid JSON only.`;
 
 export async function generateStrategy(
   audit: Phase1AuditPayload,
-  priorAudit: Phase1AuditPayload | null = null
+  priorAudit: Phase1AuditPayload | null = null,
+  outcomes: OutcomesContext | null = null
 ): Promise<StrategyReport> {
-  const base = buildStrategyBase(audit, priorAudit);
-  const gbpPlan = await generateGbpOptimizationPlan(audit);
+  const base = buildStrategyBase(audit, priorAudit, outcomes);
+  const gbpPlan = await generateGbpOptimizationPlan(audit, outcomes);
 
   if (!isLlmConfigured()) {
     return { ...base, gbpPlan, contentSource: "template" };
@@ -32,6 +36,7 @@ export async function generateStrategy(
 
   try {
     const context = buildAuditContext(audit);
+    const outcomesBlock = buildOutcomesContext(outcomes);
     const actionIds = base.actionPlan.map((a, i) => ({
       actionId: a.id,
       gapId: base.gaps[i]?.id ?? a.id,
@@ -47,7 +52,7 @@ export async function generateStrategy(
 
 AUDIT DATA:
 ${context}
-
+${outcomesBlock ? `\nACTION OUTCOMES (what worked and what didn't — use to steer recommendations):\n${outcomesBlock}\n` : ""}
 PRIOR GAPS (deterministic, do not change priorities):
 ${JSON.stringify(base.gaps.slice(0, 12).map((g) => ({ id: g.id, title: g.title, priority: g.priority })))}
 

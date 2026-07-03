@@ -4,6 +4,7 @@ import type {
   GapFlag,
   Phase1AuditPayload,
 } from "../types";
+import type { OutcomesContext } from "../outcomes/types";
 
 function daysSince(iso: string | null): number {
   if (!iso) return 999;
@@ -26,7 +27,51 @@ function gap(
   return { id, priority, category, title, description, impact, effort, impactScore: impactScore(impact, effort) };
 }
 
-export function detectGaps(audit: Phase1AuditPayload): GapFlag[] {
+function applyOutcomeGapAdjustments(gaps: GapFlag[], outcomes: OutcomesContext): void {
+  const postWins = outcomes.provenWins.filter((w) => w.taskType === "google_post");
+  if (postWins.length > 0) {
+    const stale = gaps.find((g) => g.id === "stale-posts");
+    if (stale) {
+      stale.priority = "P3";
+      stale.impact = 4;
+      stale.description +=
+        " Recent posts already drove measurable gains — maintain cadence rather than urgent catch-up.";
+    }
+  }
+
+  const reviewWins = outcomes.provenWins.filter((w) => w.taskType === "review_response");
+  if (reviewWins.length > 0) {
+    const unresponded = gaps.find((g) => g.id === "unresponded-negative");
+    if (unresponded) {
+      unresponded.impact = Math.min(10, unresponded.impact + 1);
+      unresponded.description +=
+        " Prior review replies correlated with engagement lifts — speed matters.";
+    }
+  }
+
+  if (outcomes.tasksSkipped >= 2) {
+    gaps.unshift(
+      gap(
+        "incomplete-prior-actions",
+        "P1",
+        "content",
+        `${outcomes.tasksSkipped} actions still awaiting completion`,
+        "Finish pending items from your last plan before adding new work — incomplete posts and profile updates leave rankings on the table.",
+        8,
+        3
+      )
+    );
+  }
+
+  for (const g of gaps) {
+    g.impactScore = impactScore(g.impact, g.effort);
+  }
+}
+
+export function detectGaps(
+  audit: Phase1AuditPayload,
+  outcomes?: OutcomesContext | null
+): GapFlag[] {
   const gaps: GapFlag[] = [];
 
   for (const kw of audit.rankings.keywords.filter((k) => !k.inLocalPack)) {
@@ -199,6 +244,10 @@ export function detectGaps(audit: Phase1AuditPayload): GapFlag[] {
         4
       )
     );
+  }
+
+  if (outcomes) {
+    applyOutcomeGapAdjustments(gaps, outcomes);
   }
 
   return gaps.sort((a, b) => b.impactScore - a.impactScore);
