@@ -28,6 +28,7 @@ export interface GbpConnection {
   accountId: string;
   locationId: string;
   placeId?: string;
+  googleEmail?: string;
   accessToken: string;
   refreshToken: string;
   expiresAt: string;

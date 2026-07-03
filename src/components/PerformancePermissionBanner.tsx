@@ -23,16 +23,28 @@ export function PerformanceAccessDetails({
 
   return (
     <div className="mt-3 space-y-2 text-sm text-slate-400">
-      {accessCheck.connectedEmail && (
+      {accessCheck.platformEmail && (
         <p>
-          Connected Google account:{" "}
-          <span className="text-slate-300">{accessCheck.connectedEmail}</span>
+          Signed in to Reputation Boost:{" "}
+          <span className="text-slate-300">{accessCheck.platformEmail}</span>
+        </p>
+      )}
+      {accessCheck.googleAccountEmail && (
+        <p>
+          Google Business Profile authorized via:{" "}
+          <span className="text-slate-300">{accessCheck.googleAccountEmail}</span>
           {accessCheck.matchedRole && (
             <>
               {" "}
-              · matched as <span className="text-slate-300">{roleLabel(accessCheck.matchedRole)}</span>
+              · <span className="text-slate-300">{roleLabel(accessCheck.matchedRole)}</span>
             </>
           )}
+        </p>
+      )}
+      {accessCheck.accountMismatch && (
+        <p className="text-amber-200/90">
+          These are different accounts. GBP data comes from the Google account above, not your
+          Reputation Boost sign-in.
         </p>
       )}
       {managerAdmins.length > 0 && (
@@ -103,7 +115,7 @@ export default function PerformancePermissionBanner({
               href={reconnectHref}
               className="font-semibold text-emerald-400 hover:text-emerald-300"
             >
-              Reconnect Google account
+              Reconnect with a different Google account
             </a>
           </>
         )}

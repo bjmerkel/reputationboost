@@ -21,7 +21,7 @@ interface TokenResponse {
   error_description?: string;
 }
 
-export function buildGbpAuthUrl(state: string): string {
+export function buildGbpAuthUrl(state: string, options?: { selectAccount?: boolean }): string {
   const clientId = getGoogleClientId();
   if (!clientId) throw new Error("GOOGLE_CLIENT_ID is not configured.");
 
@@ -31,7 +31,10 @@ export function buildGbpAuthUrl(state: string): string {
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", GBP_OAUTH_SCOPE);
   url.searchParams.set("access_type", "offline");
-  url.searchParams.set("prompt", "consent");
+  url.searchParams.set(
+    "prompt",
+    options?.selectAccount ? "select_account consent" : "consent"
+  );
   url.searchParams.set("state", state);
   return url.toString();
 }

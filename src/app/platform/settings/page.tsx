@@ -72,11 +72,13 @@ export default async function SettingsPage() {
               <GbpPerformanceSetup
                 businessId={business.businessId}
                 reconnectHref={`/api/google/gbp/connect?businessId=${business.businessId}`}
+                platformEmail={user.email ?? undefined}
               />
               <GbpDisconnect
                 businessId={business.businessId}
                 businessName={business.name}
                 connectedAt={record?.gbp_connected_at ?? null}
+                googleEmail={record?.gbp_google_email ?? business.gbpConnection?.googleEmail}
               />
             </>
           ) : (

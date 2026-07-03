@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { saveGbpLocation, saveGbpTokens } from "@/audit/businesses";
 import { exchangeCodeForTokens } from "@/lib/google/oauth";
+import { getGoogleTokenEmail } from "@/lib/google/gbp-access";
 import { listAllGbpLocations } from "@/lib/google/gbp-accounts";
 
 interface OAuthStateCookie {
@@ -55,10 +56,13 @@ export async function GET(request: Request) {
       );
     }
 
+    const googleEmail = await getGoogleTokenEmail(tokens.accessToken);
+
     await saveGbpTokens(parsed.userId, parsed.businessId, {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresAt: tokens.expiresAt,
+      googleEmail,
     });
 
     const locations = await listAllGbpLocations(tokens.accessToken);

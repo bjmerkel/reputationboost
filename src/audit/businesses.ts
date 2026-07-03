@@ -16,6 +16,7 @@ export interface BusinessRecord {
   gbp_access_token: string | null;
   gbp_token_expires_at: string | null;
   gbp_connected_at: string | null;
+  gbp_google_email: string | null;
   onboarding_complete: boolean;
   website: string | null;
   phone: string | null;
@@ -49,6 +50,7 @@ function rowToClientConfig(row: BusinessRecord): ClientConfig {
           accountId: row.gbp_account_id,
           locationId: row.gbp_location_id,
           placeId: row.gbp_place_id ?? undefined,
+          googleEmail: row.gbp_google_email ?? undefined,
           accessToken: row.gbp_access_token ?? "",
           refreshToken: row.gbp_refresh_token,
           expiresAt: row.gbp_token_expires_at ?? new Date(0).toISOString(),
@@ -153,18 +155,23 @@ export async function createBusiness(
 export async function saveGbpTokens(
   userId: string,
   businessId: string,
-  tokens: { accessToken: string; refreshToken: string; expiresAt: string }
+  tokens: { accessToken: string; refreshToken: string; expiresAt: string; googleEmail?: string }
 ): Promise<void> {
   const supabase = await createClient();
+  const patch: Record<string, unknown> = {
+    gbp_access_token: tokens.accessToken,
+    gbp_refresh_token: tokens.refreshToken,
+    gbp_token_expires_at: tokens.expiresAt,
+    gbp_connected_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  if (tokens.googleEmail) {
+    patch.gbp_google_email = tokens.googleEmail.toLowerCase();
+  }
+
   const { error } = await supabase
     .from("businesses")
-    .update({
-      gbp_access_token: tokens.accessToken,
-      gbp_refresh_token: tokens.refreshToken,
-      gbp_token_expires_at: tokens.expiresAt,
-      gbp_connected_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .update(patch)
     .eq("user_id", userId)
     .eq("id", businessId);
 
@@ -222,6 +229,7 @@ export async function disconnectGbp(userId: string, businessId: string): Promise
       gbp_access_token: null,
       gbp_token_expires_at: null,
       gbp_connected_at: null,
+      gbp_google_email: null,
       onboarding_complete: false,
       updated_at: new Date().toISOString(),
     })

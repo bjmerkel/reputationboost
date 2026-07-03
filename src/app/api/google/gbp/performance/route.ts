@@ -21,7 +21,7 @@ export async function GET() {
   }
 
   const probe = await probePerformanceApiAccess(connection, {
-    connectedEmail: user.email ?? undefined,
+    platformEmail: user.email ?? undefined,
   });
   return NextResponse.json(probe);
 }

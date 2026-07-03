@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   }
 
   const state = randomBytes(24).toString("hex");
-  const authUrl = buildGbpAuthUrl(state);
+  const authUrl = buildGbpAuthUrl(state, { selectAccount: true });
 
   const response = NextResponse.redirect(authUrl);
   response.cookies.set(

@@ -429,7 +429,7 @@ async function probeEndpoint(
 /** Quick health check for Settings / onboarding — uses last 7 days. */
 export async function probePerformanceApiAccess(
   connection: GbpConnection,
-  options?: { connectedEmail?: string }
+  options?: { platformEmail?: string }
 ): Promise<PerformanceApiProbe> {
   const setupSteps = performanceSetupSteps();
   const resolved = await resolvePerformanceConnection(connection);
@@ -475,7 +475,7 @@ export async function probePerformanceApiAccess(
   }
 
   const accessCheck = await checkGbpLocationAccess(resolved, {
-    connectedEmail: options?.connectedEmail,
+    platformEmail: options?.platformEmail,
     performanceDenied,
   });
 
@@ -501,7 +501,7 @@ export async function probePerformanceApiAccess(
 export async function fetchGbpPerformanceData(
   connection: GbpConnection,
   periodDays = 30,
-  options?: { connectedEmail?: string }
+  options?: { platformEmail?: string }
 ): Promise<GbpPerformanceData> {
   const resolved = await resolvePerformanceConnection(connection);
 
@@ -527,7 +527,7 @@ export async function fetchGbpPerformanceData(
     const message = formatPerformanceError(error, httpStatus);
     const performanceDenied = isPerformancePermissionError(message) || httpStatus === 403;
     const accessCheck = await checkGbpLocationAccess(resolved, {
-      connectedEmail: options?.connectedEmail,
+      platformEmail: options?.platformEmail,
       performanceDenied,
     });
 

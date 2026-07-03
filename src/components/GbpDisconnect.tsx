@@ -7,12 +7,14 @@ interface GbpDisconnectProps {
   businessId: string;
   businessName: string;
   connectedAt: string | null;
+  googleEmail?: string | null;
 }
 
 export default function GbpDisconnect({
   businessId,
   businessName,
   connectedAt,
+  googleEmail,
 }: GbpDisconnectProps) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -46,11 +48,17 @@ export default function GbpDisconnect({
     <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-6">
       <h2 className="text-lg font-bold text-white">Google Business Profile</h2>
       <p className="mt-2 text-sm text-slate-400">
-        Connected as <span className="text-slate-200">{businessName}</span>
+        Location: <span className="text-slate-200">{businessName}</span>
+        {googleEmail && (
+          <>
+            <br />
+            Google account: <span className="text-slate-200">{googleEmail}</span>
+          </>
+        )}
         {connectedAt && (
           <span className="text-slate-500">
             {" "}
-            · since {new Date(connectedAt).toLocaleDateString()}
+            · connected {new Date(connectedAt).toLocaleDateString()}
           </span>
         )}
       </p>

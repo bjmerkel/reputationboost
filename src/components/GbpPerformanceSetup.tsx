@@ -48,9 +48,11 @@ function endpointLabel(status: PerformanceEndpointStatus | undefined): string {
 export default function GbpPerformanceSetup({
   businessId,
   reconnectHref,
+  platformEmail,
 }: {
   businessId: string;
   reconnectHref: string;
+  platformEmail?: string;
 }) {
   const [probe, setProbe] = useState<PerformanceProbe | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,6 +93,11 @@ export default function GbpPerformanceSetup({
         }`}
       >
         <h2 className="text-lg font-bold text-white">Performance API</h2>
+        {platformEmail && probe.accessCheck?.googleAccountEmail && (
+          <p className="mt-2 text-xs text-slate-500">
+            Signed in as {platformEmail} · GBP via {probe.accessCheck.googleAccountEmail}
+          </p>
+        )}
         <p className={`mt-2 text-sm ${probe.partial ? "text-amber-200" : "text-emerald-200"}`}>
           {probe.partial ? "Partially connected" : "Connected"} — last 7 days:{" "}
           {probe.sampleMetrics?.profileViews ?? 0} profile views,{" "}
@@ -177,13 +184,18 @@ export default function GbpPerformanceSetup({
             href={reconnectHref}
             className="rounded-full border border-white/15 px-5 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5"
           >
-            Reconnect GBP
+            Reconnect with a different Google account
           </Link>
         )}
       </div>
 
       <p className="mt-4 text-xs text-slate-500">
-        Business ID: {businessId} — access verified via Account Management API.
+        {platformEmail && (
+          <>
+            Signed in to Reputation Boost as {platformEmail}.{" "}
+          </>
+        )}
+        Business ID: {businessId}
       </p>
     </div>
   );

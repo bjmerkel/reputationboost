@@ -138,7 +138,7 @@ export async function fetchGbpEnrichment(
   options?: { userEmail?: string }
 ): Promise<GbpEnrichment> {
   const [performance, posts, questions, reviews] = await Promise.all([
-    fetchGbpPerformanceData(connection, 30, { connectedEmail: options?.userEmail }),
+    fetchGbpPerformanceData(connection, 30, { platformEmail: options?.userEmail }),
     fetchLocalPosts(connection).catch(() => []),
     fetchQuestions(connection).catch(() => []),
     fetchGbpReviews(connection).catch(() => []),
