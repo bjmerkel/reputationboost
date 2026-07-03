@@ -125,6 +125,7 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
         `Missing keywords as services: ${missingKeywordsForServices(audit).join(", ") || "none — maintain and expand"}`,
         "Each service needs its own unique description",
       ],
+      gbpAction: "add_service_items",
     },
     {
       stepNumber: 5,
@@ -257,6 +258,7 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
         "Accessibility, ownership, and identity attributes where applicable",
         `Currently ${audit.gbp.completeness.attributeCount} attributes on profile`,
       ],
+      gbpAction: "update_attributes",
     },
     {
       stepNumber: 14,
@@ -277,7 +279,10 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       recommended: `Link booking to ${audit.gbp.identity.website || "your booking page"}`,
       bullets: [
         "Booking creates conversion signals directly inside Google",
+        "Use your website URL if you accept online bookings",
       ],
+      gbpAction: "update_website",
+      actionData: { websiteUri: audit.gbp.identity.website },
     },
     {
       stepNumber: 16,

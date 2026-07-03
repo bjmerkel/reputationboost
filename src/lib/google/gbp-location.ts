@@ -1,21 +1,55 @@
 import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
 
+const BI_BASE = "https://mybusinessbusinessinformation.googleapis.com/v1";
+
 export interface GbpCategoryRef {
   name: string;
   displayName: string;
+}
+
+export interface GbpLocationAttribute {
+  name: string;
+  displayName?: string;
+  valueType?: string;
+  values: string[];
 }
 
 export interface GbpLocationProfile {
   locationName: string;
   title: string;
   description: string;
+  phone: string;
+  additionalPhones: string[];
+  website: string;
+  address: string;
+  placeId: string;
+  mapsUri: string;
   primaryCategory: GbpCategoryRef | null;
   additionalCategories: GbpCategoryRef[];
   serviceItems: Array<{ name: string; description: string }>;
   attributes: string[];
+  attributeDetails: GbpLocationAttribute[];
   hasRegularHours: boolean;
   hasMoreHours: boolean;
+  hasGoogleUpdated: boolean;
+  hasPendingEdits: boolean;
+  canModifyServiceList: boolean;
+}
+
+export interface GbpAttributeMetadata {
+  name: string;
+  displayName: string;
+  groupDisplayName: string;
+  valueType: string;
+  deprecated: boolean;
+}
+
+export interface GbpAttributeUpdate {
+  name: string;
+  boolValue?: boolean;
+  enumValues?: string[];
+  uri?: string;
 }
 
 interface CategoryApi {
@@ -23,8 +57,58 @@ interface CategoryApi {
   displayName?: string;
 }
 
+interface AttributeApi {
+  name?: string;
+  valueType?: string;
+  values?: unknown[];
+  repeatedEnumValue?: { setValues?: string[]; unsetValues?: string[] };
+  uriValues?: Array<{ uri?: string }>;
+}
+
+interface LocationApi {
+  name?: string;
+  title?: string;
+  profile?: { description?: string };
+  phoneNumbers?: { primaryPhone?: string; additionalPhones?: string[] };
+  websiteUri?: string;
+  storefrontAddress?: {
+    addressLines?: string[];
+    locality?: string;
+    administrativeArea?: string;
+    postalCode?: string;
+    regionCode?: string;
+  };
+  categories?: {
+    primaryCategory?: CategoryApi;
+    additionalCategories?: CategoryApi[];
+  };
+  serviceItems?: Array<{
+    structuredServiceItem?: { description?: string; serviceTypeId?: string };
+    freeFormServiceItem?: {
+      label?: { displayName?: string; description?: string };
+      category?: string;
+    };
+  }>;
+  attributes?: AttributeApi[];
+  regularHours?: { periods?: unknown[] };
+  moreHours?: unknown[];
+  metadata?: {
+    placeId?: string;
+    mapsUri?: string;
+    hasGoogleUpdated?: boolean;
+    hasPendingEdits?: boolean;
+    canModifyServiceList?: boolean;
+  };
+  error?: { message?: string };
+}
+
 function locationResourceName(locationId: string): string {
   return locationId.startsWith("locations/") ? locationId : `locations/${locationId}`;
+}
+
+function locationAttributesResourceName(locationId: string): string {
+  const loc = locationResourceName(locationId);
+  return `${loc}/attributes`;
 }
 
 function normalizeCategoryName(name: string): string {
@@ -33,13 +117,99 @@ function normalizeCategoryName(name: string): string {
   return `categories/gcid:${name.replace(/^gcid:/, "")}`;
 }
 
-/** Search GBP categories by display name (e.g. "Limousine Service"). */
+function formatStorefrontAddress(
+  addr: NonNullable<LocationApi["storefrontAddress"]>
+): string {
+  return [
+    addr.addressLines?.join(", "),
+    addr.locality,
+    addr.administrativeArea,
+    addr.postalCode,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
+function parseInlineAttributes(attrs: AttributeApi[] | undefined): {
+  labels: string[];
+  details: GbpLocationAttribute[];
+} {
+  const labels: string[] = [];
+  const details: GbpLocationAttribute[] = [];
+
+  for (const attr of attrs ?? []) {
+    const values: string[] = [];
+    if (attr.repeatedEnumValue?.setValues?.length) {
+      values.push(...attr.repeatedEnumValue.setValues);
+    } else if (attr.values?.length) {
+      values.push(...attr.values.map((v) => String(v)));
+    } else if (attr.uriValues?.length) {
+      values.push(...attr.uriValues.map((u) => u.uri ?? "").filter(Boolean));
+    }
+
+    if (values.length) {
+      labels.push(...values);
+    } else if (attr.name) {
+      labels.push(attr.name.split("/").pop() ?? attr.name);
+    }
+
+    if (attr.name) {
+      details.push({
+        name: attr.name,
+        valueType: attr.valueType,
+        values,
+      });
+    }
+  }
+
+  return { labels, details };
+}
+
+function parseServiceItems(
+  items: LocationApi["serviceItems"]
+): Array<{ name: string; description: string }> {
+  return (items ?? [])
+    .map((item) => {
+      const free = item.freeFormServiceItem;
+      const structured = item.structuredServiceItem;
+      const name = free?.label?.displayName ?? structured?.serviceTypeId ?? "";
+      const description = free?.label?.description ?? structured?.description ?? "";
+      if (!name && !description) return null;
+      return { name: name || "Service", description };
+    })
+    .filter((s): s is { name: string; description: string } => Boolean(s));
+}
+
+function apiErrorMessage(data: { error?: { message?: string } }, fallback: string): string {
+  return data.error?.message ?? fallback;
+}
+
+async function biFetch<T>(
+  connection: GbpConnection,
+  path: string,
+  init?: RequestInit
+): Promise<T> {
+  const res = await fetch(`${BI_BASE}/${path}`, {
+    ...init,
+    headers: {
+      ...authHeadersForConnection(connection),
+      ...(init?.headers ?? {}),
+    },
+  });
+  const data = (await res.json()) as T & { error?: { message?: string } };
+  if (!res.ok) {
+    throw new Error(apiErrorMessage(data, `Business Information API failed (${res.status})`));
+  }
+  return data;
+}
+
+/** Search GBP categories by display name (e.g. "RV dealer"). */
 export async function searchGbpCategories(
   connection: GbpConnection,
   displayName: string,
   regionCode = "US"
 ): Promise<GbpCategoryRef[]> {
-  const url = new URL("https://mybusinessbusinessinformation.googleapis.com/v1/categories");
+  const url = new URL(`${BI_BASE}/categories`);
   url.searchParams.set("regionCode", regionCode);
   url.searchParams.set("languageCode", "en");
   url.searchParams.set("view", "FULL");
@@ -64,6 +234,33 @@ export async function searchGbpCategories(
   }));
 }
 
+/** categories.batchGet — resolve category IDs to display names. */
+export async function batchGetGbpCategories(
+  connection: GbpConnection,
+  categoryNames: string[],
+  regionCode = "US"
+): Promise<GbpCategoryRef[]> {
+  if (categoryNames.length === 0) return [];
+
+  const params = new URLSearchParams();
+  params.set("regionCode", regionCode);
+  params.set("languageCode", "en");
+  params.set("view", "FULL");
+  for (const name of categoryNames) {
+    params.append("names", normalizeCategoryName(name));
+  }
+
+  const data = await biFetch<{ categories?: CategoryApi[] }>(
+    connection,
+    `categories:batchGet?${params.toString()}`
+  );
+
+  return (data.categories ?? []).map((c) => ({
+    name: normalizeCategoryName(c.name ?? ""),
+    displayName: c.displayName ?? c.name ?? "",
+  }));
+}
+
 export async function resolveCategoryByDisplayName(
   connection: GbpConnection,
   displayName: string
@@ -83,73 +280,46 @@ export async function resolveCategoryByDisplayName(
   throw new Error(`Could not find GBP category for "${displayName}"`);
 }
 
+/** locations.get — full location profile. */
 export async function getGbpLocationProfile(
   connection: GbpConnection
 ): Promise<GbpLocationProfile> {
   const resource = locationResourceName(connection.locationId);
-  const url = new URL(
-    `https://mybusinessbusinessinformation.googleapis.com/v1/${resource}`
-  );
-  url.searchParams.set(
+  const params = new URLSearchParams();
+  params.set(
     "readMask",
-    "name,title,profile,categories,serviceItems,attributes,regularHours,moreHours"
+    [
+      "name",
+      "title",
+      "profile",
+      "phoneNumbers",
+      "websiteUri",
+      "storefrontAddress",
+      "categories",
+      "serviceItems",
+      "attributes",
+      "regularHours",
+      "moreHours",
+      "metadata",
+    ].join(",")
   );
 
-  const res = await fetch(url.toString(), {
-    headers: authHeadersForConnection(connection),
-  });
-
-  const data = (await res.json()) as {
-    name?: string;
-    title?: string;
-    profile?: { description?: string };
-    categories?: {
-      primaryCategory?: CategoryApi;
-      additionalCategories?: CategoryApi[];
-    };
-    serviceItems?: Array<{
-      structuredServiceItem?: { description?: string; serviceTypeId?: string };
-      freeFormServiceItem?: { label?: string; description?: string; category?: string };
-    }>;
-    attributes?: Array<{ name?: string; values?: string[]; repeatedEnumValue?: { setValues?: string[] } }>;
-    regularHours?: { periods?: unknown[] };
-    moreHours?: unknown[];
-    error?: { message?: string };
-  };
-
-  if (!res.ok) {
-    throw new Error(data.error?.message ?? `Failed to load location (${res.status})`);
-  }
+  const data = await biFetch<LocationApi>(connection, `${resource}?${params.toString()}`);
 
   const primary = data.categories?.primaryCategory;
   const additional = data.categories?.additionalCategories ?? [];
-
-  const serviceItems = (data.serviceItems ?? [])
-    .map((item) => {
-      const free = item.freeFormServiceItem;
-      const structured = item.structuredServiceItem;
-      const name = free?.label ?? structured?.serviceTypeId ?? "";
-      const description = free?.description ?? structured?.description ?? "";
-      if (!name && !description) return null;
-      return { name: name || "Service", description };
-    })
-    .filter((s): s is { name: string; description: string } => Boolean(s));
-
-  const attributes: string[] = [];
-  for (const attr of data.attributes ?? []) {
-    if (attr.repeatedEnumValue?.setValues?.length) {
-      attributes.push(...attr.repeatedEnumValue.setValues);
-    } else if (attr.values?.length) {
-      attributes.push(...attr.values);
-    } else if (attr.name) {
-      attributes.push(attr.name);
-    }
-  }
+  const { labels, details } = parseInlineAttributes(data.attributes);
 
   return {
     locationName: data.name ?? resource,
     title: data.title ?? "",
     description: data.profile?.description ?? "",
+    phone: data.phoneNumbers?.primaryPhone ?? "",
+    additionalPhones: data.phoneNumbers?.additionalPhones ?? [],
+    website: data.websiteUri ?? "",
+    address: data.storefrontAddress ? formatStorefrontAddress(data.storefrontAddress) : "",
+    placeId: data.metadata?.placeId ?? "",
+    mapsUri: data.metadata?.mapsUri ?? "",
     primaryCategory: primary?.name
       ? {
           name: normalizeCategoryName(primary.name),
@@ -162,11 +332,213 @@ export async function getGbpLocationProfile(
         name: normalizeCategoryName(c.name!),
         displayName: c.displayName ?? "",
       })),
-    serviceItems,
-    attributes,
+    serviceItems: parseServiceItems(data.serviceItems),
+    attributes: labels,
+    attributeDetails: details,
     hasRegularHours: Boolean(data.regularHours?.periods?.length),
     hasMoreHours: Boolean(data.moreHours?.length),
+    hasGoogleUpdated: Boolean(data.metadata?.hasGoogleUpdated),
+    hasPendingEdits: Boolean(data.metadata?.hasPendingEdits),
+    canModifyServiceList: data.metadata?.canModifyServiceList !== false,
   };
+}
+
+/** locations.getAttributes — dedicated attributes resource. */
+export async function getLocationAttributes(
+  connection: GbpConnection
+): Promise<GbpLocationAttribute[]> {
+  const resource = locationAttributesResourceName(connection.locationId);
+  const data = await biFetch<{ attributes?: AttributeApi[] }>(connection, resource);
+  const { details } = parseInlineAttributes(data.attributes);
+  return details;
+}
+
+/** attributes.list — metadata for attributes available to this location/category. */
+export async function listAvailableAttributes(
+  connection: GbpConnection,
+  options?: {
+    parent?: string;
+    categoryName?: string;
+    regionCode?: string;
+    languageCode?: string;
+  }
+): Promise<GbpAttributeMetadata[]> {
+  const resource = locationResourceName(connection.locationId);
+  const baseParams = new URLSearchParams();
+
+  if (options?.parent) {
+    baseParams.set("parent", options.parent);
+  } else if (options?.categoryName) {
+    baseParams.set("categoryName", normalizeCategoryName(options.categoryName));
+    baseParams.set("regionCode", options.regionCode ?? "US");
+    baseParams.set("languageCode", options.languageCode ?? "en");
+  } else {
+    baseParams.set("parent", resource);
+  }
+
+  const results: GbpAttributeMetadata[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const params = new URLSearchParams(baseParams);
+    if (pageToken) params.set("pageToken", pageToken);
+
+    const data = await biFetch<{
+      attributeMetadata?: Array<{
+        parent?: string;
+        displayName?: string;
+        groupDisplayName?: string;
+        valueType?: string;
+        deprecated?: boolean;
+      }>;
+      nextPageToken?: string;
+    }>(connection, `attributes?${params.toString()}`);
+
+    for (const meta of data.attributeMetadata ?? []) {
+      if (!meta.parent || meta.deprecated) continue;
+      results.push({
+        name: meta.parent,
+        displayName: meta.displayName ?? meta.parent,
+        groupDisplayName: meta.groupDisplayName ?? "",
+        valueType: meta.valueType ?? "ATTRIBUTE_VALUE_TYPE_UNSPECIFIED",
+        deprecated: Boolean(meta.deprecated),
+      });
+    }
+    pageToken = data.nextPageToken;
+  } while (pageToken && results.length < 500);
+
+  return results;
+}
+
+/** locations.updateAttributes — set attribute values. */
+export async function updateLocationAttributes(
+  connection: GbpConnection,
+  updates: GbpAttributeUpdate[]
+): Promise<void> {
+  if (updates.length === 0) return;
+
+  const resource = locationAttributesResourceName(connection.locationId);
+  const attributes: AttributeApi[] = updates.map((update) => {
+    const attr: AttributeApi = { name: update.name };
+    if (update.boolValue !== undefined) {
+      attr.values = [update.boolValue];
+    } else if (update.enumValues?.length) {
+      attr.repeatedEnumValue = { setValues: update.enumValues, unsetValues: [] };
+    } else if (update.uri) {
+      attr.uriValues = [{ uri: update.uri }];
+    }
+    return attr;
+  });
+
+  const attributeMask = updates.map((u) => u.name).join(",");
+  const url = new URL(`${BI_BASE}/${resource}`);
+  url.searchParams.set("attributeMask", attributeMask);
+
+  const res = await fetch(url.toString(), {
+    method: "PATCH",
+    headers: {
+      ...authHeadersForConnection(connection),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name: resource, attributes }),
+  });
+
+  const data = (await res.json()) as { error?: { message?: string } };
+  if (!res.ok) {
+    throw new Error(data.error?.message ?? `Attribute update failed (${res.status})`);
+  }
+}
+
+/** locations.getGoogleUpdated — Google's suggested edits for this location. */
+export async function getGoogleUpdatedLocation(
+  connection: GbpConnection
+): Promise<Record<string, unknown>> {
+  const resource = locationResourceName(connection.locationId);
+  const params = new URLSearchParams();
+  params.set(
+    "readMask",
+    "name,title,profile,phoneNumbers,websiteUri,storefrontAddress,categories,serviceItems"
+  );
+
+  const data = await biFetch<{ location?: Record<string, unknown> }>(
+    connection,
+    `${resource}:getGoogleUpdated?${params.toString()}`
+  );
+
+  return data.location ?? data;
+}
+
+/** googleLocations.search — find matching Google locations. */
+export async function searchGoogleLocations(
+  accessToken: string,
+  query: { title: string; address?: string }
+): Promise<Array<{ placeId: string; title: string; address: string }>> {
+  const res = await fetch(`${BI_BASE}/googleLocations:search`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      location: {
+        title: query.title,
+        storefrontAddress: query.address
+          ? { addressLines: [query.address], regionCode: "US" }
+          : undefined,
+      },
+    }),
+  });
+
+  const data = (await res.json()) as {
+    googleLocations?: Array<{
+      location?: {
+        title?: string;
+        storefrontAddress?: { addressLines?: string[]; locality?: string };
+        metadata?: { placeId?: string };
+      };
+    }>;
+    error?: { message?: string };
+  };
+
+  if (!res.ok) {
+    throw new Error(data.error?.message ?? `Google location search failed (${res.status})`);
+  }
+
+  return (data.googleLocations ?? []).map((item) => {
+    const loc = item.location;
+    const addr = loc?.storefrontAddress;
+    const address = [
+      addr?.addressLines?.join(", "),
+      addr?.locality,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    return {
+      placeId: loc?.metadata?.placeId ?? "",
+      title: loc?.title ?? "",
+      address,
+    };
+  });
+}
+
+/** Combined profile + dedicated attributes + Google-updated snapshot. */
+export async function getGbpLocationFull(connection: GbpConnection): Promise<{
+  profile: GbpLocationProfile;
+  attributes: GbpLocationAttribute[];
+  availableAttributes: GbpAttributeMetadata[];
+  googleUpdated: Record<string, unknown> | null;
+}> {
+  const profile = await getGbpLocationProfile(connection);
+
+  const [attributes, availableAttributes, googleUpdated] = await Promise.all([
+    getLocationAttributes(connection).catch(() => profile.attributeDetails),
+    listAvailableAttributes(connection).catch(() => [] as GbpAttributeMetadata[]),
+    profile.hasGoogleUpdated
+      ? getGoogleUpdatedLocation(connection).catch(() => null)
+      : Promise.resolve(null),
+  ]);
+
+  return { profile, attributes, availableAttributes, googleUpdated };
 }
 
 export async function patchGbpLocation(
@@ -176,9 +548,7 @@ export async function patchGbpLocation(
   validateOnly = false
 ): Promise<void> {
   const resource = locationResourceName(connection.locationId);
-  const url = new URL(
-    `https://mybusinessbusinessinformation.googleapis.com/v1/${resource}`
-  );
+  const url = new URL(`${BI_BASE}/${resource}`);
   url.searchParams.set("updateMask", updateMask);
   if (validateOnly) url.searchParams.set("validateOnly", "true");
 
@@ -197,4 +567,4 @@ export async function patchGbpLocation(
   }
 }
 
-export { normalizeCategoryName };
+export { normalizeCategoryName, locationResourceName };

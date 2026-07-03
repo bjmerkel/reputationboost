@@ -368,6 +368,9 @@ export type GbpPlanActionType =
   | "update_primary_category"
   | "add_secondary_categories"
   | "update_description"
+  | "add_service_items"
+  | "update_attributes"
+  | "update_website"
   | "create_post"
   | "manual";
 
@@ -376,6 +379,9 @@ export interface GbpPlanActionData {
   secondaryCategories?: string[];
   description?: string;
   postSummary?: string;
+  websiteUri?: string;
+  serviceName?: string;
+  serviceDescription?: string;
 }
 
 export interface GbpPlanStep {
@@ -471,8 +477,11 @@ export type ExecutionType =
   | "gbp_description"
   | "gbp_primary_category"
   | "gbp_secondary_categories"
-  | "gbp_checklist"
   | "gbp_services"
+  | "gbp_attributes"
+  | "gbp_website"
+  | "gbp_phone"
+  | "gbp_checklist"
   | "review_response"
   | "review_request"
   | "qa_answer"

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { applyGbpAction, type GbpApplyAction } from "@/lib/google/gbp-apply";
-import { getGbpLocationProfile } from "@/lib/google/gbp-location";
+import { getGbpLocationFull, type GbpAttributeUpdate } from "@/lib/google/gbp-location";
 import { getValidGbpConnection } from "@/lib/google/token-store";
 import { getUser } from "@/lib/supabase/server";
 
@@ -9,6 +9,12 @@ const ACTIONS: GbpApplyAction[] = [
   "update_primary_category",
   "add_secondary_categories",
   "update_description",
+  "update_title",
+  "update_website",
+  "update_phone",
+  "add_service_item",
+  "update_attributes",
+  "enable_recommended_attributes",
   "create_post",
   "reply_review",
 ];
@@ -30,8 +36,8 @@ export async function GET() {
       return NextResponse.json({ error: "GBP connection expired" }, { status: 401 });
     }
 
-    const profile = await getGbpLocationProfile(connection);
-    return NextResponse.json({ profile });
+    const full = await getGbpLocationFull(connection);
+    return NextResponse.json(full);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load GBP profile";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -50,6 +56,12 @@ export async function POST(request: Request) {
       primaryCategory?: string;
       secondaryCategories?: string[];
       description?: string;
+      title?: string;
+      websiteUri?: string;
+      primaryPhone?: string;
+      serviceName?: string;
+      serviceDescription?: string;
+      attributes?: GbpAttributeUpdate[];
       postSummary?: string;
       reviewId?: string;
       reviewReply?: string;
@@ -73,6 +85,12 @@ export async function POST(request: Request) {
       primaryCategory: body.primaryCategory,
       secondaryCategories: body.secondaryCategories,
       description: body.description,
+      title: body.title,
+      websiteUri: body.websiteUri,
+      primaryPhone: body.primaryPhone,
+      serviceName: body.serviceName,
+      serviceDescription: body.serviceDescription,
+      attributes: body.attributes,
       postSummary: body.postSummary,
       reviewId: body.reviewId,
       reviewReply: body.reviewReply,

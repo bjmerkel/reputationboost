@@ -19,6 +19,10 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_description",
     "gbp_primary_category",
     "gbp_secondary_categories",
+    "gbp_services",
+    "gbp_attributes",
+    "gbp_website",
+    "gbp_phone",
   ].includes(type);
 }
 

@@ -21,6 +21,10 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_description",
     "gbp_primary_category",
     "gbp_secondary_categories",
+    "gbp_services",
+    "gbp_attributes",
+    "gbp_website",
+    "gbp_phone",
   ].includes(type);
 }
 
@@ -119,6 +123,49 @@ export function tasksFromGbpPlanStep(
           { field: "description" }
         ),
       ];
+    case "add_service_items": {
+      const blocks = step.copyBlocks ?? [];
+      if (blocks.length > 0) {
+        return blocks.map((block, i) =>
+          buildGbpTask(audit, step, "gbp_services", block.label, block.content, {
+            serviceIndex: i + 1,
+            serviceName: block.label.replace(/^Service #\d+:\s*/i, ""),
+            serviceDescription: block.content,
+          })
+        );
+      }
+      return [
+        buildGbpTask(audit, step, "gbp_checklist", step.title, checklistContent(step), {
+          manual: true,
+        }),
+      ];
+    }
+    case "update_attributes":
+      return [
+        buildGbpTask(
+          audit,
+          step,
+          "gbp_attributes",
+          step.title,
+          step.instruction,
+          { enableRecommended: true }
+        ),
+      ];
+    case "update_website": {
+      const website = data.websiteUri ?? audit.gbp.identity.website ?? "";
+      if (!website) {
+        return [
+          buildGbpTask(audit, step, "gbp_checklist", step.title, checklistContent(step), {
+            manual: true,
+          }),
+        ];
+      }
+      return [
+        buildGbpTask(audit, step, "gbp_website", step.title, website, {
+          websiteUri: website,
+        }),
+      ];
+    }
     case "create_post": {
       const posts = content.googlePosts.length
         ? content.googlePosts
@@ -184,7 +231,7 @@ export function tasksFromGbpPlanStep(
     return [buildGbpTask(audit, step, "review_response", step.title, template, { reviewId: null })];
   }
 
-  if (step.stepNumber === 4 || step.stepNumber === 5) {
+  if (step.stepNumber === 5) {
     const blocks = step.copyBlocks ?? [];
     if (blocks.length > 0) {
       return blocks.map((block, i) =>

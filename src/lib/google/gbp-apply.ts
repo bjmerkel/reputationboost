@@ -2,8 +2,12 @@ import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
 import {
   getGbpLocationProfile,
+  getLocationAttributes,
+  listAvailableAttributes,
   patchGbpLocation,
   resolveCategoryByDisplayName,
+  updateLocationAttributes,
+  type GbpAttributeUpdate,
   type GbpCategoryRef,
 } from "./gbp-location";
 
@@ -131,6 +135,177 @@ export async function applyDescription(
   };
 }
 
+export async function applyTitle(
+  connection: GbpConnection,
+  title: string
+): Promise<GbpApplyResult> {
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error("Business name cannot be empty.");
+
+  await patchGbpLocation(connection, "title", { title: trimmed });
+
+  return {
+    success: true,
+    message: "Business name updated on Google Business Profile.",
+    applied: { title: trimmed },
+  };
+}
+
+export async function applyWebsite(
+  connection: GbpConnection,
+  websiteUri: string
+): Promise<GbpApplyResult> {
+  const trimmed = websiteUri.trim();
+  if (!trimmed) throw new Error("Website URL cannot be empty.");
+
+  await patchGbpLocation(connection, "websiteUri", { websiteUri: trimmed });
+
+  return {
+    success: true,
+    message: "Website URL updated on Google Business Profile.",
+    applied: { websiteUri: trimmed },
+  };
+}
+
+export async function applyPhone(
+  connection: GbpConnection,
+  primaryPhone: string
+): Promise<GbpApplyResult> {
+  const trimmed = primaryPhone.trim();
+  if (!trimmed) throw new Error("Phone number cannot be empty.");
+
+  const current = await getGbpLocationProfile(connection);
+
+  await patchGbpLocation(connection, "phoneNumbers", {
+    phoneNumbers: {
+      primaryPhone: trimmed,
+      additionalPhones: current.additionalPhones,
+    },
+  });
+
+  return {
+    success: true,
+    message: "Phone number updated on Google Business Profile.",
+    applied: { primaryPhone: trimmed },
+  };
+}
+
+function buildFreeFormServiceItem(
+  categoryName: string,
+  name: string,
+  description: string
+): Record<string, unknown> {
+  return {
+    freeFormServiceItem: {
+      category: categoryName,
+      label: {
+        displayName: name.slice(0, 140),
+        description: description.slice(0, 250),
+        languageCode: "en",
+      },
+    },
+  };
+}
+
+export async function applyServiceItem(
+  connection: GbpConnection,
+  serviceName: string,
+  serviceDescription: string
+): Promise<GbpApplyResult> {
+  const name = serviceName.trim();
+  const description = serviceDescription.trim();
+  if (!name) throw new Error("Service name is required.");
+
+  const current = await getGbpLocationProfile(connection);
+  if (!current.primaryCategory?.name) {
+    throw new Error("Set a primary category before adding services.");
+  }
+
+  const exists = current.serviceItems.some(
+    (s) => s.name.toLowerCase() === name.toLowerCase()
+  );
+  if (exists) {
+    return {
+      success: true,
+      message: `Service "${name}" is already on your profile.`,
+      applied: { serviceName: name, skipped: true },
+    };
+  }
+
+  const serviceItems = [
+    ...current.serviceItems.map((s) =>
+      buildFreeFormServiceItem(current.primaryCategory!.name, s.name, s.description)
+    ),
+    buildFreeFormServiceItem(current.primaryCategory.name, name, description),
+  ];
+
+  await patchGbpLocation(connection, "serviceItems", { serviceItems });
+
+  return {
+    success: true,
+    message: `Added service "${name}" to your Google Business Profile.`,
+    applied: { serviceName: name },
+  };
+}
+
+export async function applyAttributes(
+  connection: GbpConnection,
+  updates: GbpAttributeUpdate[]
+): Promise<GbpApplyResult> {
+  if (updates.length === 0) {
+    throw new Error("No attribute updates provided.");
+  }
+
+  await updateLocationAttributes(connection, updates);
+
+  return {
+    success: true,
+    message: `Updated ${updates.length} attribute(s) on Google Business Profile.`,
+    applied: { count: updates.length },
+  };
+}
+
+/** Enable BOOL attributes that are available but not yet set on the profile. */
+export async function applyRecommendedAttributes(
+  connection: GbpConnection,
+  limit = 8
+): Promise<GbpApplyResult> {
+  const [available, current] = await Promise.all([
+    listAvailableAttributes(connection),
+    getLocationAttributes(connection),
+  ]);
+
+  const currentNames = new Set(current.map((a) => a.name));
+  const updates: GbpAttributeUpdate[] = [];
+
+  for (const meta of available) {
+    if (updates.length >= limit) break;
+    if (meta.deprecated || meta.valueType !== "BOOL") continue;
+    if (currentNames.has(meta.name)) continue;
+
+    updates.push({ name: meta.name, boolValue: true });
+  }
+
+  if (updates.length === 0) {
+    return {
+      success: true,
+      message: "No additional BOOL attributes were available to enable.",
+      applied: { count: 0 },
+    };
+  }
+
+  await updateLocationAttributes(connection, updates);
+
+  return {
+    success: true,
+    message: `Enabled ${updates.length} business attribute(s) on Google.`,
+    applied: {
+      count: updates.length,
+      attributes: updates.map((u) => u.name),
+    },
+  };
+}
+
 export async function applyGooglePost(
   connection: GbpConnection,
   summary: string
@@ -200,6 +375,12 @@ export type GbpApplyAction =
   | "update_primary_category"
   | "add_secondary_categories"
   | "update_description"
+  | "update_title"
+  | "update_website"
+  | "update_phone"
+  | "add_service_item"
+  | "update_attributes"
+  | "enable_recommended_attributes"
   | "create_post"
   | "reply_review";
 
@@ -210,6 +391,12 @@ export async function applyGbpAction(
     primaryCategory?: string;
     secondaryCategories?: string[];
     description?: string;
+    title?: string;
+    websiteUri?: string;
+    primaryPhone?: string;
+    serviceName?: string;
+    serviceDescription?: string;
+    attributes?: GbpAttributeUpdate[];
     postSummary?: string;
     reviewId?: string;
     reviewReply?: string;
@@ -224,6 +411,27 @@ export async function applyGbpAction(
     case "update_description":
       if (!payload.description) throw new Error("description is required");
       return applyDescription(connection, payload.description);
+    case "update_title":
+      if (!payload.title) throw new Error("title is required");
+      return applyTitle(connection, payload.title);
+    case "update_website":
+      if (!payload.websiteUri) throw new Error("websiteUri is required");
+      return applyWebsite(connection, payload.websiteUri);
+    case "update_phone":
+      if (!payload.primaryPhone) throw new Error("primaryPhone is required");
+      return applyPhone(connection, payload.primaryPhone);
+    case "add_service_item":
+      if (!payload.serviceName) throw new Error("serviceName is required");
+      return applyServiceItem(
+        connection,
+        payload.serviceName,
+        payload.serviceDescription ?? ""
+      );
+    case "update_attributes":
+      if (!payload.attributes?.length) throw new Error("attributes are required");
+      return applyAttributes(connection, payload.attributes);
+    case "enable_recommended_attributes":
+      return applyRecommendedAttributes(connection);
     case "create_post":
       if (!payload.postSummary) throw new Error("postSummary is required");
       return applyGooglePost(connection, payload.postSummary);

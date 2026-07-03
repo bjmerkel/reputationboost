@@ -1,5 +1,6 @@
 import type { ExecutionTask, GbpConnection } from "../types";
 import { applyGbpAction } from "@/lib/google/gbp-apply";
+import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
 
 /**
  * Execute an approved task — uses live GBP OAuth when connection is available.
@@ -29,8 +30,11 @@ export async function executeTask(
     gbp_description: "Updated GBP business description.",
     gbp_primary_category: "Updated GBP primary category.",
     gbp_secondary_categories: "Updated GBP secondary categories.",
+    gbp_services: "Added service to Google Business Profile.",
+    gbp_attributes: "Updated business attributes on Google.",
+    gbp_website: "Updated website URL on Google Business Profile.",
+    gbp_phone: "Updated phone number on Google Business Profile.",
     gbp_checklist: `Completed: ${task.title}`,
-    gbp_services: "Queued photo upload and service list update.",
     review_response: `Posted review response for review ${task.payload.reviewId ?? "unknown"}.`,
     review_request: `Sent ${task.payload.batchSize ?? 15} SMS review requests.`,
     qa_answer: "Published Q&A answer on Google Business Profile.",
@@ -83,6 +87,36 @@ async function executeTaskLive(
       });
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
+    case "gbp_services": {
+      const serviceName = String(
+        task.payload.serviceName ?? task.title.replace(/^Step \d+:\s*/i, "")
+      );
+      const result = await applyGbpAction(connection, "add_service_item", {
+        serviceName,
+        serviceDescription: task.draftContent,
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "gbp_attributes": {
+      const result = task.payload.enableRecommended
+        ? await applyGbpAction(connection, "enable_recommended_attributes", {})
+        : await applyGbpAction(connection, "update_attributes", {
+            attributes: task.payload.attributes as GbpAttributeUpdate[] | undefined,
+          });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "gbp_website": {
+      const result = await applyGbpAction(connection, "update_website", {
+        websiteUri: String(task.payload.websiteUri ?? task.draftContent),
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "gbp_phone": {
+      const result = await applyGbpAction(connection, "update_phone", {
+        primaryPhone: String(task.payload.primaryPhone ?? task.draftContent),
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
     case "review_response": {
       const reviewId = String(task.payload.reviewId ?? "");
       const result = await applyGbpAction(connection, "reply_review", {
@@ -92,7 +126,6 @@ async function executeTaskLive(
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
     case "gbp_checklist":
-    case "gbp_services":
     case "qa_answer":
     case "review_request":
     case "schema_markup":
