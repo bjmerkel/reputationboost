@@ -13,26 +13,21 @@ function milesToMeters(miles: number): number {
   return Math.round(miles * 1609.34);
 }
 
-function waitForElementSize(el: HTMLElement): Promise<void> {
-  return new Promise((resolve) => {
-    if (el.offsetWidth > 0 && el.offsetHeight > 0) {
-      resolve();
-      return;
-    }
+const DEFAULT_MAP_ZOOM = 13;
+const RESIZE_DEBOUNCE_MS = 150;
 
-    const observer = new ResizeObserver(() => {
-      if (el.offsetWidth > 0 && el.offsetHeight > 0) {
-        observer.disconnect();
-        resolve();
-      }
-    });
-    observer.observe(el);
+function preserveMapView(map: google.maps.Map, center: google.maps.LatLngLiteral) {
+  const zoom = map.getZoom() ?? DEFAULT_MAP_ZOOM;
+  const currentCenter = map.getCenter();
 
-    window.setTimeout(() => {
-      observer.disconnect();
-      resolve();
-    }, 3000);
-  });
+  google.maps.event.trigger(map, "resize");
+
+  if (currentCenter) {
+    map.setCenter(currentCenter);
+  } else {
+    map.setCenter(center);
+  }
+  map.setZoom(zoom);
 }
 
 export function rankColor(rank: number | null): string {
@@ -69,8 +64,10 @@ export default function RankingMap({
   const circlesRef = useRef<google.maps.Circle[]>([]);
   const gridCirclesRef = useRef<google.maps.Circle[]>([]);
   const centerRef = useRef<google.maps.LatLngLiteral | null>(null);
+  const lastSizeRef = useRef({ width: 0, height: 0 });
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [mapVisible, setMapVisible] = useState(false);
   const [layers, setLayers] = useState<MapLayerState>(createDefaultMapLayers);
   const [gridPoints, setGridPoints] = useState<GeoGridPoint[] | undefined>(
     keywordRank?.geoGrid
@@ -112,13 +109,23 @@ export default function RankingMap({
 
   useEffect(() => {
     let cancelled = false;
+    let debounceTimer: number | null = null;
 
-    async function initMap() {
+    async function syncMap() {
+      const container = mapContainerRef.current;
+      const mapDiv = mapRef.current;
+      if (!container || !mapDiv || cancelled) return;
+
+      const { offsetWidth: width, offsetHeight: height } = container;
+      if (width === 0 || height === 0) return;
+
+      const last = lastSizeRef.current;
+      const sizeChanged = last.width !== width || last.height !== height;
+      if (!sizeChanged && mapInstance.current) return;
+      lastSizeRef.current = { width, height };
+
       try {
         const google = await loadGoogleMaps();
-        if (cancelled || !mapRef.current || !mapContainerRef.current) return;
-
-        await waitForElementSize(mapContainerRef.current);
         if (cancelled || !mapRef.current) return;
 
         let center: google.maps.LatLngLiteral = { lat, lng };
@@ -145,9 +152,9 @@ export default function RankingMap({
         centerRef.current = center;
 
         if (!mapInstance.current) {
-          mapInstance.current = new google.maps.Map(mapRef.current, {
+          mapInstance.current = new google.maps.Map(mapDiv, {
             center,
-            zoom: 13,
+            zoom: DEFAULT_MAP_ZOOM,
             mapTypeControl: false,
             streetViewControl: true,
             fullscreenControl: true,
@@ -169,15 +176,13 @@ export default function RankingMap({
             },
             zIndex: 1000,
           });
+
+          setReady(true);
+          setMapVisible(true);
         } else {
-          mapInstance.current.setCenter(center);
+          preserveMapView(mapInstance.current, center);
           businessMarkerRef.current?.setPosition(center);
         }
-
-        google.maps.event.trigger(mapInstance.current, "resize");
-        mapInstance.current.setCenter(center);
-
-        setReady(true);
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Map failed to load");
@@ -185,27 +190,31 @@ export default function RankingMap({
       }
     }
 
-    void initMap();
+    function scheduleSync() {
+      if (debounceTimer) window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        void syncMap();
+      }, RESIZE_DEBOUNCE_MS);
+    }
+
+    const container = mapContainerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(scheduleSync);
+    observer.observe(container);
+    scheduleSync();
+
     return () => {
       cancelled = true;
+      if (debounceTimer) window.clearTimeout(debounceTimer);
+      observer.disconnect();
+      mapInstance.current = null;
+      businessMarkerRef.current = null;
+      lastSizeRef.current = { width: 0, height: 0 };
+      setReady(false);
+      setMapVisible(false);
     };
   }, [lat, lng, address, businessName]);
-
-  useEffect(() => {
-    if (!ready || !mapInstance.current || !mapContainerRef.current) return;
-
-    const observer = new ResizeObserver(() => {
-      const map = mapInstance.current;
-      const center = centerRef.current;
-      if (!map || !window.google) return;
-
-      window.google.maps.event.trigger(map, "resize");
-      if (center) map.setCenter(center);
-    });
-
-    observer.observe(mapContainerRef.current);
-    return () => observer.disconnect();
-  }, [ready]);
 
   useEffect(() => {
     if (!ready || !mapInstance.current || !centerRef.current) return;
@@ -338,7 +347,12 @@ export default function RankingMap({
   }
 
   return (
-    <div ref={mapContainerRef} className="relative h-full min-h-[240px] w-full flex-1">
+    <div
+      ref={mapContainerRef}
+      className={`relative h-full min-h-[240px] w-full flex-1 bg-[#e8eaed] transition-opacity duration-150 ${
+        mapVisible ? "opacity-100" : "opacity-0"
+      }`}
+    >
       <MapLayerControls layers={layers} onChange={setLayers} />
       <div ref={mapRef} className="absolute inset-0" />
       {keywordRank && (
