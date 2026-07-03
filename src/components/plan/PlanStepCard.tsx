@@ -7,6 +7,7 @@ import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import PlanStepDiff from "./PlanStepDiff";
 import PlanStepPhotos from "./PlanStepPhotos";
 import PlanStepTaskRow from "./PlanStepTaskRow";
+import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
 
 const STATUS_STYLES = {
   completed: "border-[#ceead6] bg-[#f6faf7]",
@@ -41,6 +42,9 @@ export default function PlanStepCard({
   const hasPhotoTasks = step.tasks.some((t) => t.type === "gbp_photo");
   const nonPhotoTasks = step.tasks.filter((t) => t.type !== "gbp_photo" && t.type !== "gbp_video");
   const statusStyle = STATUS_STYLES[step.status] ?? STATUS_STYLES.pending;
+  const stepAttribution = step.tasks
+    .map((task) => attributionByTaskId[task.id])
+    .find((attr) => attr != null);
 
   return (
     <article
@@ -82,6 +86,13 @@ export default function PlanStepCard({
             <p className={`mt-2 text-sm font-medium ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>
               {step.outcome.narrative}
             </p>
+          )}
+          {step.status === "completed" && (
+            <DriverImpactComparison
+              attribution={stepAttribution}
+              variant={variant}
+              className="mt-1"
+            />
           )}
         </div>
         <span className={`shrink-0 text-lg ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>

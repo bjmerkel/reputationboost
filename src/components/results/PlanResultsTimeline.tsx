@@ -1,6 +1,8 @@
 "use client";
 
 import type { PlanTimelineEntry } from "@/audit/phase3/build-timeline";
+import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
+import type { ActionAttribution } from "@/audit/types/timeseries";
 
 function formatRank(rank: number | null | undefined): string {
   if (rank == null) return "—";
@@ -39,9 +41,11 @@ const KIND_STYLES: Record<
 
 export default function PlanResultsTimeline({
   entries,
+  attributionsById = {},
   loading = false,
 }: {
   entries: PlanTimelineEntry[];
+  attributionsById?: Record<string, ActionAttribution>;
   loading?: boolean;
 }) {
   if (loading) {
@@ -116,6 +120,24 @@ export default function PlanResultsTimeline({
                 </div>
 
                 <p className="mt-2 text-sm text-[#3c4043]">{entry.narrative}</p>
+
+                <DriverImpactComparison
+                  attribution={
+                    entry.attributionId ? attributionsById[entry.attributionId] : undefined
+                  }
+                  fields={
+                    entry.attributionId && attributionsById[entry.attributionId]
+                      ? undefined
+                      : {
+                          preliminary: entry.preliminary,
+                          projectedDriverImpact: entry.projectedDriverImpact,
+                          observedDriverImpact: entry.observedDriverImpact,
+                          driverScoreBefore: entry.driverScoreBefore,
+                          driverScoreAfter: entry.driverScoreAfter,
+                        }
+                  }
+                  className="mt-2"
+                />
 
                 {(rankChanged || entry.keyword) && (
                   <div className="mt-2 flex flex-wrap gap-3 text-xs text-[#5f6368]">

@@ -638,6 +638,10 @@ export interface PlanStepOutcome {
   rankAfter?: number | null;
   keyword?: string;
   narrative?: string;
+  projectedDriverImpact?: number | null;
+  observedDriverImpact?: number | null;
+  driverScoreBefore?: number | null;
+  driverScoreAfter?: number | null;
 }
 
 export interface PlanStep {

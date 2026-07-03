@@ -2,6 +2,7 @@
 
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import { formatCurrency } from "@/audit/attribution/roi";
+import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
 
 function formatRank(rank: number | null): string {
   if (rank === null) return "—";
@@ -58,6 +59,7 @@ export default function ActionAttributionFeed({
               )}
             </div>
             <p className="mt-1 text-sm text-[#3c4043]">{item.narrative}</p>
+            <DriverImpactComparison attribution={item} className="mt-2" />
             <div className="mt-2 flex flex-wrap gap-3 text-xs text-[#5f6368]">
               {item.primaryKeyword && (
                 <span>Keyword: {item.primaryKeyword}</span>

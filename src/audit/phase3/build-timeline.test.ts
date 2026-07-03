@@ -52,6 +52,42 @@ describe("buildOutcomeFromAttribution", () => {
     assert.match(outcome.narrative ?? "", /#7/);
     assert.match(outcome.narrative ?? "", /#4/);
   });
+
+  it("carries projection accuracy fields onto step outcomes", () => {
+    const attr: ActionAttribution = {
+      id: "attr-2",
+      executionTaskId: "task-2",
+      businessId: "biz-1",
+      taskType: "gbp_description",
+      actionItemId: "gbp-step-3",
+      title: "Rewrite description",
+      publishedAt: "2026-06-03T10:00:00.000Z",
+      windowDays: 14,
+      primaryKeyword: "emergency plumber dallas",
+      rankBefore: 7,
+      rankAfter: 4,
+      rankDelta: -3,
+      keywordsImproved: 1,
+      callsDelta: null,
+      directionsDelta: null,
+      websiteClicksDelta: null,
+      impressionsDelta: null,
+      estimatedRevenue: null,
+      narrative: "Rank improved.",
+      preliminary: false,
+      computedAt: "2026-06-17T10:00:00.000Z",
+      projectedDriverImpact: 6,
+      observedDriverImpact: 4,
+      driverScoreBefore: 58,
+      driverScoreAfter: 62,
+    };
+
+    const outcome = buildOutcomeFromAttribution(attr);
+    assert.equal(outcome.projectedDriverImpact, 6);
+    assert.equal(outcome.observedDriverImpact, 4);
+    assert.equal(outcome.driverScoreBefore, 58);
+    assert.equal(outcome.driverScoreAfter, 62);
+  });
 });
 
 describe("findStepOutcome", () => {

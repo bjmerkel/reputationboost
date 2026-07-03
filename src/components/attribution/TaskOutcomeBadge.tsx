@@ -2,6 +2,7 @@
 
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import { formatCurrency } from "@/audit/attribution/roi";
+import { formatDriverImpactLabel } from "@/lib/attribution/driver-impact-display";
 
 export default function TaskOutcomeBadge({
   attribution,
@@ -11,9 +12,10 @@ export default function TaskOutcomeBadge({
   if (!attribution) return null;
 
   if (attribution.preliminary) {
+    const driverLabel = formatDriverImpactLabel(attribution);
     return (
       <p className="mt-2 text-xs text-[#e37400]">
-        Tracking outcomes for 14 days after publish…
+        {driverLabel ?? "Tracking outcomes for 14 days after publish…"}
       </p>
     );
   }
@@ -39,6 +41,11 @@ export default function TaskOutcomeBadge({
   }
   if (attribution.estimatedRevenue != null && attribution.estimatedRevenue > 0) {
     parts.push(`~${formatCurrency(attribution.estimatedRevenue)} est.`);
+  }
+
+  const driverLabel = formatDriverImpactLabel(attribution);
+  if (driverLabel) {
+    parts.push(driverLabel);
   }
 
   if (parts.length === 0) {

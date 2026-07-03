@@ -21,6 +21,10 @@ export function buildOutcomeFromAttribution(attr: ActionAttribution): PlanStepOu
     rankAfter: attr.rankAfter,
     keyword: attr.primaryKeyword ?? undefined,
     narrative,
+    projectedDriverImpact: attr.projectedDriverImpact,
+    observedDriverImpact: attr.observedDriverImpact,
+    driverScoreBefore: attr.driverScoreBefore,
+    driverScoreAfter: attr.driverScoreAfter,
   };
 }
 

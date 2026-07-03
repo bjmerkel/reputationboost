@@ -13,6 +13,11 @@ export interface PlanTimelineEntry {
   rankAfter?: number | null;
   stepNumber?: number;
   preliminary?: boolean;
+  attributionId?: string;
+  projectedDriverImpact?: number | null;
+  observedDriverImpact?: number | null;
+  driverScoreBefore?: number | null;
+  driverScoreAfter?: number | null;
 }
 
 function formatRank(rank: number | null): string {
@@ -64,6 +69,11 @@ export function buildPlanTimeline(
       rankAfter: attr.rankAfter,
       stepNumber: Number.isFinite(stepNumber) ? stepNumber : undefined,
       preliminary: attr.preliminary,
+      attributionId: attr.id,
+      projectedDriverImpact: attr.projectedDriverImpact,
+      observedDriverImpact: attr.observedDriverImpact,
+      driverScoreBefore: attr.driverScoreBefore,
+      driverScoreAfter: attr.driverScoreAfter,
     });
   }
 
@@ -83,6 +93,11 @@ export function buildPlanTimeline(
         rankBefore: step.outcome.rankBefore,
         rankAfter: step.outcome.rankAfter,
         stepNumber: step.stepNumber,
+        attributionId: step.outcome.attributionId,
+        projectedDriverImpact: step.outcome.projectedDriverImpact,
+        observedDriverImpact: step.outcome.observedDriverImpact,
+        driverScoreBefore: step.outcome.driverScoreBefore,
+        driverScoreAfter: step.outcome.driverScoreAfter,
       });
     }
   }

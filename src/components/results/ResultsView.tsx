@@ -36,13 +36,22 @@ export default function ResultsView({
     return buildPlanTimeline(audit, plan, attributions);
   }, [audit, tasks, attributions]);
 
+  const attributionsById = useMemo(
+    () => Object.fromEntries(attributions.map((attr) => [attr.id, attr])),
+    [attributions]
+  );
+
   const report = audit.strategy?.monthlyReport;
 
   return (
     <div className="space-y-6">
       {report && <ResultsMonthlySummary report={report} summary={summary} />}
 
-      <PlanResultsTimeline entries={timelineEntries} loading={attributionLoading} />
+      <PlanResultsTimeline
+        entries={timelineEntries}
+        attributionsById={attributionsById}
+        loading={attributionLoading}
+      />
 
       <section className="border-t border-[#e8eaed] pt-4">
         <button
