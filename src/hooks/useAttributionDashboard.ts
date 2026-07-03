@@ -1,0 +1,107 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { ActionAttribution, AttributionSummary } from "@/audit/types/timeseries";
+import type { DailyMetricPoint } from "@/audit/types/timeseries";
+
+export interface AttributionDashboardData {
+  attributions: ActionAttribution[];
+  summary: AttributionSummary | null;
+  performanceSeries: DailyMetricPoint[];
+  attributionByTaskId: Record<string, ActionAttribution>;
+  sparklines: Record<string, number[]>;
+}
+
+export function useAttributionDashboard(clientId: string): {
+  data: AttributionDashboardData;
+  loading: boolean;
+} {
+  const [data, setData] = useState<AttributionDashboardData>({
+    attributions: [],
+    summary: null,
+    performanceSeries: [],
+    attributionByTaskId: {},
+    sparklines: {},
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      try {
+        const [attrRes, summaryRes, perfRes] = await Promise.all([
+          fetch(`/api/attribution?clientId=${encodeURIComponent(clientId)}`),
+          fetch(`/api/attribution/summary?clientId=${encodeURIComponent(clientId)}&period=30d`),
+          fetch(`/api/metrics/performance?clientId=${encodeURIComponent(clientId)}&days=14`),
+        ]);
+
+        const [attrData, summaryData, perfData] = await Promise.all([
+          attrRes.json(),
+          summaryRes.json(),
+          perfRes.json(),
+        ]);
+
+        if (cancelled) return;
+
+        const attributions = (attrRes.ok ? attrData.attributions : []) as ActionAttribution[];
+        const performanceSeries = (perfRes.ok ? perfData.series : []) as DailyMetricPoint[];
+
+        const attributionByTaskId: Record<string, ActionAttribution> = {};
+        for (const item of attributions) {
+          attributionByTaskId[item.executionTaskId] = item;
+        }
+
+        const sparklines = buildSparklines(performanceSeries);
+
+        setData({
+          attributions,
+          summary: summaryRes.ok ? summaryData.summary : null,
+          performanceSeries,
+          attributionByTaskId,
+          sparklines,
+        });
+      } catch {
+        if (!cancelled) {
+          setData({
+            attributions: [],
+            summary: null,
+            performanceSeries: [],
+            attributionByTaskId: {},
+            sparklines: {},
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId]);
+
+  return { data, loading };
+}
+
+function buildSparklines(points: DailyMetricPoint[]): Record<string, number[]> {
+  const dates = [...new Set(points.map((p) => p.date))].sort();
+  const metrics = ["calls", "direction_requests", "website_clicks", "profile_views"] as const;
+  const keyMap: Record<(typeof metrics)[number], string> = {
+    calls: "calls",
+    direction_requests: "directions",
+    website_clicks: "website",
+    profile_views: "views",
+  };
+
+  const result: Record<string, number[]> = {};
+  for (const metric of metrics) {
+    result[keyMap[metric]] = dates.map((date) => {
+      const point = points.find((p) => p.date === date && p.metric === metric);
+      return point?.value ?? 0;
+    });
+  }
+  return result;
+}

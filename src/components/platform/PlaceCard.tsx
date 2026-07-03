@@ -15,6 +15,7 @@ interface PlaceCardProps {
   pendingPhotoTasks?: number;
   unrespondedReviews?: number;
   onPreviewCustomer?: () => void;
+  sparklines?: Record<string, number[]>;
   children: React.ReactNode;
 }
 
@@ -26,6 +27,7 @@ export default function PlaceCard({
   pendingPhotoTasks = 0,
   unrespondedReviews = 0,
   onPreviewCustomer,
+  sparklines,
   children,
 }: PlaceCardProps) {
   const { gbp } = audit;
@@ -64,7 +66,7 @@ export default function PlaceCard({
         )}
 
         <div className="mt-4">
-          <ActionMetricsBar audit={audit} />
+          <ActionMetricsBar audit={audit} sparklines={sparklines} />
         </div>
       </div>
 

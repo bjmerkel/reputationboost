@@ -19,6 +19,9 @@ import PlatformShell from "@/components/platform/PlatformShell";
 import RankingMap from "@/components/platform/RankingMap";
 import ViewAsCustomerModal from "@/components/platform/ViewAsCustomerModal";
 import StrategyPanel from "@/components/StrategyPanel";
+import AttributionsSummaryCard from "@/components/attribution/AttributionsSummaryCard";
+import ActionAttributionFeed from "@/components/attribution/ActionAttributionFeed";
+import { useAttributionDashboard } from "@/hooks/useAttributionDashboard";
 
 interface BusinessLocation {
   lat: number;
@@ -60,6 +63,8 @@ export default function AuditDashboard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  const { data: attributionData, loading: attributionLoading } = useAttributionDashboard(clientId);
 
   const setView = useCallback(
     (next: AuditView) => {
@@ -215,15 +220,26 @@ export default function AuditDashboard({
           pendingPhotoTasks={pendingPhotoTasks}
           unrespondedReviews={audit.reviews.unrespondedNegative}
           onPreviewCustomer={() => setPreviewOpen(true)}
+          sparklines={attributionData.sparklines}
         >
           {view === "report" && (
-            <ListingDiffCards
-              audit={audit}
-              clientId={clientId}
-              auditId={audit.auditId}
-              tasks={tasks}
-              onViewAll={() => setView("execute")}
-            />
+            <div className="space-y-6">
+              <AttributionsSummaryCard
+                summary={attributionData.summary}
+                loading={attributionLoading}
+              />
+              <ActionAttributionFeed
+                attributions={attributionData.attributions}
+                loading={attributionLoading}
+              />
+              <ListingDiffCards
+                audit={audit}
+                clientId={clientId}
+                auditId={audit.auditId}
+                tasks={tasks}
+                onViewAll={() => setView("execute")}
+              />
+            </div>
           )}
 
           {view === "report" && audit.strategy?.monthlyReport && (
@@ -271,13 +287,22 @@ export default function AuditDashboard({
               auditId={audit.auditId}
               contentSource={audit.execution?.contentSource}
               initialTasks={actionTasks}
+              attributionByTaskId={attributionData.attributionByTaskId}
               embedded
               variant="light"
             />
           )}
 
           {view === "data" && (
-            <AuditDataPanel audit={audit} embedded variant="light" gbpConnected={gbpConnected} />
+            <AuditDataPanel
+              audit={audit}
+              clientId={clientId}
+              activeKeyword={activeKeyword}
+              onKeywordChange={setActiveKeyword}
+              embedded
+              variant="light"
+              gbpConnected={gbpConnected}
+            />
           )}
         </PlaceCard>
 

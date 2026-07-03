@@ -2,8 +2,11 @@ import type {
   IngestRunResult,
   PerformanceDailyRow,
   RankSnapshotRow,
+  DailyMetricPoint,
 } from "@/audit/types/timeseries";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 
 function performanceRowToDb(row: PerformanceDailyRow) {
   return {
@@ -53,6 +56,66 @@ export async function upsertRankSnapshots(rows: RankSnapshotRow[]): Promise<numb
 
   if (error) throw new Error(`Failed to upsert rank_snapshots: ${error.message}`);
   return rows.length;
+}
+
+export async function listPerformanceDailyForUser(
+  userId: string,
+  businessSlug: string,
+  days = 30
+): Promise<DailyMetricPoint[]> {
+  const supabase = await createClient();
+  const businessId = await getBusinessIdForSlug(userId, businessSlug);
+  if (!businessId) return [];
+
+  const start = new Date();
+  start.setUTCDate(start.getUTCDate() - days);
+
+  const { data, error } = await supabase
+    .from("performance_daily")
+    .select("date, metric, value")
+    .eq("business_id", businessId)
+    .gte("date", start.toISOString().slice(0, 10))
+    .order("date", { ascending: true });
+
+  if (error || !data) return [];
+
+  return data.map((row) => ({
+    date: row.date as string,
+    metric: row.metric as DailyMetricPoint["metric"],
+    value: row.value as number,
+  }));
+}
+
+export async function listRankTrendForUser(
+  userId: string,
+  businessSlug: string,
+  keyword: string,
+  days = 90
+): Promise<Array<{ date: string; rank: number | null }>> {
+  const supabase = await createClient();
+  const businessId = await getBusinessIdForSlug(userId, businessSlug);
+  if (!businessId) return [];
+
+  const start = new Date();
+  start.setUTCDate(start.getUTCDate() - days);
+
+  const { data, error } = await supabase
+    .from("rank_snapshots")
+    .select("date, rank")
+    .eq("business_id", businessId)
+    .eq("keyword", keyword)
+    .eq("distance_miles", 1)
+    .eq("grid_north", 0)
+    .eq("grid_east", 0)
+    .gte("date", start.toISOString().slice(0, 10))
+    .order("date", { ascending: true });
+
+  if (error || !data) return [];
+
+  return data.map((row) => ({
+    date: row.date as string,
+    rank: row.rank as number | null,
+  }));
 }
 
 export async function startIngestRun(jobName: string): Promise<string> {

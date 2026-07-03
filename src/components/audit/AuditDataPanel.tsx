@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import type { FullAuditPayload, GbpMediaPreview, ReviewRecord } from "@/audit/types";
 import ExternalImage from "@/components/ExternalImage";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
+import TrendsPanel from "@/components/attribution/TrendsPanel";
 
-type DataTab = "profile" | "rankings" | "competitors" | "reviews" | "citations";
+type DataTab = "profile" | "rankings" | "competitors" | "reviews" | "citations" | "trends";
 
 const DATA_TABS: { id: DataTab; label: string }[] = [
   { id: "profile", label: "Profile" },
   { id: "rankings", label: "Rankings" },
+  { id: "trends", label: "Trends" },
   { id: "competitors", label: "Competitors" },
   { id: "reviews", label: "Reviews" },
   { id: "citations", label: "Citations" },
@@ -17,11 +19,17 @@ const DATA_TABS: { id: DataTab; label: string }[] = [
 
 export default function AuditDataPanel({
   audit,
+  clientId,
+  activeKeyword,
+  onKeywordChange,
   embedded = false,
   variant = "dark",
   gbpConnected = false,
 }: {
   audit: FullAuditPayload;
+  clientId: string;
+  activeKeyword: string;
+  onKeywordChange: (keyword: string) => void;
   embedded?: boolean;
   variant?: "dark" | "light";
   gbpConnected?: boolean;
@@ -329,6 +337,15 @@ export default function AuditDataPanel({
             )}
           </div>
         </div>
+      )}
+
+      {tab === "trends" && (
+        <TrendsPanel
+          clientId={clientId}
+          keywords={audit.rankings.keywords.map((k) => k.keyword)}
+          activeKeyword={activeKeyword}
+          onKeywordChange={onKeywordChange}
+        />
       )}
 
       {tab === "citations" && (

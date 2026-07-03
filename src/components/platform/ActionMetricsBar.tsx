@@ -1,9 +1,11 @@
 "use client";
 
 import type { FullAuditPayload } from "@/audit/types";
+import Sparkline from "@/components/attribution/MiniChart";
 
 interface ActionMetricsBarProps {
   audit: FullAuditPayload;
+  sparklines?: Record<string, number[]>;
 }
 
 interface MetricItem {
@@ -13,7 +15,7 @@ interface MetricItem {
   icon: React.ReactNode;
 }
 
-export default function ActionMetricsBar({ audit }: ActionMetricsBarProps) {
+export default function ActionMetricsBar({ audit, sparklines }: ActionMetricsBarProps) {
   const { performance } = audit.gbp;
   const { strategy } = audit;
 
@@ -80,6 +82,9 @@ export default function ActionMetricsBar({ audit }: ActionMetricsBarProps) {
           </div>
           <span className="text-center text-[10px] font-medium text-[#3c4043]">{m.label}</span>
           <span className="text-center text-xs font-semibold text-[#202124]">{m.value}</span>
+          {sparklines?.[m.id] && sparklines[m.id].some((v) => v > 0) && (
+            <Sparkline values={sparklines[m.id]} stroke="#188038" />
+          )}
           {deltas[m.id] !== undefined && (
             <span className="text-center">{formatDelta(deltas[m.id])}</span>
           )}

@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import type { ExecutionTask } from "@/audit/types";
+import type { ActionAttribution } from "@/audit/types/timeseries";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
+import TaskOutcomeBadge from "@/components/attribution/TaskOutcomeBadge";
 
 interface ExecutionQueueProps {
   clientId: string;
   auditId: string;
   initialTasks: ExecutionTask[];
   contentSource?: "llm" | "template";
+  attributionByTaskId?: Record<string, ActionAttribution>;
 }
 
 const statusColors: Record<ExecutionTask["status"], string> = {
@@ -46,6 +49,7 @@ export default function ExecutionQueue({
   auditId,
   initialTasks,
   contentSource,
+  attributionByTaskId = {},
   embedded = false,
   variant = "dark",
 }: ExecutionQueueProps & { embedded?: boolean; variant?: "dark" | "light" }) {
@@ -310,6 +314,9 @@ export default function ExecutionQueue({
               >
                 {task.status === "failed" ? "✗" : "✓"} {task.result}
               </p>
+            )}
+            {task.status === "completed" && (
+              <TaskOutcomeBadge attribution={attributionByTaskId[task.id]} />
             )}
           </div>
         ))}
