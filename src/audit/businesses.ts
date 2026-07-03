@@ -20,6 +20,8 @@ export interface BusinessRecord {
   onboarding_complete: boolean;
   website: string | null;
   phone: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CreateBusinessInput {
@@ -86,8 +88,22 @@ export async function listUserBusinesses(userId: string): Promise<BusinessRecord
 
 export async function getPrimaryBusiness(userId: string): Promise<ClientConfig | null> {
   const rows = await listUserBusinesses(userId);
-  const ready = rows.find((r) => r.onboarding_complete && r.gbp_location_id);
-  const row = ready ?? rows[0];
+  const completed = rows
+    .filter((r) => r.onboarding_complete && r.gbp_location_id)
+    .sort(
+      (a, b) =>
+        new Date(b.gbp_connected_at ?? b.updated_at).getTime() -
+        new Date(a.gbp_connected_at ?? a.updated_at).getTime()
+    );
+
+  const inProgress = rows
+    .filter((r) => !r.onboarding_complete)
+    .sort(
+      (a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+
+  const row = inProgress[0] ?? completed[0] ?? rows[rows.length - 1];
   return row ? rowToClientConfig(row) : null;
 }
 

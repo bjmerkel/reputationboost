@@ -14,6 +14,7 @@ interface OnboardingWizardProps {
   locations?: GbpLocationOption[];
   error?: string;
   disconnected?: boolean;
+  changingBusiness?: boolean;
 }
 
 export default function OnboardingWizard({
@@ -22,6 +23,7 @@ export default function OnboardingWizard({
   locations = [],
   error,
   disconnected,
+  changingBusiness = false,
 }: OnboardingWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState(initialStep);
@@ -187,10 +189,13 @@ export default function OnboardingWizard({
 
       {step === "business" && (
         <form onSubmit={createBusiness} className="space-y-4">
-          <h2 className="text-2xl font-bold text-white">Add your business</h2>
+          <h2 className="text-2xl font-bold text-white">
+            {changingBusiness ? "Change your business" : "Add your business"}
+          </h2>
           <p className="text-sm text-slate-400">
-            Search for your business on Google Maps. Next you&apos;ll connect your Google
-            Business Profile for live data.
+            {changingBusiness
+              ? "Search for a different business on Google Maps. You'll connect its Google Business Profile in the next steps."
+              : "Search for your business on Google Maps. Next you'll connect your Google Business Profile for live data."}
           </p>
 
           <GoogleBusinessAutocomplete

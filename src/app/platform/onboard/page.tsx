@@ -17,6 +17,7 @@ interface PageProps {
     locations?: string;
     error?: string;
     disconnected?: string;
+    change?: string;
   }>;
 }
 
@@ -26,8 +27,9 @@ export default async function OnboardPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const existing = await getPrimaryBusiness(user.id);
+  const changingBusiness = params.change === "1";
 
-  if (existing?.onboardingComplete && !params.step && !params.disconnected) {
+  if (existing?.onboardingComplete && !params.step && !params.disconnected && !changingBusiness) {
     redirect("/platform/audit");
   }
 
@@ -42,15 +44,18 @@ export default async function OnboardPage({ searchParams }: PageProps) {
     }
   }
 
-  const step =
-    params.step === "location" && params.businessId
+  const step = changingBusiness
+    ? "business"
+    : params.step === "location" && params.businessId
       ? "location"
       : params.businessId || (existing?.businessId && !existing.onboardingComplete)
         ? "connect"
         : "business";
 
-  const wizardBusinessId =
-    params.businessId ?? (existing?.businessId && !existing.onboardingComplete ? existing.businessId : undefined);
+  const wizardBusinessId = changingBusiness
+    ? undefined
+    : params.businessId ??
+      (existing?.businessId && !existing.onboardingComplete ? existing.businessId : undefined);
 
   return (
     <main className="relative overflow-hidden py-10">
@@ -75,6 +80,7 @@ export default async function OnboardPage({ searchParams }: PageProps) {
           locations={locations}
           error={params.error}
           disconnected={params.disconnected === "1"}
+          changingBusiness={changingBusiness}
         />
       </div>
     </main>

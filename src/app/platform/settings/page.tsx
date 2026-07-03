@@ -44,7 +44,15 @@ export default async function SettingsPage() {
 
         <div className="space-y-6">
           <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-6">
-            <h2 className="text-lg font-bold text-white">Business</h2>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <h2 className="text-lg font-bold text-white">Business</h2>
+              <Link
+                href="/platform/onboard?change=1"
+                className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/5"
+              >
+                Change business
+              </Link>
+            </div>
             <dl className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Name</dt>
