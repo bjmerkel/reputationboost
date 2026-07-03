@@ -37,9 +37,9 @@ export default function Hero() {
           </h1>
 
           <p className="animate-fade-up animate-delay-200 mt-6 max-w-2xl text-lg leading-relaxed text-slate-400 sm:text-xl">
-            Enter your keywords. We audit your Google Business Profile, calculate
-            your Reputation Boost Score, and build a step-by-step plan to
-            increase rankings, calls, and revenue.
+            Find your business on Google Maps. We audit your profile, AI-pick your
+            best Local 3-Pack keywords, calculate your Reputation Boost Score, and
+            build a step-by-step plan to increase rankings, calls, and revenue.
           </p>
 
           <div className="animate-fade-up animate-delay-300 mt-10 flex flex-col gap-4 sm:flex-row">

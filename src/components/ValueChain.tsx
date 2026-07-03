@@ -4,9 +4,9 @@ import SectionHeader from "@/components/marketing/SectionHeader";
 const steps = [
   {
     number: "01",
-    title: "Pick Keywords",
+    title: "AI Keyword Discovery",
     description:
-      "AI suggests Local 3-Pack keywords for your market. Track the searches that actually drive revenue.",
+      "We analyze your business and market, then AI-picks the Local 3-Pack keywords that drive the most revenue — no manual research required.",
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />

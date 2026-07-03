@@ -5,7 +5,7 @@ const steps = [
     step: "01",
     title: "Audit & Score",
     description:
-      "Connect your Google Business Profile and target keywords. We analyze rankings, competitors, and profile gaps — then calculate your Reputation Boost Score.",
+      "Connect your Google Business Profile. We AI-pick your best keywords, analyze rankings, competitors, and profile gaps — then calculate your Reputation Boost Score.",
   },
   {
     step: "02",

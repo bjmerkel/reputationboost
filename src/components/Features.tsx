@@ -5,7 +5,7 @@ const features = [
     id: "ai-keywords",
     title: "AI Keyword Discovery",
     description:
-      "We find the keywords your customers actually search — service + city, \"near me,\" emergency terms — not generic SEO fluff.",
+      "We analyze your business and AI-pick the keywords your customers actually search — service + city, \"near me,\" emergency terms — automatically.",
     gradient: "from-emerald-500 to-teal-500",
     preview: (
       <div className="space-y-1.5">
