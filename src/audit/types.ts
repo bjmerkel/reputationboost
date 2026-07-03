@@ -384,6 +384,7 @@ export interface PathToHealthy {
   pointsNeeded: number;
   projectedScore: number;
   projectedDriverScore: number;
+  projectedOutcomeIndex: number;
   steps: PathToHealthyStep[];
   estimatedRevenueGain: number | null;
   estimatedRevenueGainLabel: string | null;

@@ -41,12 +41,15 @@ export {
 } from "./score-impact";
 export {
   applyGapMutation,
+  applyOutcomeGapMutation,
+  applyOutcomeMutation,
   applyStepMutation,
   cloneAudit,
   isStepSatisfied,
   pickActionsForDriverTarget,
   projectHealthScoresFromActions,
   projectHealthScoresFromStepNumbers,
+  projectOutcomeScoresFromActions,
   simulateGapDriverImpact,
   simulateStepDriverImpact,
 } from "./counterfactual";

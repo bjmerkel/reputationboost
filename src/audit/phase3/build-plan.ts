@@ -72,7 +72,8 @@ function buildPlanStep(
 function computeProgress(
   audit: FullAuditPayload,
   steps: PlanStep[],
-  currentHealthScore: number
+  currentHealthScore: number,
+  calibration?: AttributionCalibration
 ): PlanProgress {
   const totalSteps = steps.length;
   const completedSteps = steps.filter((s) => s.status === "completed").length;
@@ -83,7 +84,9 @@ function computeProgress(
     .filter((n) => !isCustomPlanStep(n));
   const projectedHealthScore =
     remainingStepNumbers.length > 0
-      ? projectHealthScoresFromStepNumbers(audit, remainingStepNumbers).projectedOverallScore
+      ? projectHealthScoresFromStepNumbers(audit, remainingStepNumbers, {
+          calibration,
+        }).projectedOverallScore
       : currentHealthScore;
 
   return {
@@ -141,6 +144,6 @@ export function buildPlan(
     targetKeywords: gbpPlan.targetKeywords,
     phases: filterPhasesWithSteps(PLAN_PHASE_DEFINITIONS, planSteps),
     steps: planSteps,
-    progress: computeProgress(audit, planSteps, currentHealthScore),
+    progress: computeProgress(audit, planSteps, currentHealthScore, calibration),
   };
 }

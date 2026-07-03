@@ -46,7 +46,7 @@ export default function PathToHealthyPanel({ path }: { path: PathToHealthy }) {
 
       <p className="mt-1 text-xs text-[#80868b]">
         Listing strength {path.currentScore} → {path.projectedScore} · ranking outcome{" "}
-        {path.outcomeIndex}/100 (tracks rank, not profile actions)
+        {path.outcomeIndex} → {path.projectedOutcomeIndex}
       </p>
 
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e8eaed]">

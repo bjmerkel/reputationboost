@@ -1,15 +1,19 @@
-import type { FullAuditPayload, GapFlag, Phase1AuditPayload } from "../types";
+import type { FullAuditPayload, GapFlag, KeywordRankSnapshot, Phase1AuditPayload } from "../types";
 import {
   inferRecommendedSecondaryCategories,
   missingKeywordsForServices,
 } from "./gbp-current-state";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
 import { computeHealthScores } from "./scoring";
+import type { AttributionCalibration } from "./attribution-calibration";
+import { computeKeywordScores } from "./keyword-scores";
 
 const PHOTO_TARGET = 60;
 const POST_FRESH_DAYS = 14;
 const RESPONSE_RATE_TARGET = 0.85;
 const DESCRIPTION_MIN_LENGTH = 400;
+const DEFAULT_RANK_IMPROVEMENT = 2;
+const CUSTOM_PLAN_STEP_START = 17;
 
 function daysSince(iso: string | null): number {
   if (!iso) return 999;
@@ -354,21 +358,191 @@ export interface ProjectedHealthScores {
   overallGain: number;
 }
 
+export interface ProjectedOutcomeScores {
+  projectedOutcomeIndex: number;
+  projectedVisibility: number;
+  projectedRevenueCapture: number;
+  projectedOverallScore: number;
+  outcomeGain: number;
+  visibilityGain: number;
+  revenueCaptureGain: number;
+  overallGain: number;
+  estimatedMonthlyRevenue: number | null;
+  revenueGain: number | null;
+}
+
+export interface CounterfactualProjectionOptions {
+  calibration?: AttributionCalibration;
+  avgCustomerValue?: number | null;
+}
+
+export interface ActionRef {
+  source: "plan" | "gap";
+  id: string;
+}
+
+function numericRankAtOneMile(kw: KeywordRankSnapshot): number {
+  const rank1mi = kw.geoRanks.find((g) => g.distanceMiles === 1)?.rank;
+  if (rank1mi != null) return rank1mi;
+  if (typeof kw.localPackPosition === "number") return kw.localPackPosition;
+  return 20;
+}
+
+function improveKeywordRank(kw: KeywordRankSnapshot, rankDelta: number): KeywordRankSnapshot {
+  const current = numericRankAtOneMile(kw);
+  const improved = Math.max(1, current - rankDelta);
+  const inLocalPack = improved <= 3;
+  const localPackPosition = inLocalPack
+    ? (improved as 1 | 2 | 3)
+    : ("not_in_pack" as const);
+
+  return {
+    ...kw,
+    inLocalPack,
+    localPackPosition,
+    geoRanks: kw.geoRanks.map((g) =>
+      g.distanceMiles === 1 ? { ...g, rank: improved, inLocalPack } : g
+    ),
+  };
+}
+
+function refreshRankingAggregates(audit: Phase1AuditPayload): void {
+  audit.rankings.keywordsInPack = audit.rankings.keywords.filter((k) => k.inLocalPack).length;
+  audit.rankings.shareOfVoice = audit.rankings.keywords.length
+    ? Math.round((audit.rankings.keywordsInPack / audit.rankings.keywords.length) * 100)
+    : 0;
+}
+
+function rankDeltaForStep(
+  stepNumber: number,
+  calibration?: AttributionCalibration
+): number {
+  const cal = calibration?.[stepNumber];
+  if (cal?.medianRankDelta != null && cal.medianRankDelta > 0) {
+    return Math.min(5, Math.max(1, Math.round(cal.medianRankDelta)));
+  }
+
+  switch (stepNumber) {
+    case 3:
+    case 4:
+    case 8:
+      return 2;
+    case 10:
+    case 11:
+    case 6:
+    case 7:
+      return 1;
+    default:
+      return DEFAULT_RANK_IMPROVEMENT;
+  }
+}
+
+function keywordsTargetedByStep(audit: Phase1AuditPayload, stepNumber: number): string[] {
+  const keywords = audit.rankings.keywords;
+  const outsidePack = keywords.filter((k) => !k.inLocalPack).map((k) => k.keyword);
+
+  switch (stepNumber) {
+    case 3:
+    case 4:
+    case 8:
+      return outsidePack.length > 0 ? outsidePack : keywords.map((k) => k.keyword);
+    case 5:
+      return outsidePack;
+    case 10:
+    case 11:
+      return keywords
+        .filter((k) => !k.inLocalPack || k.localPackPosition === 3)
+        .map((k) => k.keyword);
+    case 6:
+    case 7:
+      return outsidePack.slice(0, 2);
+    default:
+      return outsidePack.slice(0, 1);
+  }
+}
+
+function totalEstimatedRevenue(
+  audit: Phase1AuditPayload,
+  avgCustomerValue?: number | null
+): number | null {
+  if (!avgCustomerValue || avgCustomerValue <= 0) return null;
+
+  const cards = computeKeywordScores(audit, { avgCustomerValue });
+  let sum = 0;
+  let any = false;
+  for (const card of cards) {
+    if (card.estimatedMonthlyRevenue != null) {
+      sum += card.estimatedMonthlyRevenue;
+      any = true;
+    }
+  }
+  return any ? sum : null;
+}
+
+/** Apply projected rank improvements for keywords a plan step would influence. */
+export function applyOutcomeMutation(
+  audit: Phase1AuditPayload,
+  stepNumber: number,
+  calibration?: AttributionCalibration
+): void {
+  if (stepNumber >= CUSTOM_PLAN_STEP_START) return;
+  if (isStepSatisfied(audit, stepNumber)) return;
+
+  const rankDelta = rankDeltaForStep(stepNumber, calibration);
+  const targets = new Set(
+    keywordsTargetedByStep(audit, stepNumber).map((keyword) => keyword.toLowerCase())
+  );
+  if (targets.size === 0) return;
+
+  audit.rankings.keywords = audit.rankings.keywords.map((kw) =>
+    targets.has(kw.keyword.toLowerCase()) ? improveKeywordRank(kw, rankDelta) : kw
+  );
+  refreshRankingAggregates(audit);
+}
+
+/** Apply projected rank improvements for rank-outside-pack gaps. */
+export function applyOutcomeGapMutation(audit: Phase1AuditPayload, gap: GapFlag): void {
+  if (!gap.id.startsWith("rank-outside-pack-")) return;
+
+  const keyword = gap.id.replace("rank-outside-pack-", "");
+  audit.rankings.keywords = audit.rankings.keywords.map((kw) => {
+    if (kw.keyword.toLowerCase() !== keyword.toLowerCase()) return kw;
+    const delta = Math.max(3, numericRankAtOneMile(kw) - 3);
+    return improveKeywordRank(kw, delta);
+  });
+  refreshRankingAggregates(audit);
+}
+
+function applyActionMutations(
+  audit: Phase1AuditPayload,
+  action: ActionRef,
+  options?: CounterfactualProjectionOptions
+): void {
+  if (action.source === "plan") {
+    const match = action.id.match(/^gbp-step-(\d+)$/);
+    if (!match) return;
+    const stepNumber = Number(match[1]);
+    applyStepMutation(audit, stepNumber);
+    applyOutcomeMutation(audit, stepNumber, options?.calibration);
+    return;
+  }
+
+  const gap = { id: action.id } as GapFlag;
+  applyGapMutation(audit, gap);
+  applyOutcomeGapMutation(audit, gap);
+}
+
 /** Re-run scoring after applying a set of plan steps and/or gaps. */
 export function projectHealthScoresFromActions(
   audit: Phase1AuditPayload,
-  actions: Array<{ source: "plan" | "gap"; id: string }>
+  actions: Array<{ source: "plan" | "gap"; id: string }>,
+  options?: CounterfactualProjectionOptions
 ): ProjectedHealthScores {
   const before = computeHealthScores(audit);
   const mutated = cloneAudit(audit);
 
   for (const action of actions) {
-    if (action.source === "plan") {
-      const match = action.id.match(/^gbp-step-(\d+)$/);
-      if (match) applyStepMutation(mutated, Number(match[1]));
-    } else {
-      applyGapMutation(mutated, { id: action.id } as GapFlag);
-    }
+    applyActionMutations(mutated, action, options);
   }
 
   const after = computeHealthScores(mutated);
@@ -380,20 +554,51 @@ export function projectHealthScoresFromActions(
   };
 }
 
+/** Project ranking outcome and revenue after applying profile + rank counterfactuals. */
+export function projectOutcomeScoresFromActions(
+  audit: Phase1AuditPayload,
+  actions: ActionRef[],
+  options: CounterfactualProjectionOptions = {}
+): ProjectedOutcomeScores {
+  const before = computeHealthScores(audit);
+  const beforeRevenue = totalEstimatedRevenue(audit, options.avgCustomerValue);
+  const mutated = cloneAudit(audit);
+
+  for (const action of actions) {
+    applyActionMutations(mutated, action, options);
+  }
+
+  const after = computeHealthScores(mutated);
+  const afterRevenue = totalEstimatedRevenue(mutated, options.avgCustomerValue);
+
+  return {
+    projectedOutcomeIndex: after.outcomeIndex,
+    projectedVisibility: after.visibility,
+    projectedRevenueCapture: after.revenueCapture,
+    projectedOverallScore: after.overall,
+    outcomeGain: after.outcomeIndex - before.outcomeIndex,
+    visibilityGain: after.visibility - before.visibility,
+    revenueCaptureGain: after.revenueCapture - before.revenueCapture,
+    overallGain: after.overall - before.overall,
+    estimatedMonthlyRevenue: afterRevenue,
+    revenueGain:
+      beforeRevenue != null && afterRevenue != null
+        ? Math.max(0, afterRevenue - beforeRevenue)
+        : null,
+  };
+}
+
 /** Convenience wrapper for path-to-healthy and plan progress. */
 export function projectHealthScoresFromStepNumbers(
   audit: FullAuditPayload,
-  stepNumbers: number[]
+  stepNumbers: number[],
+  options?: CounterfactualProjectionOptions
 ): ProjectedHealthScores {
   return projectHealthScoresFromActions(
     audit,
-    stepNumbers.map((n) => ({ source: "plan" as const, id: `gbp-step-${n}` }))
+    stepNumbers.map((n) => ({ source: "plan" as const, id: `gbp-step-${n}` })),
+    options
   );
-}
-
-export interface ActionRef {
-  source: "plan" | "gap";
-  id: string;
 }
 
 export interface SelectedAction extends ActionRef {
@@ -408,11 +613,12 @@ export interface SelectedAction extends ActionRef {
 export function pickActionsForDriverTarget(
   audit: Phase1AuditPayload,
   candidates: ActionRef[],
-  pointsNeeded: number
+  pointsNeeded: number,
+  options?: CounterfactualProjectionOptions
 ): { selected: SelectedAction[]; projection: ProjectedHealthScores } {
   const selected: SelectedAction[] = [];
   const remaining = [...candidates];
-  let currentProjection = projectHealthScoresFromActions(audit, []);
+  let currentProjection = projectHealthScoresFromActions(audit, [], options);
 
   while (currentProjection.driverGain < pointsNeeded && remaining.length > 0) {
     let bestIndex = -1;
@@ -420,10 +626,7 @@ export function pickActionsForDriverTarget(
 
     for (let i = 0; i < remaining.length; i++) {
       const candidate = remaining[i];
-      const withCandidate = projectHealthScoresFromActions(audit, [
-        ...selected,
-        candidate,
-      ]);
+      const withCandidate = projectHealthScoresFromActions(audit, [...selected, candidate], options);
       const marginal = withCandidate.driverGain - currentProjection.driverGain;
       if (marginal > bestMarginal) {
         bestMarginal = marginal;
@@ -435,7 +638,7 @@ export function pickActionsForDriverTarget(
 
     const picked = remaining.splice(bestIndex, 1)[0];
     selected.push({ ...picked, marginalDriverGain: bestMarginal });
-    currentProjection = projectHealthScoresFromActions(audit, selected);
+    currentProjection = projectHealthScoresFromActions(audit, selected, options);
   }
 
   return { selected, projection: currentProjection };

@@ -52,9 +52,25 @@ describe("buildPathToHealthy", () => {
     assert.ok(path!.currentDriverScore < 70);
     assert.ok(path!.pointsNeeded > 0);
     assert.ok(path!.projectedDriverScore >= path!.currentDriverScore);
+    assert.ok(path!.projectedOutcomeIndex >= path!.outcomeIndex);
     assert.ok(path!.steps.length > 0);
     assert.equal(path!.alreadyHealthy, false);
     assert.ok(path!.topKeywords.length > 0);
+  });
+
+  it("estimates action-linked revenue when customer value and impressions exist", () => {
+    const audit = createTestAudit();
+    audit.gbp.performance.searchKeywords = [
+      { keyword: "emergency plumber dallas", impressions: 1200 },
+      { keyword: "drain cleaning dallas", impressions: 800 },
+    ];
+
+    const path = buildPathToHealthy(audit, null, { avgCustomerValue: 350, currency: "USD" });
+    assert.ok(path);
+    if (path!.estimatedRevenueGain != null) {
+      assert.ok(path!.estimatedRevenueGain > 0);
+      assert.match(path!.estimatedRevenueGainLabel ?? "", /path actions/);
+    }
   });
 
   it("calibrates step impacts from attributions", () => {

@@ -4,6 +4,7 @@ import { createTestAudit } from "../phase3/test-fixtures";
 import { buildTemplateGbpPlan } from "./gbp-plan";
 import {
   isStepSatisfied,
+  projectOutcomeScoresFromActions,
   simulateGapDriverImpact,
   simulateStepDriverImpact,
   projectHealthScoresFromStepNumbers,
@@ -79,7 +80,36 @@ describe("counterfactual score simulation", () => {
     assert.ok(path!.steps.length > 0);
     assert.ok(path!.projectedDriverScore >= path!.currentDriverScore);
     assert.ok(path!.projectedScore >= path!.currentScore);
+    assert.ok(path!.projectedOutcomeIndex >= path!.outcomeIndex);
     assert.ok(path!.projectedDriverScore <= 100);
     assert.ok(path!.projectedScore <= 100);
+    assert.ok(path!.projectedOutcomeIndex <= 100);
+  });
+
+  it("projects ranking outcome gains from action-linked rank counterfactuals", () => {
+    const audit = createTestAudit();
+    const before = computeHealthScores(audit).outcomeIndex;
+    const projection = projectOutcomeScoresFromActions(audit, [
+      { source: "plan", id: "gbp-step-3" },
+      { source: "plan", id: "gbp-step-8" },
+    ]);
+
+    assert.ok(projection.outcomeGain >= 0);
+    assert.ok(projection.projectedOutcomeIndex >= before);
+    assert.ok(projection.visibilityGain >= 0);
+    assert.ok(projection.overallGain >= projection.outcomeGain);
+  });
+
+  it("projects rank-outside-pack gaps into the local pack", () => {
+    const audit = createTestAudit();
+    const outsideKeyword = audit.rankings.keywords.find((k) => !k.inLocalPack)?.keyword;
+    assert.ok(outsideKeyword);
+
+    const projection = projectOutcomeScoresFromActions(audit, [
+      { source: "gap", id: `rank-outside-pack-${outsideKeyword}` },
+    ]);
+
+    assert.ok(projection.outcomeGain > 0);
+    assert.ok(projection.projectedOutcomeIndex > computeHealthScores(audit).outcomeIndex);
   });
 });
