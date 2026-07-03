@@ -317,6 +317,20 @@ export interface GbpPlanCopyBlock {
   content: string;
 }
 
+export type GbpPlanActionType =
+  | "update_primary_category"
+  | "add_secondary_categories"
+  | "update_description"
+  | "create_post"
+  | "manual";
+
+export interface GbpPlanActionData {
+  primaryCategory?: string;
+  secondaryCategories?: string[];
+  description?: string;
+  postSummary?: string;
+}
+
 export interface GbpPlanStep {
   stepNumber: number;
   title: string;
@@ -324,6 +338,8 @@ export interface GbpPlanStep {
   recommended?: string;
   bullets?: string[];
   copyBlocks?: GbpPlanCopyBlock[];
+  gbpAction?: GbpPlanActionType;
+  actionData?: GbpPlanActionData;
 }
 
 export interface GbpKeywordPriority {

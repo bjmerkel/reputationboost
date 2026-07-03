@@ -1,4 +1,4 @@
-import type { GbpOptimizationPlan, Phase1AuditPayload } from "@/audit/types";
+import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "@/audit/types";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { buildAuditContext } from "./audit-context";
 import { completeJson } from "./client";
@@ -24,6 +24,8 @@ interface LlmGbpPlanResponse {
     recommended?: string;
     bullets?: string[];
     copyBlocks?: Array<{ label: string; content: string }>;
+    gbpAction?: string;
+    actionData?: GbpPlanStep["actionData"];
   }>;
   keywordPriority: Array<{ rank: number; keyword: string; reason: string }>;
   weeklyCadence: string[];
@@ -95,7 +97,14 @@ Return JSON:
       "instruction": "detailed paragraph explaining why and how",
       "recommended": "specific recommendation if applicable",
       "bullets": ["actionable bullet points"],
-      "copyBlocks": [{ "label": "block label", "content": "paste-ready text" }]
+      "copyBlocks": [{ "label": "block label", "content": "paste-ready text" }],
+      "gbpAction": "update_primary_category | add_secondary_categories | update_description | create_post | manual",
+      "actionData": {
+        "primaryCategory": "display name for step 1",
+        "secondaryCategories": ["category display names for step 2"],
+        "description": "full description text for step 3",
+        "postSummary": "post text for step 8"
+      }
     }
   ],
   "keywordPriority": [{ "rank": 1, "keyword": "...", "reason": "why prioritize" }],
@@ -118,6 +127,8 @@ Return JSON:
               recommended: s.recommended,
               bullets: s.bullets,
               copyBlocks: s.copyBlocks,
+              gbpAction: s.gbpAction as GbpPlanStep["gbpAction"],
+              actionData: s.actionData,
             }))
         : fallback.steps;
 

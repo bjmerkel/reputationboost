@@ -147,9 +147,9 @@ export default function AuditDashboard({
             </p>
           )}
 
-          {view === "strategy" && audit.strategy && (
-            <StrategyPanel strategy={audit.strategy} embedded />
-          )}
+        {view === "strategy" && audit.strategy && (
+          <StrategyPanel strategy={audit.strategy} embedded gbpConnected={gbpConnected} />
+        )}
 
           {view === "execute" && (
             <ExecutionQueue

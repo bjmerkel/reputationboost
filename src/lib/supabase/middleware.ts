@@ -10,6 +10,7 @@ const PROTECTED_PREFIXES = [
   "/api/keywords",
   "/api/google/gbp/connect",
   "/api/google/gbp/disconnect",
+  "/api/google/gbp/apply",
   "/api/google/gbp/select-location",
 ];
 

@@ -1,6 +1,9 @@
 import type { ClientConfig, GbpConnection } from "@/audit/types";
 import { getBusinessRecord, saveGbpTokens } from "@/audit/businesses";
+import { authHeadersForConnection } from "./auth-headers";
 import { refreshAccessToken } from "./oauth";
+
+export { authHeadersForConnection };
 
 const EXPIRY_BUFFER_MS = 60_000;
 
@@ -51,6 +54,3 @@ export async function getValidGbpConnection(
   };
 }
 
-export function authHeadersForConnection(connection: GbpConnection): HeadersInit {
-  return { Authorization: `Bearer ${connection.accessToken}` };
-}

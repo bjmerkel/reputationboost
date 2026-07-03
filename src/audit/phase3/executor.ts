@@ -1,14 +1,27 @@
-import type { ExecutionTask } from "../types";
+import type { ExecutionTask, GbpConnection } from "../types";
+import { applyGbpAction } from "@/lib/google/gbp-apply";
 
 /**
- * Simulates executing an approved task.
- * Wire to GBP API, review API, etc. when credentials are available.
+ * Execute an approved task — uses live GBP OAuth when connection is available.
  */
-export async function executeTask(task: ExecutionTask): Promise<ExecutionTask> {
+export async function executeTask(
+  task: ExecutionTask,
+  connection?: GbpConnection | null
+): Promise<ExecutionTask> {
   const now = new Date().toISOString();
 
-  if (process.env.GOOGLE_BUSINESS_API_KEY) {
-    return executeTaskLive(task);
+  if (connection) {
+    try {
+      return await executeTaskLive(task, connection, now);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Execution failed";
+      return {
+        ...task,
+        status: "failed",
+        completedAt: now,
+        result: message,
+      };
+    }
   }
 
   const resultByType: Record<ExecutionTask["type"], string> = {
@@ -31,21 +44,51 @@ export async function executeTask(task: ExecutionTask): Promise<ExecutionTask> {
   };
 }
 
-async function executeTaskLive(task: ExecutionTask): Promise<ExecutionTask> {
-  void task;
-  throw new Error(
-    "Live GBP execution pending. Implement executeTaskLive with Google Business Profile API."
-  );
+async function executeTaskLive(
+  task: ExecutionTask,
+  connection: GbpConnection,
+  now: string
+): Promise<ExecutionTask> {
+  switch (task.type) {
+    case "google_post": {
+      const result = await applyGbpAction(connection, "create_post", {
+        postSummary: task.draftContent,
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "gbp_description": {
+      const result = await applyGbpAction(connection, "update_description", {
+        description: task.draftContent,
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "review_response": {
+      const reviewId = String(task.payload.reviewId ?? "");
+      const result = await applyGbpAction(connection, "reply_review", {
+        reviewId,
+        reviewReply: task.draftContent,
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    default:
+      return {
+        ...task,
+        status: "completed",
+        completedAt: now,
+        result: `Task "${task.title}" marked complete. Manual steps may still be required for ${task.type}.`,
+      };
+  }
 }
 
 export async function executeApprovedTasks(
-  tasks: ExecutionTask[]
+  tasks: ExecutionTask[],
+  connection?: GbpConnection | null
 ): Promise<ExecutionTask[]> {
   const approved = tasks.filter((t) => t.status === "approved");
   const results: ExecutionTask[] = [];
 
   for (const task of approved) {
-    const executed = await executeTask(task);
+    const executed = await executeTask(task, connection);
     results.push(executed);
   }
 

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { executeTask } from "@/audit/phase3";
+import { getPrimaryBusiness } from "@/audit/businesses";
+import { executeTask } from "@/audit/phase3/executor";
 import { getExecutionTask, updateExecutionTask } from "@/audit/storage-execution";
+import { getValidGbpConnection } from "@/lib/google/token-store";
 import { getUser } from "@/lib/supabase/server";
 
 export async function PATCH(
@@ -54,7 +56,13 @@ export async function POST(
     );
   }
 
-  const executed = await executeTask(task);
+  const business = await getPrimaryBusiness(user.id);
+  const connection =
+    business?.gbpConnection
+      ? await getValidGbpConnection(user.id, business)
+      : null;
+
+  const executed = await executeTask(task, connection);
   const saved = await updateExecutionTask(user.id, taskId, {
     status: executed.status,
     completedAt: executed.completedAt,

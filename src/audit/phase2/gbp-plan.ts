@@ -44,6 +44,8 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
         `Keep "${category}" as primary unless audit data shows a better fit.`,
         "Do not switch categories frequently — stability signals trust.",
       ],
+      gbpAction: "update_primary_category",
+      actionData: { primaryCategory: category },
     },
     {
       stepNumber: 2,
@@ -58,6 +60,15 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
         "Car Service",
         "Add event-specific categories only if you actively offer them",
       ],
+      gbpAction: "add_secondary_categories",
+      actionData: {
+        secondaryCategories: [
+          "Airport Shuttle Service",
+          "Transportation Service",
+          "Chauffeur Service",
+          "Car Service",
+        ],
+      },
     },
     {
       stepNumber: 3,
@@ -65,6 +76,8 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       instruction:
         "Google descriptions should weave in services, city names, and trust signals. Aim for 600-750 characters.",
       copyBlocks: [{ label: "Recommended description (paste into GBP)", content: descriptionDraft(audit) }],
+      gbpAction: "update_description",
+      actionData: { description: descriptionDraft(audit) },
     },
     {
       stepNumber: 4,
@@ -125,6 +138,10 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
           ? []
           : [`Week ${targetKeywords.length + 1}: ${targetKeywords[0]} — event variant`]),
       ]).slice(0, 8),
+      gbpAction: "create_post",
+      actionData: {
+        postSummary: `Looking for ${targetKeywords[0]} in ${city}? ${audit.clientName} delivers professional ${category} with ${audit.gbp.engagement.reviewCount}+ reviews. Call ${audit.gbp.identity.phone} today.`,
+      },
     },
     {
       stepNumber: 9,

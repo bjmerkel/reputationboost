@@ -21,9 +21,11 @@ const priorityStyles: Record<string, string> = {
 export default function StrategyPanel({
   strategy,
   embedded = false,
+  gbpConnected = false,
 }: {
   strategy: StrategyReport;
   embedded?: boolean;
+  gbpConnected?: boolean;
 }) {
   const { scores } = strategy;
   const [showGaps, setShowGaps] = useState(false);
@@ -65,7 +67,7 @@ export default function StrategyPanel({
       </div>
 
       {strategy.gbpPlan ? (
-        <GbpOptimizationPlanPanel plan={strategy.gbpPlan} />
+        <GbpOptimizationPlanPanel plan={strategy.gbpPlan} gbpConnected={gbpConnected} />
       ) : (
         <p className="text-slate-400">GBP optimization plan will appear after audit completes.</p>
       )}

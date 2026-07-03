@@ -15,6 +15,7 @@ export const config = {
     "/api/keywords/:path*",
     "/api/google/gbp/connect",
     "/api/google/gbp/disconnect",
+    "/api/google/gbp/apply",
     "/api/google/gbp/select-location",
     "/login",
   ],

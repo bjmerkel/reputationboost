@@ -4,7 +4,7 @@ import { buildFirstAuditReport, buildMonthlyReport } from "@/audit/phase2/monthl
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { buildTemplateContent } from "@/lib/llm/content";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
-import { generateExecutionQueue } from "@/audit/phase3";
+import { generateExecutionQueue } from "@/audit/phase3/planner";
 
 function normalizeStrategyDrafts(
   audit: FullAuditPayload
