@@ -96,6 +96,15 @@ function parseAdminRecord(
 }
 
 export async function getGoogleTokenEmail(accessToken: string): Promise<string | undefined> {
+  const userinfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (userinfoRes.ok) {
+    const userinfo = (await userinfoRes.json()) as { email?: string };
+    const fromUserinfo = normalizeEmail(userinfo.email);
+    if (fromUserinfo) return fromUserinfo;
+  }
+
   const res = await fetch(
     `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${encodeURIComponent(accessToken)}`
   );
@@ -105,7 +114,7 @@ export async function getGoogleTokenEmail(accessToken: string): Promise<string |
   return normalizeEmail(data.email);
 }
 
-async function resolveGoogleAccountEmail(
+export async function resolveGoogleAccountEmail(
   connection: GbpConnection
 ): Promise<string | undefined> {
   return (
@@ -176,12 +185,14 @@ function buildAccessGuidance(input: {
     return {
       severity: "warning",
       headline: "Google Business Profile is connected to a different account",
-      detail: platformEmail
-        ? `You're signed in to Reputation Boost as ${platformEmail}, but GBP access was authorized via ${googleAccountEmail ?? "another Google account"}. These are separate logins.`
-        : `GBP access was authorized via ${googleAccountEmail ?? "a Google account"} that may not be the one you intended.`,
-      suggestion: platformEmail
-        ? `Click Reconnect GBP and choose ${platformEmail} when Google asks which account to use. Sign out of Google first if you keep seeing the wrong account.`
-        : "Reconnect GBP and choose the Google account that is Owner or Manager on this business.",
+      detail:
+        platformEmail && googleAccountEmail
+          ? `Reputation Boost sign-in: ${platformEmail}. GBP authorized via: ${googleAccountEmail}. These are separate logins — API calls use the GBP account.`
+          : `GBP access was authorized via ${googleAccountEmail ?? "another Google account"} than your app sign-in.`,
+      suggestion:
+        platformEmail && googleAccountEmail
+          ? `Reconnect GBP and pick the Google account that manages this business. If ${platformEmail} is the Owner/Manager, choose that account when Google prompts — not ${googleAccountEmail}.`
+          : "Reconnect GBP and choose the Google account that is Owner or Manager on this business.",
     };
   }
 

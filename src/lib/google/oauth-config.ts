@@ -1,4 +1,7 @@
-export const GBP_OAUTH_SCOPE = "https://www.googleapis.com/auth/business.manage";
+export const GBP_OAUTH_SCOPE = [
+  "https://www.googleapis.com/auth/business.manage",
+  "https://www.googleapis.com/auth/userinfo.email",
+].join(" ");
 
 export function getGoogleClientId(): string | undefined {
   return process.env.GOOGLE_CLIENT_ID;

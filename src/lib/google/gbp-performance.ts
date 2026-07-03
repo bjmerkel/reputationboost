@@ -1,5 +1,5 @@
 import type { GbpConnection } from "@/audit/types";
-import { checkGbpLocationAccess, type GbpLocationAccessCheck } from "./gbp-access";
+import { checkGbpLocationAccess, type GbpLocationAccessCheck, resolveGoogleAccountEmail } from "./gbp-access";
 import { authHeadersForConnection } from "./auth-headers";
 import { getGbpLocationProfile } from "./gbp-location";
 import {
@@ -67,6 +67,9 @@ export interface PerformanceApiProbe {
     searchKeywords: PerformanceEndpointStatus;
   };
   accessCheck?: GbpLocationAccessCheck;
+  platformEmail?: string;
+  googleAccountEmail?: string;
+  accountMismatch?: boolean;
 }
 
 function performanceHeaders(connection: GbpConnection): HeadersInit {
@@ -433,6 +436,12 @@ export async function probePerformanceApiAccess(
 ): Promise<PerformanceApiProbe> {
   const setupSteps = performanceSetupSteps();
   const resolved = await resolvePerformanceConnection(connection);
+  const platformEmail = options?.platformEmail?.trim().toLowerCase();
+  const googleAccountEmail = await resolveGoogleAccountEmail(resolved);
+  const accountMismatch = Boolean(
+    platformEmail && googleAccountEmail && platformEmail !== googleAccountEmail
+  );
+  const accountFields = { platformEmail, googleAccountEmail, accountMismatch };
 
   const endpoints = {
     coreMetrics: await probeEndpoint(resolved, () =>
@@ -462,6 +471,7 @@ export async function probePerformanceApiAccess(
         partial,
         setupSteps,
         endpoints,
+        ...accountFields,
         sampleMetrics: {
           calls: data.calls,
           directionRequests: data.directionRequests,
@@ -494,6 +504,10 @@ export async function probePerformanceApiAccess(
     setupSteps,
     endpoints,
     accessCheck,
+    ...accountFields,
+    platformEmail: accessCheck.platformEmail ?? platformEmail,
+    googleAccountEmail: accessCheck.googleAccountEmail ?? googleAccountEmail,
+    accountMismatch: accessCheck.accountMismatch ?? accountMismatch,
   };
 }
 

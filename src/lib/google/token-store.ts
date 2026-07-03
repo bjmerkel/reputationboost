@@ -1,11 +1,53 @@
 import type { ClientConfig, GbpConnection } from "@/audit/types";
 import { getBusinessRecord, saveGbpTokens } from "@/audit/businesses";
+import { getGoogleTokenEmail } from "./gbp-access";
 import { authHeadersForConnection } from "./auth-headers";
 import { refreshAccessToken } from "./oauth";
 
 export { authHeadersForConnection };
 
 const EXPIRY_BUFFER_MS = 60_000;
+
+function connectionFromRow(
+  row: NonNullable<Awaited<ReturnType<typeof getBusinessRecord>>>,
+  accessToken: string,
+  refreshToken: string,
+  expiresAt: string
+): GbpConnection {
+  return {
+    businessId: row.id,
+    accountId: row.gbp_account_id!,
+    locationId: row.gbp_location_id!,
+    placeId: row.gbp_place_id ?? undefined,
+    googleEmail: row.gbp_google_email ?? undefined,
+    accessToken,
+    refreshToken,
+    expiresAt,
+  };
+}
+
+async function backfillGoogleEmail(
+  userId: string,
+  businessId: string,
+  accessToken: string,
+  refreshToken: string,
+  expiresAt: string,
+  existingEmail?: string | null
+): Promise<string | undefined> {
+  if (existingEmail) return existingEmail.toLowerCase();
+
+  const email = await getGoogleTokenEmail(accessToken);
+  if (!email) return undefined;
+
+  await saveGbpTokens(userId, businessId, {
+    accessToken,
+    refreshToken,
+    expiresAt,
+    googleEmail: email,
+  });
+
+  return email;
+}
 
 export async function getValidGbpConnection(
   userId: string,
@@ -25,32 +67,43 @@ export async function getValidGbpConnection(
     : 0;
 
   if (row.gbp_access_token && expiresAt - Date.now() > EXPIRY_BUFFER_MS) {
+    const googleEmail = await backfillGoogleEmail(
+      userId,
+      row.id,
+      row.gbp_access_token,
+      row.gbp_refresh_token,
+      row.gbp_token_expires_at!,
+      row.gbp_google_email
+    );
+
     return {
-      businessId: row.id,
-      accountId: row.gbp_account_id,
-      locationId: row.gbp_location_id,
-      placeId: row.gbp_place_id ?? undefined,
-      accessToken: row.gbp_access_token,
-      refreshToken: row.gbp_refresh_token,
-      expiresAt: row.gbp_token_expires_at!,
+      ...connectionFromRow(
+        row,
+        row.gbp_access_token,
+        row.gbp_refresh_token,
+        row.gbp_token_expires_at!
+      ),
+      googleEmail: googleEmail ?? row.gbp_google_email ?? undefined,
     };
   }
 
   const refreshed = await refreshAccessToken(row.gbp_refresh_token);
-  await saveGbpTokens(userId, row.id, {
-    accessToken: refreshed.accessToken,
-    refreshToken: refreshed.refreshToken ?? row.gbp_refresh_token,
-    expiresAt: refreshed.expiresAt,
-  });
+  const googleEmail = await backfillGoogleEmail(
+    userId,
+    row.id,
+    refreshed.accessToken,
+    refreshed.refreshToken ?? row.gbp_refresh_token,
+    refreshed.expiresAt,
+    row.gbp_google_email
+  );
 
   return {
-    businessId: row.id,
-    accountId: row.gbp_account_id,
-    locationId: row.gbp_location_id,
-    placeId: row.gbp_place_id ?? undefined,
-    accessToken: refreshed.accessToken,
-    refreshToken: refreshed.refreshToken ?? row.gbp_refresh_token,
-    expiresAt: refreshed.expiresAt,
+    ...connectionFromRow(
+      row,
+      refreshed.accessToken,
+      refreshed.refreshToken ?? row.gbp_refresh_token,
+      refreshed.expiresAt
+    ),
+    googleEmail: googleEmail ?? row.gbp_google_email ?? undefined,
   };
 }
-

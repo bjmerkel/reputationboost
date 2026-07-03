@@ -73,6 +73,7 @@ export default async function SettingsPage() {
                 businessId={business.businessId}
                 reconnectHref={`/api/google/gbp/connect?businessId=${business.businessId}`}
                 platformEmail={user.email ?? undefined}
+                storedGoogleEmail={record?.gbp_google_email ?? business.gbpConnection?.googleEmail}
               />
               <GbpDisconnect
                 businessId={business.businessId}
@@ -95,7 +96,16 @@ export default async function SettingsPage() {
           )}
 
           <p className="text-center text-sm text-slate-500">
-            Signed in as <span className="text-slate-300">{user.email}</span>
+            App sign-in: <span className="text-slate-300">{user.email}</span>
+            {(record?.gbp_google_email ?? business.gbpConnection?.googleEmail) && (
+              <>
+                {" "}
+                · GBP Google account:{" "}
+                <span className="text-slate-300">
+                  {record?.gbp_google_email ?? business.gbpConnection?.googleEmail}
+                </span>
+              </>
+            )}
           </p>
         </div>
       </div>
