@@ -66,18 +66,71 @@ function resolvePosition(kw: KeywordRankSnapshot): LocalPackPosition | number {
   return resolveKeywordPosition(kw);
 }
 
-export function keywordImpressionWeight(
-  keyword: string,
+/** Median impression count across GBP search terms — floor for unmatched tracked keywords. */
+export function impressionWeightFloor(
   searchKeywords: Array<{ keyword: string; impressions: number | null }>
 ): number {
+  const matched = searchKeywords
+    .map((sk) => sk.impressions)
+    .filter((n): n is number => n != null && n > 0)
+    .sort((a, b) => a - b);
+  if (matched.length === 0) return 1;
+  const mid = Math.floor(matched.length / 2);
+  return matched.length % 2 === 0
+    ? Math.round((matched[mid - 1] + matched[mid]) / 2)
+    : matched[mid];
+}
+
+/** Best GBP search-term match for a tracked keyword (exact > longest overlap). */
+export function matchSearchKeywordImpressions(
+  keyword: string,
+  searchKeywords: Array<{ keyword: string; impressions: number | null }>
+): number | null {
   const lower = keyword.toLowerCase();
+  let bestQuality = -1;
+  let bestImpressions: number | null = null;
+
   for (const sk of searchKeywords) {
     const skLower = sk.keyword.toLowerCase();
-    if (skLower === lower || lower.includes(skLower) || skLower.includes(lower)) {
-      if (sk.impressions != null && sk.impressions > 0) return sk.impressions;
+    if (sk.impressions == null || sk.impressions <= 0) continue;
+
+    let quality: number;
+    if (skLower === lower) {
+      quality = 10_000 + skLower.length;
+    } else if (lower.includes(skLower)) {
+      quality = skLower.length;
+    } else if (skLower.includes(lower)) {
+      quality = lower.length;
+    } else {
+      continue;
+    }
+
+    if (quality > bestQuality) {
+      bestQuality = quality;
+      bestImpressions = sk.impressions;
     }
   }
-  return 1;
+
+  return bestImpressions;
+}
+
+export function keywordImpressionWeight(
+  keyword: string,
+  searchKeywords: Array<{ keyword: string; impressions: number | null }>,
+  floor?: number
+): number {
+  const matched = matchSearchKeywordImpressions(keyword, searchKeywords);
+  if (matched != null) return matched;
+  return floor ?? impressionWeightFloor(searchKeywords);
+}
+
+/** Share of geo-grid points in the Local 3-Pack (0–100). Falls back to 1mi rank position. */
+export function keywordGeoGridVisibilityScore(kw: KeywordRankSnapshot): number {
+  if (kw.geoGrid && kw.geoGrid.length > 0) {
+    const inPack = kw.geoGrid.filter((p) => p.inLocalPack).length;
+    return clamp((inPack / kw.geoGrid.length) * 100);
+  }
+  return positionVisibilityScore(resolveKeywordPosition(kw));
 }
 
 function weightedKeywordMetric(
@@ -87,11 +140,12 @@ function weightedKeywordMetric(
 ): number {
   if (keywords.length === 0) return 0;
 
+  const floor = impressionWeightFloor(searchKeywords);
   let totalWeight = 0;
   let weightedSum = 0;
 
   for (const kw of keywords) {
-    const weight = keywordImpressionWeight(kw.keyword, searchKeywords);
+    const weight = keywordImpressionWeight(kw.keyword, searchKeywords, floor);
     const position = resolvePosition(kw);
     totalWeight += weight;
     weightedSum += metric(position) * weight;
@@ -100,11 +154,28 @@ function weightedKeywordMetric(
   return totalWeight > 0 ? weightedSum / totalWeight : 0;
 }
 
+function weightedKeywordVisibility(
+  keywords: KeywordRankSnapshot[],
+  searchKeywords: Array<{ keyword: string; impressions: number | null }>
+): number {
+  if (keywords.length === 0) return 0;
+
+  const floor = impressionWeightFloor(searchKeywords);
+  let totalWeight = 0;
+  let weightedSum = 0;
+
+  for (const kw of keywords) {
+    const weight = keywordImpressionWeight(kw.keyword, searchKeywords, floor);
+    totalWeight += weight;
+    weightedSum += keywordGeoGridVisibilityScore(kw) * weight;
+  }
+
+  return totalWeight > 0 ? weightedSum / totalWeight : 0;
+}
+
 export function computeVisibilityScore(audit: Phase1AuditPayload): number {
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
-  return clamp(
-    weightedKeywordMetric(audit.rankings.keywords, searchKeywords, positionVisibilityScore)
-  );
+  return clamp(weightedKeywordVisibility(audit.rankings.keywords, searchKeywords));
 }
 
 export function computeConversionScore(audit: Phase1AuditPayload): number {
@@ -157,13 +228,14 @@ export function computeRevenueCaptureScore(audit: Phase1AuditPayload): number {
 
 export function findTopOpportunityKeyword(audit: Phase1AuditPayload): string | null {
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+  const floor = impressionWeightFloor(searchKeywords);
   let bestKeyword: string | null = null;
   let bestOpportunity = 0;
 
   for (const kw of audit.rankings.keywords) {
-    const weight = keywordImpressionWeight(kw.keyword, searchKeywords);
-    const position = resolvePosition(kw);
-    const opportunity = (100 - positionVisibilityScore(position)) * weight;
+    const weight = keywordImpressionWeight(kw.keyword, searchKeywords, floor);
+    const visibility = keywordGeoGridVisibilityScore(kw);
+    const opportunity = (100 - visibility) * weight;
     if (opportunity > bestOpportunity) {
       bestOpportunity = opportunity;
       bestKeyword = kw.keyword;
@@ -241,7 +313,6 @@ export function computeHealthScores(audit: Phase1AuditPayload): HealthScores {
 
   const overall = clamp(visibility * 0.5 + conversion * 0.3 + revenueCapture * 0.2);
 
-  const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
   const outsidePack = audit.rankings.keywords.filter((k) => !k.inLocalPack);
   let competitiveGap = 100;
   if (outsidePack.length > 0) {

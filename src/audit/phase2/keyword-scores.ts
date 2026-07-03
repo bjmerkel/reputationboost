@@ -1,7 +1,10 @@
 import { DEFAULT_ROI_CONFIG } from "../attribution/roi";
 import type { KeywordScoreCard, Phase1AuditPayload } from "../types";
 import {
+  impressionWeightFloor,
+  keywordGeoGridVisibilityScore,
   keywordImpressionWeight,
+  matchSearchKeywordImpressions,
   positionClickShare,
   positionVisibilityScore,
   resolveKeywordPosition,
@@ -59,18 +62,18 @@ function suggestedAction(
 function overallImpactIfRank1(
   audit: Phase1AuditPayload,
   keyword: string,
-  currentPosition: number | "not_in_pack"
+  _currentPosition: number | "not_in_pack"
 ): number {
   const keywords = audit.rankings.keywords;
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+  const floor = impressionWeightFloor(searchKeywords);
   let totalWeight = 0;
   let currentSum = 0;
   let rank1Sum = 0;
 
   for (const kw of keywords) {
-    const weight = keywordImpressionWeight(kw.keyword, searchKeywords);
-    const pos = resolveKeywordPosition(kw);
-    const posScore = positionVisibilityScore(pos);
+    const weight = keywordImpressionWeight(kw.keyword, searchKeywords, floor);
+    const posScore = keywordGeoGridVisibilityScore(kw);
     const rank1Score = positionVisibilityScore(1);
     totalWeight += weight;
     currentSum += posScore * weight;
@@ -98,23 +101,15 @@ export function computeKeywordScores(
   options: KeywordScoreOptions = {}
 ): KeywordScoreCard[] {
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+  const floor = impressionWeightFloor(searchKeywords);
 
   return audit.rankings.keywords
     .map((kw) => {
       const position = resolveKeywordPosition(kw);
-      const impressionsRaw = keywordImpressionWeight(kw.keyword, searchKeywords);
-      const hasRealImpressions = searchKeywords.some((sk) => {
-        const lower = kw.keyword.toLowerCase();
-        const skLower = sk.keyword.toLowerCase();
-        return (
-          (skLower === lower || lower.includes(skLower) || skLower.includes(lower)) &&
-          sk.impressions != null &&
-          sk.impressions > 0
-        );
-      });
-      const impressions = hasRealImpressions ? impressionsRaw : null;
+      const matchedImpressions = matchSearchKeywordImpressions(kw.keyword, searchKeywords);
+      const impressions = matchedImpressions ?? null;
 
-      const visibilityScore = positionVisibilityScore(position);
+      const visibilityScore = keywordGeoGridVisibilityScore(kw);
       const revenueCaptureScore = clamp((positionClickShare(position) / 45) * 100);
       const estimatedMonthlyRevenue = impressions
         ? estimateKeywordRevenue(impressions, position, options.avgCustomerValue)
@@ -139,8 +134,10 @@ export function computeKeywordScores(
       };
     })
     .sort((a, b) => {
-      const oppA = (100 - a.visibilityScore) * (a.impressions ?? 1);
-      const oppB = (100 - b.visibilityScore) * (b.impressions ?? 1);
+      const weightA = a.impressions ?? floor;
+      const weightB = b.impressions ?? floor;
+      const oppA = (100 - a.visibilityScore) * weightA;
+      const oppB = (100 - b.visibilityScore) * weightB;
       return oppB - oppA;
     });
 }

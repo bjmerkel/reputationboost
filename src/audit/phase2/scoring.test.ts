@@ -1,9 +1,29 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { computeHealthScores, computeVisibilityScore, positionVisibilityScore } from "./scoring";
+import type { KeywordRankSnapshot } from "../types";
+import {
+  computeHealthScores,
+  computeVisibilityScore,
+  impressionWeightFloor,
+  keywordGeoGridVisibilityScore,
+  keywordImpressionWeight,
+  matchSearchKeywordImpressions,
+  positionVisibilityScore,
+} from "./scoring";
 import { gapScoreImpact } from "./score-impact";
 import { detectGaps } from "./gaps";
 import { createTestAudit } from "../phase3/test-fixtures";
+
+function makeGrid(inPackCount: number, total = 25): KeywordRankSnapshot["geoGrid"] {
+  return Array.from({ length: total }, (_, i) => ({
+    lat: 32.78,
+    lng: -96.8,
+    offsetNorthMiles: 0,
+    offsetEastMiles: 0,
+    rank: i < inPackCount ? ((i % 3) + 1) : 8,
+    inLocalPack: i < inPackCount,
+  }));
+}
 
 describe("positionVisibilityScore", () => {
   it("maps pack positions to visibility points", () => {
@@ -12,6 +32,78 @@ describe("positionVisibilityScore", () => {
     assert.equal(positionVisibilityScore(3), 50);
     assert.equal(positionVisibilityScore("not_in_pack"), 0);
     assert.ok(positionVisibilityScore(8) < positionVisibilityScore(4));
+  });
+});
+
+describe("keywordImpressionWeight", () => {
+  const searchKeywords = [
+    { keyword: "plumber", impressions: 1200 },
+    { keyword: "emergency plumber", impressions: 80 },
+    { keyword: "drain cleaning", impressions: 45 },
+  ];
+
+  it("prefers exact match over substring overlap", () => {
+    assert.equal(
+      matchSearchKeywordImpressions("emergency plumber", searchKeywords),
+      80
+    );
+    assert.equal(
+      keywordImpressionWeight("emergency plumber", searchKeywords),
+      80
+    );
+  });
+
+  it("prefers longest overlapping GBP term over short generic substring", () => {
+    assert.equal(
+      matchSearchKeywordImpressions("emergency plumber dallas", searchKeywords),
+      80
+    );
+    assert.notEqual(
+      matchSearchKeywordImpressions("emergency plumber dallas", searchKeywords),
+      1200
+    );
+  });
+
+  it("uses median impression floor for unmatched keywords", () => {
+    const floor = impressionWeightFloor(searchKeywords);
+    assert.equal(floor, 80);
+    assert.equal(keywordImpressionWeight("water heater repair dallas", searchKeywords), 80);
+  });
+
+  it("returns 1 when no GBP impression data exists", () => {
+    assert.equal(impressionWeightFloor([]), 1);
+    assert.equal(keywordImpressionWeight("anything", []), 1);
+  });
+});
+
+describe("keywordGeoGridVisibilityScore", () => {
+  it("uses share of in-pack grid points when geoGrid is present", () => {
+    const kw: KeywordRankSnapshot = {
+      keyword: "plumber near me",
+      localPackPosition: 1,
+      inLocalPack: true,
+      geoRanks: [{ distanceMiles: 1, rank: 1, inLocalPack: true }],
+      geoGrid: makeGrid(10, 25),
+      packLeaderRating: 4.9,
+      packLeaderReviewCount: 200,
+      clientRating: 4.6,
+      clientReviewCount: 87,
+    };
+    assert.equal(keywordGeoGridVisibilityScore(kw), 40);
+  });
+
+  it("falls back to 1mi rank when geoGrid is absent", () => {
+    const kw: KeywordRankSnapshot = {
+      keyword: "plumber near me",
+      localPackPosition: 3,
+      inLocalPack: true,
+      geoRanks: [{ distanceMiles: 1, rank: 3, inLocalPack: true }],
+      packLeaderRating: 4.9,
+      packLeaderReviewCount: 200,
+      clientRating: 4.6,
+      clientReviewCount: 87,
+    };
+    assert.equal(keywordGeoGridVisibilityScore(kw), 50);
   });
 });
 
@@ -38,6 +130,48 @@ describe("computeHealthScores", () => {
     // 1 of 3 keywords in pack at #3 — weighted visibility should be below 50
     assert.ok(visibility < 50);
     assert.ok(visibility > 0);
+  });
+
+  it("weights unmatched keywords at median impression floor", () => {
+    const audit = createTestAudit();
+    const withImpressions = {
+      ...audit,
+      gbp: {
+        ...audit.gbp,
+        performance: {
+          ...audit.gbp.performance,
+          searchKeywords: [
+            { keyword: "plumber near me", impressions: 1000, belowThreshold: false },
+            { keyword: "emergency plumber", impressions: 200, belowThreshold: false },
+          ],
+        },
+      },
+    };
+    const withoutMatch = computeVisibilityScore(audit);
+    const withMatch = computeVisibilityScore(withImpressions);
+    assert.notEqual(withoutMatch, withMatch);
+    // Unmatched "drain cleaning dallas" now contributes at median floor (600), not weight 1
+    assert.ok(withMatch < 50);
+  });
+
+  it("uses geo-grid share for visibility when grid data is present", () => {
+    const audit = createTestAudit();
+    const withGrid = {
+      ...audit,
+      rankings: {
+        ...audit.rankings,
+        keywords: audit.rankings.keywords.map((kw) =>
+          kw.keyword === "plumber near me"
+            ? { ...kw, geoGrid: makeGrid(5, 25) }
+            : kw
+        ),
+      },
+    };
+    const base = computeVisibilityScore(audit);
+    const grid = computeVisibilityScore(withGrid);
+    // #3 at center (50 pts) vs 5/25 grid points in pack (20 pts) — visibility should drop
+    assert.ok(grid < base);
+    assert.equal(keywordGeoGridVisibilityScore(withGrid.rankings.keywords[1]!), 20);
   });
 
   it("does not use engagement volume as a score input", () => {

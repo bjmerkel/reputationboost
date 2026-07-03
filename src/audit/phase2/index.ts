@@ -1,4 +1,4 @@
-export { computeHealthScores, computeVisibilityScore, computeConversionScore, computeRevenueCaptureScore, positionVisibilityScore, positionClickShare, resolveKeywordPosition, keywordImpressionWeight } from "./scoring";
+export { computeHealthScores, computeVisibilityScore, computeConversionScore, computeRevenueCaptureScore, positionVisibilityScore, positionClickShare, resolveKeywordPosition, keywordImpressionWeight, impressionWeightFloor, matchSearchKeywordImpressions, keywordGeoGridVisibilityScore } from "./scoring";
 export { computeKeywordScores } from "./keyword-scores";
 export { buildPathToHealthy } from "./path-to-healthy";
 export { buildAttributionCalibration, calibratedStepImpact, mergeCalibrations } from "./attribution-calibration";
