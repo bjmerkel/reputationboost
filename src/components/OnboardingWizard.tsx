@@ -254,7 +254,7 @@ export default function OnboardingWizard({
           </p>
 
           <ul className="space-y-2 text-sm text-slate-300">
-            <li>✓ Performance: calls, directions, website clicks</li>
+            <li>✓ Performance: profile views, calls, directions, website clicks, search keywords</li>
             <li>✓ Reviews and response status</li>
             <li>✓ Google Posts and Q&amp;A</li>
             <li>✓ Publish approved content from the execution queue</li>

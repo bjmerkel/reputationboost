@@ -126,6 +126,28 @@ export function buildGbpCurrentState(audit: Phase1AuditPayload): GbpCurrentState
         (live?.attributes?.length ?? 0) >= 3
       ),
     },
+    {
+      label: `Profile views (${audit.gbp.performance.periodDays}d)`,
+      current:
+        audit.gbp.performance.source === "api"
+          ? `${audit.gbp.performance.profileViews} total (${audit.gbp.performance.impressionsMaps} Maps · ${audit.gbp.performance.impressionsSearch} Search)`
+          : audit.gbp.performance.error ?? "Performance API data unavailable",
+      status: fieldStatus(
+        String(audit.gbp.performance.profileViews),
+        audit.gbp.performance.profileViews > 0
+      ),
+    },
+    {
+      label: `Calls · Directions · Website (${audit.gbp.performance.periodDays}d)`,
+      current:
+        audit.gbp.performance.source === "api"
+          ? `${audit.gbp.performance.calls} calls · ${audit.gbp.performance.directionRequests} directions · ${audit.gbp.performance.websiteClicks} website clicks`
+          : "Enable Business Profile Performance API in Google Cloud",
+      status: fieldStatus(
+        String(audit.gbp.performance.calls + audit.gbp.performance.directionRequests),
+        audit.gbp.performance.calls + audit.gbp.performance.directionRequests > 0
+      ),
+    },
   ];
 
   const profileGaps: string[] = [];

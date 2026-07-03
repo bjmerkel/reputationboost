@@ -65,12 +65,7 @@ async function collectGbpFromApi(
   const respondedReviews = gbpReviews.filter((r) => r.reviewReply);
   const responseRate =
     gbpReviews.length > 0 ? respondedReviews.length / gbpReviews.length : 0;
-  const performance = enrichment.performance ?? {
-    calls: 0,
-    directionRequests: 0,
-    websiteClicks: 0,
-    periodDays: 30,
-  };
+  const performance = enrichment.performance;
 
   const primaryCategory =
     liveProfile?.primaryCategory?.displayName ||
@@ -138,7 +133,15 @@ async function collectGbpFromApi(
       calls: performance.calls,
       directionRequests: performance.directionRequests,
       websiteClicks: performance.websiteClicks,
+      profileViews: performance.profileViews,
+      impressionsMaps: performance.impressionsMaps,
+      impressionsSearch: performance.impressionsSearch,
+      conversations: performance.conversations,
+      bookings: performance.bookings,
       periodDays: performance.periodDays,
+      searchKeywords: performance.searchKeywords,
+      source: performance.source,
+      error: performance.error,
     },
     issues: {
       isSuspended: place?.businessStatus === "CLOSED_PERMANENTLY",
@@ -215,7 +218,18 @@ async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<GbpSnap
       responseRate: 0,
       avgResponseTimeHours: 0,
     },
-    performance: { calls: 0, directionRequests: 0, websiteClicks: 0, periodDays: 30 },
+    performance: {
+      calls: 0,
+      directionRequests: 0,
+      websiteClicks: 0,
+      profileViews: 0,
+      impressionsMaps: 0,
+      impressionsSearch: 0,
+      conversations: 0,
+      bookings: 0,
+      periodDays: 30,
+      source: "unavailable",
+    },
     issues: {
       isSuspended: place.businessStatus === "CLOSED_PERMANENTLY",
       isVerified: place.isOperational,

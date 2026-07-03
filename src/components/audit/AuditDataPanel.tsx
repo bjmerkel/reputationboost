@@ -83,13 +83,36 @@ export default function AuditDataPanel({
             ]}
           />
           <DataBlock
-            title="Performance (30d)"
+            title={`Performance (${audit.gbp.performance.periodDays}d)`}
             rows={[
-              ["Calls", String(audit.gbp.performance.calls)],
-              ["Directions", String(audit.gbp.performance.directionRequests)],
+              ["Profile views", String(audit.gbp.performance.profileViews)],
+              ["Maps impressions", String(audit.gbp.performance.impressionsMaps)],
+              ["Search impressions", String(audit.gbp.performance.impressionsSearch)],
+              ["Call clicks", String(audit.gbp.performance.calls)],
+              ["Direction requests", String(audit.gbp.performance.directionRequests)],
               ["Website clicks", String(audit.gbp.performance.websiteClicks)],
+              ["Messages", String(audit.gbp.performance.conversations)],
+              ["Bookings", String(audit.gbp.performance.bookings)],
+              [
+                "Data source",
+                audit.gbp.performance.source === "api" ? "Google Performance API" : "Unavailable",
+              ],
+              ...(audit.gbp.performance.error
+                ? [["API note", audit.gbp.performance.error] as [string, string]]
+                : []),
             ]}
           />
+          {(audit.gbp.performance.searchKeywords?.length ?? 0) > 0 && (
+            <DataBlock
+              title="Search keywords (Google)"
+              rows={audit.gbp.performance.searchKeywords!.slice(0, 12).map((kw) => [
+                kw.keyword,
+                kw.belowThreshold
+                  ? "< threshold"
+                  : String(kw.impressions ?? 0) + " impressions",
+              ])}
+            />
+          )}
         </div>
       )}
 

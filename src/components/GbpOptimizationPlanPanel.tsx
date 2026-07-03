@@ -81,6 +81,14 @@ export default function GbpOptimizationPlanPanel({
         <KeywordRankingsSection rankings={plan.keywordRankings} />
       )}
 
+      {/* Search keywords from Google Performance API shown in plan when audit has them */}
+      {plan.currentState?.fields.some((f) => f.label.includes("Profile views")) && (
+        <p className="text-xs text-slate-500">
+          Performance metrics (profile views, calls, directions) are pulled from the Google Business
+          Profile Performance API during each audit.
+        </p>
+      )}
+
       {plan.keywordPriority.length > 0 && (
         <div className="rounded-xl border border-white/8 bg-white/[0.02] p-5">
           <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">

@@ -76,7 +76,19 @@ export interface GbpPerformance {
   calls: number;
   directionRequests: number;
   websiteClicks: number;
+  profileViews: number;
+  impressionsMaps: number;
+  impressionsSearch: number;
+  conversations: number;
+  bookings: number;
   periodDays: number;
+  searchKeywords?: Array<{
+    keyword: string;
+    impressions: number | null;
+    belowThreshold: boolean;
+  }>;
+  source?: "api" | "unavailable";
+  error?: string;
 }
 
 export interface GbpIssues {

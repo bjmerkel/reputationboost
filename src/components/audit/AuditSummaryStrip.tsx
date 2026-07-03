@@ -28,9 +28,13 @@ export default function AuditSummaryStrip({ audit }: AuditSummaryStripProps) {
       />
       <SummaryCard label="Share of voice" value={`${rankings.shareOfVoice}%`} hint="pack coverage" />
       <SummaryCard
-        label="Engagement (30d)"
-        value={String(gbp.performance.calls + gbp.performance.directionRequests)}
-        hint="calls + directions"
+        label="Profile views (30d)"
+        value={String(gbp.performance.profileViews ?? 0)}
+        hint={
+          gbp.performance.source === "api"
+            ? `${gbp.performance.calls ?? 0} calls · ${gbp.performance.directionRequests ?? 0} directions`
+            : "re-run audit for live data"
+        }
       />
     </div>
   );

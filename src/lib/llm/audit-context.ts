@@ -74,6 +74,12 @@ export function buildAuditContext(audit: Phase1AuditPayload): string {
       responseRate: audit.gbp.engagement.responseRate,
       calls30d: audit.gbp.performance.calls,
       directions30d: audit.gbp.performance.directionRequests,
+      websiteClicks30d: audit.gbp.performance.websiteClicks,
+      profileViews30d: audit.gbp.performance.profileViews,
+      impressionsMaps30d: audit.gbp.performance.impressionsMaps,
+      impressionsSearch30d: audit.gbp.performance.impressionsSearch,
+      performanceSource: audit.gbp.performance.source,
+      searchKeywordsFromGoogle: (audit.gbp.performance.searchKeywords ?? []).slice(0, 15),
     },
     reviews: {
       positiveThemes: audit.reviews.sentiment.positiveThemes,

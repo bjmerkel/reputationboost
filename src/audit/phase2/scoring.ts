@@ -28,10 +28,11 @@ export function computeHealthScores(audit: Phase1AuditPayload): HealthScores {
   const reviewStrength = clamp(ratingScore * 0.5 + Math.min(volumeRatio, 1) * 50);
 
   const engagementRaw =
+    audit.gbp.performance.profileViews +
     audit.gbp.performance.calls +
     audit.gbp.performance.directionRequests +
     audit.gbp.performance.websiteClicks;
-  const engagement = clamp((engagementRaw / 150) * 100);
+  const engagement = clamp((engagementRaw / 300) * 100);
 
   const outsidePack = audit.rankings.keywords.filter((k) => !k.inLocalPack);
   let competitiveGap = 100;

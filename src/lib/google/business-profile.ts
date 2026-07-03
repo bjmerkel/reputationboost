@@ -1,12 +1,12 @@
 import type { GbpConnection } from "@/audit/types";
+import {
+  emptyPerformanceData,
+  fetchGbpPerformanceData,
+  type GbpPerformanceData,
+} from "./gbp-performance";
 import { authHeadersForConnection } from "./token-store";
 
-export interface GbpPerformanceMetrics {
-  calls: number;
-  directionRequests: number;
-  websiteClicks: number;
-  periodDays: number;
-}
+export type GbpPerformanceMetrics = GbpPerformanceData;
 
 export interface GbpLocalPost {
   createTime: string;
@@ -29,76 +29,10 @@ export interface GbpReview {
 }
 
 export interface GbpEnrichment {
-  performance: GbpPerformanceMetrics | null;
+  performance: GbpPerformanceMetrics;
   posts: GbpLocalPost[];
   questions: GbpQuestion[];
   reviews: GbpReview[];
-}
-
-interface DateParts {
-  year: number;
-  month: number;
-  day: number;
-}
-
-function dateParts(d: Date): DateParts {
-  return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
-}
-
-async function fetchPerformanceMetrics(
-  connection: GbpConnection,
-  periodDays = 30
-): Promise<GbpPerformanceMetrics> {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - periodDays);
-
-  const url = new URL(
-    `https://businessprofileperformance.googleapis.com/v1/locations/${connection.locationId}:fetchMultiDailyMetricsTimeSeries`
-  );
-
-  for (const metric of ["CALL_CLICKS", "BUSINESS_DIRECTION_REQUESTS", "WEBSITE_CLICKS"]) {
-    url.searchParams.append("dailyMetrics", metric);
-  }
-
-  const startParts = dateParts(start);
-  const endParts = dateParts(end);
-  url.searchParams.set("dailyRange.start_date.year", String(startParts.year));
-  url.searchParams.set("dailyRange.start_date.month", String(startParts.month));
-  url.searchParams.set("dailyRange.start_date.day", String(startParts.day));
-  url.searchParams.set("dailyRange.end_date.year", String(endParts.year));
-  url.searchParams.set("dailyRange.end_date.month", String(endParts.month));
-  url.searchParams.set("dailyRange.end_date.day", String(endParts.day));
-
-  const res = await fetch(url.toString(), { headers: authHeadersForConnection(connection) });
-  const data = (await res.json()) as {
-    multiDailyMetricTimeSeries?: Array<{
-      dailyMetricTimeSeries?: Array<{
-        dailyMetric?: string;
-        timeSeries?: { datedValues?: Array<{ value?: string }> };
-      }>;
-    }>;
-    error?: { message?: string };
-  };
-
-  if (!res.ok) {
-    throw new Error(data.error?.message ?? `Performance API failed (${res.status})`);
-  }
-
-  const series = data.multiDailyMetricTimeSeries?.[0]?.dailyMetricTimeSeries ?? [];
-
-  function sumTimeSeries(metric: string): number {
-    const entry = series.find((s) => s.dailyMetric === metric);
-    const values = entry?.timeSeries?.datedValues ?? [];
-    return values.reduce((sum, dv) => sum + Number(dv.value ?? 0), 0);
-  }
-
-  return {
-    calls: sumTimeSeries("CALL_CLICKS"),
-    directionRequests: sumTimeSeries("BUSINESS_DIRECTION_REQUESTS"),
-    websiteClicks: sumTimeSeries("WEBSITE_CLICKS"),
-    periodDays,
-  };
 }
 
 async function fetchLocalPosts(connection: GbpConnection): Promise<GbpLocalPost[]> {
@@ -204,7 +138,11 @@ export async function fetchGbpEnrichment(
   connection: GbpConnection
 ): Promise<GbpEnrichment> {
   const [performance, posts, questions, reviews] = await Promise.all([
-    fetchPerformanceMetrics(connection).catch(() => null),
+    fetchGbpPerformanceData(connection).catch((err) => {
+      const message = err instanceof Error ? err.message : "Performance API unavailable";
+      console.error("[gbp] performance fetch failed:", message);
+      return emptyPerformanceData(30, message);
+    }),
     fetchLocalPosts(connection).catch(() => []),
     fetchQuestions(connection).catch(() => []),
     fetchGbpReviews(connection).catch(() => []),
