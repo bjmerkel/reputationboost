@@ -1,0 +1,162 @@
+"use client";
+
+import { useState } from "react";
+import type { PlanStep } from "@/audit/types";
+import type { ActionAttribution } from "@/audit/types/timeseries";
+import type { PlanTaskActions } from "@/hooks/usePlanTasks";
+import PlanStepDiff from "./PlanStepDiff";
+import PlanStepPhotos from "./PlanStepPhotos";
+import PlanStepTaskRow from "./PlanStepTaskRow";
+
+const STATUS_STYLES = {
+  completed: "border-[#ceead6] bg-[#f6faf7]",
+  needs_approval: "border-[#feefc3] bg-[#fffbf0]",
+  approved: "border-[#d2e3fc] bg-[#f8fbff]",
+  skipped: "border-[#dadce0] bg-[#f8f9fa]",
+  pending: "border-[#dadce0] bg-white",
+} as const;
+
+export default function PlanStepCard({
+  step,
+  totalSteps,
+  gbpConnected,
+  actions,
+  attributionByTaskId,
+  defaultExpanded = false,
+  variant = "light",
+}: {
+  step: PlanStep;
+  totalSteps: number;
+  gbpConnected: boolean;
+  actions: PlanTaskActions;
+  attributionByTaskId: Record<string, ActionAttribution>;
+  defaultExpanded?: boolean;
+  variant?: "light" | "dark";
+}) {
+  const isLight = variant === "light";
+  const [expanded, setExpanded] = useState(
+    defaultExpanded || step.status === "needs_approval" || step.status === "approved"
+  );
+
+  const hasPhotoTasks = step.tasks.some((t) => t.type === "gbp_photo");
+  const nonPhotoTasks = step.tasks.filter((t) => t.type !== "gbp_photo" && t.type !== "gbp_video");
+  const statusStyle = STATUS_STYLES[step.status] ?? STATUS_STYLES.pending;
+
+  return (
+    <article
+      className={`rounded-xl border ${isLight ? statusStyle : "border-white/8 bg-white/[0.02]"}`}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-start justify-between gap-3 p-4 text-left"
+      >
+        <div className="min-w-0 flex-1">
+          <p className={`text-xs font-medium ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+            Step {step.stepNumber} of {totalSteps}
+            {step.status === "completed" && (
+              <span className={isLight ? "text-[#137333]" : "text-emerald-400"}> · Done</span>
+            )}
+          </p>
+          <h4 className={`mt-0.5 text-base font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+            {step.title}
+          </h4>
+          {step.context.primaryKeyword && (
+            <p className={`mt-1 text-sm ${isLight ? "text-[#1a73e8]" : "text-cyan-300"}`}>
+              Targets &ldquo;{step.context.primaryKeyword}&rdquo;
+            </p>
+          )}
+          {!expanded && (
+            <p className={`mt-1 line-clamp-2 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+              {step.context.expectedEffect}
+            </p>
+          )}
+          {step.status === "completed" && step.outcome?.narrative && (
+            <p className={`mt-2 text-sm font-medium ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>
+              {step.outcome.narrative}
+            </p>
+          )}
+        </div>
+        <span className={`shrink-0 text-lg ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+          {expanded ? "−" : "+"}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className={`border-t px-4 pb-4 pt-3 ${isLight ? "border-[#e8eaed]" : "border-white/8"}`}>
+          <p className={`text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
+            <span className={`font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>Why: </span>
+            {step.context.expectedEffect}
+          </p>
+
+          {step.context.targetKeywords.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {step.context.targetKeywords.slice(0, 4).map((kw) => (
+                <span
+                  key={kw}
+                  className={`rounded-full px-2.5 py-0.5 text-xs ${
+                    isLight ? "bg-[#e8f0fe] text-[#1a73e8]" : "bg-white/10 text-slate-300"
+                  }`}
+                >
+                  {kw}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <PlanStepDiff step={step} variant={variant} />
+
+          {step.copyBlocks?.map((block) => (
+            <div
+              key={block.label}
+              className={`mt-4 rounded-lg p-3 ${isLight ? "bg-[#f8f9fa]" : "bg-white/5"}`}
+            >
+              <p className={`text-xs font-semibold uppercase ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                {block.label}
+              </p>
+              <p className={`mt-2 whitespace-pre-wrap text-sm ${isLight ? "text-[#3c4043]" : "text-slate-200"}`}>
+                {block.content}
+              </p>
+            </div>
+          ))}
+
+          {hasPhotoTasks && (
+            <PlanStepPhotos
+              tasks={step.tasks}
+              gbpConnected={gbpConnected}
+              actions={actions}
+              variant={variant}
+            />
+          )}
+
+          {nonPhotoTasks.length > 0 && (
+            <div className={`space-y-3 ${hasPhotoTasks ? "mt-4" : "mt-4"}`}>
+              {nonPhotoTasks.map((task) => (
+                <PlanStepTaskRow
+                  key={task.id}
+                  task={task}
+                  gbpConnected={gbpConnected}
+                  actions={actions}
+                  attribution={attributionByTaskId[task.id]}
+                  variant={variant}
+                />
+              ))}
+            </div>
+          )}
+
+          {step.tasks.length === 0 && step.stepNumber === 16 && (
+            <p className={`mt-4 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+              {step.instruction}
+            </p>
+          )}
+
+          {step.tasks.length === 0 && step.stepNumber !== 16 && (
+            <p className={`mt-4 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+              Manual step — follow the checklist above in Google Business Profile.
+            </p>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}

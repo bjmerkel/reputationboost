@@ -18,7 +18,7 @@ import PlaceCardReviewsPanel from "@/components/platform/PlaceCardReviewsPanel";
 import PlatformShell from "@/components/platform/PlatformShell";
 import RankingMap from "@/components/platform/RankingMap";
 import ViewAsCustomerModal from "@/components/platform/ViewAsCustomerModal";
-import StrategyPanel from "@/components/StrategyPanel";
+import PlanView from "@/components/plan/PlanView";
 import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
 import ActionAttributionFeed from "@/components/attribution/ActionAttributionFeed";
 import { useAttributionDashboard } from "@/hooks/useAttributionDashboard";
@@ -237,7 +237,7 @@ export default function AuditDashboard({
                 clientId={clientId}
                 auditId={audit.auditId}
                 tasks={tasks}
-                onViewAll={() => setView("execute")}
+                onViewAll={() => setView("strategy")}
               />
             </div>
           )}
@@ -255,17 +255,17 @@ export default function AuditDashboard({
             <PlaceCardReviewsPanel
               audit={audit}
               unrespondedCount={pendingReviewReplies}
-              onOpenUpdates={() => setView("execute")}
+              onOpenUpdates={() => setView("strategy")}
             />
           )}
 
           {view === "strategy" && audit.strategy && (
-            <StrategyPanel
-              strategy={audit.strategy}
-              embedded
-              variant="light"
+            <PlanView
+              audit={audit}
+              clientId={clientId}
               gbpConnected={gbpConnected}
-              onOpenPhotos={() => setView("photos")}
+              attributionByTaskId={attributionData.attributionByTaskId}
+              variant="light"
             />
           )}
 

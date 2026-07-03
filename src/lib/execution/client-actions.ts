@@ -1,0 +1,90 @@
+import type { ExecutionTask } from "@/audit/types";
+import type { Plan } from "@/audit/types";
+
+export async function fetchExecutionState(
+  clientId: string,
+  auditId: string
+): Promise<{ tasks: ExecutionTask[]; plan: Plan | null }> {
+  const res = await fetch(
+    `/api/execution?clientId=${encodeURIComponent(clientId)}&auditId=${encodeURIComponent(auditId)}`
+  );
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Failed to load tasks");
+  }
+  return { tasks: data.tasks ?? [], plan: data.plan ?? null };
+}
+
+export async function patchExecutionTask(
+  taskId: string,
+  body: {
+    status?: "approved" | "rejected";
+    draftContent?: string;
+    payload?: Record<string, unknown>;
+  }
+): Promise<ExecutionTask> {
+  const res = await fetch(`/api/execution/${taskId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Update failed");
+  return data.task as ExecutionTask;
+}
+
+export async function executeExecutionTask(taskId: string): Promise<ExecutionTask> {
+  const res = await fetch(`/api/execution/${taskId}`, { method: "POST" });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Publish failed");
+  return data.task as ExecutionTask;
+}
+
+export async function publishPhotoTask(
+  taskId: string,
+  previewDataUrl?: string
+): Promise<ExecutionTask> {
+  const res = await fetch(`/api/execution/${taskId}/publish-photo`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ previewDataUrl }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Photo upload failed");
+  return data.task as ExecutionTask;
+}
+
+export async function publishPhotoFile(taskId: string, file: File, category: string): Promise<ExecutionTask> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("category", category);
+  form.append("mediaFormat", "PHOTO");
+
+  const res = await fetch(`/api/execution/${taskId}/publish-photo`, {
+    method: "POST",
+    body: form,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Photo upload failed");
+  return data.task as ExecutionTask;
+}
+
+/** Approve (if needed) then publish to Google in one flow. */
+export async function approveAndPublishTask(task: ExecutionTask): Promise<ExecutionTask> {
+  if (task.type === "gbp_photo") {
+    const preview =
+      typeof task.payload.previewDataUrl === "string" ? task.payload.previewDataUrl : undefined;
+    if (!preview) {
+      throw new Error("Generate or upload a photo preview before publishing.");
+    }
+    return publishPhotoTask(task.id, preview);
+  }
+
+  if (task.status === "pending_approval") {
+    await patchExecutionTask(task.id, { status: "approved" });
+  } else if (task.status !== "approved") {
+    throw new Error(`Task cannot be published from status: ${task.status}`);
+  }
+
+  return executeExecutionTask(task.id);
+}
