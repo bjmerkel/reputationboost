@@ -11,6 +11,7 @@ import AuditSummaryStrip from "@/components/audit/AuditSummaryStrip";
 import { isAuditView, type AuditView } from "@/components/audit/types";
 import ExecutionQueue from "@/components/ExecutionQueue";
 import MonthlyReportPanel from "@/components/MonthlyReportPanel";
+import PerformancePermissionBanner from "@/components/PerformancePermissionBanner";
 import StrategyPanel from "@/components/StrategyPanel";
 
 interface AuditRunnerProps {
@@ -113,6 +114,13 @@ export default function AuditDashboard({
   return (
     <div className="space-y-4">
       {!gbpConnected && <GbpConnectBanner businessId={businessId} />}
+
+      {audit.gbp.performance.error && (
+        <PerformancePermissionBanner
+          error={audit.gbp.performance.error}
+          businessId={businessId}
+        />
+      )}
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-500">

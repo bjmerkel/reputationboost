@@ -1,12 +1,22 @@
 import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
+import {
+  formatPerformanceError,
+  isPerformancePermissionError,
+  performanceSetupSteps,
+} from "./performance-errors";
 
 const PERFORMANCE_BASE = "https://businessprofileperformance.googleapis.com/v1";
 
-const DAILY_METRICS = [
+/** Core action metrics — fetched first. */
+const CORE_METRICS = [
   "CALL_CLICKS",
   "BUSINESS_DIRECTION_REQUESTS",
   "WEBSITE_CLICKS",
+] as const;
+
+/** Profile view / impression metrics — fetched in a second request. */
+const IMPRESSION_METRICS = [
   "BUSINESS_IMPRESSIONS_DESKTOP_MAPS",
   "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH",
   "BUSINESS_IMPRESSIONS_MOBILE_MAPS",
@@ -14,6 +24,8 @@ const DAILY_METRICS = [
   "BUSINESS_CONVERSATIONS",
   "BUSINESS_BOOKINGS",
 ] as const;
+
+const ALL_METRICS = [...CORE_METRICS, ...IMPRESSION_METRICS] as const;
 
 export interface GbpSearchKeywordImpression {
   keyword: string;
@@ -36,6 +48,22 @@ export interface GbpPerformanceData {
   error?: string;
 }
 
+export interface PerformanceApiProbe {
+  ok: boolean;
+  httpStatus?: number;
+  error?: string;
+  permissionDenied: boolean;
+  setupSteps: string[];
+  sampleMetrics?: Pick<GbpPerformanceData, "calls" | "directionRequests" | "websiteClicks" | "profileViews">;
+}
+
+function performanceHeaders(connection: GbpConnection): HeadersInit {
+  return {
+    ...authHeadersForConnection(connection),
+    "X-GOOG-API-FORMAT-VERSION": "2",
+  };
+}
+
 function normalizeLocationId(locationId: string): string {
   return locationId.replace(/^locations\//, "");
 }
@@ -44,12 +72,7 @@ function dateParts(d: Date) {
   return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
 }
 
-function appendDailyRange(
-  url: URL,
-  start: Date,
-  end: Date,
-  prefix = "dailyRange"
-): void {
+function appendDailyRange(url: URL, start: Date, end: Date, prefix = "dailyRange"): void {
   const s = dateParts(start);
   const e = dateParts(end);
   url.searchParams.set(`${prefix}.start_date.year`, String(s.year));
@@ -67,7 +90,7 @@ interface TimeSeriesResponse {
       timeSeries?: { datedValues?: Array<{ value?: string | number }> };
     }>;
   }>;
-  error?: { message?: string; status?: string };
+  error?: { message?: string; status?: string; code?: number };
 }
 
 function parseMetricTotals(data: TimeSeriesResponse): Record<string, number> {
@@ -86,10 +109,11 @@ function parseMetricTotals(data: TimeSeriesResponse): Record<string, number> {
   return totals;
 }
 
-async function fetchDailyMetrics(
+async function fetchMetricsBatch(
   connection: GbpConnection,
+  metrics: readonly string[],
   periodDays: number
-): Promise<Record<string, number>> {
+): Promise<{ totals: Record<string, number>; httpStatus: number }> {
   const end = new Date();
   const start = new Date();
   start.setDate(start.getDate() - periodDays);
@@ -99,24 +123,44 @@ async function fetchDailyMetrics(
     `${PERFORMANCE_BASE}/locations/${locationId}:fetchMultiDailyMetricsTimeSeries`
   );
 
-  for (const metric of DAILY_METRICS) {
+  for (const metric of metrics) {
     url.searchParams.append("dailyMetrics", metric);
   }
   appendDailyRange(url, start, end);
 
-  const res = await fetch(url.toString(), {
-    headers: authHeadersForConnection(connection),
-  });
+  const res = await fetch(url.toString(), { headers: performanceHeaders(connection) });
   const data = (await res.json()) as TimeSeriesResponse;
 
   if (!res.ok) {
-    throw new Error(
-      data.error?.message ??
-        `Performance API failed (${res.status}). Enable Business Profile Performance API in Google Cloud and ensure GBP API access is approved.`
-    );
+    const err = new Error(data.error?.message ?? `Performance API failed (${res.status})`);
+    (err as Error & { httpStatus?: number }).httpStatus = res.status;
+    throw err;
   }
 
-  return parseMetricTotals(data);
+  return { totals: parseMetricTotals(data), httpStatus: res.status };
+}
+
+async function fetchDailyMetrics(
+  connection: GbpConnection,
+  periodDays: number
+): Promise<Record<string, number>> {
+  try {
+    const { totals } = await fetchMetricsBatch(connection, ALL_METRICS, periodDays);
+    return totals;
+  } catch (batchError) {
+    const status = (batchError as Error & { httpStatus?: number }).httpStatus;
+    if (status === 403) throw batchError;
+
+    const core = await fetchMetricsBatch(connection, CORE_METRICS, periodDays);
+    let impressions: Record<string, number> = {};
+    try {
+      const imp = await fetchMetricsBatch(connection, IMPRESSION_METRICS, periodDays);
+      impressions = imp.totals;
+    } catch {
+      // Core actions available without impressions is still useful
+    }
+    return { ...core.totals, ...impressions };
+  }
 }
 
 async function fetchSearchKeywordImpressions(
@@ -128,7 +172,6 @@ async function fetchSearchKeywordImpressions(
   start.setMonth(start.getMonth() - monthsBack);
 
   const locationId = normalizeLocationId(connection.locationId);
-
   const keywords: GbpSearchKeywordImpression[] = [];
   let pageToken: string | undefined;
 
@@ -143,9 +186,7 @@ async function fetchSearchKeywordImpressions(
     pageUrl.searchParams.set("pageSize", "100");
     if (pageToken) pageUrl.searchParams.set("pageToken", pageToken);
 
-    const res = await fetch(pageUrl.toString(), {
-      headers: authHeadersForConnection(connection),
-    });
+    const res = await fetch(pageUrl.toString(), { headers: performanceHeaders(connection) });
     const data = (await res.json()) as {
       searchKeywordsCounts?: Array<{
         searchKeyword?: string;
@@ -156,9 +197,9 @@ async function fetchSearchKeywordImpressions(
     };
 
     if (!res.ok) {
-      throw new Error(
-        data.error?.message ?? `Search keywords API failed (${res.status})`
-      );
+      const err = new Error(data.error?.message ?? `Search keywords API failed (${res.status})`);
+      (err as Error & { httpStatus?: number }).httpStatus = res.status;
+      throw err;
     }
 
     for (const item of data.searchKeywordsCounts ?? []) {
@@ -203,10 +244,7 @@ function buildPerformanceFromTotals(
   };
 }
 
-export function emptyPerformanceData(
-  periodDays = 30,
-  error?: string
-): GbpPerformanceData {
+export function emptyPerformanceData(periodDays = 30, error?: string): GbpPerformanceData {
   return {
     periodDays,
     calls: 0,
@@ -223,18 +261,68 @@ export function emptyPerformanceData(
   };
 }
 
+/** Quick health check for Settings / onboarding — uses last 7 days. */
+export async function probePerformanceApiAccess(
+  connection: GbpConnection
+): Promise<PerformanceApiProbe> {
+  const setupSteps = performanceSetupSteps();
+
+  try {
+    const { totals } = await fetchMetricsBatch(connection, CORE_METRICS, 7);
+    const data = buildPerformanceFromTotals(totals, [], 7);
+    return {
+      ok: true,
+      permissionDenied: false,
+      setupSteps,
+      sampleMetrics: {
+        calls: data.calls,
+        directionRequests: data.directionRequests,
+        websiteClicks: data.websiteClicks,
+        profileViews: data.profileViews,
+      },
+    };
+  } catch (error) {
+    const httpStatus = (error as Error & { httpStatus?: number }).httpStatus;
+    const message = formatPerformanceError(error, httpStatus);
+    return {
+      ok: false,
+      httpStatus,
+      error: message,
+      permissionDenied: isPerformancePermissionError(message) || httpStatus === 403,
+      setupSteps,
+    };
+  }
+}
+
 /** Fetch GBP Performance API metrics: calls, directions, website clicks, profile views, search keywords. */
 export async function fetchGbpPerformanceData(
   connection: GbpConnection,
   periodDays = 30
 ): Promise<GbpPerformanceData> {
-  const [totals, searchKeywords] = await Promise.all([
-    fetchDailyMetrics(connection, periodDays),
-    fetchSearchKeywordImpressions(connection).catch((err) => {
-      console.warn("[gbp-performance] search keywords fetch failed:", err);
-      return [] as GbpSearchKeywordImpression[];
-    }),
-  ]);
+  try {
+    const totals = await fetchDailyMetrics(connection, periodDays);
 
-  return buildPerformanceFromTotals(totals, searchKeywords, periodDays);
+    let searchKeywords: GbpSearchKeywordImpression[] = [];
+    try {
+      searchKeywords = await fetchSearchKeywordImpressions(connection);
+    } catch (kwError) {
+      const httpStatus = (kwError as Error & { httpStatus?: number }).httpStatus;
+      if (httpStatus === 403) {
+        console.warn("[gbp-performance] search keywords permission denied (same as daily metrics)");
+      } else {
+        console.warn("[gbp-performance] search keywords fetch failed:", kwError);
+      }
+    }
+
+    return buildPerformanceFromTotals(totals, searchKeywords, periodDays);
+  } catch (error) {
+    const httpStatus = (error as Error & { httpStatus?: number }).httpStatus;
+    const message = formatPerformanceError(error, httpStatus);
+    if (isPerformancePermissionError(message)) {
+      console.error("[gbp-performance] permission denied — enable Business Profile Performance API in GCP");
+    } else {
+      console.error("[gbp-performance] fetch failed:", message);
+    }
+    return emptyPerformanceData(periodDays, message);
+  }
 }

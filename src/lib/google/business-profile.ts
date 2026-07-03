@@ -1,6 +1,5 @@
 import type { GbpConnection } from "@/audit/types";
 import {
-  emptyPerformanceData,
   fetchGbpPerformanceData,
   type GbpPerformanceData,
 } from "./gbp-performance";
@@ -138,11 +137,7 @@ export async function fetchGbpEnrichment(
   connection: GbpConnection
 ): Promise<GbpEnrichment> {
   const [performance, posts, questions, reviews] = await Promise.all([
-    fetchGbpPerformanceData(connection).catch((err) => {
-      const message = err instanceof Error ? err.message : "Performance API unavailable";
-      console.error("[gbp] performance fetch failed:", message);
-      return emptyPerformanceData(30, message);
-    }),
+    fetchGbpPerformanceData(connection),
     fetchLocalPosts(connection).catch(() => []),
     fetchQuestions(connection).catch(() => []),
     fetchGbpReviews(connection).catch(() => []),

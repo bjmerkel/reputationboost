@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getBusinessRecord, getPrimaryBusiness } from "@/audit/businesses";
+import GbpPerformanceSetup from "@/components/GbpPerformanceSetup";
 import GbpDisconnect from "@/components/GbpDisconnect";
 import { getUser } from "@/lib/supabase/server";
 
@@ -67,11 +68,17 @@ export default async function SettingsPage() {
           </div>
 
           {isConnected && business.businessId ? (
-            <GbpDisconnect
-              businessId={business.businessId}
-              businessName={business.name}
-              connectedAt={record?.gbp_connected_at ?? null}
-            />
+            <>
+              <GbpPerformanceSetup
+                businessId={business.businessId}
+                reconnectHref={`/api/google/gbp/connect?businessId=${business.businessId}`}
+              />
+              <GbpDisconnect
+                businessId={business.businessId}
+                businessName={business.name}
+                connectedAt={record?.gbp_connected_at ?? null}
+              />
+            </>
           ) : (
             <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-6">
               <h2 className="text-lg font-bold text-white">Google Business Profile</h2>
