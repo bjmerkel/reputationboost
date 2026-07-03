@@ -22,7 +22,7 @@ export function buildAuditContext(audit: Phase1AuditPayload): string {
   }));
 
   const unrespondedReviews = audit.reviews.reviews
-    .filter((r) => !r.responded)
+    .filter((r) => !r.responded || r.replyState === "REJECTED")
     .slice(0, 8)
     .map((r) => ({
       id: r.id,
@@ -30,6 +30,9 @@ export function buildAuditContext(audit: Phase1AuditPayload): string {
       author: r.author,
       text: r.text.slice(0, 280),
       sentiment: r.sentiment,
+      replyState: r.replyState,
+      policyViolation: r.policyViolation,
+      hasMedia: Boolean(r.mediaItems?.length),
     }));
 
   const live = audit.gbp.liveProfile;
@@ -85,6 +88,9 @@ export function buildAuditContext(audit: Phase1AuditPayload): string {
       positiveThemes: audit.reviews.sentiment.positiveThemes,
       negativeThemes: audit.reviews.sentiment.negativeThemes,
       unrespondedNegative: audit.reviews.unrespondedNegative,
+      avgResponseTimeHours: audit.reviews.avgResponseTimeHours,
+      pendingReplies: audit.reviews.pendingReplies,
+      rejectedReplies: audit.reviews.rejectedReplies,
       unrespondedReviews,
     },
     competitors,

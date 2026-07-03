@@ -1,5 +1,6 @@
 import type { ClientConfig, GbpConnection, GbpSnapshot } from "../types";
 import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
+import { isReviewResponded } from "@/lib/google/gbp-reviews";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
 import { getGbpLocationProfile } from "@/lib/google/gbp-location";
 import {
@@ -64,7 +65,7 @@ async function collectGbpFromApi(
   );
   const questions = enrichment.questions;
   const gbpReviews = enrichment.reviews;
-  const respondedReviews = gbpReviews.filter((r) => r.reviewReply);
+  const respondedReviews = gbpReviews.filter((r) => isReviewResponded(r));
   const responseRate =
     gbpReviews.length > 0 ? respondedReviews.length / gbpReviews.length : 0;
   const performance = enrichment.performance;

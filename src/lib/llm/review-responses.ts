@@ -1,5 +1,6 @@
 import type { FullAuditPayload, ReviewRecord } from "@/audit/types";
 import { generateReviewResponses as templateReviewResponses } from "@/audit/phase3/content";
+import { formatPolicyViolation } from "@/lib/google/gbp-reviews";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
 import { normalizeOptionalText } from "./normalize-content";
@@ -23,11 +24,19 @@ Rules:
 
 Return valid JSON only: { "response": "the published reply text" }`;
 
+function needsReviewResponse(review: ReviewRecord): boolean {
+  if (!review.responded) return true;
+  return review.replyState === "REJECTED";
+}
+
 async function generateOneReviewResponse(
   audit: FullAuditPayload,
   review: ReviewRecord
 ): Promise<string> {
   const business = audit.gbp.identity;
+  const isRedraft = review.replyState === "REJECTED";
+  const violation = formatPolicyViolation(review.policyViolation);
+
   const llm = await completeJson<{ response: unknown }>(
     [
       { role: "system", content: REVIEW_RESPONSE_SYSTEM },
@@ -46,7 +55,15 @@ REVIEW:
 - Author: ${review.author}
 - Text: ${review.text || "(no written comment)"}
 - Sentiment: ${review.sentiment}
-
+${
+  isRedraft
+    ? `
+PREVIOUS REPLY (REJECTED BY GOOGLE):
+- Text: ${review.replyText ?? "(none)"}
+- Policy issue: ${violation || "unspecified — avoid promotional language, personal info, or off-topic content"}
+Rewrite a compliant reply that addresses the customer's review without violating Google policies.`
+    : ""
+}
 Return JSON: { "response": "..." }`,
       },
     ],
@@ -60,7 +77,7 @@ Return JSON: { "response": "..." }`,
 export async function generateReviewResponsesLlm(
   audit: FullAuditPayload
 ): Promise<GeneratedReviewResponse[]> {
-  const pending = audit.reviews.reviews.filter((r) => !r.responded);
+  const pending = audit.reviews.reviews.filter(needsReviewResponse);
 
   if (pending.length === 0) return [];
 

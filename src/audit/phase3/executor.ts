@@ -40,6 +40,7 @@ export async function executeTask(
     gbp_phone: "Updated phone number on Google Business Profile.",
     gbp_checklist: `Completed: ${task.title}`,
     review_response: `Posted review response for review ${task.payload.reviewId ?? "unknown"}.`,
+    review_delete_reply: `Removed review reply for review ${task.payload.reviewId ?? "unknown"}.`,
     review_request: `Sent ${task.payload.batchSize ?? 15} SMS review requests.`,
     qa_answer: "Published Q&A answer on Google Business Profile.",
     schema_markup: "Generated LocalBusiness schema snippet for developer install.",
@@ -149,6 +150,16 @@ async function executeTaskLive(
         reviewId,
         reviewReply: task.draftContent,
       });
+      return {
+        ...task,
+        status: result.success ? "completed" : "failed",
+        completedAt: now,
+        result: result.message,
+      };
+    }
+    case "review_delete_reply": {
+      const reviewId = String(task.payload.reviewId ?? "");
+      const result = await applyGbpAction(connection, "delete_review_reply", { reviewId });
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
     case "gbp_checklist":

@@ -19,6 +19,7 @@ const ACTIONS: GbpApplyAction[] = [
   "upload_media",
   "create_post",
   "reply_review",
+  "delete_review_reply",
 ];
 
 export async function GET() {

@@ -1,5 +1,10 @@
 import type { ClientConfig, GbpConnection, ReviewRecord, ReviewSnapshot } from "../types";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
+import {
+  computeResponseTimeHours,
+  isReviewResponded,
+  type GbpReview,
+} from "@/lib/google/gbp-reviews";
 import { fetchPlaceDetails } from "@/lib/google/place-details";
 
 export async function collectReviewSnapshot(
@@ -19,24 +24,38 @@ export async function collectReviewSnapshot(
   );
 }
 
+function mapGbpReviewToRecord(r: GbpReview): ReviewRecord {
+  const reply = r.reviewReply;
+  const responseTimeHours = computeResponseTimeHours(r.createTime, reply?.updateTime);
+
+  return {
+    id: r.reviewId,
+    resourceName: r.name || undefined,
+    rating: r.rating,
+    text: r.comment,
+    author: r.reviewer,
+    authorPhotoUrl: r.reviewerPhotoUrl,
+    isAnonymous: r.isAnonymous,
+    publishedAt: r.createTime,
+    updatedAt: r.updateTime,
+    responded: isReviewResponded(r),
+    replyText: reply?.comment,
+    replyUpdatedAt: reply?.updateTime,
+    replyState: reply?.reviewReplyState,
+    policyViolation: reply?.policyViolation,
+    responseTimeHours,
+    sentiment: ratingToSentiment(r.rating),
+    mediaItems: r.mediaItems.length ? r.mediaItems : undefined,
+  };
+}
+
 async function collectReviewsFromApi(
   client: ClientConfig,
   connection: GbpConnection
 ): Promise<ReviewSnapshot> {
   const now = new Date().toISOString();
   const enrichment = await fetchGbpEnrichment(connection);
-  const gbpReviews = enrichment.reviews;
-
-  const reviews: ReviewRecord[] = gbpReviews.map((r) => ({
-    id: r.reviewId,
-    rating: r.rating,
-    text: r.comment,
-    author: r.reviewer,
-    publishedAt: r.createTime,
-    responded: Boolean(r.reviewReply),
-    responseTimeHours: null,
-    sentiment: ratingToSentiment(r.rating),
-  }));
+  const reviews = enrichment.reviews.map(mapGbpReviewToRecord);
 
   return buildReviewSnapshot(now, reviews);
 }
@@ -73,6 +92,19 @@ function buildReviewSnapshot(now: string, reviews: ReviewRecord[]): ReviewSnapsh
     (r) => new Date(r.publishedAt).getTime() >= thirtyDaysAgo
   ).length;
 
+  const responseTimes = reviews
+    .map((r) => r.responseTimeHours)
+    .filter((h): h is number => h !== null);
+  const avgResponseTimeHours =
+    responseTimes.length > 0
+      ? Math.round(
+          (responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length) * 10
+        ) / 10
+      : null;
+
+  const pendingReplies = reviews.filter((r) => r.replyState === "PENDING").length;
+  const rejectedReplies = reviews.filter((r) => r.replyState === "REJECTED").length;
+
   return {
     collectedAt: now,
     reviews,
@@ -86,6 +118,9 @@ function buildReviewSnapshot(now: string, reviews: ReviewRecord[]): ReviewSnapsh
     unrespondedNegative,
     disputeCandidates: reviews.filter((r) => r.rating <= 2 && !r.responded).map((r) => r.id),
     velocityVsPriorMonth,
+    avgResponseTimeHours,
+    pendingReplies,
+    rejectedReplies,
   };
 }
 

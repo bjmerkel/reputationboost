@@ -29,6 +29,7 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
   return [
     "google_post",
     "review_response",
+    "review_delete_reply",
     "gbp_description",
     "gbp_primary_category",
     "gbp_secondary_categories",
@@ -81,6 +82,9 @@ function reviewPayload(
     rating,
     reviewAuthor: review?.author,
     reviewText: review?.text,
+    replyState: review?.replyState,
+    policyViolation: review?.policyViolation,
+    previousReply: review?.replyState === "REJECTED" ? review?.replyText : undefined,
   };
 }
 
@@ -281,19 +285,36 @@ export function tasksFromGbpPlanStep(
 
   if (step.stepNumber === 11) {
     const responses = content.reviewResponses;
+    const rejectedDeletes = audit.reviews.reviews
+      .filter((r) => r.replyState === "REJECTED" && r.replyText)
+      .map((r) =>
+        buildGbpTask(
+          audit,
+          step,
+          "review_delete_reply",
+          `Remove rejected reply for ${r.author.split(" ")[0] ?? "customer"}`,
+          `Remove the rejected reply before posting a new one for review ${r.id}.`,
+          { reviewId: r.id, reviewAuthor: r.author, replyState: r.replyState }
+        )
+      );
+
     if (responses.length > 0) {
-      return responses.map((r) => {
+      const replyTasks = responses.map((r) => {
         const review = audit.reviews.reviews.find((rev) => rev.id === r.reviewId);
         const author = review?.author?.split(" ")[0] ?? "customer";
+        const isRedraft = review?.replyState === "REJECTED";
         return buildGbpTask(
           audit,
           step,
           "review_response",
-          `Respond to ${author} (${r.rating}★)`,
+          isRedraft
+            ? `Rewrite rejected reply for ${author} (${r.rating}★)`
+            : `Respond to ${author} (${r.rating}★)`,
           r.response,
           reviewPayload(audit, r.reviewId, r.rating)
         );
       });
+      return [...rejectedDeletes, ...replyTasks];
     }
     const template =
       step.copyBlocks?.[0]?.content ?? "Respond to all reviews within 24 hours.";

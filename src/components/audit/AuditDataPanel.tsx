@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { FullAuditPayload } from "@/audit/types";
+import type { FullAuditPayload, ReviewRecord } from "@/audit/types";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 
 type DataTab = "profile" | "rankings" | "competitors" | "reviews" | "citations";
@@ -184,7 +184,21 @@ export default function AuditDataPanel({
       )}
 
       {tab === "reviews" && (
-        <div className="space-y-4">
+        <div className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <ReviewStat label="Unresponded negative" value={String(audit.reviews.unrespondedNegative)} />
+            <ReviewStat
+              label="Avg response time"
+              value={
+                audit.reviews.avgResponseTimeHours != null
+                  ? `${audit.reviews.avgResponseTimeHours}h`
+                  : "—"
+              }
+            />
+            <ReviewStat label="Pending replies" value={String(audit.reviews.pendingReplies)} />
+            <ReviewStat label="Rejected replies" value={String(audit.reviews.rejectedReplies)} />
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">
@@ -199,10 +213,22 @@ export default function AuditDataPanel({
               <TagList items={audit.reviews.sentiment.negativeThemes} color="red" />
             </div>
           </div>
+
           <p className="text-sm text-slate-400">
-            Unresponded negative reviews: {audit.reviews.unrespondedNegative} · Dispute
-            candidates: {audit.reviews.disputeCandidates.length}
+            {audit.reviews.reviews.length} reviews collected · Dispute candidates:{" "}
+            {audit.reviews.disputeCandidates.length}
           </p>
+
+          <div className="space-y-3">
+            {audit.reviews.reviews.slice(0, 20).map((review) => (
+              <ReviewCard key={review.id} review={review} />
+            ))}
+            {audit.reviews.reviews.length > 20 && (
+              <p className="text-sm text-slate-500">
+                Showing 20 of {audit.reviews.reviews.length} reviews.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -287,4 +313,128 @@ function TagList({ items, color }: { items: string[]; color: "emerald" | "red" }
 function formatDate(iso: string | null) {
   if (!iso) return "Never";
   return new Date(iso).toLocaleDateString();
+}
+
+function ReviewStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3">
+      <p className="text-xs uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-white">{value}</p>
+    </div>
+  );
+}
+
+function ReviewCard({ review }: { review: ReviewRecord }) {
+  const sentimentColor =
+    review.sentiment === "positive"
+      ? "text-emerald-400"
+      : review.sentiment === "negative"
+        ? "text-red-400"
+        : "text-amber-400";
+
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {review.authorPhotoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={review.authorPhotoUrl}
+              alt=""
+              className="h-8 w-8 rounded-full bg-white/10"
+            />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs text-slate-400">
+              {review.isAnonymous ? "?" : review.author.charAt(0)}
+            </div>
+          )}
+          <div>
+            <p className="font-medium text-white">
+              {review.author}
+              <span className="ml-2 text-amber-400">{review.rating}★</span>
+            </p>
+            <p className="text-xs text-slate-500">{formatDate(review.publishedAt)}</p>
+          </div>
+        </div>
+        <span className={`text-xs font-medium uppercase ${sentimentColor}`}>
+          {review.sentiment}
+        </span>
+      </div>
+
+      {review.text && (
+        <p className="mt-3 text-sm leading-relaxed text-slate-300">&ldquo;{review.text}&rdquo;</p>
+      )}
+
+      {review.mediaItems && review.mediaItems.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {review.mediaItems.map((item, i) => (
+            <a
+              key={i}
+              href={item.videoUrl ?? item.thumbnailUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block overflow-hidden rounded-lg border border-white/10"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={item.thumbnailUrl}
+                alt={item.thumbnailLabel ?? "Review media"}
+                className="h-16 w-16 object-cover"
+              />
+            </a>
+          ))}
+        </div>
+      )}
+
+      {review.replyText ? (
+        <div className="mt-3 rounded-lg border border-white/8 bg-slate-900/40 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Your reply
+            </p>
+            {review.replyState && review.replyState !== "APPROVED" && (
+              <ReplyStateBadge state={review.replyState} />
+            )}
+          </div>
+          <p className="mt-1 text-sm text-slate-400">{review.replyText}</p>
+          {review.policyViolation && (
+            <p className="mt-2 text-xs text-red-400">
+              Policy: {formatViolation(review.policyViolation)}
+            </p>
+          )}
+          {review.responseTimeHours != null && (
+            <p className="mt-1 text-xs text-slate-500">
+              Responded in {review.responseTimeHours}h
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-amber-400">No reply yet</p>
+      )}
+    </div>
+  );
+}
+
+function ReplyStateBadge({ state }: { state: ReviewRecord["replyState"] }) {
+  const styles =
+    state === "REJECTED"
+      ? "bg-red-500/20 text-red-300"
+      : state === "PENDING"
+        ? "bg-amber-500/20 text-amber-300"
+        : "bg-slate-500/20 text-slate-400";
+
+  const label =
+    state === "REJECTED" ? "Rejected" : state === "PENDING" ? "Pending" : state ?? "";
+
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${styles}`}>{label}</span>
+  );
+}
+
+function formatViolation(code: string): string {
+  if (!code || code === "POLICY_VIOLATION_UNSPECIFIED") return "";
+  return code
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/^\w/, (c) => c.toUpperCase());
 }

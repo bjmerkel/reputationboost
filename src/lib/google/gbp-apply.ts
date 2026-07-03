@@ -17,6 +17,12 @@ import {
   type GbpMediaCategory,
   type GbpMediaFormat,
 } from "./gbp-media";
+import {
+  applyReviewReply as postReviewReply,
+  deleteReviewReply,
+  formatPolicyViolation,
+  formatReplyState,
+} from "./gbp-reviews";
 
 export interface GbpApplyResult {
   success: boolean;
@@ -445,25 +451,38 @@ export async function applyReviewReply(
   reviewId: string,
   comment: string
 ): Promise<GbpApplyResult> {
-  const url = `https://mybusiness.googleapis.com/v4/accounts/${connection.accountId}/locations/${connection.locationId}/reviews/${reviewId}/reply`;
+  const result = await postReviewReply(connection, reviewId, comment);
+  const stateLabel = formatReplyState(result.reviewReplyState);
+  const violation = formatPolicyViolation(result.policyViolation);
 
-  const res = await fetch(url, {
-    method: "PUT",
-    headers: {
-      ...authHeadersForConnection(connection),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ comment: comment.trim() }),
-  });
-
-  const data = (await res.json()) as { error?: { message?: string } };
-  if (!res.ok) {
-    throw new Error(data.error?.message ?? `Failed to post review reply (${res.status})`);
+  let message = `Review response submitted (${stateLabel}).`;
+  if (result.reviewReplyState === "REJECTED" && violation) {
+    message = `Reply was rejected: ${violation}. Edit and try again.`;
+  } else if (result.reviewReplyState === "PENDING") {
+    message = "Reply submitted — Google is reviewing it before it goes live.";
   }
 
   return {
+    success: result.reviewReplyState !== "REJECTED",
+    message,
+    applied: {
+      reviewId: result.reviewId,
+      reviewReplyState: result.reviewReplyState,
+      policyViolation: result.policyViolation,
+      updateTime: result.updateTime,
+    },
+  };
+}
+
+export async function applyDeleteReviewReply(
+  connection: GbpConnection,
+  reviewId: string
+): Promise<GbpApplyResult> {
+  await deleteReviewReply(connection, reviewId);
+
+  return {
     success: true,
-    message: "Review response published on Google.",
+    message: "Review reply removed from Google.",
     applied: { reviewId },
   };
 }
@@ -480,7 +499,8 @@ export type GbpApplyAction =
   | "enable_recommended_attributes"
   | "upload_media"
   | "create_post"
-  | "reply_review";
+  | "reply_review"
+  | "delete_review_reply";
 
 export async function applyGbpAction(
   connection: GbpConnection,
@@ -549,6 +569,9 @@ export async function applyGbpAction(
         throw new Error("reviewId and reviewReply are required");
       }
       return applyReviewReply(connection, payload.reviewId, payload.reviewReply);
+    case "delete_review_reply":
+      if (!payload.reviewId) throw new Error("reviewId is required");
+      return applyDeleteReviewReply(connection, payload.reviewId);
     default:
       throw new Error(`Unsupported action: ${action}`);
   }

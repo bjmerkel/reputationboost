@@ -33,6 +33,7 @@ const typeLabels: Record<ExecutionTask["type"], string> = {
   gbp_website: "Website URL",
   gbp_phone: "Phone Number",
   review_response: "Review Response",
+  review_delete_reply: "Delete Review Reply",
   review_request: "Review Request",
   qa_answer: "Q&A Answer",
   schema_markup: "Schema Markup",
@@ -255,6 +256,19 @@ export default function ExecutionQueue({
                 <p className="mt-1 text-sm italic text-slate-400">
                   &ldquo;{task.payload.reviewText}&rdquo;
                 </p>
+                {typeof task.payload.replyState === "string" && task.payload.replyState !== "APPROVED" && (
+                  <p className="mt-2 text-xs text-amber-400">
+                    Reply status: {formatReplyStateLabel(task.payload.replyState as string)}
+                    {typeof task.payload.policyViolation === "string" && task.payload.policyViolation
+                      ? ` — ${formatViolationLabel(task.payload.policyViolation)}`
+                      : ""}
+                  </p>
+                )}
+                {typeof task.payload.previousReply === "string" && task.payload.previousReply && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Previous reply: &ldquo;{task.payload.previousReply}&rdquo;
+                  </p>
+                )}
               </div>
             )}
             <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -269,11 +283,38 @@ export default function ExecutionQueue({
             </p>
 
             {task.result && (
-              <p className="mt-2 text-sm text-emerald-400">✓ {task.result}</p>
+              <p
+                className={`mt-2 text-sm ${
+                  task.status === "failed" ? "text-red-400" : "text-emerald-400"
+                }`}
+              >
+                {task.status === "failed" ? "✗" : "✓"} {task.result}
+              </p>
             )}
           </div>
         ))}
       </div>
     </div>
   );
+}
+
+function formatReplyStateLabel(state: string): string {
+  switch (state) {
+    case "APPROVED":
+      return "Published";
+    case "PENDING":
+      return "Pending review";
+    case "REJECTED":
+      return "Rejected";
+    default:
+      return state.replace(/_/g, " ").toLowerCase();
+  }
+}
+
+function formatViolationLabel(code: string): string {
+  if (!code || code === "POLICY_VIOLATION_UNSPECIFIED") return "";
+  return code
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/^\w/, (c) => c.toUpperCase());
 }

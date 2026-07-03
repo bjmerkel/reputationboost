@@ -32,7 +32,7 @@ export function generateReviewResponses(audit: FullAuditPayload): Array<{
   response: string;
 }> {
   return audit.reviews.reviews
-    .filter((r) => !r.responded)
+    .filter((r) => !r.responded || r.replyState === "REJECTED")
     .map((r) => ({
       reviewId: r.id,
       rating: r.rating,

@@ -191,15 +191,36 @@ export interface CompetitorSnapshot {
   keyword: string;
 }
 
+export interface ReviewMediaItem {
+  thumbnailUrl: string;
+  thumbnailLabel?: string;
+  videoUrl?: string;
+}
+
+export type ReviewReplyState =
+  | "REVIEW_REPLY_STATE_UNSPECIFIED"
+  | "PENDING"
+  | "REJECTED"
+  | "APPROVED";
+
 export interface ReviewRecord {
   id: string;
+  resourceName?: string;
   rating: number;
   text: string;
   author: string;
+  authorPhotoUrl?: string;
+  isAnonymous?: boolean;
   publishedAt: string;
+  updatedAt?: string;
   responded: boolean;
+  replyText?: string;
+  replyUpdatedAt?: string;
+  replyState?: ReviewReplyState;
+  policyViolation?: string;
   responseTimeHours: number | null;
   sentiment: "positive" | "neutral" | "negative";
+  mediaItems?: ReviewMediaItem[];
 }
 
 export interface ReviewSentimentSummary {
@@ -217,6 +238,9 @@ export interface ReviewSnapshot {
   unrespondedNegative: number;
   disputeCandidates: string[];
   velocityVsPriorMonth: number;
+  avgResponseTimeHours: number | null;
+  pendingReplies: number;
+  rejectedReplies: number;
 }
 
 export interface CitationCheck {
@@ -490,6 +514,7 @@ export type ExecutionType =
   | "gbp_phone"
   | "gbp_checklist"
   | "review_response"
+  | "review_delete_reply"
   | "review_request"
   | "qa_answer"
   | "schema_markup"

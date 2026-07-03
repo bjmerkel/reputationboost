@@ -90,6 +90,7 @@ function tasksFromReviewResponses(
   return responses.map((r) => {
     const review = audit.reviews.reviews.find((rev) => rev.id === r.reviewId);
     const author = review?.author?.split(" ")[0] ?? "customer";
+    const isRedraft = review?.replyState === "REJECTED";
     return buildTask(
       audit,
       action,
@@ -100,8 +101,13 @@ function tasksFromReviewResponses(
         rating: r.rating,
         reviewAuthor: review?.author,
         reviewText: review?.text,
+        replyState: review?.replyState,
+        policyViolation: review?.policyViolation,
+        previousReply: isRedraft ? review?.replyText : undefined,
       },
-      `Respond to ${author} (${r.rating}★)`
+      isRedraft
+        ? `Rewrite rejected reply for ${author} (${r.rating}★)`
+        : `Respond to ${author} (${r.rating}★)`
     );
   });
 }
