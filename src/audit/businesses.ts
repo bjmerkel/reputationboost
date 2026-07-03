@@ -19,6 +19,8 @@ export interface BusinessRecord {
   gbp_connected_at: string | null;
   gbp_google_email: string | null;
   onboarding_complete: boolean;
+  avg_customer_value: number | null;
+  avg_customer_value_currency: string;
   website: string | null;
   phone: string | null;
   created_at: string;
@@ -46,7 +48,7 @@ function slugify(name: string): string {
   return `${base || "business"}-${suffix}`;
 }
 
-function rowToClientConfig(row: BusinessRecord): ClientConfig {
+export function businessRecordToClientConfig(row: BusinessRecord): ClientConfig {
   const connection: GbpConnection | undefined =
     row.gbp_account_id && row.gbp_location_id && row.gbp_refresh_token
       ? {
@@ -107,7 +109,7 @@ export async function getPrimaryBusiness(userId: string): Promise<ClientConfig |
     );
 
   const row = inProgress[0] ?? completed[0] ?? rows[rows.length - 1];
-  return row ? rowToClientConfig(row) : null;
+  return row ? businessRecordToClientConfig(row) : null;
 }
 
 export async function loadBusinessConfig(
@@ -124,7 +126,7 @@ export async function loadBusinessConfig(
 
   if (error) throw new Error(error.message);
   if (!data) throw new Error(`Business not found: ${slug}`);
-  return rowToClientConfig(data as BusinessRecord);
+  return businessRecordToClientConfig(data as BusinessRecord);
 }
 
 export async function getBusinessRecord(
@@ -169,7 +171,7 @@ export async function createBusiness(
     .single();
 
   if (error) throw new Error(`Failed to create business: ${error.message}`);
-  return rowToClientConfig(data as BusinessRecord);
+  return businessRecordToClientConfig(data as BusinessRecord);
 }
 
 export async function saveGbpTokens(

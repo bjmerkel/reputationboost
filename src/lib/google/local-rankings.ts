@@ -242,6 +242,29 @@ export async function searchKeywordAtAllRadii(
   return { keyword, ranksByRadius, resultsByRadius };
 }
 
+export interface OneMileRankResult {
+  rank: number | null;
+  inLocalPack: boolean;
+  localPackPosition: number | null;
+}
+
+/** Lightweight 1-mile rank check for daily ingest (avoids full geo grid). */
+export async function searchKeywordAtOneMile(
+  keyword: string,
+  location: GeoLocation,
+  matchOptions: BusinessMatchOptions
+): Promise<OneMileRankResult> {
+  const results = await searchPlaces(keyword, location, milesToMeters(1), "nearby");
+  const rank = findBusinessRank(results, matchOptions);
+  const inLocalPack = rank !== null && rank <= 3;
+
+  return {
+    rank,
+    inLocalPack,
+    localPackPosition: inLocalPack ? rank : null,
+  };
+}
+
 /**
  * Full ranking + competitor harvest for all client keywords.
  * Uses Google Places directly — Local Maps ordering, not desktop organic SERP.

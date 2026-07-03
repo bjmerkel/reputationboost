@@ -1,4 +1,5 @@
 import type { GbpConnection } from "@/audit/types";
+import type { DailyMetricPoint, PerformanceDailyMetric } from "@/audit/types/timeseries";
 import { checkGbpLocationAccess, type GbpLocationAccessCheck, resolveGoogleAccountEmail } from "./gbp-access";
 import { authHeadersForConnection } from "./auth-headers";
 import { getGbpLocationProfile } from "./gbp-location";
@@ -116,15 +117,84 @@ function appendDailyRange(
   url.searchParams.set("dailyRange.endDate.day", String(e.day));
 }
 
+interface DatedValue {
+  date?: { year?: number; month?: number; day?: number };
+  value?: string | number;
+}
+
 interface TimeSeriesResponse {
   multiDailyMetricTimeSeries?: Array<{
     dailyMetricTimeSeries?: Array<{
       dailyMetric?: string;
-      timeSeries?: { datedValues?: Array<{ value?: string | number }> };
+      timeSeries?: { datedValues?: DatedValue[] };
     }>;
   }>;
-  timeSeries?: { datedValues?: Array<{ value?: string | number }> };
+  timeSeries?: { datedValues?: DatedValue[] };
   error?: { message?: string; status?: string; code?: number };
+}
+
+const API_METRIC_TO_DAILY: Record<string, PerformanceDailyMetric> = {
+  CALL_CLICKS: "calls",
+  BUSINESS_DIRECTION_REQUESTS: "direction_requests",
+  WEBSITE_CLICKS: "website_clicks",
+  BUSINESS_IMPRESSIONS_DESKTOP_MAPS: "impressions_maps",
+  BUSINESS_IMPRESSIONS_MOBILE_MAPS: "impressions_maps",
+  BUSINESS_IMPRESSIONS_DESKTOP_SEARCH: "impressions_search",
+  BUSINESS_IMPRESSIONS_MOBILE_SEARCH: "impressions_search",
+  BUSINESS_CONVERSATIONS: "conversations",
+  BUSINESS_BOOKINGS: "bookings",
+};
+
+const DAILY_INGEST_METRICS = [
+  ...CORE_METRICS,
+  ...VIEW_IMPRESSION_METRICS,
+  ...OPTIONAL_METRICS,
+] as const;
+
+function formatDatedValueDate(date: DatedValue["date"]): string | null {
+  if (!date?.year || !date.month || !date.day) return null;
+  const month = String(date.month).padStart(2, "0");
+  const day = String(date.day).padStart(2, "0");
+  return `${date.year}-${month}-${day}`;
+}
+
+/** Parse daily metric points from a multi-metric time-series response. */
+export function parseMetricDaily(data: TimeSeriesResponse): DailyMetricPoint[] {
+  const byDateMetric = new Map<string, number>();
+  const allSeries = (data.multiDailyMetricTimeSeries ?? []).flatMap(
+    (batch) => batch.dailyMetricTimeSeries ?? []
+  );
+
+  for (const entry of allSeries) {
+    const metric = entry.dailyMetric ? API_METRIC_TO_DAILY[entry.dailyMetric] : undefined;
+    if (!metric) continue;
+
+    for (const dv of entry.timeSeries?.datedValues ?? []) {
+      const date = formatDatedValueDate(dv.date);
+      if (!date) continue;
+      const key = `${date}:${metric}`;
+      byDateMetric.set(key, (byDateMetric.get(key) ?? 0) + Number(dv.value ?? 0));
+    }
+  }
+
+  const points: DailyMetricPoint[] = [];
+  for (const [key, value] of byDateMetric) {
+    const [date, metric] = key.split(":") as [string, PerformanceDailyMetric];
+    points.push({ date, metric, value });
+  }
+
+  // Derive profile_views = impressions_maps + impressions_search per day
+  const dates = new Set(points.map((p) => p.date));
+  for (const date of dates) {
+    const maps = points.find((p) => p.date === date && p.metric === "impressions_maps")?.value ?? 0;
+    const search =
+      points.find((p) => p.date === date && p.metric === "impressions_search")?.value ?? 0;
+    if (maps + search > 0) {
+      points.push({ date, metric: "profile_views", value: maps + search });
+    }
+  }
+
+  return points.sort((a, b) => a.date.localeCompare(b.date) || a.metric.localeCompare(b.metric));
 }
 
 function parseMetricTotals(data: TimeSeriesResponse): Record<string, number> {
@@ -201,6 +271,130 @@ async function fetchMetricsBatch(
 
   return { totals: parseMetricTotals(data), httpStatus: res.status };
 }
+
+async function fetchMetricsBatchRaw(
+  connection: GbpConnection,
+  metrics: readonly string[],
+  start: Date,
+  end: Date,
+  dateFormat: DateRangeFormat = "snake"
+): Promise<TimeSeriesResponse> {
+  const locationId = normalizeLocationId(connection.locationId);
+  const url = new URL(
+    `${PERFORMANCE_BASE}/locations/${locationId}:fetchMultiDailyMetricsTimeSeries`
+  );
+
+  for (const metric of metrics) {
+    url.searchParams.append("dailyMetrics", metric);
+  }
+  appendDailyRange(url, start, end, dateFormat);
+
+  const res = await fetch(url.toString(), { headers: performanceHeaders(connection) });
+  const data = (await res.json()) as TimeSeriesResponse;
+
+  if (!res.ok) {
+    const err = new Error(data.error?.message ?? `Performance API failed (${res.status})`);
+    (err as Error & { httpStatus?: number }).httpStatus = res.status;
+    throw err;
+  }
+
+  return data;
+}
+
+async function fetchMetricsDailyWithFallback(
+  connection: GbpConnection,
+  metrics: readonly string[],
+  start: Date,
+  end: Date
+): Promise<DailyMetricPoint[]> {
+  const formats: DateRangeFormat[] = ["snake", "camel"];
+
+  for (const format of formats) {
+    try {
+      const data = await fetchMetricsBatchRaw(connection, metrics, start, end, format);
+      const points = parseMetricDaily(data);
+      if (points.length > 0) return points;
+    } catch {
+      // Try alternate date param format.
+    }
+  }
+
+  return [];
+}
+
+/** Fetch daily performance metrics for a date range (preserves per-day values). */
+export async function fetchGbpPerformanceDailySeries(
+  connection: GbpConnection,
+  startDate: Date,
+  endDate: Date
+): Promise<DailyMetricPoint[]> {
+  const resolved = await resolvePerformanceConnection(connection);
+  const corePoints = await fetchMetricsDailyWithFallback(
+    resolved,
+    CORE_METRICS,
+    startDate,
+    endDate
+  );
+
+  if (corePoints.length === 0) {
+    const err = new Error("Performance API: no daily core metrics returned for this location.");
+    (err as Error & { httpStatus?: number }).httpStatus = 403;
+    throw err;
+  }
+
+  const allPoints = [...corePoints];
+
+  try {
+    const impressionPoints = await fetchMetricsDailyWithFallback(
+      resolved,
+      VIEW_IMPRESSION_METRICS,
+      startDate,
+      endDate
+    );
+    allPoints.push(...impressionPoints);
+  } catch {
+    // Impressions are optional for daily ingest.
+  }
+
+  try {
+    const optionalPoints = await fetchMetricsDailyWithFallback(
+      resolved,
+      OPTIONAL_METRICS,
+      startDate,
+      endDate
+    );
+    allPoints.push(...optionalPoints);
+  } catch {
+    // Bookings/conversations are optional.
+  }
+
+  // Re-merge and re-derive profile_views across all metrics
+  const merged = new Map<string, number>();
+  for (const point of allPoints) {
+    const key = `${point.date}:${point.metric}`;
+    merged.set(key, (merged.get(key) ?? 0) + point.value);
+  }
+
+  const dates = new Set(allPoints.map((p) => p.date));
+  for (const date of dates) {
+    const maps = merged.get(`${date}:impressions_maps`) ?? 0;
+    const search = merged.get(`${date}:impressions_search`) ?? 0;
+    if (maps + search > 0) {
+      merged.set(`${date}:profile_views`, maps + search);
+    }
+  }
+
+  const result: DailyMetricPoint[] = [];
+  for (const [key, value] of merged) {
+    const [date, metric] = key.split(":") as [string, PerformanceDailyMetric];
+    result.push({ date, metric, value });
+  }
+
+  return result.sort((a, b) => a.date.localeCompare(b.date) || a.metric.localeCompare(b.metric));
+}
+
+/** Metric names ingested into performance_daily during daily cron. */
+export const DAILY_PERFORMANCE_METRICS = DAILY_INGEST_METRICS;
 
 async function fetchSingleMetric(
   connection: GbpConnection,
