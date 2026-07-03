@@ -10,6 +10,7 @@ export interface BusinessRecord {
   location: ClientConfig["location"];
   keywords: string[];
   gbp_place_id: string | null;
+  gbp_maps_url: string | null;
   gbp_account_id: string | null;
   gbp_location_id: string | null;
   gbp_refresh_token: string | null;
@@ -32,6 +33,7 @@ export interface CreateBusinessInput {
   website?: string;
   phone?: string;
   gbpPlaceId?: string;
+  gbpMapsUrl?: string;
 }
 
 function slugify(name: string): string {
@@ -67,6 +69,7 @@ function rowToClientConfig(row: BusinessRecord): ClientConfig {
     location: row.location,
     keywords: row.keywords ?? [],
     gbpPlaceId: row.gbp_place_id ?? undefined,
+    gbpMapsUrl: row.gbp_maps_url ?? undefined,
     website: row.website ?? undefined,
     phone: row.phone ?? undefined,
     gbpConnection: connection,
@@ -157,6 +160,7 @@ export async function createBusiness(
       location: input.location,
       keywords: input.keywords,
       gbp_place_id: input.gbpPlaceId ?? null,
+      gbp_maps_url: input.gbpMapsUrl ?? null,
       website: input.website ?? null,
       phone: input.phone ?? null,
       onboarding_complete: false,
@@ -201,6 +205,7 @@ export async function saveGbpLocation(
     accountId: string;
     locationId: string;
     placeId?: string;
+    mapsUrl?: string;
     name?: string;
     address?: string;
     phone?: string;
@@ -215,6 +220,7 @@ export async function saveGbpLocation(
     gbp_account_id: selection.accountId,
     gbp_location_id: selection.locationId,
     gbp_place_id: selection.placeId ?? existing?.gbp_place_id ?? null,
+    gbp_maps_url: selection.mapsUrl ?? existing?.gbp_maps_url ?? null,
     onboarding_complete: true,
     updated_at: new Date().toISOString(),
   };
@@ -241,6 +247,7 @@ export async function disconnectGbp(userId: string, businessId: string): Promise
       gbp_account_id: null,
       gbp_location_id: null,
       gbp_place_id: null,
+      gbp_maps_url: null,
       gbp_refresh_token: null,
       gbp_access_token: null,
       gbp_token_expires_at: null,

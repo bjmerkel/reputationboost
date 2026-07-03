@@ -5,6 +5,7 @@ import { isMapsAutocompleteAvailable, loadGoogleMaps, MAPS_SETUP_HELP } from "@/
 
 export interface BusinessPlaceSelection {
   placeId: string;
+  mapsUrl?: string;
   name: string;
   address: string;
   city: string;
@@ -44,6 +45,7 @@ function parsePlace(place: google.maps.places.PlaceResult): BusinessPlaceSelecti
 
   return {
     placeId: place.place_id,
+    mapsUrl: place.url,
     name: place.name ?? "",
     address: street || component("premise", components) || place.name || "",
     city:
@@ -94,6 +96,7 @@ export default function GoogleBusinessAutocomplete({
             "website",
             "formatted_phone_number",
             "types",
+            "url",
           ],
         });
 

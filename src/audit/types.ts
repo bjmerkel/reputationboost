@@ -17,6 +17,7 @@ export interface ClientConfig {
   };
   keywords: string[];
   gbpPlaceId?: string;
+  gbpMapsUrl?: string;
   website?: string;
   phone?: string;
   gbpConnection?: GbpConnection;
@@ -42,6 +43,7 @@ export interface GbpIdentity {
   primaryCategory: string;
   secondaryCategories: string[];
   placeId?: string;
+  mapsUrl?: string;
 }
 
 export interface GbpCompleteness {

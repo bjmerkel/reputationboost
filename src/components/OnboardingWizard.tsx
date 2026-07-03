@@ -33,6 +33,7 @@ export default function OnboardingWizard({
 
   const [placeSelected, setPlaceSelected] = useState(false);
   const [placeId, setPlaceId] = useState("");
+  const [mapsUrl, setMapsUrl] = useState("");
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
   const [address, setAddress] = useState("");
@@ -48,6 +49,7 @@ export default function OnboardingWizard({
   function handlePlaceSelect(place: BusinessPlaceSelection) {
     setPlaceSelected(true);
     setPlaceId(place.placeId);
+    setMapsUrl(place.mapsUrl ?? "");
     setName(place.name);
     setIndustry(place.industry);
     setAddress(place.address);
@@ -65,6 +67,7 @@ export default function OnboardingWizard({
   function handlePlaceClear() {
     setPlaceSelected(false);
     setPlaceId("");
+    setMapsUrl("");
     setName("");
     setIndustry("");
     setAddress("");
@@ -104,6 +107,7 @@ export default function OnboardingWizard({
           lat,
           lng,
           placeId,
+          mapsUrl,
           phone,
           website,
           keywords,

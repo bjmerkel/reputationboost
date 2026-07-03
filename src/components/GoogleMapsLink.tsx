@@ -1,19 +1,19 @@
 import { googleMapsUrlForBusiness } from "@/lib/google/maps-url";
 
 export default function GoogleMapsLink({
-  placeId,
+  mapsUrl,
   name,
   address,
   className = "text-sm font-semibold text-emerald-400 hover:text-emerald-300",
   label = "View on Google Maps",
 }: {
-  placeId?: string | null;
+  mapsUrl?: string | null;
   name?: string;
   address?: string;
   className?: string;
   label?: string;
 }) {
-  const href = googleMapsUrlForBusiness({ placeId, name, address });
+  const href = googleMapsUrlForBusiness({ mapsUrl, name, address });
   if (!href) return null;
 
   return (

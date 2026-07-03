@@ -64,7 +64,7 @@ export default function AuditDataPanel({
               ]}
             />
             <GoogleMapsLink
-              placeId={audit.gbp.identity.placeId}
+              mapsUrl={audit.gbp.identity.mapsUrl}
               name={audit.gbp.identity.name}
               address={audit.gbp.identity.address}
             />

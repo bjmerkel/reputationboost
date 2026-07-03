@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { saveGbpLocation } from "@/audit/businesses";
+import { fetchPlaceDetails } from "@/lib/google/place-details";
 import { getUser } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -24,10 +25,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing location selection" }, { status: 400 });
     }
 
+    let mapsUrl: string | undefined;
+    if (body.placeId) {
+      try {
+        const place = await fetchPlaceDetails(body.placeId);
+        mapsUrl = place.mapsUrl || undefined;
+      } catch {
+        // Location can still be saved without a Maps URL
+      }
+    }
+
     await saveGbpLocation(user.id, body.businessId, {
       accountId: body.accountId,
       locationId: body.locationId,
       placeId: body.placeId,
+      mapsUrl,
       name: body.title,
       phone: body.phone,
       website: body.website,
