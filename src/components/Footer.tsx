@@ -4,12 +4,15 @@ import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 const footerLinks = {
   Product: [
     { label: "Reputation Boost Score", href: "/#reputation-score" },
-    { label: "Features", href: "/#features" },
+    { label: "Keyword Intelligence", href: "/#features" },
+    { label: "Action Plan", href: "/#action-plan" },
+    { label: "Results & Attribution", href: "/#results" },
     { label: "Pricing", href: "/#pricing" },
     { label: SIGNUP_CTA_LABEL, href: SIGNUP_URL },
   ],
   Company: [
     { label: "How It Works", href: "/#how-it-works" },
+    { label: "Testimonials", href: "/#testimonials" },
     { label: "FAQ", href: "/#faq" },
     { label: "Contact", href: "mailto:info@reputationboost.com" },
     { label: "Local 3-Pack", href: "/#local-pack" },

@@ -5,6 +5,9 @@ import ValueChain from "@/components/ValueChain";
 import ReputationScore from "@/components/ReputationScore";
 import LocalPack from "@/components/LocalPack";
 import Features from "@/components/Features";
+import ActionPlan from "@/components/ActionPlan";
+import ExecutionAutomation from "@/components/ExecutionAutomation";
+import ResultsAttribution from "@/components/ResultsAttribution";
 import HowItWorks from "@/components/HowItWorks";
 import Testimonial from "@/components/Testimonial";
 import PricingPreview from "@/components/PricingPreview";
@@ -28,6 +31,9 @@ export default function Home() {
         <ReputationScore />
         <LocalPack />
         <Features />
+        <ActionPlan />
+        <ExecutionAutomation />
+        <ResultsAttribution />
         <HowItWorks />
         <Testimonial />
         <PricingPreview />

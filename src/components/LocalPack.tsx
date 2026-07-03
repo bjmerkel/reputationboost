@@ -1,8 +1,8 @@
 export default function LocalPack() {
   const clickShare = [
-    { position: "#1", share: "40–50%", note: "Proximity bias & top visibility" },
-    { position: "#2", share: "30–35%", note: "Often wins on ratings & reviews" },
-    { position: "#3", share: "15–20%", note: "Still captures high-intent traffic" },
+    { position: "#1", share: "40–50%", revenue: "Highest click-share" },
+    { position: "#2", share: "30–35%", revenue: "Often wins on reviews" },
+    { position: "#3", share: "15–20%", revenue: "Still high-intent traffic" },
   ];
 
   const actions = [
@@ -43,10 +43,8 @@ export default function LocalPack() {
             <span className="gradient-text">Google Maps matters</span>
           </h2>
           <p className="mt-4 text-lg leading-relaxed text-slate-400">
-            The top three map results — the Local 3-Pack — capture the vast
-            majority of local search engagement. Reputation Boost optimizes your
-            Google Business Profile so you rank higher, get found first, and
-            turn searches into calls, visits, and website traffic.
+            Your Reputation Boost Score tracks exactly where you sit in this pack
+            — and what it costs you when you&apos;re outside it.
           </p>
         </div>
 
@@ -55,17 +53,14 @@ export default function LocalPack() {
             {
               value: "70–75%",
               label: "of map clicks go to the top 3",
-              sub: "vs. 25–30% for everyone else",
             },
             {
               value: "44%",
               label: "of total SERP clicks",
-              sub: "The Local 3-Pack beats ads & organic links",
             },
             {
-              value: "126%",
-              label: "more traffic in the top 3",
-              sub: "93% more calls & direction requests",
+              value: "3×",
+              label: "more engagement in the pack",
             },
           ].map((stat) => (
             <div
@@ -75,7 +70,6 @@ export default function LocalPack() {
               <div className="rounded-[calc(1rem-1px)] bg-slate-900/60 px-4 py-8">
                 <div className="text-4xl font-extrabold text-white">{stat.value}</div>
                 <div className="mt-2 font-semibold text-emerald-400">{stat.label}</div>
-                <div className="mt-1 text-sm text-slate-500">{stat.sub}</div>
               </div>
             </div>
           ))}
@@ -89,8 +83,7 @@ export default function LocalPack() {
               </h3>
               <p className="mt-2 text-sm text-slate-400">
                 Once a customer clicks your listing, actions are highly
-                conversion-focused. Optimizing your profile drives real business
-                outcomes.
+                conversion-focused — and we track every one.
               </p>
 
               <div className="mt-8 space-y-5">
@@ -118,8 +111,8 @@ export default function LocalPack() {
                 Click share by map position
               </h3>
               <p className="mt-2 text-sm text-slate-400">
-                Distribution within the top three is front-loaded — but reviews
-                and relevance can shift clicks to #2 or #3.
+                Your Ranking Outcome score weights this click-share curve — so you
+                know the revenue impact of every position change.
               </p>
 
               <div className="mt-8 space-y-4">
@@ -141,7 +134,7 @@ export default function LocalPack() {
                     </div>
                     <div>
                       <div className="font-bold text-white">{item.share} of pack clicks</div>
-                      <div className="mt-0.5 text-sm text-slate-400">{item.note}</div>
+                      <div className="mt-0.5 text-sm text-slate-400">{item.revenue}</div>
                     </div>
                   </div>
                 ))}
@@ -150,10 +143,8 @@ export default function LocalPack() {
               <div className="mt-6 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
                 <p className="text-sm leading-relaxed text-slate-300">
                   <span className="font-semibold text-emerald-400">The review wildcard: </span>
-                  A #2 or #3 listing with 500 reviews and query-matching
-                  justifications like &ldquo;Provides organic lawn care&rdquo; often
-                  outperforms a #1 spot with only 12 reviews. We help you build
-                  that social proof.
+                  A #2 or #3 listing with 500 reviews often outperforms a #1
+                  spot with only 12. Your plan targets exactly these gaps.
                 </p>
               </div>
             </div>
