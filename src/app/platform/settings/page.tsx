@@ -5,6 +5,7 @@ import { getBusinessRecord, getPrimaryBusiness } from "@/audit/businesses";
 import GbpPerformanceSetup from "@/components/GbpPerformanceSetup";
 import GbpDisconnect from "@/components/GbpDisconnect";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
+import RoiSettings from "@/components/RoiSettings";
 import { fetchPlaceDetails } from "@/lib/google/place-details";
 import { getUser } from "@/lib/supabase/server";
 
@@ -101,6 +102,12 @@ export default async function SettingsPage() {
               />
             </div>
           </div>
+
+          <RoiSettings
+            businessId={business.businessId ?? record?.id ?? ""}
+            initialValue={record?.avg_customer_value != null ? Number(record.avg_customer_value) : null}
+            currency={record?.avg_customer_value_currency ?? "USD"}
+          />
 
           {isConnected && business.businessId ? (
             <>

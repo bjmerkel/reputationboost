@@ -64,6 +64,7 @@ export interface AttributionUpsertInput {
   directionsDelta: number;
   websiteClicksDelta: number;
   impressionsDelta: number;
+  estimatedRevenue: number | null;
   narrative: string;
 }
 
@@ -86,6 +87,7 @@ export async function upsertActionAttribution(input: AttributionUpsertInput): Pr
       directions_delta: input.directionsDelta,
       website_clicks_delta: input.websiteClicksDelta,
       impressions_delta: input.impressionsDelta,
+      estimated_revenue: input.estimatedRevenue,
       narrative: input.narrative,
       computed_at: new Date().toISOString(),
     },
@@ -189,6 +191,24 @@ export async function buildAttributionSummary(
   businessSlug: string,
   periodDays = 30
 ): Promise<AttributionSummary> {
+  const supabase = await createClient();
+  const businessId = await getBusinessIdForSlug(userId, businessSlug);
+
+  let avgCustomerValue: number | null = null;
+  let currency = "USD";
+
+  if (businessId) {
+    const { data: business } = await supabase
+      .from("businesses")
+      .select("avg_customer_value, avg_customer_value_currency")
+      .eq("id", businessId)
+      .maybeSingle();
+
+    avgCustomerValue =
+      business?.avg_customer_value != null ? Number(business.avg_customer_value) : null;
+    currency = (business?.avg_customer_value_currency as string) ?? "USD";
+  }
+
   const attributions = await listActionAttributionsForUser(userId, businessSlug, 100);
   const cutoff = new Date();
   cutoff.setUTCDate(cutoff.getUTCDate() - periodDays);
@@ -200,10 +220,18 @@ export async function buildAttributionSummary(
   const totalWebsiteClicksDelta = inPeriod.reduce((s, a) => s + (a.websiteClicksDelta ?? 0), 0);
   const keywordsImproved = inPeriod.reduce((s, a) => s + a.keywordsImproved, 0);
 
+  const revenueSum = inPeriod.reduce((s, a) => s + (a.estimatedRevenue ?? 0), 0);
+  const totalEstimatedRevenue =
+    avgCustomerValue && avgCustomerValue > 0 && revenueSum > 0 ? revenueSum : null;
+
   const topWins = [...inPeriod]
     .sort((a, b) => {
-      const aScore = (a.callsDelta ?? 0) + (a.directionsDelta ?? 0) + (a.rankDelta ?? 0) * -1;
-      const bScore = (b.callsDelta ?? 0) + (b.directionsDelta ?? 0) + (b.rankDelta ?? 0) * -1;
+      const aScore =
+        (a.estimatedRevenue ?? 0) ||
+        (a.callsDelta ?? 0) + (a.directionsDelta ?? 0) + (a.rankDelta ?? 0) * -1;
+      const bScore =
+        (b.estimatedRevenue ?? 0) ||
+        (b.callsDelta ?? 0) + (b.directionsDelta ?? 0) + (b.rankDelta ?? 0) * -1;
       return bScore - aScore;
     })
     .slice(0, 5);
@@ -218,7 +246,10 @@ export async function buildAttributionSummary(
     totalCallsDelta,
     totalDirectionsDelta,
     totalWebsiteClicksDelta,
-    totalEstimatedRevenue: null,
+    totalEstimatedRevenue,
+    avgCustomerValue,
+    currency,
+    hasCustomerValue: Boolean(avgCustomerValue && avgCustomerValue > 0),
     topWins,
   };
 }
@@ -228,6 +259,8 @@ export interface CompletedTaskRecord {
   businessId: string;
   userId: string;
   keywords: string[];
+  avgCustomerValue: number | null;
+  avgCustomerValueCurrency: string;
 }
 
 export async function listCompletedTasksForBusiness(
@@ -240,7 +273,7 @@ export async function listCompletedTasksForBusiness(
 
   const { data: business, error: bizError } = await supabase
     .from("businesses")
-    .select("user_id, keywords")
+    .select("user_id, keywords, avg_customer_value, avg_customer_value_currency")
     .eq("id", businessId)
     .maybeSingle();
 
@@ -261,6 +294,9 @@ export async function listCompletedTasksForBusiness(
     businessId,
     userId: business.user_id as string,
     keywords: (business.keywords as string[]) ?? [],
+    avgCustomerValue:
+      business.avg_customer_value != null ? Number(business.avg_customer_value) : null,
+    avgCustomerValueCurrency: (business.avg_customer_value_currency as string) ?? "USD",
     task: {
       id: row.id as string,
       auditId: row.audit_id as string,
@@ -297,7 +333,7 @@ export async function getCompletedTaskContext(
 
   const { data: business } = await supabase
     .from("businesses")
-    .select("keywords")
+    .select("keywords, avg_customer_value, avg_customer_value_currency")
     .eq("id", task.business_id)
     .maybeSingle();
 
@@ -305,6 +341,9 @@ export async function getCompletedTaskContext(
     businessId: task.business_id as string,
     userId,
     keywords: (business?.keywords as string[]) ?? [],
+    avgCustomerValue:
+      business?.avg_customer_value != null ? Number(business.avg_customer_value) : null,
+    avgCustomerValueCurrency: (business?.avg_customer_value_currency as string) ?? "USD",
     task: {
       id: task.id as string,
       auditId: task.audit_id as string,

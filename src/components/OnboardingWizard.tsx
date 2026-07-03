@@ -49,6 +49,7 @@ export default function OnboardingWizard({
   const [phone, setPhone] = useState("");
   const [website, setWebsite] = useState("");
   const [keywords, setKeywords] = useState<string[]>([]);
+  const [avgCustomerValue, setAvgCustomerValue] = useState("");
 
   function handlePlaceSelect(place: BusinessPlaceSelection) {
     setPlaceSelected(true);
@@ -115,6 +116,10 @@ export default function OnboardingWizard({
           phone,
           website,
           keywords,
+          avgCustomerValue:
+            avgCustomerValue.trim() === ""
+              ? null
+              : Number(avgCustomerValue.replace(/[^0-9.]/g, "")) || null,
         }),
       });
       const data = await res.json();
@@ -278,6 +283,39 @@ export default function OnboardingWizard({
                 onChange={setKeywords}
                 disabled={loading}
               />
+
+              <label className="block">
+                <span
+                  className={`text-sm font-medium ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}
+                >
+                  Average customer value{" "}
+                  <span className={isLight ? "text-[#80868b]" : "text-slate-500"}>(optional)</span>
+                </span>
+                <div className="relative mt-1.5">
+                  <span
+                    className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 ${
+                      isLight ? "text-[#5f6368]" : "text-slate-500"
+                    }`}
+                  >
+                    $
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={avgCustomerValue}
+                    onChange={(e) => setAvgCustomerValue(e.target.value)}
+                    placeholder="e.g. 350"
+                    className={`w-full rounded-lg border py-2.5 pl-7 pr-3 text-sm outline-none ${
+                      isLight
+                        ? "border-[#dadce0] text-[#202124] focus:border-[#1a73e8] focus:ring-2 focus:ring-[#1a73e8]/20"
+                        : "border-white/10 bg-white/5 text-white focus:border-emerald-400"
+                    }`}
+                  />
+                </div>
+                <p className={`mt-1.5 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                  Used to estimate ROI from calls and direction requests on your Results tab.
+                </p>
+              </label>
             </>
           )}
 

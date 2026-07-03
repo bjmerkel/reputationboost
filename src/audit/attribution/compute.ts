@@ -1,5 +1,6 @@
 import { pickPrimaryKeyword, resolveTargetKeywords } from "./keywords";
 import { buildAttributionNarrative } from "./narrative";
+import { estimateAttributionRevenue, formatCurrency } from "./roi";
 import type { CompletedTaskRecord } from "@/audit/storage-attribution";
 import {
   getRankSnapshotsInRange,
@@ -47,7 +48,7 @@ export async function computeAttributionForTask(
   record: CompletedTaskRecord,
   windowDays = DEFAULT_WINDOW_DAYS
 ): Promise<void> {
-  const { task, businessId, keywords } = record;
+  const { task, businessId, keywords, avgCustomerValue, avgCustomerValueCurrency } = record;
   if (!task.completedAt || task.status !== "completed") return;
 
   const publishedAt = new Date(task.completedAt);
@@ -102,7 +103,15 @@ export async function computeAttributionForTask(
 
   const preliminary = now < postEnd;
 
-  const narrative = buildAttributionNarrative({
+  const estimatedRevenue =
+    avgCustomerValue && avgCustomerValue > 0
+      ? estimateAttributionRevenue(
+          { calls: callsDelta, directions: directionsDelta, websiteClicks: websiteClicksDelta },
+          avgCustomerValue
+        )
+      : null;
+
+  let narrative = buildAttributionNarrative({
     taskType: task.type,
     title: task.title,
     publishedAt: task.completedAt,
@@ -114,6 +123,10 @@ export async function computeAttributionForTask(
     websiteClicksDelta,
     preliminary,
   });
+
+  if (estimatedRevenue && estimatedRevenue > 0) {
+    narrative += ` → ~${formatCurrency(estimatedRevenue, avgCustomerValueCurrency)} estimated`;
+  }
 
   await upsertActionAttribution({
     executionTaskId: task.id,
@@ -132,6 +145,7 @@ export async function computeAttributionForTask(
     directionsDelta,
     websiteClicksDelta,
     impressionsDelta,
+    estimatedRevenue,
     narrative,
   });
 }

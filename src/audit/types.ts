@@ -22,6 +22,8 @@ export interface ClientConfig {
   phone?: string;
   gbpConnection?: GbpConnection;
   onboardingComplete?: boolean;
+  avgCustomerValue?: number | null;
+  avgCustomerValueCurrency?: string;
 }
 
 export interface GbpConnection {

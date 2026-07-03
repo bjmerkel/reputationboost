@@ -19,7 +19,7 @@ import PlatformShell from "@/components/platform/PlatformShell";
 import RankingMap from "@/components/platform/RankingMap";
 import ViewAsCustomerModal from "@/components/platform/ViewAsCustomerModal";
 import StrategyPanel from "@/components/StrategyPanel";
-import AttributionsSummaryCard from "@/components/attribution/AttributionsSummaryCard";
+import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
 import ActionAttributionFeed from "@/components/attribution/ActionAttributionFeed";
 import { useAttributionDashboard } from "@/hooks/useAttributionDashboard";
 
@@ -224,7 +224,7 @@ export default function AuditDashboard({
         >
           {view === "report" && (
             <div className="space-y-6">
-              <AttributionsSummaryCard
+              <RoiSummaryCard
                 summary={attributionData.summary}
                 loading={attributionLoading}
               />

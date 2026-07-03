@@ -77,5 +77,8 @@ export interface AttributionSummary {
   totalDirectionsDelta: number;
   totalWebsiteClicksDelta: number;
   totalEstimatedRevenue: number | null;
+  avgCustomerValue: number | null;
+  currency: string;
+  hasCustomerValue: boolean;
   topWins: ActionAttribution[];
 }

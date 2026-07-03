@@ -36,6 +36,7 @@ export interface CreateBusinessInput {
   phone?: string;
   gbpPlaceId?: string;
   gbpMapsUrl?: string;
+  avgCustomerValue?: number | null;
 }
 
 function slugify(name: string): string {
@@ -76,6 +77,8 @@ export function businessRecordToClientConfig(row: BusinessRecord): ClientConfig 
     phone: row.phone ?? undefined,
     gbpConnection: connection,
     onboardingComplete: row.onboarding_complete,
+    avgCustomerValue: row.avg_customer_value != null ? Number(row.avg_customer_value) : null,
+    avgCustomerValueCurrency: row.avg_customer_value_currency ?? "USD",
   };
 }
 
@@ -166,6 +169,7 @@ export async function createBusiness(
       website: input.website ?? null,
       phone: input.phone ?? null,
       onboarding_complete: false,
+      avg_customer_value: input.avgCustomerValue ?? null,
     })
     .select("*")
     .single();
@@ -262,6 +266,29 @@ export async function disconnectGbp(userId: string, businessId: string): Promise
     .eq("id", businessId);
 
   if (error) throw new Error(`Failed to disconnect GBP: ${error.message}`);
+}
+
+export async function saveAvgCustomerValue(
+  userId: string,
+  businessId: string,
+  avgCustomerValue: number | null
+): Promise<ClientConfig> {
+  const supabase = await createClient();
+  const value = avgCustomerValue != null && avgCustomerValue > 0 ? avgCustomerValue : null;
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .update({
+      avg_customer_value: value,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("id", businessId)
+    .select("*")
+    .single();
+
+  if (error) throw new Error(`Failed to save customer value: ${error.message}`);
+  return businessRecordToClientConfig(data as BusinessRecord);
 }
 
 export async function getBusinessIdForSlug(

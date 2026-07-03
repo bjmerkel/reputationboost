@@ -1,6 +1,7 @@
 "use client";
 
 import type { ActionAttribution } from "@/audit/types/timeseries";
+import { formatCurrency } from "@/audit/attribution/roi";
 
 function formatRank(rank: number | null): string {
   if (rank === null) return "—";
@@ -63,6 +64,11 @@ export default function ActionAttributionFeed({
                 <span className={(item.callsDelta ?? 0) > 0 ? "text-[#188038]" : "text-[#d93025]"}>
                   {(item.callsDelta ?? 0) > 0 ? "+" : ""}
                   {item.callsDelta} calls
+                </span>
+              )}
+              {item.estimatedRevenue != null && item.estimatedRevenue > 0 && (
+                <span className="font-medium text-[#188038]">
+                  ~{formatCurrency(item.estimatedRevenue)}
                 </span>
               )}
             </div>

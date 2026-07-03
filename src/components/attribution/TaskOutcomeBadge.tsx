@@ -1,6 +1,7 @@
 "use client";
 
 import type { ActionAttribution } from "@/audit/types/timeseries";
+import { formatCurrency } from "@/audit/attribution/roi";
 
 export default function TaskOutcomeBadge({
   attribution,
@@ -35,6 +36,9 @@ export default function TaskOutcomeBadge({
   }
   if ((attribution.websiteClicksDelta ?? 0) > 0) {
     parts.push(`+${attribution.websiteClicksDelta} clicks`);
+  }
+  if (attribution.estimatedRevenue != null && attribution.estimatedRevenue > 0) {
+    parts.push(`~${formatCurrency(attribution.estimatedRevenue)} est.`);
   }
 
   if (parts.length === 0) {
