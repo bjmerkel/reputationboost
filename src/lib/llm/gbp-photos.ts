@@ -8,7 +8,7 @@ export interface GbpPhotoJob {
   title: string;
   category: GbpMediaCategory;
   hint: string;
-  /** DALL-E prompt — generated on execute when set. */
+  /** Image prompt — generated on execute when set. */
   imagePrompt?: string;
   aiGenerated?: boolean;
 }
@@ -61,7 +61,7 @@ export function buildTemplatePhotoJobs(audit: FullAuditPayload): GbpPhotoJob[] {
   ];
 }
 
-const PHOTO_PROMPT_SYSTEM = `You write DALL-E 3 prompts for Google Business Profile marketing photos.
+const PHOTO_PROMPT_SYSTEM = `You write GPT Image 2 prompts for Google Business Profile marketing photos.
 
 Rules:
 - Photorealistic professional commercial photography — looks like a skilled local photographer shot it
@@ -70,7 +70,7 @@ Rules:
 - Show believable service work: hands-on labor, equipment, vehicles, finished results, happy customers from behind/side angles
 - Warm natural lighting, sharp subject focus, subtle depth of field
 - Reflect the industry and regional context (climate, setting) without clichés
-- Each imagePrompt is 2-4 vivid sentences DALL-E can render directly
+- Each imagePrompt is 2-4 vivid sentences the image model can render directly
 - Only write imagePrompt for jobs where aiGenerated is true`;
 
 export async function generateGbpPhotoJobsLlm(
@@ -94,7 +94,7 @@ export async function generateGbpPhotoJobsLlm(
         { role: "system", content: PHOTO_PROMPT_SYSTEM },
         {
           role: "user",
-          content: `Write DALL-E prompts for these GBP photo jobs. Match each title exactly.
+          content: `Write image prompts for these GBP photo jobs. Match each title exactly.
 
 BUSINESS CONTEXT:
 ${context}
@@ -109,7 +109,7 @@ ${JSON.stringify(
 Return JSON:
 {
   "jobs": [
-    { "title": "exact title from list", "imagePrompt": "detailed DALL-E prompt" }
+    { "title": "exact title from list", "imagePrompt": "detailed image generation prompt" }
   ]
 }`,
         },
@@ -140,7 +140,7 @@ interface OpenAiImageResponse {
   error?: { message?: string };
 }
 
-/** Generate a PNG/JPEG via OpenAI Images API — returns bytes for direct GBP upload. */
+/** Generate an image via OpenAI Images API — returns bytes for direct GBP upload. */
 export async function generateGbpPhotoImage(
   prompt: string
 ): Promise<{ bytes: ArrayBuffer; contentType: string; revisedPrompt?: string }> {
@@ -148,17 +148,20 @@ export async function generateGbpPhotoImage(
   if (!key) throw new Error("OPENAI_API_KEY is not configured.");
 
   const model = getOpenAiImageModel();
-  const isDalle3 = model.includes("dall-e");
+  const isGptImage = model.includes("gpt-image");
+  const isDalle3 = model.includes("dall-e-3");
 
   const body: Record<string, unknown> = {
     model,
     prompt: prompt.trim(),
     n: 1,
-    size: "1024x1024",
+    size: isGptImage ? "1536x1024" : "1024x1024",
     response_format: "b64_json",
   };
 
-  if (isDalle3) {
+  if (isGptImage) {
+    body.quality = "high";
+  } else if (isDalle3) {
     body.quality = "hd";
     body.style = "natural";
   }
