@@ -77,14 +77,15 @@ Write exactly 16 steps covering ONLY GBP optimization:
 8. Weekly Google Posts (keyword rotation schedule for 6+ weeks)
 9. Q&A Section (seed 8-12 Q&A pairs in copyBlocks with full answers)
 10. Reviews Strategy (target count, keyword mix percentages, how to ask)
-11. Review Responses (template + instruction to mention service + city)
+11. Review Responses (instruction only — personalized AI replies are generated per review in Take Action; do NOT include a generic template copyBlock)
 12. Maintain Accurate Hours
 13. Attributes (list which to enable)
 14. Messaging
 15. Booking Feature
 16. Continuous Activity (weekly + monthly cadence)
 
-For steps 3-5 and 9-11, include copyBlocks with ready-to-paste text customized for this business.
+For steps 3-5 and 9, include copyBlocks with ready-to-paste text customized for this business.
+Do not include copyBlocks for step 11 (review responses are AI-drafted per review).
 
 Return JSON:
 {

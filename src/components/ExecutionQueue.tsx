@@ -233,7 +233,24 @@ export default function ExecutionQueue({
                 {task.payload.gbpStepTitle ? `: ${task.payload.gbpStepTitle}` : ""}
               </p>
             )}
-            <p className="mt-2 rounded-lg bg-white/5 p-3 text-sm leading-relaxed text-slate-300">
+            {typeof task.payload.reviewText === "string" && task.payload.reviewText && (
+              <div className="mt-3 rounded-lg border border-white/8 bg-slate-900/50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Customer review
+                  {typeof task.payload.reviewAuthor === "string"
+                    ? ` · ${task.payload.reviewAuthor}`
+                    : ""}
+                  {typeof task.payload.rating === "number" ? ` · ${task.payload.rating}★` : ""}
+                </p>
+                <p className="mt-1 text-sm italic text-slate-400">
+                  &ldquo;{task.payload.reviewText}&rdquo;
+                </p>
+              </div>
+            )}
+            <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Draft reply
+            </p>
+            <p className="mt-1 rounded-lg bg-white/5 p-3 text-sm leading-relaxed text-slate-300">
               {normalizeTextContent(task.draftContent)}
             </p>
 

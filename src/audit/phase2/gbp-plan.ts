@@ -172,16 +172,11 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       stepNumber: 11,
       title: "Review Responses",
       instruction:
-        "Respond to every review within 24 hours. Mention the service and city naturally in your reply.",
-      copyBlocks: [
-        {
-          label: "Response template",
-          content: `Thank you for choosing ${audit.clientName} for your [SERVICE] in ${city}. We're glad our team provided reliable, professional service and appreciate your trust in us.`,
-        },
-      ],
+        "Respond to every review within 24 hours. Mention the service and city naturally in your reply. Each response in Take Action is AI-drafted for that specific review.",
       bullets: [
         `Current response rate: ${Math.round(audit.gbp.engagement.responseRate * 100)}% — target 100%`,
         `Respond to ${audit.reviews.unrespondedNegative} unresponded negative review(s) immediately`,
+        "Approve personalized replies in Take Action before publishing",
       ],
     },
     {

@@ -13,6 +13,7 @@ import {
   normalizeTextContent,
   normalizeTextList,
 } from "./normalize-content";
+import { generateReviewResponsesLlm } from "./review-responses";
 
 export interface AuditGeneratedContent {
   googlePosts: string[];
@@ -27,7 +28,6 @@ export interface AuditGeneratedContent {
 interface LlmContentResponse {
   googlePosts: unknown[];
   gbpDescription: unknown;
-  reviewResponses: Array<{ reviewId: string; response: unknown }>;
   reviewRequestSms: unknown;
   qaAnswer: unknown;
   socialPost: unknown;
@@ -36,7 +36,6 @@ interface LlmContentResponse {
 const CONTENT_SYSTEM = `You are a local marketing copywriter for Google Business Profile.
 Write publish-ready copy: specific, local, trustworthy. Use the business name, city, phone, and real review themes.
 Google Posts: max 1500 chars each, include a clear CTA. Use 1 emoji max per post.
-Review responses: empathetic, professional; negative reviews invite offline resolution with phone number.
 GBP description: 600-750 characters, keyword-rich but natural.
 Return valid JSON only.`;
 
@@ -61,16 +60,14 @@ export async function generateAuditContent(
   audit: FullAuditPayload
 ): Promise<AuditGeneratedContent> {
   const fallback = templateContent(audit);
+  const reviewResponses = await generateReviewResponsesLlm(audit);
 
   if (!isLlmConfigured()) {
-    return fallback;
+    return { ...fallback, reviewResponses };
   }
 
   try {
     const context = buildContentContext(audit);
-    const pendingReviews = audit.reviews.reviews
-      .filter((r) => !r.responded)
-      .map((r) => ({ reviewId: r.id, rating: r.rating, author: r.author, text: r.text }));
 
     const llm = await completeJson<LlmContentResponse>(
       [
@@ -82,14 +79,10 @@ export async function generateAuditContent(
 CONTEXT:
 ${context}
 
-REVIEWS NEEDING RESPONSES:
-${JSON.stringify(pendingReviews)}
-
 Return JSON:
 {
   "googlePosts": ["4 unique monthly Google Posts as plain strings"],
   "gbpDescription": "optimized business description",
-  "reviewResponses": [{ "reviewId": "id from input", "response": "published reply" }],
   "reviewRequestSms": "SMS under 160 chars with [REVIEW_LINK] placeholder",
   "qaAnswer": "Q: ... A: ... format for service area question",
   "socialPost": "1 Facebook/Instagram post as a plain string"
@@ -98,22 +91,8 @@ Return JSON:
 Each googlePosts entry must be a string, not an object.`,
         },
       ],
-      { maxTokens: 3500 }
+      { maxTokens: 3000 }
     );
-
-    const reviewResponses = pendingReviews.map((review) => {
-      const llmResponse = llm.reviewResponses?.find((r) => r.reviewId === review.reviewId);
-      const template = fallback.reviewResponses.find((r) => r.reviewId === review.reviewId);
-      return {
-        reviewId: review.reviewId,
-        rating: review.rating,
-        response:
-          normalizeOptionalText(
-            llmResponse?.response,
-            template?.response ?? fallback.reviewRequestSms
-          ),
-      };
-    });
 
     const googlePosts = normalizeTextList(llm.googlePosts, fallback.googlePosts);
 
@@ -128,6 +107,6 @@ Each googlePosts entry must be a string, not an object.`,
     };
   } catch (error) {
     console.error("[llm] content generation failed, using templates:", error);
-    return fallback;
+    return { ...fallback, reviewResponses };
   }
 }

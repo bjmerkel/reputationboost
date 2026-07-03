@@ -53,6 +53,20 @@ function buildGbpTask(
   };
 }
 
+function reviewPayload(
+  audit: FullAuditPayload,
+  reviewId: string,
+  rating: number
+): Record<string, unknown> {
+  const review = audit.reviews.reviews.find((r) => r.id === reviewId);
+  return {
+    reviewId,
+    rating,
+    reviewAuthor: review?.author,
+    reviewText: review?.text,
+  };
+}
+
 function checklistContent(step: GbpPlanStep): string {
   const parts = [step.instruction];
   if (step.recommended) parts.push(`Recommended: ${step.recommended}`);
@@ -152,12 +166,18 @@ export function tasksFromGbpPlanStep(
   if (step.stepNumber === 11) {
     const responses = content.reviewResponses;
     if (responses.length > 0) {
-      return responses.map((r) =>
-        buildGbpTask(audit, step, "review_response", `Respond to ${r.rating}★ review`, r.response, {
-          reviewId: r.reviewId,
-          rating: r.rating,
-        })
-      );
+      return responses.map((r) => {
+        const review = audit.reviews.reviews.find((rev) => rev.id === r.reviewId);
+        const author = review?.author?.split(" ")[0] ?? "customer";
+        return buildGbpTask(
+          audit,
+          step,
+          "review_response",
+          `Respond to ${author} (${r.rating}★)`,
+          r.response,
+          reviewPayload(audit, r.reviewId, r.rating)
+        );
+      });
     }
     const template =
       step.copyBlocks?.[0]?.content ?? "Respond to all reviews within 24 hours.";

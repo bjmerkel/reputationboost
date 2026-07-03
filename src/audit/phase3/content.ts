@@ -36,13 +36,40 @@ export function generateReviewResponses(audit: FullAuditPayload): Array<{
     .map((r) => ({
       reviewId: r.id,
       rating: r.rating,
-      response:
-        r.rating <= 2
-          ? `Thank you for your honest feedback, ${r.author}. We're sorry we missed the mark. Please contact us at ${audit.gbp.identity.phone} — we'd like to make this right.`
-          : r.rating === 3
-            ? `Thanks for sharing your experience, ${r.author}. We're always working to improve — reach out anytime at ${audit.gbp.identity.phone}.`
-            : `Thank you so much, ${r.author}! We're thrilled you had a great experience. We appreciate your support!`,
+      response: buildTemplateReviewResponse(audit, r),
     }));
+}
+
+function excerpt(text: string, maxLen = 80): string {
+  const cleaned = text.trim().replace(/\s+/g, " ");
+  if (!cleaned) return "";
+  if (cleaned.length <= maxLen) return cleaned;
+  return `${cleaned.slice(0, maxLen).trim()}…`;
+}
+
+function buildTemplateReviewResponse(
+  audit: FullAuditPayload,
+  review: { id: string; rating: number; text: string; author: string }
+): string {
+  const phone = audit.gbp.identity.phone;
+  const name = review.author.split(" ")[0] || review.author;
+  const detail = excerpt(review.text);
+
+  if (review.rating <= 2) {
+    return detail
+      ? `Thank you for your honest feedback, ${name}. We're sorry your experience didn't meet expectations — especially regarding "${detail}". Please call us at ${phone} so we can make this right.`
+      : `Thank you for your honest feedback, ${name}. We're sorry we missed the mark. Please contact us at ${phone} — we'd like to make this right.`;
+  }
+
+  if (review.rating === 3) {
+    return detail
+      ? `Thanks for sharing your experience, ${name}. We hear you on "${detail}" and we're always working to improve — reach out anytime at ${phone}.`
+      : `Thanks for sharing your experience, ${name}. We're always working to improve — reach out anytime at ${phone}.`;
+  }
+
+  return detail
+    ? `Thank you so much, ${name}! We're glad ${detail.charAt(0).toLowerCase()}${detail.slice(1)} meant a lot to you. We truly appreciate your support!`
+    : `Thank you so much, ${name}! We're thrilled you had a great experience with ${audit.clientName}. We appreciate your support!`;
 }
 
 export function generateReviewRequestSms(audit: FullAuditPayload): string {

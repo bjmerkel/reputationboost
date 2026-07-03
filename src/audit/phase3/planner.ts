@@ -27,7 +27,8 @@ function buildTask(
   action: ActionItem,
   type: ExecutionTask["type"],
   draftContent: string,
-  payload: Record<string, unknown> = {}
+  payload: Record<string, unknown> = {},
+  titleOverride?: string
 ): ExecutionTask {
   const needsApproval = requiresApproval(type);
   const content = normalizeTextContent(draftContent);
@@ -36,7 +37,7 @@ function buildTask(
     auditId: audit.auditId,
     actionItemId: action.id,
     type,
-    title: action.title,
+    title: titleOverride ?? action.title,
     description: action.description,
     priority: action.priority,
     status: needsApproval ? "pending_approval" : "approved",
@@ -80,12 +81,23 @@ function tasksFromReviewResponses(
       ),
     ];
   }
-  return responses.map((r) =>
-    buildTask(audit, action, "review_response", r.response, {
-      reviewId: r.reviewId,
-      rating: r.rating,
-    })
-  );
+  return responses.map((r) => {
+    const review = audit.reviews.reviews.find((rev) => rev.id === r.reviewId);
+    const author = review?.author?.split(" ")[0] ?? "customer";
+    return buildTask(
+      audit,
+      action,
+      "review_response",
+      r.response,
+      {
+        reviewId: r.reviewId,
+        rating: r.rating,
+        reviewAuthor: review?.author,
+        reviewText: review?.text,
+      },
+      `Respond to ${author} (${r.rating}★)`
+    );
+  });
 }
 
 function createTaskForAction(
