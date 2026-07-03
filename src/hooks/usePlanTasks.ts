@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ExecutionTask, Plan } from "@/audit/types";
 import {
+  approveAllRoutineTasks,
   approveAndPublishTask,
   fetchExecutionState,
   patchExecutionTask,
@@ -137,6 +138,18 @@ export function usePlanTasks({
     return data.tasks as ExecutionTask[];
   }, [auditId, clientId, refresh]);
 
+  const approveAllRoutine = useCallback(async () => {
+    setError(null);
+    try {
+      const count = await approveAllRoutineTasks(tasks);
+      await refresh();
+      return count;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Bulk approve failed");
+      throw e;
+    }
+  }, [tasks, refresh]);
+
   return {
     tasks,
     plan,
@@ -152,6 +165,7 @@ export function usePlanTasks({
     uploadPhotoFile,
     savePhotoPreview,
     ensurePhotoTasks,
+    approveAllRoutine,
   };
 }
 
@@ -164,6 +178,7 @@ export type PlanTaskActions = Pick<
   | "uploadPhotoFile"
   | "savePhotoPreview"
   | "ensurePhotoTasks"
+  | "approveAllRoutine"
   | "loadingTaskId"
   | "error"
 >;

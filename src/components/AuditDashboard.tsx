@@ -15,9 +15,9 @@ import PlaceCardReviewsPanel from "@/components/platform/PlaceCardReviewsPanel";
 import PlatformShell from "@/components/platform/PlatformShell";
 import RankingMap from "@/components/platform/RankingMap";
 import ViewAsCustomerModal from "@/components/platform/ViewAsCustomerModal";
+import HomeView from "@/components/home/HomeView";
+import BatchReviewSession from "@/components/plan/BatchReviewSession";
 import PlanView from "@/components/plan/PlanView";
-import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
-import ActionAttributionFeed from "@/components/attribution/ActionAttributionFeed";
 import { useAttributionDashboard } from "@/hooks/useAttributionDashboard";
 
 interface BusinessLocation {
@@ -60,8 +60,21 @@ export default function AuditDashboard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [batchReviewOpen, setBatchReviewOpen] = useState(false);
+
+  const reviewParam = searchParams.get("review");
 
   const { data: attributionData, loading: attributionLoading } = useAttributionDashboard(clientId);
+
+  const openBatchReview = useCallback(() => {
+    setBatchReviewOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (reviewParam === "pending" && audit) {
+      setBatchReviewOpen(true);
+    }
+  }, [reviewParam, audit]);
 
   const setView = useCallback(
     (next: AuditView) => {
@@ -223,28 +236,14 @@ export default function AuditDashboard({
           sparklines={attributionData.sparklines}
         >
           {view === "report" && (
-            <div className="space-y-6">
-              <RoiSummaryCard
-                summary={attributionData.summary}
-                loading={attributionLoading}
-              />
-              <ActionAttributionFeed
-                attributions={attributionData.attributions}
-                loading={attributionLoading}
-              />
-              {planPendingCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setView("strategy")}
-                  className="w-full rounded-xl border border-[#fdd663] bg-[#fef7e0] px-4 py-4 text-left transition hover:bg-[#fef0c7]"
-                >
-                  <p className="text-sm font-semibold text-[#3c4043]">
-                    {planPendingCount} item{planPendingCount === 1 ? "" : "s"} need your approval
-                  </p>
-                  <p className="mt-1 text-sm text-[#5f6368]">Review now in your Plan →</p>
-                </button>
-              )}
-            </div>
+            <HomeView
+              audit={audit}
+              tasks={tasks}
+              summary={attributionData.summary}
+              attributions={attributionData.attributions}
+              attributionLoading={attributionLoading}
+              onReviewPending={openBatchReview}
+            />
           )}
 
           {view === "report" && audit.strategy?.monthlyReport && (
@@ -260,7 +259,7 @@ export default function AuditDashboard({
             <PlaceCardReviewsPanel
               audit={audit}
               unrespondedCount={pendingReviewReplies}
-              onOpenPlan={() => setView("strategy")}
+              onOpenPlan={openBatchReview}
             />
           )}
 
@@ -271,6 +270,7 @@ export default function AuditDashboard({
               gbpConnected={gbpConnected}
               attributionByTaskId={attributionData.attributionByTaskId}
               variant="light"
+              onReviewPending={openBatchReview}
             />
           )}
 
@@ -305,6 +305,16 @@ export default function AuditDashboard({
         tasks={tasks}
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
+      />
+
+      <BatchReviewSession
+        open={batchReviewOpen}
+        onClose={() => setBatchReviewOpen(false)}
+        clientId={clientId}
+        auditId={audit.auditId}
+        gbpConnected={gbpConnected}
+        initialTasks={tasks}
+        attributionByTaskId={attributionData.attributionByTaskId}
       />
     </div>
   );

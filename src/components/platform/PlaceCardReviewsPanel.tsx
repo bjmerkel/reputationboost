@@ -39,7 +39,7 @@ export default function PlaceCardReviewsPanel({
           className="w-full rounded-lg border border-[#fdd663] bg-[#fef7e0] px-4 py-3 text-left text-sm text-[#3c4043] hover:bg-[#fef0c7]"
         >
           <span className="font-medium">{unrespondedCount} review replies</span> waiting for
-          approval in Plan →
+          approval — review now →
         </button>
       )}
 

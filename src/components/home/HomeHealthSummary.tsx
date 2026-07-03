@@ -1,0 +1,124 @@
+"use client";
+
+import type { FullAuditPayload, MonthlyReport } from "@/audit/types";
+import type { AttributionSummary } from "@/audit/types/timeseries";
+
+function formatDelta(change: number, suffix = ""): string {
+  if (change === 0) return `0${suffix}`;
+  return `${change > 0 ? "+" : ""}${change}${suffix}`;
+}
+
+function gradeColor(grade: string): string {
+  if (grade === "healthy") return "#188038";
+  if (grade === "urgent") return "#d93025";
+  return "#e37400";
+}
+
+export default function HomeHealthSummary({
+  audit,
+  summary,
+  loading = false,
+}: {
+  audit: FullAuditPayload;
+  summary: AttributionSummary | null;
+  loading?: boolean;
+}) {
+  const scores = audit.strategy?.scores;
+  const mom = audit.strategy?.monthOverMonth;
+  const report = audit.strategy?.monthlyReport;
+
+  if (loading && !scores) {
+    return (
+      <section className="rounded-xl border border-[#dadce0] bg-white p-5">
+        <p className="text-sm text-[#5f6368]">Loading health summary…</p>
+      </section>
+    );
+  }
+
+  if (!scores) return null;
+
+  const score = Number.isFinite(scores.overall) ? scores.overall : 0;
+  const color = gradeColor(scores.grade);
+
+  return (
+    <section className="rounded-xl border border-[#dadce0] bg-white p-5 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-wider text-[#80868b]">
+        How am I doing?
+      </p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        <div
+          className="flex h-16 w-16 items-center justify-center rounded-full border-4 text-lg font-bold"
+          style={{ borderColor: color, color }}
+        >
+          {score}
+        </div>
+        <div>
+          <p className="text-lg font-semibold text-[#202124]">
+            Listing health {score}/100
+          </p>
+          <p className="text-sm capitalize text-[#5f6368]">{scores.grade.replace("_", " ")}</p>
+          {mom && mom.overallScoreChange !== 0 && (
+            <p className={`mt-1 text-sm ${mom.overallScoreChange > 0 ? "text-[#137333]" : "text-[#d93025]"}`}>
+              {formatDelta(mom.overallScoreChange)} pts since last audit
+            </p>
+          )}
+        </div>
+      </div>
+
+      {report && <EngagementStrip report={report} />}
+
+      {summary && summary.tasksCompleted > 0 && (
+        <p className="mt-4 text-sm text-[#3c4043]">
+          Last {summary.periodDays} days:{" "}
+          <span className="font-medium text-[#188038]">
+            +{summary.totalCallsDelta} calls
+          </span>
+          {summary.totalDirectionsDelta > 0 && (
+            <span className="text-[#188038]"> · +{summary.totalDirectionsDelta} directions</span>
+          )}
+          {summary.totalWebsiteClicksDelta > 0 && (
+            <span className="text-[#188038]"> · +{summary.totalWebsiteClicksDelta} clicks</span>
+          )}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function EngagementStrip({ report }: { report: MonthlyReport }) {
+  const { calls, directions, websiteClicks } = report.engagement;
+  const hasDelta = calls.change !== 0 || directions.change !== 0 || websiteClicks.change !== 0;
+
+  if (!report.hasPriorPeriod && !hasDelta) return null;
+
+  return (
+    <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[#e8eaed] pt-4">
+      <Metric label="Calls" value={calls.current} delta={calls.change} />
+      <Metric label="Directions" value={directions.current} delta={directions.change} />
+      <Metric label="Clicks" value={websiteClicks.current} delta={websiteClicks.change} />
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  delta,
+}: {
+  label: string;
+  value: number;
+  delta: number;
+}) {
+  return (
+    <div className="rounded-lg bg-[#f8f9fa] px-3 py-2 text-center">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-[#80868b]">{label}</p>
+      <p className="text-base font-semibold text-[#202124]">{value}</p>
+      {delta !== 0 && (
+        <p className={`text-xs ${delta > 0 ? "text-[#137333]" : "text-[#d93025]"}`}>
+          {formatDelta(delta)} this month
+        </p>
+      )}
+    </div>
+  );
+}

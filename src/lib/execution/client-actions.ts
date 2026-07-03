@@ -1,5 +1,5 @@
-import type { ExecutionTask } from "@/audit/types";
-import type { Plan } from "@/audit/types";
+import type { ExecutionTask, Plan } from "@/audit/types";
+import { pendingRoutineTasks } from "./pending-tasks";
 
 export async function fetchExecutionState(
   clientId: string,
@@ -87,4 +87,12 @@ export async function approveAndPublishTask(task: ExecutionTask): Promise<Execut
   }
 
   return executeExecutionTask(task.id);
+}
+
+export async function approveAllRoutineTasks(tasks: ExecutionTask[]): Promise<number> {
+  const routine = pendingRoutineTasks(tasks);
+  for (const task of routine) {
+    await approveAndPublishTask(task);
+  }
+  return routine.length;
 }

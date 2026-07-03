@@ -5,9 +5,11 @@ import type { Plan } from "@/audit/types";
 export default function PlanProgressHeader({
   plan,
   variant = "light",
+  onReviewPending,
 }: {
   plan: Plan;
   variant?: "light" | "dark";
+  onReviewPending?: () => void;
 }) {
   const isLight = variant === "light";
   const { progress } = plan;
@@ -33,9 +35,19 @@ export default function PlanProgressHeader({
           </p>
         </div>
         {progress.needsApproval > 0 && (
-          <span className="rounded-full bg-[#fef7e0] px-3 py-1 text-xs font-semibold text-[#e37400]">
-            {progress.needsApproval} need{progress.needsApproval === 1 ? "s" : ""} your approval
-          </span>
+          onReviewPending ? (
+            <button
+              type="button"
+              onClick={onReviewPending}
+              className="rounded-full bg-[#fef7e0] px-3 py-1 text-xs font-semibold text-[#e37400] hover:bg-[#feefc3]"
+            >
+              {progress.needsApproval} need approval → Review
+            </button>
+          ) : (
+            <span className="rounded-full bg-[#fef7e0] px-3 py-1 text-xs font-semibold text-[#e37400]">
+              {progress.needsApproval} need{progress.needsApproval === 1 ? "s" : ""} your approval
+            </span>
+          )
         )}
       </div>
       <div className={`mt-3 h-2 overflow-hidden rounded-full ${isLight ? "bg-[#e8eaed]" : "bg-white/10"}`}>

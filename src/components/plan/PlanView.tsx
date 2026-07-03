@@ -13,12 +13,14 @@ export default function PlanView({
   gbpConnected = true,
   attributionByTaskId = {},
   variant = "light",
+  onReviewPending,
 }: {
   audit: FullAuditPayload;
   clientId: string;
   gbpConnected?: boolean;
   attributionByTaskId?: Record<string, ActionAttribution>;
   variant?: "light" | "dark";
+  onReviewPending?: () => void;
 }) {
   const isLight = variant === "light";
   const {
@@ -32,6 +34,7 @@ export default function PlanView({
     uploadPhotoFile,
     savePhotoPreview,
     ensurePhotoTasks,
+    approveAllRoutine,
     loadingTaskId,
   } = usePlanTasks({
     clientId,
@@ -48,6 +51,7 @@ export default function PlanView({
       uploadPhotoFile,
       savePhotoPreview,
       ensurePhotoTasks,
+      approveAllRoutine,
       loadingTaskId,
       error,
     }),
@@ -59,6 +63,7 @@ export default function PlanView({
       uploadPhotoFile,
       savePhotoPreview,
       ensurePhotoTasks,
+      approveAllRoutine,
       loadingTaskId,
       error,
     ]
@@ -100,7 +105,7 @@ export default function PlanView({
         </div>
       )}
 
-      <PlanProgressHeader plan={plan} variant={variant} />
+      <PlanProgressHeader plan={plan} variant={variant} onReviewPending={onReviewPending} />
 
       {audit.strategy?.executiveSummary && (
         <p className={`text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>

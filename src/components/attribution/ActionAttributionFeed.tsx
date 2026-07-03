@@ -13,15 +13,17 @@ export default function ActionAttributionFeed({
   attributions,
   loading = false,
   limit = 8,
+  title = "What your actions drove",
 }: {
   attributions: ActionAttribution[];
   loading?: boolean;
   limit?: number;
+  title?: string;
 }) {
   if (loading) {
     return (
       <section className="space-y-3">
-        <h4 className="text-sm font-semibold text-[#202124]">What your actions drove</h4>
+        <h4 className="text-sm font-semibold text-[#202124]">{title}</h4>
         <p className="text-sm text-[#5f6368]">Loading…</p>
       </section>
     );
@@ -30,12 +32,17 @@ export default function ActionAttributionFeed({
   const items = attributions.slice(0, limit);
 
   if (items.length === 0) {
-    return null;
+    return (
+      <section className="space-y-3">
+        <h4 className="text-sm font-semibold text-[#202124]">{title}</h4>
+        <p className="text-sm text-[#5f6368]">Published actions will show up here with results.</p>
+      </section>
+    );
   }
 
   return (
     <section className="space-y-3">
-      <h4 className="text-sm font-semibold text-[#202124]">What your actions drove</h4>
+      <h4 className="text-sm font-semibold text-[#202124]">{title}</h4>
       <ul className="space-y-2">
         {items.map((item) => (
           <li
