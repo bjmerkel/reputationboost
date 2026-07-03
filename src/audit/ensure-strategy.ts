@@ -1,6 +1,7 @@
 import type { FullAuditPayload, Phase1AuditPayload } from "@/audit/types";
 import { buildStrategy } from "@/audit/phase2/strategy";
 import { buildFirstAuditReport, buildMonthlyReport } from "@/audit/phase2/monthly-report";
+import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { buildTemplateContent } from "@/lib/llm/content";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { generateExecutionQueue } from "@/audit/phase3";
@@ -68,7 +69,10 @@ export function ensureStrategy(
 
   const withMonthly = {
     ...withStrategy,
-    strategy: normalizeStrategyDrafts({ ...withStrategy, strategy })!,
+    strategy: {
+      ...normalizeStrategyDrafts({ ...withStrategy, strategy })!,
+      gbpPlan: strategy.gbpPlan ?? buildTemplateGbpPlan(audit),
+    },
   };
 
   if (withMonthly.execution) {

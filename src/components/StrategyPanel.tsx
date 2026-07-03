@@ -1,4 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import type { HealthGrade, StrategyReport } from "@/audit/types";
+import GbpOptimizationPlanPanel from "@/components/GbpOptimizationPlanPanel";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 
 const gradeStyles: Record<HealthGrade, string> = {
@@ -22,9 +26,10 @@ export default function StrategyPanel({
   embedded?: boolean;
 }) {
   const { scores } = strategy;
+  const [showGaps, setShowGaps] = useState(false);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-wrap items-center gap-3">
         {!embedded && (
           <span className="text-sm font-semibold uppercase tracking-widest text-cyan-400">
@@ -37,22 +42,14 @@ export default function StrategyPanel({
           {scores.grade.replace("_", " ")}
         </span>
         <span className="text-2xl font-bold text-white">{scores.overall}/100</span>
-        {strategy.contentSource === "llm" && (
-          <span className="rounded-full bg-violet-500/20 px-2.5 py-0.5 text-xs font-medium text-violet-300">
-            AI-generated
-          </span>
-        )}
       </div>
 
-      <div className="rounded-xl border border-white/8 bg-white/[0.03] p-6">
-        <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-          Executive Summary
-        </h4>
-        <p className="mt-3 leading-relaxed text-slate-300">{strategy.executiveSummary}</p>
-        <p className="mt-3 text-sm text-emerald-400/90">{strategy.localPackStatus}</p>
+      <div className="rounded-xl border border-white/8 bg-white/[0.03] p-5">
+        <p className="leading-relaxed text-slate-300">{strategy.executiveSummary}</p>
+        <p className="mt-2 text-sm text-emerald-400/90">{strategy.localPackStatus}</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {[
           { label: "GBP", value: scores.gbpCompleteness },
           { label: "3-Pack", value: scores.localPackCoverage },
@@ -60,101 +57,66 @@ export default function StrategyPanel({
           { label: "Engagement", value: scores.engagement },
           { label: "vs Competitors", value: scores.competitiveGap },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+          <div key={s.label} className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
             <p className="text-xs text-slate-500">{s.label}</p>
-            <p className="mt-1 text-xl font-bold text-white">{s.value}</p>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500"
-                style={{ width: `${s.value}%` }}
-              />
-            </div>
+            <p className="mt-1 text-lg font-bold text-white">{s.value}</p>
           </div>
         ))}
       </div>
 
-      {(strategy.biggestWin || strategy.biggestThreat) && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {strategy.biggestWin && (
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-              <p className="text-xs font-semibold uppercase text-emerald-400">Biggest Win</p>
-              <p className="mt-2 text-sm text-slate-300">{strategy.biggestWin}</p>
+      {strategy.gbpPlan ? (
+        <GbpOptimizationPlanPanel plan={strategy.gbpPlan} />
+      ) : (
+        <p className="text-slate-400">GBP optimization plan will appear after audit completes.</p>
+      )}
+
+      <div className="border-t border-white/8 pt-6">
+        <button
+          type="button"
+          onClick={() => setShowGaps(!showGaps)}
+          className="text-sm font-medium text-slate-400 hover:text-white"
+        >
+          {showGaps ? "Hide" : "Show"} quick wins & gap flags ({strategy.actionPlan.length})
+        </button>
+
+        {showGaps && (
+          <div className="mt-4 space-y-4">
+            <div>
+              <h4 className="mb-2 font-semibold text-white">30-Day KPI Targets</h4>
+              <ul className="space-y-1">
+                {strategy.kpiTargets.map((t) => (
+                  <li key={t} className="text-sm text-slate-300">
+                    → {t}
+                  </li>
+                ))}
+              </ul>
             </div>
-          )}
-          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-            <p className="text-xs font-semibold uppercase text-red-400">Biggest Threat</p>
-            <p className="mt-2 text-sm text-slate-300">{strategy.biggestThreat}</p>
-          </div>
-        </div>
-      )}
 
-      {strategy.monthOverMonth && (
-        <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Month over Month
-          </p>
-          <div className="mt-3 flex flex-wrap gap-4 text-sm">
-            <Delta label="3-Pack keywords" value={strategy.monthOverMonth.keywordsInPackChange} />
-            <Delta label="Reviews" value={strategy.monthOverMonth.reviewCountChange} />
-            <Delta label="Calls" value={strategy.monthOverMonth.callsChange} />
-            <Delta label="Score" value={strategy.monthOverMonth.overallScoreChange} />
-          </div>
-        </div>
-      )}
-
-      <div>
-        <h4 className="mb-3 font-semibold text-white">30-Day KPI Targets</h4>
-        <ul className="space-y-2">
-          {strategy.kpiTargets.map((t) => (
-            <li key={t} className="flex items-start gap-2 text-sm text-slate-300">
-              <span className="text-emerald-400">→</span>
-              {t}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div>
-        <h4 className="mb-3 font-semibold text-white">
-          Action Plan ({strategy.actionPlan.length} items)
-        </h4>
-        <div className="space-y-3">
-          {strategy.actionPlan.map((action) => (
-            <div
-              key={action.id}
-              className="rounded-xl border border-white/8 bg-white/[0.02] p-4"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-bold ${priorityStyles[action.priority]}`}
+            <div className="space-y-3">
+              {strategy.actionPlan.slice(0, 6).map((action) => (
+                <div
+                  key={action.id}
+                  className="rounded-lg border border-white/8 bg-white/[0.02] p-3"
                 >
-                  {action.priority}
-                </span>
-                <span className="text-xs uppercase text-slate-500">{action.category}</span>
-                <span className="text-xs text-slate-600">· Due in {action.dueDays}d</span>
-              </div>
-              <p className="mt-2 font-medium text-white">{action.title}</p>
-              <p className="mt-1 text-sm text-slate-400">{action.description}</p>
-              {action.draftCopy && (
-                <p className="mt-3 rounded-lg bg-white/5 p-3 text-sm italic text-slate-300">
-                  {normalizeTextContent(action.draftCopy)}
-                </p>
-              )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${priorityStyles[action.priority]}`}
+                    >
+                      {action.priority}
+                    </span>
+                    <span className="text-sm font-medium text-white">{action.title}</span>
+                  </div>
+                  {action.draftCopy && (
+                    <p className="mt-2 text-xs italic text-slate-400">
+                      {normalizeTextContent(action.draftCopy)}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
-  );
-}
-
-function Delta({ label, value }: { label: string; value: number }) {
-  const positive = value > 0;
-  const neutral = value === 0;
-  return (
-    <span className={neutral ? "text-slate-400" : positive ? "text-emerald-400" : "text-red-400"}>
-      {label}: {positive ? "+" : ""}
-      {value}
-    </span>
   );
 }

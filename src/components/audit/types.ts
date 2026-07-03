@@ -22,7 +22,7 @@ export const AUDIT_STORY_STEPS: AuditStoryStep[] = [
     id: "strategy",
     step: 2,
     title: "Your Plan",
-    subtitle: "Prioritized actions & KPIs",
+        subtitle: "16-step GBP optimization report",
   },
   {
     id: "execute",

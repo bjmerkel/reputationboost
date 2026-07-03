@@ -312,6 +312,39 @@ export interface MonthlyReport {
   contentSource?: "llm" | "template";
 }
 
+export interface GbpPlanCopyBlock {
+  label: string;
+  content: string;
+}
+
+export interface GbpPlanStep {
+  stepNumber: number;
+  title: string;
+  instruction: string;
+  recommended?: string;
+  bullets?: string[];
+  copyBlocks?: GbpPlanCopyBlock[];
+}
+
+export interface GbpKeywordPriority {
+  rank: number;
+  keyword: string;
+  reason: string;
+}
+
+export interface GbpOptimizationPlan {
+  title: string;
+  businessName: string;
+  address: string;
+  objective: string;
+  targetKeywords: string[];
+  steps: GbpPlanStep[];
+  keywordPriority: GbpKeywordPriority[];
+  weeklyCadence: string[];
+  monthlyCadence: string[];
+  contentSource?: "llm" | "template";
+}
+
 export interface StrategyReport {
   generatedAt: string;
   executiveSummary: string;
@@ -324,6 +357,7 @@ export interface StrategyReport {
   actionPlan: ActionItem[];
   monthOverMonth: MonthOverMonthDelta | null;
   monthlyReport: MonthlyReport | null;
+  gbpPlan: GbpOptimizationPlan | null;
   contentSource?: "llm" | "template";
 }
 

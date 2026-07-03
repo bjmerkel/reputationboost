@@ -152,6 +152,7 @@ export function buildStrategy(
     actionPlan,
     monthOverMonth: mom,
     monthlyReport: null,
+    gbpPlan: null,
   };
 
   const monthlyReport = priorAudit

@@ -3,6 +3,7 @@ import { buildStrategy as buildStrategyBase } from "@/audit/phase2/strategy";
 import { buildAuditContext } from "./audit-context";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
+import { generateGbpOptimizationPlan } from "./gbp-plan";
 import { normalizeTextContent } from "./normalize-content";
 
 interface LlmStrategyResponse {
@@ -23,9 +24,10 @@ export async function generateStrategy(
   priorAudit: Phase1AuditPayload | null = null
 ): Promise<StrategyReport> {
   const base = buildStrategyBase(audit, priorAudit);
+  const gbpPlan = await generateGbpOptimizationPlan(audit);
 
   if (!isLlmConfigured()) {
-    return { ...base, contentSource: "template" };
+    return { ...base, gbpPlan, contentSource: "template" };
   }
 
   try {
@@ -83,10 +85,11 @@ Return JSON:
       biggestWin: llm.biggestWin ?? base.biggestWin,
       kpiTargets: llm.kpiTargets?.length ? llm.kpiTargets.slice(0, 5) : base.kpiTargets,
       actionPlan,
+      gbpPlan,
       contentSource: "llm",
     };
   } catch (error) {
     console.error("[llm] strategy generation failed, using templates:", error);
-    return { ...base, contentSource: "template" };
+    return { ...base, gbpPlan, contentSource: "template" };
   }
 }
