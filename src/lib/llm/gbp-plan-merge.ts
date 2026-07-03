@@ -37,6 +37,10 @@ export interface LlmCustomPlanAction {
   instruction: string;
   rationale: string;
   gbpAction?: string;
+  current?: string;
+  recommended?: string;
+  bullets?: string[];
+  copyBlocks?: Array<{ label: string; content: string }>;
 }
 
 export interface LlmGbpPlanResponse {
@@ -112,6 +116,10 @@ export function validateCustomAction(value: unknown): LlmCustomPlanAction | null
     instruction: value.instruction.trim(),
     rationale: value.rationale.trim(),
     gbpAction: typeof value.gbpAction === "string" ? value.gbpAction : undefined,
+    current: typeof value.current === "string" ? value.current : undefined,
+    recommended: typeof value.recommended === "string" ? value.recommended : undefined,
+    bullets: isStringArray(value.bullets) ? value.bullets : undefined,
+    copyBlocks: isCopyBlockArray(value.copyBlocks) ? value.copyBlocks : undefined,
   };
 }
 
@@ -200,6 +208,10 @@ function customActionToStep(
     stepNumber,
     title: action.title,
     instruction: `${action.instruction}\n\nWhy this step: ${action.rationale}`,
+    current: action.current,
+    recommended: action.recommended,
+    bullets: action.bullets,
+    copyBlocks: action.copyBlocks,
     gbpAction:
       action.gbpAction && VALID_GBP_ACTIONS.has(action.gbpAction)
         ? (action.gbpAction as GbpPlanStep["gbpAction"])

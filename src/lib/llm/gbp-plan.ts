@@ -89,7 +89,7 @@ INSTRUCTIONS:
 4. Include selectionRationale on each step explaining why it matters for THIS business.
 5. For steps 3, 4, 5, and 9 include copyBlocks with paste-ready text when selected.
 6. Do NOT include copyBlocks for step 11 (review responses are AI-drafted per review).
-7. Optionally add up to 3 customActions for business-specific GBP work not covered by standard steps.
+7. Optionally add up to 3 customActions for business-specific GBP work not covered by standard steps. Each customAction must include title, instruction, rationale, and may include copyBlocks with paste-ready text.
 8. Skip low-impact steps (driverScoreImpact 0) unless outcomes data shows they worked before.
 
 Return JSON:
@@ -116,7 +116,8 @@ Return JSON:
       "title": "short action title",
       "instruction": "what to do in GBP",
       "rationale": "why this custom action matters",
-      "gbpAction": "manual"
+      "gbpAction": "manual",
+      "copyBlocks": [{ "label": "optional paste block", "content": "ready-to-use text" }]
     }
   ],
   "keywordPriority": [{ "rank": 1, "keyword": "...", "reason": "why prioritize" }],

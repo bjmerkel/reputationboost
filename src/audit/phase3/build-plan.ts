@@ -10,6 +10,7 @@ import type {
   PlanProgress,
 } from "../types";
 import { getPhaseForStep, PLAN_PHASE_DEFINITIONS } from "./plan-phases";
+import { isCustomPlanStep } from "./plan-custom-steps";
 import { resolvePlanStepNumber } from "./plan-task-utils";
 import { buildAttributionCalibration, mergeCalibrations } from "../phase2/attribution-calibration";
 import type { AttributionCalibration } from "../phase2/attribution-calibration";
@@ -78,7 +79,8 @@ function computeProgress(
   const needsApproval = steps.filter((s) => s.status === "needs_approval").length;
   const remainingStepNumbers = steps
     .filter((s) => s.status !== "completed" && s.status !== "skipped")
-    .map((s) => s.stepNumber);
+    .map((s) => s.stepNumber)
+    .filter((n) => !isCustomPlanStep(n));
   const projectedHealthScore =
     remainingStepNumbers.length > 0
       ? projectHealthScoresFromStepNumbers(audit, remainingStepNumbers).projectedOverallScore
@@ -95,10 +97,17 @@ function computeProgress(
 
 function filterPhasesWithSteps(phases: PlanPhase[], steps: PlanStep[]): PlanPhase[] {
   const stepNumbers = new Set(steps.map((s) => s.stepNumber));
+  const customStepNumbers = steps
+    .filter((s) => isCustomPlanStep(s.stepNumber))
+    .map((s) => s.stepNumber);
+
   return phases
     .map((phase) => ({
       ...phase,
-      stepNumbers: phase.stepNumbers.filter((n) => stepNumbers.has(n)),
+      stepNumbers: [
+        ...phase.stepNumbers.filter((n) => stepNumbers.has(n)),
+        ...(phase.id === "ongoing" ? customStepNumbers : []),
+      ],
     }))
     .filter((phase) => phase.stepNumbers.length > 0);
 }

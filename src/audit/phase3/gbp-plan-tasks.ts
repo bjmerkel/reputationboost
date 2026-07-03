@@ -13,6 +13,7 @@ import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
 import { getPhaseForStep } from "./plan-phases";
+import { isCustomPlanStep } from "./plan-custom-steps";
 import { buildTaskPayloadContext } from "./step-context";
 
 function mediaUploadDraft(hint: string, category: GbpMediaCategory): string {
@@ -73,6 +74,7 @@ function buildGbpTask(
       gbpStepNumber: step.stepNumber,
       gbpStepTitle: step.title,
       planPhaseId: phaseId,
+      ...(isCustomPlanStep(step.stepNumber) ? { isCustomPlanStep: true } : {}),
       ...contextPayload,
       ...payload,
     },
@@ -150,11 +152,32 @@ export function tasksFromGbpPlanStep(
   step: GbpPlanStep,
   content: AuditGeneratedContent
 ): ExecutionTask[] {
-  const templateStep = buildTemplateGbpPlan(audit).steps.find(
-    (s) => s.stepNumber === step.stepNumber
-  );
+  const templateStep = isCustomPlanStep(step.stepNumber)
+    ? undefined
+    : buildTemplateGbpPlan(audit).steps.find((s) => s.stepNumber === step.stepNumber);
   const resolvedAction = resolvePlanStepAction(step, templateStep);
   const resolvedStep: GbpPlanStep = { ...step, gbpAction: resolvedAction };
+
+  if (isCustomPlanStep(resolvedStep.stepNumber) && resolvedAction === "manual") {
+    if (resolvedStep.copyBlocks?.length) {
+      return resolvedStep.copyBlocks.map((block, i) =>
+        buildGbpTask(audit, resolvedStep, "gbp_checklist", block.label, block.content, {
+          checklistIndex: i + 1,
+          customAction: true,
+        })
+      );
+    }
+    return [
+      buildGbpTask(
+        audit,
+        resolvedStep,
+        "gbp_checklist",
+        resolvedStep.title,
+        checklistContent(resolvedStep),
+        { manual: true, customAction: true }
+      ),
+    ];
+  }
 
   if (resolvedStep.stepNumber === 6 || resolvedAction === "upload_photo") {
     return buildPhotoExecutionTasks(audit, content, resolvedStep);

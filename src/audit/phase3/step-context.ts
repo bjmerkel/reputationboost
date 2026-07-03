@@ -1,6 +1,7 @@
 import type { FullAuditPayload, GbpPlanStep, PlanStepContext } from "../types";
 import type { AttributionCalibration } from "../phase2/attribution-calibration";
 import { estimateStepHealthImpact } from "../phase2/score-impact";
+import { isCustomPlanStep } from "./plan-custom-steps";
 
 function targetKeywords(audit: FullAuditPayload, step: GbpPlanStep): string[] {
   const fromPlan = audit.strategy.gbpPlan?.targetKeywords ?? [];
@@ -80,6 +81,11 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
     case 16:
       return "Execute the weekly cadence consistently to move keywords into the Top 3.";
     default:
+      if (isCustomPlanStep(step.stepNumber)) {
+        return step.instruction.includes("Why this step:")
+          ? step.instruction.split("\n\nWhy this step:")[1]?.trim() ?? step.instruction
+          : step.instruction;
+      }
       return step.instruction.split(".")[0] + ".";
   }
 }
@@ -100,7 +106,9 @@ export function buildStepContext(
     expectedEffect: buildExpectedEffect(audit, step),
     currentValue: step.current,
     recommendedValue: step.recommended,
-    healthScoreImpact: estimateStepHealthImpact(audit, step.stepNumber, calibration),
+    healthScoreImpact: isCustomPlanStep(step.stepNumber)
+      ? undefined
+      : estimateStepHealthImpact(audit, step.stepNumber, calibration),
   };
 }
 
@@ -118,5 +126,6 @@ export function buildTaskPayloadContext(
     ...(context.healthScoreImpact != null
       ? { projectedDriverImpact: context.healthScoreImpact }
       : {}),
+    ...(isCustomPlanStep(step.stepNumber) ? { isCustomPlanStep: true } : {}),
   };
 }

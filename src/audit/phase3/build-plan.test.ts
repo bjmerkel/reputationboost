@@ -143,4 +143,60 @@ describe("buildPlan", () => {
     assert.ok(typeof task!.payload.expectedEffect === "string");
     assert.ok(Array.isArray(task!.payload.targetKeywords));
   });
+
+  it("places custom steps in the ongoing phase and excludes them from score projection", () => {
+    const audit = createTestAudit();
+    const customStep = {
+      stepNumber: 17,
+      title: "Airport route video",
+      instruction: "Upload a 45-second airport pickup video.\n\nWhy this step: Targets airport shuttle keyword gap.",
+      gbpAction: "manual" as const,
+    };
+    const auditWithCustom = {
+      ...audit,
+      strategy: {
+        ...audit.strategy,
+        gbpPlan: {
+          ...audit.strategy.gbpPlan!,
+          steps: [...audit.strategy.gbpPlan!.steps, customStep],
+        },
+      },
+    };
+
+    const customTask = {
+      ...audit.execution!.tasks[0],
+      id: "custom-task-17",
+      actionItemId: "gbp-step-17",
+      planStepNumber: 17,
+      planPhaseId: "ongoing" as const,
+      type: "gbp_checklist" as const,
+      title: "Step 17: Airport route video",
+      payload: {
+        gbpStepNumber: 17,
+        isCustomPlanStep: true,
+        customAction: true,
+        expectedEffect: "Targets airport shuttle keyword gap.",
+      },
+    };
+
+    const plan = buildPlan(auditWithCustom, [...audit.execution!.tasks, customTask]);
+    assert.ok(plan);
+
+    const step17 = plan!.steps.find((s) => s.stepNumber === 17);
+    assert.ok(step17);
+    assert.equal(step17!.phaseId, "ongoing");
+    assert.equal(step17!.context.healthScoreImpact, undefined);
+    assert.match(step17!.context.expectedEffect, /airport shuttle/i);
+
+    const ongoingPhase = plan!.phases.find((p) => p.id === "ongoing");
+    assert.ok(ongoingPhase);
+    assert.ok(ongoingPhase!.stepNumbers.includes(17));
+    assert.ok(ongoingPhase!.stepNumbers.includes(16));
+
+    const planWithoutCustomProjection = buildPlan(audit, audit.execution!.tasks);
+    assert.equal(
+      plan!.progress.projectedHealthScore,
+      planWithoutCustomProjection!.progress.projectedHealthScore
+    );
+  });
 });
