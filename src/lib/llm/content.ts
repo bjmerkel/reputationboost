@@ -14,6 +14,11 @@ import {
   normalizeTextList,
 } from "./normalize-content";
 import { generateReviewResponsesLlm } from "./review-responses";
+import {
+  buildTemplatePhotoJobs,
+  generateGbpPhotoJobsLlm,
+  type GbpPhotoJob,
+} from "./gbp-photos";
 
 export interface AuditGeneratedContent {
   googlePosts: string[];
@@ -22,6 +27,7 @@ export interface AuditGeneratedContent {
   reviewRequestSms: string;
   qaAnswer: string;
   socialPost: string;
+  gbpPhotoJobs: GbpPhotoJob[];
   contentSource: "llm" | "template";
 }
 
@@ -48,6 +54,7 @@ export function buildTemplateContent(audit: FullAuditPayload): AuditGeneratedCon
     reviewRequestSms: templateReviewRequestSms(audit),
     qaAnswer: `Q: What areas do you serve?\nA: We proudly serve ${audit.gbp.identity.address} and surrounding neighborhoods. Call ${audit.gbp.identity.phone} for availability.`,
     socialPost: templateGooglePosts(audit)[0] ?? "",
+    gbpPhotoJobs: buildTemplatePhotoJobs(audit),
     contentSource: "template",
   };
 }
@@ -60,10 +67,13 @@ export async function generateAuditContent(
   audit: FullAuditPayload
 ): Promise<AuditGeneratedContent> {
   const fallback = templateContent(audit);
-  const reviewResponses = await generateReviewResponsesLlm(audit);
+  const [reviewResponses, gbpPhotoJobs] = await Promise.all([
+    generateReviewResponsesLlm(audit),
+    generateGbpPhotoJobsLlm(audit),
+  ]);
 
   if (!isLlmConfigured()) {
-    return { ...fallback, reviewResponses };
+    return { ...fallback, reviewResponses, gbpPhotoJobs };
   }
 
   try {
@@ -103,10 +113,11 @@ Each googlePosts entry must be a string, not an object.`,
       reviewRequestSms: normalizeOptionalText(llm.reviewRequestSms, fallback.reviewRequestSms),
       qaAnswer: normalizeOptionalText(llm.qaAnswer, fallback.qaAnswer),
       socialPost: normalizeOptionalText(llm.socialPost, fallback.socialPost),
+      gbpPhotoJobs,
       contentSource: "llm",
     };
   } catch (error) {
     console.error("[llm] content generation failed, using templates:", error);
-    return { ...fallback, reviewResponses };
+    return { ...fallback, reviewResponses, gbpPhotoJobs };
   }
 }

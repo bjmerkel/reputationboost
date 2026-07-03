@@ -195,6 +195,11 @@ export default function ExecutionQueue({
                   {task.status.replace("_", " ")}
                 </span>
                 <span className="text-xs font-bold text-slate-500">{task.priority}</span>
+                {task.payload.aiGenerated === true && (
+                  <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-xs font-medium text-violet-300">
+                    AI photo
+                  </span>
+                )}
               </div>
 
               <div className="flex gap-2">
@@ -253,7 +258,11 @@ export default function ExecutionQueue({
               </div>
             )}
             <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Draft reply
+              {task.type === "gbp_photo" || task.type === "gbp_video"
+                ? "Upload details"
+                : task.type === "review_response"
+                  ? "Draft reply"
+                  : "Draft content"}
             </p>
             <p className="mt-1 rounded-lg bg-white/5 p-3 text-sm leading-relaxed text-slate-300">
               {normalizeTextContent(task.draftContent)}

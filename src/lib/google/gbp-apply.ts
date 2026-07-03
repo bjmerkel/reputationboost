@@ -13,6 +13,7 @@ import {
 import {
   createGbpMediaFromUrl,
   extractPublicMediaUrl,
+  uploadGbpMediaFile,
   type GbpMediaCategory,
   type GbpMediaFormat,
 } from "./gbp-media";
@@ -369,6 +370,36 @@ export async function applyMediaUpload(
       googleUrl: item.googleUrl,
       category: options.category,
       mediaFormat: options.mediaFormat,
+    },
+  };
+}
+
+export async function applyMediaFromBytes(
+  connection: GbpConnection,
+  bytes: ArrayBuffer,
+  contentType: string,
+  options: {
+    mediaFormat: GbpMediaFormat;
+    category: GbpMediaCategory;
+    description?: string;
+  }
+): Promise<GbpApplyResult> {
+  const item = await uploadGbpMediaFile(
+    connection,
+    { bytes, contentType },
+    options
+  );
+  const kind = options.mediaFormat === "VIDEO" ? "Video" : "Photo";
+
+  return {
+    success: true,
+    message: `AI ${kind.toLowerCase()} uploaded to your Google Business Profile (${options.category}).`,
+    applied: {
+      mediaName: item.name,
+      googleUrl: item.googleUrl,
+      category: options.category,
+      mediaFormat: options.mediaFormat,
+      aiGenerated: true,
     },
   };
 }

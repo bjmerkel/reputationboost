@@ -6,6 +6,7 @@ import type {
   GbpPlanStep,
 } from "../types";
 import type { AuditGeneratedContent } from "@/lib/llm/content";
+import { buildTemplatePhotoJobs, photoJobDraftContent } from "@/lib/llm/gbp-photos";
 import type { GbpMediaCategory } from "@/lib/google/gbp-media";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 
@@ -179,37 +180,26 @@ export function tasksFromGbpPlanStep(
       ];
     }
     case "upload_photo": {
-      const city = audit.gbp.identity.address.split(",").slice(-2, -1)[0]?.trim() ?? "your area";
-      const photoJobs: Array<{ title: string; category: GbpMediaCategory; hint: string }> = [
-        {
-          title: "Exterior & storefront",
-          category: "EXTERIOR",
-          hint: `Wide shot of ${audit.clientName} storefront or entrance in ${city}.`,
-        },
-        {
-          title: "Interior & team",
-          category: "INTERIOR",
-          hint: "Interior, showroom, or team photo that builds trust.",
-        },
-        {
-          title: "At work / service",
-          category: "AT_WORK",
-          hint: `Staff delivering your core service (${audit.gbp.identity.primaryCategory}).`,
-        },
-        ...audit.rankings.keywords.slice(0, 4).map((kw) => ({
-          title: `Service photo: ${kw.keyword}`,
-          category: "ADDITIONAL" as GbpMediaCategory,
-          hint: `Photo showcasing "${kw.keyword}" for ${city} customers.`,
-        })),
-      ];
-      return photoJobs.map((job, i) =>
+      const jobs =
+        content.gbpPhotoJobs.length > 0
+          ? content.gbpPhotoJobs
+          : buildTemplatePhotoJobs(audit);
+
+      return jobs.map((job, i) =>
         buildGbpTask(
           audit,
           step,
           "gbp_photo",
           job.title,
-          mediaUploadDraft(job.hint, job.category),
-          { mediaFormat: "PHOTO", category: job.category, photoIndex: i + 1 }
+          photoJobDraftContent(job),
+          {
+            mediaFormat: "PHOTO",
+            category: job.category,
+            photoIndex: i + 1,
+            imagePrompt: job.imagePrompt,
+            aiGenerated: job.aiGenerated ?? false,
+            hint: job.hint,
+          }
         )
       );
     }

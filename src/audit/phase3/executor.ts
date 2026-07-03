@@ -1,7 +1,8 @@
 import type { ExecutionTask, GbpConnection } from "../types";
-import { applyGbpAction, applyMediaFromDraft } from "@/lib/google/gbp-apply";
+import { applyGbpAction, applyMediaFromBytes, applyMediaFromDraft } from "@/lib/google/gbp-apply";
 import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
 import type { GbpMediaCategory, GbpMediaFormat } from "@/lib/google/gbp-media";
+import { generateGbpPhotoImage } from "@/lib/llm/gbp-photos";
 
 /**
  * Execute an approved task — uses live GBP OAuth when connection is available.
@@ -102,9 +103,21 @@ async function executeTaskLive(
     }
     case "gbp_photo":
     case "gbp_video": {
+      const imagePrompt = task.payload.imagePrompt as string | undefined;
+      if (task.type === "gbp_photo" && imagePrompt) {
+        const { bytes, contentType } = await generateGbpPhotoImage(imagePrompt);
+        const result = await applyMediaFromBytes(connection, bytes, contentType, {
+          mediaFormat: "PHOTO",
+          category: (task.payload.category as GbpMediaCategory) ?? "ADDITIONAL",
+          description: task.payload.hint as string | undefined,
+        });
+        return { ...task, status: "completed", completedAt: now, result: result.message };
+      }
+
       const result = await applyMediaFromDraft(connection, task.draftContent, {
         sourceUrl: task.payload.sourceUrl as string | undefined,
-        mediaFormat: (task.payload.mediaFormat as GbpMediaFormat) ??
+        mediaFormat:
+          (task.payload.mediaFormat as GbpMediaFormat) ??
           (task.type === "gbp_video" ? "VIDEO" : "PHOTO"),
         category: (task.payload.category as GbpMediaCategory) ?? "ADDITIONAL",
       });
