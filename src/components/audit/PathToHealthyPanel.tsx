@@ -13,7 +13,7 @@ export default function PathToHealthyPanel({ path }: { path: PathToHealthy }) {
           Profile strength is Healthy at {path.currentDriverScore}/100 — maintain your weekly cadence.
         </p>
         <p className="mt-1 text-xs text-[#5f6368]">
-          Listing strength {path.currentScore}/100 · ranking outcome {path.outcomeIndex}/100
+          Reputation Boost Score {path.currentScore}/100 · ranking outcome {path.outcomeIndex}/100
         </p>
       </section>
     );
@@ -45,7 +45,7 @@ export default function PathToHealthyPanel({ path }: { path: PathToHealthy }) {
       </div>
 
       <p className="mt-1 text-xs text-[#80868b]">
-        Listing strength {path.currentScore} → {path.projectedScore} · ranking outcome{" "}
+        Reputation Boost Score {path.currentScore} → {path.projectedScore} · ranking outcome{" "}
         {path.outcomeIndex} → {path.projectedOutcomeIndex}
       </p>
 

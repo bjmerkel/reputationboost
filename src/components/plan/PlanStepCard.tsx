@@ -74,7 +74,7 @@ export default function PlanStepCard({
             step.status !== "skipped" &&
             (step.context.healthScoreImpact ?? 0) > 0 && (
               <p className={`mt-1 text-xs font-semibold ${isLight ? "text-[#188038]" : "text-emerald-400"}`}>
-                +{step.context.healthScoreImpact} listing strength pts
+                +{step.context.healthScoreImpact} Reputation Boost Score pts
               </p>
             )}
           {!expanded && (

@@ -23,7 +23,7 @@ export default function PlaceCardDetails({ audit, onPreviewCustomer }: PlaceCard
       <div className="flex items-start gap-3">
         <ListingStrengthRing score={score} color={gradeColor} />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-[#5f6368]">Listing strength</p>
+          <p className="text-xs font-medium text-[#5f6368]">Reputation Boost Score</p>
           <p className="text-sm font-medium text-[#202124]">
             {score}/100 · {grade.replace("_", " ")}
           </p>

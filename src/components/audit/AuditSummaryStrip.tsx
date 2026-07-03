@@ -23,7 +23,7 @@ export default function AuditSummaryStrip({ audit }: AuditSummaryStripProps) {
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <SummaryCard label="Listing strength" value={`${score}/100`} hint={grade.replace("_", " ")} hintClass={gradeColor} />
+      <SummaryCard label="Reputation Boost Score" value={`${score}/100`} hint={grade.replace("_", " ")} hintClass={gradeColor} />
       <SummaryCard
         label="Visibility"
         value={`${scores?.visibility ?? rankings.shareOfVoice}/100`}
