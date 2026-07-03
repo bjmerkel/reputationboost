@@ -83,6 +83,9 @@ describe("mergeCalibrations", () => {
           medianRankDelta: 4,
           medianCallsDelta: 2,
           estimatedScoreImpact: 6,
+          projectionSampleSize: 0,
+          medianProjectedDriverImpact: null,
+          medianObservedDriverImpact: null,
         },
       },
       {
@@ -91,12 +94,18 @@ describe("mergeCalibrations", () => {
           medianRankDelta: 3,
           medianCallsDelta: 1,
           estimatedScoreImpact: 5,
+          projectionSampleSize: 8,
+          medianProjectedDriverImpact: 7,
+          medianObservedDriverImpact: 4,
         },
         8: {
           sampleSize: 15,
           medianRankDelta: 2,
           medianCallsDelta: 0,
           estimatedScoreImpact: 4,
+          projectionSampleSize: 0,
+          medianProjectedDriverImpact: null,
+          medianObservedDriverImpact: null,
         },
       }
     );

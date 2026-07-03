@@ -21,7 +21,12 @@ export {
 } from "./score-driver-outcome";
 export { computeKeywordScores } from "./keyword-scores";
 export { buildPathToHealthy } from "./path-to-healthy";
-export { buildAttributionCalibration, calibratedStepImpact, mergeCalibrations } from "./attribution-calibration";
+export {
+  buildAttributionCalibration,
+  calibratedStepImpact,
+  mergeCalibrations,
+  projectionScaleForStep,
+} from "./attribution-calibration";
 export { applyRankSnapshotsToAudit, computeScoreDailySnapshot } from "./score-snapshot";
 export { buildScoreChangelogFromSnapshots, buildScoreChangelogFromHealthScores, buildRankMovementsFromSnapshots } from "./score-changelog";
 export { ingestScoreDailyForBusiness } from "./score-ingest";

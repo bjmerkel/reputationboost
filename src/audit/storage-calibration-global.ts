@@ -38,6 +38,36 @@ function rowToAttribution(row: Record<string, unknown>): ActionAttribution {
     narrative: (row.narrative as string) ?? "",
     preliminary: new Date() < postEnd,
     computedAt: row.computed_at as string,
+    projectedDriverImpact:
+      row.projected_driver_impact != null ? Number(row.projected_driver_impact) : null,
+    observedDriverImpact:
+      row.observed_driver_impact != null ? Number(row.observed_driver_impact) : null,
+    driverScoreBefore:
+      row.driver_score_before != null ? Number(row.driver_score_before) : null,
+    driverScoreAfter:
+      row.driver_score_after != null ? Number(row.driver_score_after) : null,
+  };
+}
+
+function rowToStepCalibration(
+  row: Record<string, unknown>
+): AttributionCalibration[number] {
+  return {
+    sampleSize: row.sample_size as number,
+    medianRankDelta:
+      row.median_rank_delta != null ? Number(row.median_rank_delta) : null,
+    medianCallsDelta:
+      row.median_calls_delta != null ? Number(row.median_calls_delta) : 0,
+    estimatedScoreImpact: row.estimated_score_impact as number,
+    projectionSampleSize: (row.projection_sample_size as number) ?? 0,
+    medianProjectedDriverImpact:
+      row.median_projected_driver_impact != null
+        ? Number(row.median_projected_driver_impact)
+        : null,
+    medianObservedDriverImpact:
+      row.median_observed_driver_impact != null
+        ? Number(row.median_observed_driver_impact)
+        : null,
   };
 }
 
@@ -66,6 +96,9 @@ export async function refreshGlobalScoreCalibration(): Promise<number> {
     median_rank_delta: cal.medianRankDelta,
     median_calls_delta: cal.medianCallsDelta,
     estimated_score_impact: cal.estimatedScoreImpact,
+    projection_sample_size: cal.projectionSampleSize,
+    median_projected_driver_impact: cal.medianProjectedDriverImpact,
+    median_observed_driver_impact: cal.medianObservedDriverImpact,
     updated_at: new Date().toISOString(),
   }));
 
@@ -90,15 +123,9 @@ export async function loadGlobalScoreCalibration(): Promise<GlobalCalibration> {
 
   const calibration: GlobalCalibration = {};
   for (const row of data) {
-    const step = row.step_number as number;
-    calibration[step] = {
-      sampleSize: row.sample_size as number,
-      medianRankDelta:
-        row.median_rank_delta != null ? Number(row.median_rank_delta) : null,
-      medianCallsDelta:
-        row.median_calls_delta != null ? Number(row.median_calls_delta) : 0,
-      estimatedScoreImpact: row.estimated_score_impact as number,
-    };
+    calibration[row.step_number as number] = rowToStepCalibration(
+      row as Record<string, unknown>
+    );
   }
   return calibration;
 }
@@ -111,15 +138,9 @@ export async function loadGlobalScoreCalibrationAdmin(): Promise<GlobalCalibrati
 
   const calibration: GlobalCalibration = {};
   for (const row of data) {
-    const step = row.step_number as number;
-    calibration[step] = {
-      sampleSize: row.sample_size as number,
-      medianRankDelta:
-        row.median_rank_delta != null ? Number(row.median_rank_delta) : null,
-      medianCallsDelta:
-        row.median_calls_delta != null ? Number(row.median_calls_delta) : 0,
-      estimatedScoreImpact: row.estimated_score_impact as number,
-    };
+    calibration[row.step_number as number] = rowToStepCalibration(
+      row as Record<string, unknown>
+    );
   }
   return calibration;
 }
