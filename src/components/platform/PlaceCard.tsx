@@ -5,6 +5,7 @@ import type { AuditView } from "@/components/audit/types";
 import ExternalImage from "@/components/ExternalImage";
 import { PLACE_CARD_TABS } from "@/components/platform/types";
 import ActionMetricsBar from "@/components/platform/ActionMetricsBar";
+import PlaceCardDetails from "@/components/platform/PlaceCardDetails";
 
 interface PlaceCardProps {
   audit: FullAuditPayload;
@@ -62,6 +63,8 @@ export default function PlaceCard({
           <ActionMetricsBar audit={audit} />
         </div>
       </div>
+
+      <PlaceCardDetails audit={audit} />
 
       <nav
         aria-label="Business sections"

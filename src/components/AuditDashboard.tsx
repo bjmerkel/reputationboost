@@ -84,6 +84,14 @@ export default function AuditDashboard({
     );
   }, [audit, activeKeyword]);
 
+  const activeCompetitors = useMemo(() => {
+    if (!audit) return [];
+    const snap =
+      audit.competitors.find((c) => c.keyword === activeKeyword) ??
+      audit.competitors[0];
+    return snap?.competitors ?? [];
+  }, [audit, activeKeyword]);
+
   async function runAudit() {
     setLoading(true);
     setError(null);
@@ -211,6 +219,7 @@ export default function AuditDashboard({
             <StrategyPanel
               strategy={audit.strategy}
               embedded
+              variant="light"
               gbpConnected={gbpConnected}
               onOpenPhotos={() => setView("photos")}
             />
@@ -238,7 +247,7 @@ export default function AuditDashboard({
           )}
 
           {view === "data" && (
-            <AuditDataPanel audit={audit} embedded gbpConnected={gbpConnected} />
+            <AuditDataPanel audit={audit} embedded variant="light" gbpConnected={gbpConnected} />
           )}
         </PlaceCard>
 
@@ -249,6 +258,8 @@ export default function AuditDashboard({
             address={businessLocation.address}
             businessName={businessName}
             keywordRank={keywordRank}
+            competitors={activeCompetitors}
+            activeKeyword={activeKeyword}
           />
         </div>
       </PlatformShell>

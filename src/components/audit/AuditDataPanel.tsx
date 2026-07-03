@@ -18,12 +18,15 @@ const DATA_TABS: { id: DataTab; label: string }[] = [
 export default function AuditDataPanel({
   audit,
   embedded = false,
+  variant = "dark",
   gbpConnected = false,
 }: {
   audit: FullAuditPayload;
   embedded?: boolean;
+  variant?: "dark" | "light";
   gbpConnected?: boolean;
 }) {
+  const isLight = variant === "light";
   const [tab, setTab] = useState<DataTab>("profile");
   const [liveMedia, setLiveMedia] = useState<GbpMediaPreview[] | null>(null);
 
@@ -80,14 +83,20 @@ export default function AuditDataPanel({
     <div className="space-y-6">
       {!embedded && (
         <div>
-          <h2 className="text-xl font-bold text-white">Audit data</h2>
-          <p className="mt-1 text-sm text-slate-400">
+          <h2 className={`text-xl font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
+            Audit data
+          </h2>
+          <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
             Raw signals collected from Google Maps, your GBP, and off-platform sources.
           </p>
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 border-b border-white/8 pb-3">
+      <div
+        className={`flex flex-wrap gap-2 border-b pb-3 ${
+          isLight ? "border-[#dadce0]" : "border-white/8"
+        }`}
+      >
         {DATA_TABS.map((t) => (
           <button
             key={t.id}
@@ -95,8 +104,12 @@ export default function AuditDataPanel({
             onClick={() => setTab(t.id)}
             className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
               tab === t.id
-                ? "bg-white/10 text-white"
-                : "text-slate-500 hover:text-slate-300"
+                ? isLight
+                  ? "bg-[#e8f0fe] text-[#1a73e8]"
+                  : "bg-white/10 text-white"
+                : isLight
+                  ? "text-[#5f6368] hover:text-[#202124]"
+                  : "text-slate-500 hover:text-slate-300"
             }`}
           >
             {t.label}
@@ -188,10 +201,20 @@ export default function AuditDataPanel({
       )}
 
       {tab === "rankings" && (
-        <div className="overflow-x-auto rounded-xl border border-white/8">
+        <div
+          className={`overflow-x-auto rounded-xl border ${
+            isLight ? "border-[#dadce0]" : "border-white/8"
+          }`}
+        >
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-white/10 bg-white/[0.02] text-slate-400">
+              <tr
+                className={`border-b text-xs uppercase tracking-wider ${
+                  isLight
+                    ? "border-[#dadce0] bg-[#f8f9fa] text-[#5f6368]"
+                    : "border-white/10 bg-white/[0.02] text-slate-400"
+                }`}
+              >
                 <th className="px-4 py-3">Keyword</th>
                 <th className="px-4 py-3">3-Pack</th>
                 <th className="px-4 py-3">1 mi</th>
@@ -202,13 +225,21 @@ export default function AuditDataPanel({
             </thead>
             <tbody>
               {audit.rankings.keywords.map((kw) => (
-                <tr key={kw.keyword} className="border-b border-white/5">
-                  <td className="px-4 py-3 text-white">{kw.keyword}</td>
+                <tr
+                  key={kw.keyword}
+                  className={`border-b ${isLight ? "border-[#f1f3f4]" : "border-white/5"}`}
+                >
+                  <td className={`px-4 py-3 ${isLight ? "text-[#202124]" : "text-white"}`}>
+                    {kw.keyword}
+                  </td>
                   <td className="px-4 py-3">
-                    <PackBadge inPack={kw.inLocalPack} position={kw.localPackPosition} />
+                    <PackBadge inPack={kw.inLocalPack} position={kw.localPackPosition} light={isLight} />
                   </td>
                   {kw.geoRanks.map((g) => (
-                    <td key={g.distanceMiles} className="px-4 py-3 text-slate-300">
+                    <td
+                      key={g.distanceMiles}
+                      className={`px-4 py-3 ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}
+                    >
                       {g.rank ? `#${g.rank}` : "—"}
                     </td>
                   ))}
@@ -340,19 +371,29 @@ function DataBlock({ title, rows }: { title: string; rows: [string, string][] })
 function PackBadge({
   inPack,
   position,
+  light = false,
 }: {
   inPack: boolean;
   position: number | string;
+  light?: boolean;
 }) {
   if (!inPack) {
     return (
-      <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-400">
+      <span
+        className={`rounded-full px-2 py-0.5 text-xs ${
+          light ? "bg-[#fce8e6] text-[#c5221f]" : "bg-red-500/20 text-red-400"
+        }`}
+      >
         Not in pack
       </span>
     );
   }
   return (
-    <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+        light ? "bg-[#e6f4ea] text-[#137333]" : "bg-emerald-500/20 text-emerald-400"
+      }`}
+    >
       #{position}
     </span>
   );

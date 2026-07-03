@@ -306,3 +306,19 @@ body {
 .platform-theme .maps-panel-light .text-violet-300 {
   color: #9334e6;
 }
+
+.platform-theme .maps-panel-light .bg-emerald-500\/10 {
+  background-color: #e6f4ea;
+}
+
+.platform-theme .maps-panel-light .bg-cyan-500\/5 {
+  background-color: #e8f0fe;
+}
+
+.platform-theme .maps-panel-light .border-cyan-500\/20 {
+  border-color: #d2e3fc;
+}
+
+.platform-theme .maps-panel-light .text-cyan-400 {
+  color: #1a73e8;
+}
