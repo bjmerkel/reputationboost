@@ -72,6 +72,7 @@ export default async function PlatformAuditPage() {
           clientId={business.id}
           businessId={business.businessId}
           businessName={business.name}
+          businessIndustry={business.industry}
           businessLocation={businessLocation}
           gbpConnected={gbpConnected}
           initialAudit={latestAudit}

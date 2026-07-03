@@ -30,6 +30,7 @@ interface AuditRunnerProps {
   clientId: string;
   businessId?: string;
   businessName: string;
+  businessIndustry?: string;
   businessLocation: BusinessLocation;
   gbpConnected?: boolean;
   initialAudit: FullAuditPayload | null;
@@ -40,6 +41,7 @@ export default function AuditDashboard({
   clientId,
   businessId,
   businessName,
+  businessIndustry,
   businessLocation,
   gbpConnected = true,
   initialAudit,
@@ -236,6 +238,7 @@ export default function AuditDashboard({
           planPendingCount={planPendingCount}
           onPreviewCustomer={() => setPreviewOpen(true)}
           sparklines={attributionData.sparklines}
+          industry={businessIndustry}
         >
           {view === "report" && (
             <HomeView
@@ -307,6 +310,7 @@ export default function AuditDashboard({
       <ViewAsCustomerModal
         audit={audit}
         tasks={tasks}
+        industry={businessIndustry}
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
       />

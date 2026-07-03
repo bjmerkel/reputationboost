@@ -1,12 +1,14 @@
 "use client";
 
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
+import { resolveDisplayCategory } from "@/lib/business/display-category";
 import ExternalImage from "@/components/ExternalImage";
 import { getOptimizedPreview } from "@/lib/execution/listing-preview";
 
 interface ViewAsCustomerModalProps {
   audit: FullAuditPayload;
   tasks: ExecutionTask[];
+  industry?: string;
   open: boolean;
   onClose: () => void;
 }
@@ -14,6 +16,7 @@ interface ViewAsCustomerModalProps {
 export default function ViewAsCustomerModal({
   audit,
   tasks,
+  industry,
   open,
   onClose,
 }: ViewAsCustomerModalProps) {
@@ -24,7 +27,7 @@ export default function ViewAsCustomerModal({
   const heroPhoto = gbp.content.mediaPreviews?.[0]?.thumbnailUrl;
   const rating = gbp.engagement.averageRating;
   const reviewCount = gbp.engagement.reviewCount;
-  const category = gbp.identity.primaryCategory || gbp.liveProfile?.primaryCategory;
+  const category = resolveDisplayCategory(audit, industry);
   const hasOptimizations = tasks.some((t) => t.status === "pending_approval");
 
   return (

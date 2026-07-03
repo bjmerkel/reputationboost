@@ -2,6 +2,7 @@
 
 import type { FullAuditPayload } from "@/audit/types";
 import type { AuditView } from "@/components/audit/types";
+import { resolveDisplayCategory } from "@/lib/business/display-category";
 import ExternalImage from "@/components/ExternalImage";
 import ActionMetricsBar from "@/components/platform/ActionMetricsBar";
 import PlaceCardDetails from "@/components/platform/PlaceCardDetails";
@@ -14,6 +15,7 @@ interface PlaceCardProps {
   planPendingCount?: number;
   onPreviewCustomer?: () => void;
   sparklines?: Record<string, number[]>;
+  industry?: string;
   children: React.ReactNode;
 }
 
@@ -24,13 +26,14 @@ export default function PlaceCard({
   planPendingCount = 0,
   onPreviewCustomer,
   sparklines,
+  industry,
   children,
 }: PlaceCardProps) {
   const { gbp } = audit;
   const heroPhoto = gbp.content.mediaPreviews?.[0]?.thumbnailUrl;
   const rating = gbp.engagement.averageRating;
   const reviewCount = gbp.engagement.reviewCount;
-  const category = gbp.identity.primaryCategory || gbp.liveProfile?.primaryCategory;
+  const category = resolveDisplayCategory(audit, industry);
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-[1_1_60%] flex-col overflow-hidden border-[#dadce0] bg-white lg:flex-[0_0_40%] lg:border-r">

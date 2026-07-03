@@ -98,8 +98,8 @@ async function collectGbpFromApi(
 
   const primaryCategory =
     liveProfile?.primaryCategory?.displayName ||
-    primaryCategoryFromTypes(place?.types ?? []) ||
-    client.industry;
+    client.industry ||
+    primaryCategoryFromTypes(place?.types ?? []);
   const secondaryCategories = liveProfile?.additionalCategories.length
     ? liveProfile.additionalCategories.map((c) => c.displayName)
     : secondaryCategoriesFromTypes(place?.types ?? []);
@@ -224,7 +224,7 @@ async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<GbpSnap
       address: place.address,
       phone: place.phone || client.phone || "",
       website: place.website || client.website || "",
-      primaryCategory: primaryCategoryFromTypes(place.types) || client.industry,
+      primaryCategory: client.industry || primaryCategoryFromTypes(place.types),
       secondaryCategories: secondaryCategoriesFromTypes(place.types),
       placeId: place.placeId,
       mapsUrl: place.mapsUrl || client.gbpMapsUrl,
@@ -283,7 +283,7 @@ async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<GbpSnap
       napInconsistencies: [],
     },
     liveProfile: {
-      primaryCategory: primaryCategoryFromTypes(place.types) || client.industry,
+      primaryCategory: client.industry || primaryCategoryFromTypes(place.types),
       secondaryCategories: secondaryCategoriesFromTypes(place.types),
       description,
       services: [],
