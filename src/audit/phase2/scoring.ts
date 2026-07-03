@@ -8,12 +8,13 @@ import type {
   ScoreInsight,
 } from "../types";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
-import type { LearnedScoreModel } from "./score-learning";
+import type { ClickShareCurve, LearnedScoreModel } from "./score-learning";
 import {
   computeOverallFromDriverOutcome,
   computeOutcomeIndex,
 } from "./score-driver-outcome";
 import {
+  DEFAULT_CLICK_SHARE_CURVE,
   DEFAULT_LEARNED_SCORE_MODEL,
   effectiveScoreModel,
   topClickSharePercent,

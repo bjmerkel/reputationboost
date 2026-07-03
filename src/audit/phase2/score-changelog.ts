@@ -117,7 +117,7 @@ export function buildScoreChangelogFromSnapshots(
     });
   }
 
-  for (const component of ["visibility", "conversion", "revenueCapture"] as ScoreComponent[]) {
+  for (const component of ["visibility", "conversion", "revenueCapture"] as const) {
     const entry = componentDelta(current[component], prior[component], component);
     if (entry) entries.push(entry);
   }
