@@ -115,5 +115,8 @@ export function buildTaskPayloadContext(
     expectedEffect: context.expectedEffect,
     currentValue: context.currentValue,
     recommendedValue: context.recommendedValue,
+    ...(context.healthScoreImpact != null
+      ? { projectedDriverImpact: context.healthScoreImpact }
+      : {}),
   };
 }

@@ -39,11 +39,18 @@ export {
   applyStepMutation,
   cloneAudit,
   isStepSatisfied,
+  pickActionsForDriverTarget,
   projectHealthScoresFromActions,
   projectHealthScoresFromStepNumbers,
   simulateGapDriverImpact,
   simulateStepDriverImpact,
 } from "./counterfactual";
+export {
+  buildProjectionAccuracySamples,
+  computeObservedDriverImpact,
+  medianDriverScoreInRange,
+  summarizeProjectionAccuracy,
+} from "./projection-accuracy";
 export { computeMonthOverMonth } from "./diff";
 export { buildStrategy } from "./strategy";
 export { buildMonthlyReport, buildFirstAuditReport, describeRankMovement, describeCompetitorDelta } from "./monthly-report";

@@ -68,6 +68,10 @@ export interface ActionAttribution {
   narrative: string;
   preliminary: boolean;
   computedAt: string;
+  projectedDriverImpact?: number | null;
+  observedDriverImpact?: number | null;
+  driverScoreBefore?: number | null;
+  driverScoreAfter?: number | null;
 }
 
 export interface AttributionSummary {

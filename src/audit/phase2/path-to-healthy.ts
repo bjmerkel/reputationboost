@@ -7,7 +7,7 @@ import type {
   Plan,
 } from "../types";
 import { formatCurrency } from "../attribution/roi";
-import { projectHealthScoresFromActions } from "./counterfactual";
+import { pickActionsForDriverTarget, type ActionRef } from "./counterfactual";
 import { computeKeywordScores } from "./keyword-scores";
 import { estimateStepHealthImpact, gapDriverScoreImpact } from "./score-impact";
 import type { AttributionCalibration } from "./attribution-calibration";
@@ -50,22 +50,45 @@ function planStepsToPath(
   }));
 }
 
-function pickStepsToTarget(
-  steps: PathToHealthyStep[],
-  pointsNeeded: number
-): { selected: PathToHealthyStep[]; projectedGain: number } {
-  const sorted = [...steps].sort((a, b) => b.scoreImpact - a.scoreImpact);
-  const selected: PathToHealthyStep[] = [];
-  let gain = 0;
+function buildCandidatePool(
+  audit: FullAuditPayload,
+  plan: Plan | null,
+  calibration?: AttributionCalibration
+): { steps: PathToHealthyStep[]; actions: ActionRef[] } {
+  const gapSteps = (audit.strategy?.gaps ?? [])
+    .map((gap, index) => gapToPathStep(audit, gap, index))
+    .filter((s) => s.scoreImpact > 0);
 
-  for (const step of sorted) {
-    if (gain >= pointsNeeded) break;
-    if (step.scoreImpact <= 0) continue;
-    selected.push(step);
-    gain += step.scoreImpact;
+  const planPathSteps = plan
+    ? plan.steps
+        .filter((s) => s.status !== "completed" && s.status !== "skipped")
+        .map((s) => ({
+          id: `gbp-step-${s.stepNumber}`,
+          title: s.title,
+          scoreImpact:
+            s.context.healthScoreImpact ??
+            estimateStepHealthImpact(audit, s.stepNumber, calibration),
+          source: "plan" as const,
+          order: s.stepNumber,
+        }))
+        .filter((s) => s.scoreImpact > 0)
+    : planStepsToPath(audit, calibration).filter((s) => s.scoreImpact > 0);
+
+  const steps: PathToHealthyStep[] = [...gapSteps];
+  const seen = new Set(gapSteps.map((s) => s.id));
+  for (const step of planPathSteps) {
+    if (!seen.has(step.id)) {
+      steps.push(step);
+      seen.add(step.id);
+    }
   }
 
-  return { selected, projectedGain: gain };
+  const actions: ActionRef[] = steps.map((step) => ({
+    source: step.source,
+    id: step.id,
+  }));
+
+  return { steps, actions };
 }
 
 function estimateRevenueGain(
@@ -118,42 +141,28 @@ export function buildPathToHealthy(
   }
 
   const pointsNeeded = driverTarget - currentDriverScore;
-
-  const gapSteps = (audit.strategy?.gaps ?? [])
-    .map((gap, index) => gapToPathStep(audit, gap, index))
-    .filter((s) => s.scoreImpact > 0);
-  const planPathSteps = plan
-    ? plan.steps
-        .filter((s) => s.status !== "completed" && s.status !== "skipped")
-        .map((s) => ({
-          id: `gbp-step-${s.stepNumber}`,
-          title: s.title,
-          scoreImpact:
-            s.context.healthScoreImpact ??
-            estimateStepHealthImpact(audit, s.stepNumber, options.calibration),
-          source: "plan" as const,
-          order: s.stepNumber,
-        }))
-        .filter((s) => s.scoreImpact > 0)
-    : planStepsToPath(audit, options.calibration).filter((s) => s.scoreImpact > 0);
-
-  const combined: PathToHealthyStep[] = [...gapSteps];
-  const seen = new Set(gapSteps.map((s) => s.id));
-  for (const step of planPathSteps) {
-    if (!seen.has(step.id)) {
-      combined.push(step);
-      seen.add(step.id);
-    }
-  }
-
-  const { selected } = pickStepsToTarget(combined, pointsNeeded);
-  const projection = projectHealthScoresFromActions(
+  const { steps: candidateSteps, actions } = buildCandidatePool(
     audit,
-    selected.map((s) => ({
-      source: s.source,
-      id: s.id,
-    }))
+    plan,
+    options.calibration
   );
+  const stepById = new Map(candidateSteps.map((step) => [step.id, step]));
+
+  const { selected, projection } = pickActionsForDriverTarget(
+    audit,
+    actions,
+    pointsNeeded
+  );
+
+  const selectedSteps: PathToHealthyStep[] = selected.map((action, index) => {
+    const base = stepById.get(action.id)!;
+    return {
+      ...base,
+      scoreImpact: action.marginalDriverGain,
+      order: index,
+    };
+  });
+
   const revenueGain = estimateRevenueGain(audit, options);
 
   return {
@@ -164,7 +173,7 @@ export function buildPathToHealthy(
     pointsNeeded,
     projectedScore: projection.projectedOverallScore,
     projectedDriverScore: projection.projectedDriverScore,
-    steps: selected,
+    steps: selectedSteps,
     estimatedRevenueGain: revenueGain,
     estimatedRevenueGainLabel:
       revenueGain != null

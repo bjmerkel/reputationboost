@@ -390,3 +390,53 @@ export function projectHealthScoresFromStepNumbers(
     stepNumbers.map((n) => ({ source: "plan" as const, id: `gbp-step-${n}` }))
   );
 }
+
+export interface ActionRef {
+  source: "plan" | "gap";
+  id: string;
+}
+
+export interface SelectedAction extends ActionRef {
+  marginalDriverGain: number;
+}
+
+/**
+ * Greedily pick actions until cumulative driver gain meets the target.
+ * Uses full counterfactual re-scoring at each pick — avoids double-counting
+ * overlapping steps (e.g. description + services both moving relevance).
+ */
+export function pickActionsForDriverTarget(
+  audit: Phase1AuditPayload,
+  candidates: ActionRef[],
+  pointsNeeded: number
+): { selected: SelectedAction[]; projection: ProjectedHealthScores } {
+  const selected: SelectedAction[] = [];
+  const remaining = [...candidates];
+  let currentProjection = projectHealthScoresFromActions(audit, []);
+
+  while (currentProjection.driverGain < pointsNeeded && remaining.length > 0) {
+    let bestIndex = -1;
+    let bestMarginal = 0;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const candidate = remaining[i];
+      const withCandidate = projectHealthScoresFromActions(audit, [
+        ...selected,
+        candidate,
+      ]);
+      const marginal = withCandidate.driverGain - currentProjection.driverGain;
+      if (marginal > bestMarginal) {
+        bestMarginal = marginal;
+        bestIndex = i;
+      }
+    }
+
+    if (bestIndex < 0 || bestMarginal <= 0) break;
+
+    const picked = remaining.splice(bestIndex, 1)[0];
+    selected.push({ ...picked, marginalDriverGain: bestMarginal });
+    currentProjection = projectHealthScoresFromActions(audit, selected);
+  }
+
+  return { selected, projection: currentProjection };
+}

@@ -44,6 +44,14 @@ function rowToAttribution(row: Record<string, unknown>, title = ""): ActionAttri
     narrative: (row.narrative as string) ?? "",
     preliminary: new Date() < postEnd,
     computedAt: row.computed_at as string,
+    projectedDriverImpact:
+      row.projected_driver_impact != null ? Number(row.projected_driver_impact) : null,
+    observedDriverImpact:
+      row.observed_driver_impact != null ? Number(row.observed_driver_impact) : null,
+    driverScoreBefore:
+      row.driver_score_before != null ? Number(row.driver_score_before) : null,
+    driverScoreAfter:
+      row.driver_score_after != null ? Number(row.driver_score_after) : null,
   };
 }
 
@@ -66,6 +74,10 @@ export interface AttributionUpsertInput {
   impressionsDelta: number;
   estimatedRevenue: number | null;
   narrative: string;
+  projectedDriverImpact?: number | null;
+  observedDriverImpact?: number | null;
+  driverScoreBefore?: number | null;
+  driverScoreAfter?: number | null;
 }
 
 export async function upsertActionAttribution(input: AttributionUpsertInput): Promise<void> {
@@ -89,6 +101,10 @@ export async function upsertActionAttribution(input: AttributionUpsertInput): Pr
       impressions_delta: input.impressionsDelta,
       estimated_revenue: input.estimatedRevenue,
       narrative: input.narrative,
+      projected_driver_impact: input.projectedDriverImpact ?? null,
+      observed_driver_impact: input.observedDriverImpact ?? null,
+      driver_score_before: input.driverScoreBefore ?? null,
+      driver_score_after: input.driverScoreAfter ?? null,
       computed_at: new Date().toISOString(),
     },
     { onConflict: "execution_task_id" }

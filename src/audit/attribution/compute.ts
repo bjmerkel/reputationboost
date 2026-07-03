@@ -1,12 +1,14 @@
 import { pickPrimaryKeyword, resolveTargetKeywords } from "./keywords";
 import { buildAttributionNarrative } from "./narrative";
 import { estimateAttributionRevenue, formatCurrency } from "./roi";
+import { computeObservedDriverImpact } from "@/audit/phase2/projection-accuracy";
 import type { CompletedTaskRecord } from "@/audit/storage-attribution";
 import {
   getRankSnapshotsInRange,
   sumPerformanceInRange,
   upsertActionAttribution,
 } from "@/audit/storage-attribution";
+import { listScoreDailyForBusinessAdmin } from "@/audit/storage-score-daily";
 
 const DEFAULT_WINDOW_DAYS = 14;
 
@@ -128,6 +130,27 @@ export async function computeAttributionForTask(
     narrative += ` → ~${formatCurrency(estimatedRevenue, avgCustomerValueCurrency)} estimated`;
   }
 
+  const projectedDriverImpact = resolveProjectedDriverImpact(task);
+  const scoreSnapshots = await listScoreDailyForBusinessAdmin(businessId, windowDays * 3);
+  const observed = computeObservedDriverImpact(
+    scoreSnapshots,
+    task.completedAt!,
+    windowDays
+  );
+
+  if (
+    observed.observedDriverImpact != null &&
+    projectedDriverImpact != null &&
+    !preliminary
+  ) {
+    const error = observed.observedDriverImpact - projectedDriverImpact;
+    if (Math.abs(error) >= 3) {
+      narrative += ` · Driver score moved ${observed.observedDriverImpact >= 0 ? "+" : ""}${observed.observedDriverImpact} pts (projected ${projectedDriverImpact >= 0 ? "+" : ""}${projectedDriverImpact})`;
+    } else if (observed.observedDriverImpact > 0) {
+      narrative += ` · Driver score +${observed.observedDriverImpact} pts`;
+    }
+  }
+
   await upsertActionAttribution({
     executionTaskId: task.id,
     businessId,
@@ -147,7 +170,20 @@ export async function computeAttributionForTask(
     impressionsDelta,
     estimatedRevenue,
     narrative,
+    projectedDriverImpact,
+    observedDriverImpact: observed.observedDriverImpact,
+    driverScoreBefore: observed.driverScoreBefore,
+    driverScoreAfter: observed.driverScoreAfter,
   });
+}
+
+function resolveProjectedDriverImpact(task: CompletedTaskRecord["task"]): number | null {
+  const payload = task.payload ?? {};
+  const fromPayload = payload.projectedDriverImpact ?? payload.healthScoreImpact;
+  if (typeof fromPayload === "number" && Number.isFinite(fromPayload)) {
+    return Math.round(fromPayload);
+  }
+  return null;
 }
 
 export async function recomputeAttributionsForBusiness(
