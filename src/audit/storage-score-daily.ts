@@ -61,6 +61,14 @@ export async function listRankSnapshotsForBusinessDate(
   businessId: string,
   date: string
 ): Promise<RankSnapshotRow[]> {
+  return listRankSnapshotsForBusinessRange(businessId, date, date);
+}
+
+export async function listRankSnapshotsForBusinessRange(
+  businessId: string,
+  startDate: string,
+  endDate: string
+): Promise<RankSnapshotRow[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("rank_snapshots")
@@ -68,10 +76,80 @@ export async function listRankSnapshotsForBusinessDate(
       "business_id, keyword, date, distance_miles, grid_north, grid_east, rank, in_local_pack, local_pack_position, source"
     )
     .eq("business_id", businessId)
-    .eq("date", date)
+    .gte("date", startDate)
+    .lte("date", endDate)
     .eq("distance_miles", 1)
     .eq("grid_north", 0)
-    .eq("grid_east", 0);
+    .eq("grid_east", 0)
+    .order("date", { ascending: true });
+
+  if (error || !data) return [];
+
+  return data.map((row) => ({
+    businessId: row.business_id as string,
+    keyword: row.keyword as string,
+    date: row.date as string,
+    distanceMiles: row.distance_miles as number,
+    gridNorth: Number(row.grid_north),
+    gridEast: Number(row.grid_east),
+    rank: row.rank as number | null,
+    inLocalPack: row.in_local_pack as boolean,
+    localPackPosition: row.local_pack_position as number | null,
+    source: row.source as RankSnapshotRow["source"],
+  }));
+}
+
+export async function listScoreDailyForBusinessAdmin(
+  businessId: string,
+  days = 90
+): Promise<ScoreDailySnapshot[]> {
+  const supabase = createAdminClient();
+  const start = new Date();
+  start.setUTCDate(start.getUTCDate() - days);
+
+  const { data, error } = await supabase
+    .from("score_daily")
+    .select("business_id, date, overall, visibility, conversion, revenue_capture, source")
+    .eq("business_id", businessId)
+    .gte("date", start.toISOString().slice(0, 10))
+    .order("date", { ascending: true });
+
+  if (error || !data) return [];
+  return data.map((row) => rowToSnapshot(row as Record<string, unknown>));
+}
+
+export async function listAllScoreDailyAdmin(days = 90): Promise<ScoreDailySnapshot[]> {
+  const supabase = createAdminClient();
+  const start = new Date();
+  start.setUTCDate(start.getUTCDate() - days);
+
+  const { data, error } = await supabase
+    .from("score_daily")
+    .select("business_id, date, overall, visibility, conversion, revenue_capture, source")
+    .gte("date", start.toISOString().slice(0, 10))
+    .order("date", { ascending: true });
+
+  if (error || !data) return [];
+  return data.map((row) => rowToSnapshot(row as Record<string, unknown>));
+}
+
+export async function listAllRankSnapshotsAdmin(
+  days = 90
+): Promise<RankSnapshotRow[]> {
+  const supabase = createAdminClient();
+  const start = new Date();
+  start.setUTCDate(start.getUTCDate() - days);
+
+  const { data, error } = await supabase
+    .from("rank_snapshots")
+    .select(
+      "business_id, keyword, date, distance_miles, grid_north, grid_east, rank, in_local_pack, local_pack_position, source"
+    )
+    .gte("date", start.toISOString().slice(0, 10))
+    .eq("distance_miles", 1)
+    .eq("grid_north", 0)
+    .eq("grid_east", 0)
+    .order("date", { ascending: true });
 
   if (error || !data) return [];
 

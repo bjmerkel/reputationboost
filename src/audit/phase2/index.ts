@@ -1,4 +1,7 @@
 export { computeHealthScores, computeVisibilityScore, computeConversionScore, computeRevenueCaptureScore, positionVisibilityScore, positionClickShare, resolveKeywordPosition, keywordImpressionWeight, impressionWeightFloor, matchSearchKeywordImpressions, keywordGeoGridVisibilityScore } from "./scoring";
+export { DEFAULT_RANK_MEDIAN_WINDOW_DAYS, medianOf, medianRankSnapshotForKeyword, smoothRankSnapshotsForDate } from "./rank-median";
+export { compareRanksAtOneMile, summarizeRankValidation, compareSearchModesAtOneMile, validateKeywordRanks } from "./rank-validation";
+export { DEFAULT_BACKTEST_HORIZON_DAYS, buildBacktestSamples, evaluateBacktestMetrics } from "./score-backtest";
 export { computeKeywordScores } from "./keyword-scores";
 export { buildPathToHealthy } from "./path-to-healthy";
 export { buildAttributionCalibration, calibratedStepImpact, mergeCalibrations } from "./attribution-calibration";
