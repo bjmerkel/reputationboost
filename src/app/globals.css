@@ -224,3 +224,85 @@ body {
 .hdpi.pac-logo::after {
   display: none;
 }
+
+/* ─── Platform: Google Maps–aligned light theme ─────────────────────────── */
+.platform-theme {
+  --background: #f8f9fa;
+  --foreground: #202124;
+  --muted: #5f6368;
+  --accent: #1a73e8;
+  --accent-secondary: #007b83;
+  --card: #ffffff;
+  --card-border: #dadce0;
+  --glow: rgba(26, 115, 232, 0.12);
+  --platform-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.platform-theme .btn-primary {
+  background: #1a73e8;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3);
+}
+
+.platform-theme .btn-primary:hover {
+  background: #1765cc;
+  box-shadow: 0 1px 3px rgba(60, 64, 67, 0.4);
+}
+
+.platform-theme .btn-secondary {
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  color: #3c4043;
+}
+
+.platform-theme .btn-secondary:hover {
+  background: #f8f9fa;
+  border-color: #dadce0;
+}
+
+/* Light overrides for legacy dark panels inside platform */
+.platform-theme .maps-panel-light .text-white {
+  color: #202124;
+}
+
+.platform-theme .maps-panel-light .text-slate-400 {
+  color: #5f6368;
+}
+
+.platform-theme .maps-panel-light .text-slate-300 {
+  color: #3c4043;
+}
+
+.platform-theme .maps-panel-light .text-slate-500 {
+  color: #80868b;
+}
+
+.platform-theme .maps-panel-light .border-white\/8,
+.platform-theme .maps-panel-light .border-white\/10 {
+  border-color: #dadce0;
+}
+
+.platform-theme .maps-panel-light .bg-white\/5,
+.platform-theme .maps-panel-light .bg-white\/\[0\.02\],
+.platform-theme .maps-panel-light .bg-white\/\[0\.03\] {
+  background-color: #f8f9fa;
+}
+
+.platform-theme .maps-panel-light .text-emerald-400 {
+  color: #188038;
+}
+
+.platform-theme .maps-panel-light .text-amber-300,
+.platform-theme .maps-panel-light .text-amber-200 {
+  color: #e37400;
+}
+
+.platform-theme .maps-panel-light .text-red-400,
+.platform-theme .maps-panel-light .text-red-200 {
+  color: #d93025;
+}
+
+.platform-theme .maps-panel-light .text-violet-300 {
+  color: #9334e6;
+}

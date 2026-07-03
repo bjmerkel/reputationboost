@@ -1,23 +1,33 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import AuditDataPanel from "@/components/audit/AuditDataPanel";
-import AuditSidebar, { AuditViewHeader } from "@/components/audit/AuditSidebar";
-import AuditSummaryStrip from "@/components/audit/AuditSummaryStrip";
 import { isAuditView, type AuditView } from "@/components/audit/types";
 import ExecutionQueue from "@/components/ExecutionQueue";
 import MonthlyReportPanel from "@/components/MonthlyReportPanel";
 import PerformancePermissionBanner from "@/components/PerformancePermissionBanner";
 import PhotosPanel from "@/components/PhotosPanel";
+import MapsSearchBar from "@/components/platform/MapsSearchBar";
+import PlaceCard from "@/components/platform/PlaceCard";
+import PlatformShell from "@/components/platform/PlatformShell";
+import RankingMap from "@/components/platform/RankingMap";
 import StrategyPanel from "@/components/StrategyPanel";
+
+interface BusinessLocation {
+  lat: number;
+  lng: number;
+  address: string;
+}
 
 interface AuditRunnerProps {
   clientId: string;
   businessId?: string;
+  businessName: string;
+  businessLocation: BusinessLocation;
   gbpConnected?: boolean;
   initialAudit: FullAuditPayload | null;
   initialExecutionTasks?: ExecutionTask[];
@@ -26,6 +36,8 @@ interface AuditRunnerProps {
 export default function AuditDashboard({
   clientId,
   businessId,
+  businessName,
+  businessLocation,
   gbpConnected = true,
   initialAudit,
   initialExecutionTasks = [],
@@ -39,6 +51,9 @@ export default function AuditDashboard({
     initialAudit ? ensureStrategy(initialAudit) : null
   );
   const [view, setViewState] = useState<AuditView>(initialView);
+  const [activeKeyword, setActiveKeyword] = useState(
+    () => initialAudit?.rankings.keywords[0]?.keyword ?? ""
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +76,14 @@ export default function AuditDashboard({
   const pendingPhotoTasks = photoTasks.filter((t) => t.status === "pending_approval").length;
   const pendingTasks = actionTasks.filter((t) => t.status === "pending_approval").length;
 
+  const keywordRank = useMemo(() => {
+    if (!audit) return undefined;
+    return (
+      audit.rankings.keywords.find((k) => k.keyword === activeKeyword) ??
+      audit.rankings.keywords[0]
+    );
+  }, [audit, activeKeyword]);
+
   async function runAudit() {
     setLoading(true);
     setError(null);
@@ -72,7 +95,11 @@ export default function AuditDashboard({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Audit failed");
-      setAudit(ensureStrategy(data.audit));
+      const nextAudit = ensureStrategy(data.audit);
+      setAudit(nextAudit);
+      if (nextAudit.rankings.keywords[0]) {
+        setActiveKeyword(nextAudit.rankings.keywords[0].keyword);
+      }
       setView("report");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Audit failed");
@@ -83,13 +110,13 @@ export default function AuditDashboard({
 
   if (!audit) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {!gbpConnected && <GbpConnectBanner businessId={businessId} />}
-        <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-12 text-center">
-          <p className="text-lg font-medium text-white">Ready to see where you stand?</p>
-          <p className="mt-2 text-slate-400">
+        <div className="rounded-xl border border-[#dadce0] bg-white p-12 text-center shadow-[var(--platform-shadow)]">
+          <p className="text-lg font-medium text-[#202124]">Ready to see where you stand?</p>
+          <p className="mt-2 text-sm text-[#5f6368]">
             {gbpConnected
-              ? "Run your first audit to get a monthly report, action plan, and execution queue."
+              ? "Run your first audit to see your listing on the map, performance metrics, and optimization plan."
               : "Connect Google Business Profile to run your first live audit."}
           </p>
           {gbpConnected ? (
@@ -111,14 +138,14 @@ export default function AuditDashboard({
               </Link>
             )
           )}
-          {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+          {error && <p className="mt-4 text-sm text-[#d93025]">{error}</p>}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col">
       {!gbpConnected && <GbpConnectBanner businessId={businessId} />}
 
       {audit.gbp.performance.source !== "api" && audit.gbp.performance.accessCheck && (
@@ -129,60 +156,65 @@ export default function AuditDashboard({
       )}
 
       {audit.gbp.performance.warnings && audit.gbp.performance.warnings.length > 0 && (
-        <div className="rounded-xl border border-slate-500/20 bg-slate-500/5 px-5 py-4">
-          <p className="text-sm text-slate-400">
+        <div className="mb-3 rounded-lg border border-[#dadce0] bg-[#f8f9fa] px-4 py-3">
+          <p className="text-sm text-[#5f6368]">
             Some Google insights are limited for this location. Your audit still includes
             everything else.
           </p>
         </div>
       )}
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-slate-500">
-          {audit.period} · Last updated {new Date(audit.completedAt).toLocaleString()}
-        </p>
-        <button
-          type="button"
-          onClick={runAudit}
-          disabled={loading || !gbpConnected}
-          className="btn-primary shrink-0 rounded-full px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          {loading ? "Running audit…" : "Re-run Audit"}
-        </button>
-      </div>
+      {error && <p className="mb-3 text-sm text-[#d93025]">{error}</p>}
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
-
-      <AuditSummaryStrip audit={audit} />
-
-      <div className="flex min-h-[calc(100vh-14rem)] flex-col overflow-hidden rounded-2xl border border-white/8 bg-slate-950/40 lg:flex-row">
-        <AuditSidebar
-          active={view}
-          onChange={setView}
+      <PlatformShell
+        searchBar={
+          <MapsSearchBar
+            businessName={businessName}
+            keywords={audit.rankings.keywords}
+            activeKeyword={activeKeyword}
+            onKeywordChange={setActiveKeyword}
+          />
+        }
+        toolbar={
+          <div className="flex shrink-0 flex-col items-end gap-0.5">
+            <button
+              type="button"
+              onClick={runAudit}
+              disabled={loading || !gbpConnected}
+              className="btn-primary shrink-0 rounded-full px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {loading ? "Refreshing…" : "Refresh data"}
+            </button>
+            <p className="hidden text-[10px] text-[#80868b] sm:block">
+              {audit.period} · {new Date(audit.completedAt).toLocaleDateString()}
+            </p>
+          </div>
+        }
+      >
+        <PlaceCard
+          audit={audit}
+          activeView={view}
+          onViewChange={setView}
           pendingTasks={pendingTasks}
           pendingPhotoTasks={pendingPhotoTasks}
-        />
-
-        <div className="min-w-0 flex-1 overflow-y-auto p-6 md:p-8">
-          <AuditViewHeader view={view} />
-
+        >
           {view === "report" && audit.strategy?.monthlyReport && (
-            <MonthlyReportPanel report={audit.strategy.monthlyReport} embedded />
+            <MonthlyReportPanel report={audit.strategy.monthlyReport} embedded variant="light" />
           )}
           {view === "report" && !audit.strategy?.monthlyReport && (
-            <p className="text-slate-400">
-              Monthly report will appear after your first audit completes.
+            <p className="text-sm text-[#5f6368]">
+              Your monthly overview will appear after your first audit completes.
             </p>
           )}
 
-        {view === "strategy" && audit.strategy && (
-          <StrategyPanel
-            strategy={audit.strategy}
-            embedded
-            gbpConnected={gbpConnected}
-            onOpenPhotos={() => setView("photos")}
-          />
-        )}
+          {view === "strategy" && audit.strategy && (
+            <StrategyPanel
+              strategy={audit.strategy}
+              embedded
+              gbpConnected={gbpConnected}
+              onOpenPhotos={() => setView("photos")}
+            />
+          )}
 
           {view === "photos" && (
             <PhotosPanel
@@ -208,23 +240,33 @@ export default function AuditDashboard({
           {view === "data" && (
             <AuditDataPanel audit={audit} embedded gbpConnected={gbpConnected} />
           )}
+        </PlaceCard>
+
+        <div className="min-h-[280px] flex-1 lg:min-h-0">
+          <RankingMap
+            lat={businessLocation.lat}
+            lng={businessLocation.lng}
+            address={businessLocation.address}
+            businessName={businessName}
+            keywordRank={keywordRank}
+          />
         </div>
-      </div>
+      </PlatformShell>
     </div>
   );
 }
 
 function GbpConnectBanner({ businessId }: { businessId?: string }) {
   return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-4">
-      <p className="text-sm font-medium text-amber-200">Google Business Profile not connected</p>
-      <p className="mt-1 text-sm text-slate-400">
+    <div className="mb-3 rounded-lg border border-[#fdd663] bg-[#fef7e0] px-4 py-3">
+      <p className="text-sm font-medium text-[#3c4043]">Google Business Profile not connected</p>
+      <p className="mt-1 text-sm text-[#5f6368]">
         Connect to pull live reviews, performance metrics, and run full audits.
       </p>
       {businessId && (
         <Link
           href={`/platform/onboard?businessId=${businessId}`}
-          className="mt-3 inline-block text-sm font-semibold text-emerald-400 hover:text-emerald-300"
+          className="mt-2 inline-block text-sm font-semibold text-[#1a73e8] hover:underline"
         >
           Connect now →
         </Link>

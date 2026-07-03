@@ -14,6 +14,15 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+function formatAddress(location: {
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+}): string {
+  return `${location.address}, ${location.city}, ${location.state} ${location.zip}`;
+}
+
 export default async function PlatformAuditPage() {
   const user = await getUser();
   if (!user) redirect("/login?next=/platform/audit");
@@ -44,35 +53,31 @@ export default async function PlatformAuditPage() {
       ? executionTasks
       : (latestAudit?.execution?.tasks ?? []);
 
-  return (
-    <main className="relative flex min-h-[calc(100vh-4rem)] flex-col overflow-hidden">
-      <div className="mesh-bg absolute inset-0" />
-      <div className="relative flex min-h-0 flex-1 flex-col px-4 py-6 sm:px-6">
-        <div className="mb-6 shrink-0">
-          <h1 className="text-2xl font-extrabold text-white sm:text-3xl">{business.name}</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Select a section from the sidebar to review results, plan, and take action.
-          </p>
-        </div>
+  const businessLocation = {
+    lat: business.location.lat,
+    lng: business.location.lng,
+    address: formatAddress(business.location),
+  };
 
-        <div className="min-h-0 flex-1">
-          <Suspense
-            fallback={
-              <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-12 text-center text-slate-400">
-                Loading dashboard…
-              </div>
-            }
-          >
-            <AuditDashboard
-              clientId={business.id}
-              businessId={business.businessId}
-              gbpConnected={gbpConnected}
-              initialAudit={latestAudit}
-              initialExecutionTasks={initialExecutionTasks}
-            />
-          </Suspense>
-        </div>
-      </div>
+  return (
+    <main className="flex min-h-0 flex-1 flex-col">
+      <Suspense
+        fallback={
+          <div className="flex flex-1 items-center justify-center p-12 text-[#5f6368]">
+            Loading dashboard…
+          </div>
+        }
+      >
+        <AuditDashboard
+          clientId={business.id}
+          businessId={business.businessId}
+          businessName={business.name}
+          businessLocation={businessLocation}
+          gbpConnected={gbpConnected}
+          initialAudit={latestAudit}
+          initialExecutionTasks={initialExecutionTasks}
+        />
+      </Suspense>
     </main>
   );
 }

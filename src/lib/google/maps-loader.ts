@@ -21,13 +21,13 @@ export function isMapsAutocompleteAvailable(): boolean {
   return Boolean(getMapsApiKey());
 }
 
-/** Load Google Maps JavaScript API with Places library (client-side). */
-export function loadGoogleMaps(): Promise<typeof google> {
+/** Load Google Maps JavaScript API (map display; Places optional). */
+export function loadGoogleMapsCore(): Promise<typeof google> {
   if (typeof window === "undefined") {
     return Promise.reject(new Error("Google Maps can only load in the browser."));
   }
 
-  if (window.google?.maps?.places) {
+  if (window.google?.maps) {
     return Promise.resolve(window.google);
   }
 
@@ -51,11 +51,11 @@ export function loadGoogleMaps(): Promise<typeof google> {
       const callbackName = "__rbMapsInit";
       (window as unknown as Record<string, () => void>)[callbackName] = () => {
         if (settled) return;
-        if (window.google?.maps?.places) {
+        if (window.google?.maps) {
           settled = true;
           resolve(window.google);
         } else {
-          fail("Google Places library failed to load.");
+          fail("Google Maps library failed to load.");
         }
       };
 
@@ -66,7 +66,7 @@ export function loadGoogleMaps(): Promise<typeof google> {
       document.head.appendChild(script);
 
       window.setTimeout(() => {
-        if (!settled && !window.google?.maps?.places) {
+        if (!settled && !window.google?.maps) {
           fail(MAPS_NOT_ACTIVATED_ERROR);
         }
       }, 8000);
@@ -74,4 +74,22 @@ export function loadGoogleMaps(): Promise<typeof google> {
   }
 
   return loadPromise;
+}
+
+/** Load Google Maps JavaScript API with Places library (client-side). */
+export function loadGoogleMaps(): Promise<typeof google> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Google Maps can only load in the browser."));
+  }
+
+  if (window.google?.maps?.places) {
+    return Promise.resolve(window.google);
+  }
+
+  return loadGoogleMapsCore().then((google) => {
+    if (!google.maps?.places) {
+      return Promise.reject(new Error("Google Places library failed to load."));
+    }
+    return google;
+  });
 }
