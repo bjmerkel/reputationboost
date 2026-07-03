@@ -60,19 +60,18 @@ function currentPosts(audit: Phase1AuditPayload): string {
   return `Last post ${days} days ago: "${latest.summary.slice(0, 100)}${latest.summary.length > 100 ? "…" : ""}"`;
 }
 
-export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimizationPlan {
+export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
   const targetKeywords = keywords(audit);
   const city = cityFromAddress(audit.gbp.identity.address);
   const category = audit.gbp.identity.primaryCategory;
   const reviewTarget = Math.max(200, audit.gbp.engagement.reviewCount + 50);
   const photoTarget = Math.max(200, audit.gbp.content.photoCount + 80);
-  const currentState = buildGbpCurrentState(audit);
   const keywordRankings = buildKeywordRankAnalysis(audit);
   const recommendedSecondary = inferRecommendedSecondaryCategories(audit);
   const liveSecondary =
     audit.gbp.liveProfile?.secondaryCategories ?? audit.gbp.identity.secondaryCategories;
 
-  const allSteps: GbpPlanStep[] = [
+  return [
     {
       stepNumber: 1,
       title: "Primary Category",
@@ -307,7 +306,13 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       ],
     },
   ];
+}
 
+export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimizationPlan {
+  const targetKeywords = keywords(audit);
+  const currentState = buildGbpCurrentState(audit);
+  const keywordRankings = buildKeywordRankAnalysis(audit);
+  const allSteps = buildAllGbpPlanSteps(audit);
   const steps = allSteps.filter((step) => !isStepSatisfied(audit, step.stepNumber));
 
   const outsidePack = keywordRankings.filter((k) => !k.inLocalPack).length;

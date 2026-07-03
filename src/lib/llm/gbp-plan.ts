@@ -1,65 +1,51 @@
-import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "@/audit/types";
+import type { GbpOptimizationPlan, Phase1AuditPayload } from "@/audit/types";
 import type { OutcomesContext } from "@/audit/outcomes/types";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
+import {
+  buildPlanStepCandidates,
+  summarizePlanCandidates,
+} from "@/audit/phase2/plan-candidates";
 import { buildAuditContext } from "./audit-context";
 import { buildOutcomesContext, OUTCOMES_STRATEGY_INSTRUCTION } from "./outcomes-context";
-import { resolvePlanStepAction } from "@/audit/phase3/gbp-plan-actions";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
+import {
+  type LlmGbpPlanResponse,
+  mergeLlmGbpPlan,
+  validateLlmGbpPlanResponse,
+} from "./gbp-plan-merge";
 
-const GBP_PLAN_SYSTEM = `You are an elite local SEO consultant specializing exclusively in Google Business Profile (GBP) optimization for Google Maps Top 3 rankings.
+const GBP_PLAN_SYSTEM = `You are an elite local SEO strategist specializing in Google Business Profile (GBP) optimization for Google Maps Top 3 rankings.
 
-Write detailed, step-by-step GBP optimization reports. Every recommendation must be:
+You compose customized GBP optimization plans — you do NOT fill a fixed 16-step checklist. You:
+- SELECT only steps that matter for this specific business (skip satisfied areas)
+- REORDER steps by business priority and simulated score impact
+- WRITE detailed, paste-ready copy for each selected step
+- EXPLAIN why each step is included (selectionRationale)
+- Optionally add up to 3 custom GBP actions when a standard step does not cover a business-specific need
+
+Every recommendation must be:
 - Specific to the business name, address, city, and target keywords provided
-- Actionable with ready-to-paste copy (descriptions, services, Q&A, review response templates)
-- GBP-only — do NOT include website SEO, backlinks, citations, or paid ads
+- Actionable with ready-to-paste copy where appropriate
+- GBP-only — no website SEO, backlinks, citations, or paid ads
 - Honest about current audit data (review count, photos, pack positions)
-- ALWAYS reference the LIVE GBP profile data (current description, categories, services) vs recommended changes
-- For each keyword, explain current ranking position and which GBP fields to update to improve it
+- Grounded in the candidate pool's driverScoreImpact values (these are exact counterfactual score deltas)
 - ${OUTCOMES_STRATEGY_INSTRUCTION}
 
-Return valid JSON only. Be comprehensive — each step should have enough detail that the owner can execute without guessing.`;
+Return valid JSON only.`;
 
-interface LlmGbpPlanResponse {
-  title: string;
-  objective: string;
-  steps: Array<{
-    stepNumber: number;
-    title: string;
-    instruction: string;
-    current?: string;
-    recommended?: string;
-    bullets?: string[];
-    copyBlocks?: Array<{ label: string; content: string }>;
-    gbpAction?: string;
-    actionData?: GbpPlanStep["actionData"];
-  }>;
-  keywordPriority: Array<{ rank: number; keyword: string; reason: string }>;
-  weeklyCadence: string[];
-  monthlyCadence: string[];
-}
-
-export async function generateGbpOptimizationPlan(
+function buildStrategistPrompt(
   audit: Phase1AuditPayload,
-  outcomes: OutcomesContext | null = null
-): Promise<GbpOptimizationPlan> {
-  const fallback = buildTemplateGbpPlan(audit);
+  fallback: GbpOptimizationPlan,
+  candidates: ReturnType<typeof summarizePlanCandidates>,
+  context: string,
+  outcomesBlock: string
+): string {
   const targetKeywords = audit.rankings.keywords.map((k) => k.keyword);
+  const unsatisfied = candidates.filter((c) => !c.satisfied);
+  const satisfied = candidates.filter((c) => c.satisfied);
 
-  if (!isLlmConfigured()) {
-    return fallback;
-  }
-
-  try {
-    const context = buildAuditContext(audit);
-    const outcomesBlock = buildOutcomesContext(outcomes);
-
-    const llm = await completeJson<LlmGbpPlanResponse>(
-      [
-        { role: "system", content: GBP_PLAN_SYSTEM },
-        {
-          role: "user",
-          content: `Write a comprehensive Google Business Profile Optimization Report.
+  return `Compose a customized Google Business Profile optimization plan for this business.
 
 BUSINESS:
 Name: ${audit.clientName}
@@ -69,118 +55,115 @@ Website: ${audit.gbp.identity.website}
 Primary category: ${audit.gbp.identity.primaryCategory}
 Secondary categories: ${audit.gbp.identity.secondaryCategories.join(", ") || "none listed"}
 
-TARGET KEYWORDS (rank in Top 3 for ALL combined):
+TARGET KEYWORDS:
 ${targetKeywords.map((k) => `- ${k}`).join("\n")}
 
-LIVE GBP PROFILE (from Google — use as "current" for each step):
+LIVE GBP PROFILE:
 ${JSON.stringify(audit.gbp.liveProfile, null, 2)}
 
-CURRENT RANKINGS & RECOMMENDED GBP UPDATES PER KEYWORD:
+CURRENT RANKINGS:
 ${JSON.stringify(fallback.keywordRankings, null, 2)}
 
-PROFILE GAPS DETECTED:
+PROFILE GAPS:
 ${JSON.stringify(fallback.currentState.profileGaps, null, 2)}
 
 AUDIT DATA:
 ${context}
 ${outcomesBlock ? `\nACTION OUTCOMES (prioritize steps that replicate proven wins):\n${outcomesBlock}\n` : ""}
 
-Write exactly 16 steps covering ONLY GBP optimization. For EVERY step include a "current" field quoting live profile data and a "recommended" field with the specific update needed.
-1. Primary Category
-2. Add Secondary Categories
-3. Rewrite the Business Description (include full paste-ready description in copyBlocks)
-4. Complete Every Service Section (include a copyBlock per target keyword + 5-10 additional services)
-5. Products Section (one product per core keyword with descriptions)
-6. Photo Optimization (specific counts by category, weekly upload goal)
-7. Videos (ideas and cadence)
-8. Weekly Google Posts (keyword rotation schedule for 6+ weeks)
-9. Q&A Section (seed 8-12 Q&A pairs in copyBlocks with full answers)
-10. Reviews Strategy (target count, keyword mix percentages, how to ask)
-11. Review Responses (instruction only — personalized AI replies are generated per review in Take Action; do NOT include a generic template copyBlock)
-12. Maintain Accurate Hours
-13. Attributes (list which to enable)
-14. Messaging
-15. Booking Feature
-16. Continuous Activity (weekly + monthly cadence)
+PLAN STEP CANDIDATES (deterministic pool with exact driver-score impact if completed):
+Unsatisfied — eligible to select:
+${JSON.stringify(unsatisfied, null, 2)}
 
-For steps 3-5 and 9, include copyBlocks with ready-to-paste text customized for this business.
-Do not include copyBlocks for step 11 (review responses are AI-drafted per review).
+Already satisfied — do NOT include in selectedSteps:
+${JSON.stringify(
+  satisfied.map((c) => ({ stepNumber: c.stepNumber, title: c.title })),
+  null,
+  2
+)}
+
+INSTRUCTIONS:
+1. Select ONLY from unsatisfied candidates (stepNumber 1–16). Do not include satisfied steps.
+2. Order selectedSteps by your strategic priority (highest-impact / most urgent first).
+3. Prefer steps with higher driverScoreImpact unless business context suggests otherwise.
+4. Include selectionRationale on each step explaining why it matters for THIS business.
+5. For steps 3, 4, 5, and 9 include copyBlocks with paste-ready text when selected.
+6. Do NOT include copyBlocks for step 11 (review responses are AI-drafted per review).
+7. Optionally add up to 3 customActions for business-specific GBP work not covered by standard steps.
+8. Skip low-impact steps (driverScoreImpact 0) unless outcomes data shows they worked before.
 
 Return JSON:
 {
   "title": "Google Business Profile Optimization Report",
-  "objective": "one paragraph objective",
-  "steps": [
+  "objective": "one paragraph — why this specific plan for this business",
+  "planRationale": "2-3 sentences on overall plan strategy and ordering",
+  "selectedSteps": [
     {
-      "stepNumber": 1,
-      "title": "step title",
-      "instruction": "detailed paragraph — reference current profile state and ranking data",
-      "current": "what is live on GBP right now for this area",
-      "recommended": "specific update to improve keyword rankings",
-      "bullets": ["actionable bullet points"],
+      "stepNumber": 11,
+      "title": "optional override",
+      "instruction": "detailed paragraph",
+      "current": "live GBP state",
+      "recommended": "specific update",
+      "bullets": ["actionable bullets"],
       "copyBlocks": [{ "label": "block label", "content": "paste-ready text" }],
+      "selectionRationale": "why this step for this business",
       "gbpAction": "update_primary_category | add_secondary_categories | update_description | add_service_items | upload_photo | upload_video | update_attributes | update_website | create_post | manual",
-      "actionData": {
-        "primaryCategory": "display name for step 1",
-        "secondaryCategories": ["category display names for step 2"],
-        "description": "full description text for step 3",
-        "postSummary": "post text for step 8"
-      }
+      "actionData": { "description": "for step 3", "postSummary": "for step 8" }
+    }
+  ],
+  "customActions": [
+    {
+      "title": "short action title",
+      "instruction": "what to do in GBP",
+      "rationale": "why this custom action matters",
+      "gbpAction": "manual"
     }
   ],
   "keywordPriority": [{ "rank": 1, "keyword": "...", "reason": "why prioritize" }],
-  "weeklyCadence": ["list of weekly tasks"],
-  "monthlyCadence": ["list of monthly tasks"]
-}`,
+  "weeklyCadence": ["weekly tasks aligned to selected steps"],
+  "monthlyCadence": ["monthly tasks aligned to selected steps"]
+}`;
+}
+
+export async function generateGbpOptimizationPlan(
+  audit: Phase1AuditPayload,
+  outcomes: OutcomesContext | null = null
+): Promise<GbpOptimizationPlan> {
+  const fallback = buildTemplateGbpPlan(audit);
+  const candidates = buildPlanStepCandidates(audit);
+
+  if (!isLlmConfigured()) {
+    return fallback;
+  }
+
+  try {
+    const context = buildAuditContext(audit);
+    const outcomesBlock = buildOutcomesContext(outcomes);
+
+    const raw = await completeJson<LlmGbpPlanResponse>(
+      [
+        { role: "system", content: GBP_PLAN_SYSTEM },
+        {
+          role: "user",
+          content: buildStrategistPrompt(
+            audit,
+            fallback,
+            summarizePlanCandidates(candidates),
+            context,
+            outcomesBlock
+          ),
         },
       ],
       { maxTokens: 12000, temperature: 0.55 }
     );
 
-    const steps =
-      llm.steps?.length >= 10
-        ? llm.steps
-            .sort((a, b) => a.stepNumber - b.stepNumber)
-            .map((s) => {
-              const templateStep = fallback.steps.find((t) => t.stepNumber === s.stepNumber);
-              const gbpAction = resolvePlanStepAction(
-                {
-                  stepNumber: s.stepNumber,
-                  title: s.title,
-                  instruction: s.instruction,
-                  gbpAction: s.gbpAction as GbpPlanStep["gbpAction"],
-                },
-                templateStep
-              );
-              return {
-                stepNumber: s.stepNumber,
-                title: s.title,
-                instruction: s.instruction,
-                current: s.current ?? templateStep?.current,
-                recommended: s.recommended ?? templateStep?.recommended,
-                bullets: s.bullets ?? templateStep?.bullets,
-                copyBlocks: s.copyBlocks ?? templateStep?.copyBlocks,
-                gbpAction,
-                actionData: s.actionData ?? templateStep?.actionData,
-              };
-            })
-        : fallback.steps;
+    const validated = validateLlmGbpPlanResponse(raw);
+    if (!validated) {
+      console.warn("[llm] GBP plan response failed validation, using template");
+      return fallback;
+    }
 
-    return {
-      title: llm.title || fallback.title,
-      businessName: audit.clientName,
-      address: audit.gbp.identity.address,
-      objective: llm.objective || fallback.objective,
-      targetKeywords,
-      currentState: fallback.currentState,
-      keywordRankings: fallback.keywordRankings,
-      steps,
-      keywordPriority:
-        llm.keywordPriority?.length > 0 ? llm.keywordPriority : fallback.keywordPriority,
-      weeklyCadence: llm.weeklyCadence?.length ? llm.weeklyCadence : fallback.weeklyCadence,
-      monthlyCadence: llm.monthlyCadence?.length ? llm.monthlyCadence : fallback.monthlyCadence,
-      contentSource: "llm",
-    };
+    return mergeLlmGbpPlan(fallback, validated, candidates, audit);
   } catch (error) {
     console.error("[llm] GBP plan generation failed, using template:", error);
     return fallback;

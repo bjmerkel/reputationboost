@@ -19,6 +19,11 @@ describe("plan-phases", () => {
     assert.equal(covered.length, 16);
     assert.deepEqual([...new Set(covered)].sort((a, b) => a - b), Array.from({ length: 16 }, (_, i) => i + 1));
   });
+
+  it("maps custom plan steps to ongoing phase", () => {
+    assert.equal(getPhaseForStep(17), "ongoing");
+    assert.equal(getPhaseForStep(18), "ongoing");
+  });
 });
 
 describe("resolvePlanStepNumber", () => {

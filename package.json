@@ -15,7 +15,7 @@
     "validate:ranks": "npx tsx scripts/validate-ranks.ts",
     "score:backtest": "npx tsx scripts/score-backtest.ts",
     "learn:score-model": "npx tsx scripts/learn-score-model.ts",
-    "test": "node --import tsx --test src/audit/phase2/scoring.test.ts src/audit/phase2/counterfactual.test.ts src/audit/phase2/keyword-scores.test.ts src/audit/phase2/relevance-heuristic.test.ts src/audit/phase2/score-learning.test.ts src/audit/phase2/score-changelog.test.ts src/audit/phase2/rank-median.test.ts src/audit/phase2/rank-validation.test.ts src/audit/phase2/score-backtest.test.ts src/audit/phase3/build-plan.test.ts src/audit/phase3/build-timeline.test.ts src/lib/execution/pending-tasks.test.ts src/lib/business/display-category.test.ts src/lib/google/local-rankings.test.ts src/lib/llm/gbp-photos.test.ts"
+    "test": "node --import tsx --test src/audit/phase2/scoring.test.ts src/audit/phase2/counterfactual.test.ts src/audit/phase2/keyword-scores.test.ts src/audit/phase2/relevance-heuristic.test.ts src/audit/phase2/score-learning.test.ts src/audit/phase2/score-changelog.test.ts src/audit/phase2/rank-median.test.ts src/audit/phase2/rank-validation.test.ts src/audit/phase2/score-backtest.test.ts src/audit/phase3/build-plan.test.ts src/audit/phase3/build-timeline.test.ts src/lib/llm/gbp-plan-merge.test.ts src/lib/execution/pending-tasks.test.ts src/lib/business/display-category.test.ts src/lib/google/local-rankings.test.ts src/lib/llm/gbp-photos.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

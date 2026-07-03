@@ -26,6 +26,8 @@ export { applyRankSnapshotsToAudit, computeScoreDailySnapshot } from "./score-sn
 export { buildScoreChangelogFromSnapshots, buildScoreChangelogFromHealthScores, buildRankMovementsFromSnapshots } from "./score-changelog";
 export { ingestScoreDailyForBusiness } from "./score-ingest";
 export { detectGaps } from "./gaps";
+export { buildPlanStepCandidates, summarizePlanCandidates } from "./plan-candidates";
+export type { PlanStepCandidate } from "./plan-candidates";
 export {
   estimateStepHealthImpact,
   gapDriverScoreImpact,

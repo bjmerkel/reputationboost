@@ -20,5 +20,6 @@ export const PLAN_PHASE_DEFINITIONS: PlanPhase[] = [
 ];
 
 export function getPhaseForStep(stepNumber: number): PlanPhaseId {
+  if (stepNumber >= 17) return "ongoing";
   return STEP_TO_PHASE.get(stepNumber) ?? "foundation";
 }
