@@ -8,6 +8,14 @@ import type {
   ScoreInsight,
 } from "../types";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
+import type { ClickShareCurve, LearnedScoreModel, ScoreBlendWeights } from "./score-learning";
+import {
+  DEFAULT_BLEND_WEIGHTS,
+  DEFAULT_CLICK_SHARE_CURVE,
+  DEFAULT_LEARNED_SCORE_MODEL,
+  effectiveScoreModel,
+  topClickSharePercent,
+} from "./score-learning";
 
 function clamp(n: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(n)));
@@ -37,17 +45,28 @@ export function positionVisibilityScore(position: LocalPackPosition | number): n
   return 0;
 }
 
-/** Estimated click-share % by pack position (industry heuristic for revenue capture). */
-export function positionClickShare(position: LocalPackPosition | number): number {
-  if (position === 1) return 45;
-  if (position === 2) return 25;
-  if (position === 3) return 15;
-  if (position === "not_in_pack") return 3;
+/** Estimated click-share % by pack position (learned or industry default). */
+export function resolveClickSharePercent(
+  position: LocalPackPosition | number,
+  curve: ClickShareCurve = DEFAULT_CLICK_SHARE_CURVE
+): number {
+  if (position === 1) return curve.pack1;
+  if (position === 2) return curve.pack2;
+  if (position === 3) return curve.pack3;
+  if (position === "not_in_pack") return curve.outsidePack;
   if (typeof position === "number") {
-    if (position <= 3) return positionClickShare(position as 1 | 2 | 3);
+    if (position <= 3) return resolveClickSharePercent(position as 1 | 2 | 3, curve);
+    if (position > 10) return curve.deepOutside;
     return clamp(10 - (position - 4) * 1.5);
   }
-  return 3;
+  return curve.outsidePack;
+}
+
+export function positionClickShare(
+  position: LocalPackPosition | number,
+  model?: LearnedScoreModel | null
+): number {
+  return resolveClickSharePercent(position, effectiveScoreModel(model).clickShare);
 }
 
 export function resolveKeywordPosition(kw: KeywordRankSnapshot): LocalPackPosition | number {
@@ -155,6 +174,11 @@ function weightedKeywordMetric(
   return totalWeight > 0 ? weightedSum / totalWeight : 0;
 }
 
+function clickShareMetric(model?: LearnedScoreModel | null) {
+  const active = effectiveScoreModel(model);
+  return (position: LocalPackPosition | number) => positionClickShare(position, active);
+}
+
 function weightedKeywordVisibility(
   keywords: KeywordRankSnapshot[],
   searchKeywords: Array<{ keyword: string; impressions: number | null }>
@@ -237,15 +261,18 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
 }
 
 /** Share of available map clicks captured, weighted by keyword impressions. */
-export function computeRevenueCaptureScore(audit: Phase1AuditPayload): number {
+export function computeRevenueCaptureScore(
+  audit: Phase1AuditPayload,
+  model: LearnedScoreModel | null = DEFAULT_LEARNED_SCORE_MODEL
+): number {
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
   const capture = weightedKeywordMetric(
     audit.rankings.keywords,
     searchKeywords,
-    positionClickShare
+    clickShareMetric(model)
   );
-  // Normalize: rank #1 on all keywords ≈ 45% click share → 100 pts
-  return clamp((capture / 45) * 100);
+  const topShare = topClickSharePercent(model);
+  return clamp((capture / topShare) * 100);
 }
 
 export function findTopOpportunityKeyword(audit: Phase1AuditPayload): string | null {
@@ -333,12 +360,21 @@ export function computeEngagementOutcomes(audit: Phase1AuditPayload): {
   };
 }
 
-export function computeHealthScores(audit: Phase1AuditPayload): HealthScores {
+export function computeHealthScores(
+  audit: Phase1AuditPayload,
+  model: LearnedScoreModel | null = DEFAULT_LEARNED_SCORE_MODEL
+): HealthScores {
+  const active = effectiveScoreModel(model);
   const visibility = computeVisibilityScore(audit);
   const conversion = computeConversionScore(audit);
-  const revenueCapture = computeRevenueCaptureScore(audit);
+  const revenueCapture = computeRevenueCaptureScore(audit, active);
 
-  const overall = clamp(visibility * 0.5 + conversion * 0.3 + revenueCapture * 0.2);
+  const blend: ScoreBlendWeights = active.blendWeights ?? DEFAULT_BLEND_WEIGHTS;
+  const overall = clamp(
+    visibility * blend.visibility +
+      conversion * blend.conversion +
+      revenueCapture * blend.revenueCapture
+  );
 
   const outsidePack = audit.rankings.keywords.filter((k) => !k.inLocalPack);
   let competitiveGap = 100;

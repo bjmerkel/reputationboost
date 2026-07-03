@@ -1,5 +1,7 @@
 import { DEFAULT_ROI_CONFIG } from "../attribution/roi";
 import type { KeywordScoreCard, Phase1AuditPayload } from "../types";
+import type { LearnedScoreModel } from "./score-learning";
+import { DEFAULT_LEARNED_SCORE_MODEL, topClickSharePercent } from "./score-learning";
 import {
   impressionWeightFloor,
   keywordGeoGridVisibilityScore,
@@ -35,10 +37,11 @@ function blendedLeadRate(): number {
 function estimateKeywordRevenue(
   impressions: number,
   position: number | "not_in_pack",
-  avgCustomerValue: number | null | undefined
+  avgCustomerValue: number | null | undefined,
+  model: LearnedScoreModel | null = DEFAULT_LEARNED_SCORE_MODEL
 ): number | null {
   if (!avgCustomerValue || avgCustomerValue <= 0 || impressions <= 0) return null;
-  const clickShare = positionClickShare(position) / 100;
+  const clickShare = positionClickShare(position, model) / 100;
   const leads = impressions * clickShare * blendedLeadRate();
   return Math.round(leads * avgCustomerValue);
 }
@@ -97,6 +100,7 @@ function overallImpactIfRank1(
 export interface KeywordScoreOptions {
   avgCustomerValue?: number | null;
   currency?: string;
+  scoreModel?: LearnedScoreModel | null;
 }
 
 export function computeKeywordScores(
@@ -106,6 +110,8 @@ export function computeKeywordScores(
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
   const floor = impressionWeightFloor(searchKeywords);
   const relevanceMap = relevanceByKeyword(audit);
+  const model = options.scoreModel ?? DEFAULT_LEARNED_SCORE_MODEL;
+  const topShare = topClickSharePercent(model);
 
   return audit.rankings.keywords
     .map((kw) => {
@@ -115,13 +121,13 @@ export function computeKeywordScores(
       const relevance = relevanceMap.get(kw.keyword.toLowerCase());
 
       const visibilityScore = keywordGeoGridVisibilityScore(kw);
-      const revenueCaptureScore = clamp((positionClickShare(position) / 45) * 100);
+      const revenueCaptureScore = clamp((positionClickShare(position, model) / topShare) * 100);
       const relevanceScore = relevance?.score ?? 50;
       const estimatedMonthlyRevenue = impressions
-        ? estimateKeywordRevenue(impressions, position, options.avgCustomerValue)
+        ? estimateKeywordRevenue(impressions, position, options.avgCustomerValue, model)
         : null;
       const potentialAtRank1 = impressions
-        ? estimateKeywordRevenue(impressions, 1, options.avgCustomerValue)
+        ? estimateKeywordRevenue(impressions, 1, options.avgCustomerValue, model)
         : null;
 
       return {

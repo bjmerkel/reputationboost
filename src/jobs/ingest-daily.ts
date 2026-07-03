@@ -2,6 +2,7 @@ import { listOnboardedBusinesses } from "@/audit/businesses-admin";
 import { recomputeAttributionsForBusiness } from "@/audit/attribution";
 import { ingestScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
 import { refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
+import { refreshGlobalScoreModel } from "@/audit/storage-score-model";
 import { businessRecordToClientConfig, type BusinessRecord } from "@/audit/businesses";
 import {
   completeIngestRun,
@@ -226,6 +227,16 @@ export async function ingestDailyMetrics(
       result.errors.push({
         businessId: "",
         step: "calibration",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      await refreshGlobalScoreModel();
+    } catch (error) {
+      result.errors.push({
+        businessId: "",
+        step: "score_model",
         message: error instanceof Error ? error.message : String(error),
       });
     }

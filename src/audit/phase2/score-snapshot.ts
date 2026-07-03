@@ -1,5 +1,7 @@
 import type { FullAuditPayload, Phase1AuditPayload } from "../types";
 import type { RankSnapshotRow, ScoreDailySnapshot } from "../types/timeseries";
+import type { LearnedScoreModel } from "./score-learning";
+import { DEFAULT_LEARNED_SCORE_MODEL } from "./score-learning";
 import { computeHealthScores } from "./scoring";
 
 function shareOfVoice(keywords: Phase1AuditPayload["rankings"]["keywords"]): number {
@@ -57,9 +59,10 @@ export function applyRankSnapshotsToAudit(
 export function computeScoreDailySnapshot(
   audit: Phase1AuditPayload,
   date: string,
-  source: ScoreDailySnapshot["source"] = "ingest"
+  source: ScoreDailySnapshot["source"] = "ingest",
+  model: LearnedScoreModel | null = DEFAULT_LEARNED_SCORE_MODEL
 ): ScoreDailySnapshot {
-  const scores = computeHealthScores(audit);
+  const scores = computeHealthScores(audit, model);
   return {
     businessId: audit.clientId,
     date,

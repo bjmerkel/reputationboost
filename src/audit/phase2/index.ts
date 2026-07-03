@@ -1,8 +1,18 @@
-export { computeHealthScores, computeVisibilityScore, computeConversionScore, computeRevenueCaptureScore, computeKeywordRelevanceScore, positionVisibilityScore, positionClickShare, resolveKeywordPosition, keywordImpressionWeight, impressionWeightFloor, matchSearchKeywordImpressions, keywordGeoGridVisibilityScore } from "./scoring";
+export { computeHealthScores, computeVisibilityScore, computeConversionScore, computeRevenueCaptureScore, computeKeywordRelevanceScore, positionVisibilityScore, positionClickShare, resolveKeywordPosition, keywordImpressionWeight, impressionWeightFloor, matchSearchKeywordImpressions, keywordGeoGridVisibilityScore, resolveClickSharePercent } from "./scoring";
 export { extractKeywordRelevanceHeuristic, resolveKeywordRelevance, relevanceByKeyword } from "./relevance-heuristic";
 export { DEFAULT_RANK_MEDIAN_WINDOW_DAYS, medianOf, medianRankSnapshotForKeyword, smoothRankSnapshotsForDate } from "./rank-median";
 export { compareRanksAtOneMile, summarizeRankValidation, compareSearchModesAtOneMile, validateKeywordRanks } from "./rank-validation";
 export { DEFAULT_BACKTEST_HORIZON_DAYS, buildBacktestSamples, evaluateBacktestMetrics } from "./score-backtest";
+export {
+  DEFAULT_BLEND_WEIGHTS,
+  DEFAULT_CLICK_SHARE_CURVE,
+  DEFAULT_LEARNED_SCORE_MODEL,
+  buildLearnedScoreModel,
+  learnClickShareCurve,
+  learnBlendWeights,
+  effectiveScoreModel,
+  topClickSharePercent,
+} from "./score-learning";
 export { computeKeywordScores } from "./keyword-scores";
 export { buildPathToHealthy } from "./path-to-healthy";
 export { buildAttributionCalibration, calibratedStepImpact, mergeCalibrations } from "./attribution-calibration";

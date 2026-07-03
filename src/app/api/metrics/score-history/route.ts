@@ -5,6 +5,7 @@ import {
 } from "@/audit/phase2/score-changelog";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { loadGlobalScoreCalibration } from "@/audit/storage-calibration-global";
+import { loadGlobalScoreModel } from "@/audit/storage-score-model";
 import {
   listRankSnapshotsForBusinessDate,
   listScoreDailyForUser,
@@ -31,9 +32,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "No business configured" }, { status: 400 });
   }
 
-  const [series, globalCalibration] = await Promise.all([
+  const [series, globalCalibration, scoreModel] = await Promise.all([
     listScoreDailyForUser(user.id, clientId, days),
     loadGlobalScoreCalibration(),
+    loadGlobalScoreModel(),
   ]);
 
   let changelog: ReturnType<typeof buildScoreChangelogFromSnapshots> = [];
@@ -85,6 +87,7 @@ export async function GET(request: Request) {
     latestDate: latest?.date ?? null,
     liveScores,
     globalCalibration,
+    scoreModel,
     days,
   });
 }

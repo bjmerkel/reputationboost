@@ -181,10 +181,13 @@ async function persistAudit(
   try {
     const { computeScoreDailySnapshot } = await import("@/audit/phase2/score-snapshot");
     const { upsertScoreDaily } = await import("@/audit/storage-score-daily");
+    const { loadGlobalScoreModelAdmin } = await import("@/audit/storage-score-model");
+    const model = await loadGlobalScoreModelAdmin();
     const snapshot = computeScoreDailySnapshot(
       audit,
       audit.completedAt.slice(0, 10),
-      "audit"
+      "audit",
+      model
     );
     snapshot.businessId = businessId;
     await upsertScoreDaily(snapshot);

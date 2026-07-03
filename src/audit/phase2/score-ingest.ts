@@ -11,6 +11,7 @@ import {
   loadLatestAuditForBusinessAdmin,
   upsertScoreDaily,
 } from "@/audit/storage-score-daily";
+import { loadGlobalScoreModelAdmin } from "@/audit/storage-score-model";
 
 function addDaysYmd(date: string, days: number): string {
   const next = new Date(`${date}T12:00:00.000Z`);
@@ -41,7 +42,8 @@ export async function ingestScoreDailyForBusiness(
     windowDays
   );
   const liveAudit = applyRankSnapshotsToAudit(audit, smoothed);
-  const snapshot = computeScoreDailySnapshot(liveAudit, targetDate, "ingest");
+  const model = await loadGlobalScoreModelAdmin();
+  const snapshot = computeScoreDailySnapshot(liveAudit, targetDate, "ingest", model);
   snapshot.businessId = businessId;
 
   await upsertScoreDaily(snapshot);

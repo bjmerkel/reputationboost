@@ -105,4 +105,6 @@ export interface ScoreHistoryResponse {
   }>;
   latestDate: string | null;
   days: number;
+  globalCalibration?: import("@/audit/phase2/attribution-calibration").AttributionCalibration;
+  scoreModel?: import("@/audit/phase2/score-learning").LearnedScoreModel;
 }
