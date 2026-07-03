@@ -115,11 +115,22 @@ export default function AuditDashboard({
     <div className="space-y-4">
       {!gbpConnected && <GbpConnectBanner businessId={businessId} />}
 
-      {audit.gbp.performance.error && (
+      {audit.gbp.performance.error && audit.gbp.performance.source !== "api" && (
         <PerformancePermissionBanner
           error={audit.gbp.performance.error}
           businessId={businessId}
         />
+      )}
+
+      {audit.gbp.performance.warnings && audit.gbp.performance.warnings.length > 0 && (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-4">
+          <p className="text-sm font-medium text-amber-200">Partial performance data</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-400">
+            {audit.gbp.performance.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

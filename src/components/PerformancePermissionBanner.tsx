@@ -21,9 +21,8 @@ export default function PerformancePermissionBanner({
       <p className="text-sm font-medium text-amber-200">Performance metrics unavailable</p>
       <p className="mt-1 text-sm text-slate-400">
         Google returned &ldquo;permission denied&rdquo; for calls, profile views, and direction
-        clicks. Enable the{" "}
-        <strong className="text-slate-300">Business Profile Performance API</strong> in your Google
-        Cloud project, then reconnect GBP.
+        clicks. If your GCP project already shows Performance API traffic, the API is enabled — check
+        that your Google account is Owner or Manager on this GBP location, then reconnect.
       </p>
       <Link
         href="/platform/settings"

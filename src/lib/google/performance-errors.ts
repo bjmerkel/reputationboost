@@ -21,6 +21,7 @@ export function performanceSetupSteps(): string[] {
     "Confirm GBP API access is approved — quota should be 300 QPM (not 0) under APIs & Services → Enabled APIs → quotas.",
     "If quota is 0, submit the GBP API access form: https://developers.google.com/my-business/content/prereqs",
     "Use a Google account that is Owner or Manager on the Business Profile location.",
+    "Some locations return permission denied even when the API is enabled — verify the location in GBP dashboard.",
     "If on Google Workspace, ensure Google Business Profile is enabled for your organization.",
     "Disconnect and reconnect GBP in Settings to refresh OAuth after enabling the API.",
   ];
@@ -31,10 +32,9 @@ export function formatPerformanceError(error: unknown, httpStatus?: number): str
 
   if (isPerformancePermissionError(raw) || httpStatus === 403) {
     return [
-      "Performance API: permission denied.",
-      "Enable Business Profile Performance API in Google Cloud (separate from other GBP APIs).",
-      "Ensure your GCP project has approved GBP API access (300 QPM quota, not 0).",
-      "Then disconnect and reconnect Google Business Profile in Settings.",
+      "Performance API: permission denied for this location.",
+      "If GCP already shows Performance API traffic, the API is enabled — check that your Google account is Owner/Manager on this GBP location.",
+      "Otherwise enable Business Profile Performance API in Google Cloud and reconnect GBP in Settings.",
     ].join(" ");
   }
 

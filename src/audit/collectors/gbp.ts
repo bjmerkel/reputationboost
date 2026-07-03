@@ -142,6 +142,7 @@ async function collectGbpFromApi(
       searchKeywords: performance.searchKeywords,
       source: performance.source,
       error: performance.error,
+      warnings: performance.warnings,
     },
     issues: {
       isSuspended: place?.businessStatus === "CLOSED_PERMANENTLY",

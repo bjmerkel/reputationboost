@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import type { PerformanceEndpointStatus } from "@/lib/google/gbp-performance";
 import {
   GBP_API_ACCESS_FORM_URL,
   PERFORMANCE_API_ENABLE_URL,
@@ -9,6 +10,7 @@ import {
 
 interface PerformanceProbe {
   ok: boolean;
+  partial?: boolean;
   permissionDenied?: boolean;
   error?: string;
   setupSteps?: string[];
@@ -18,6 +20,26 @@ interface PerformanceProbe {
     websiteClicks: number;
     profileViews: number;
   };
+  endpoints?: {
+    coreMetrics: PerformanceEndpointStatus;
+    impressions: PerformanceEndpointStatus;
+    searchKeywords: PerformanceEndpointStatus;
+  };
+}
+
+function endpointLabel(status: PerformanceEndpointStatus | undefined): string {
+  switch (status) {
+    case "ok":
+      return "OK";
+    case "denied":
+      return "Permission denied";
+    case "failed":
+      return "Failed";
+    case "skipped":
+      return "Skipped";
+    default:
+      return "Unknown";
+  }
 }
 
 export default function GbpPerformanceSetup({
@@ -58,13 +80,33 @@ export default function GbpPerformanceSetup({
 
   if (probe?.ok) {
     return (
-      <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-6">
+      <div
+        className={`rounded-2xl border p-6 ${
+          probe.partial
+            ? "border-amber-500/25 bg-amber-500/10"
+            : "border-emerald-500/25 bg-emerald-500/10"
+        }`}
+      >
         <h2 className="text-lg font-bold text-white">Performance API</h2>
-        <p className="mt-2 text-sm text-emerald-200">
-          Connected — last 7 days: {probe.sampleMetrics?.profileViews ?? 0} profile views,{" "}
+        <p className={`mt-2 text-sm ${probe.partial ? "text-amber-200" : "text-emerald-200"}`}>
+          {probe.partial ? "Partially connected" : "Connected"} — last 7 days:{" "}
+          {probe.sampleMetrics?.profileViews ?? 0} profile views,{" "}
           {probe.sampleMetrics?.calls ?? 0} call clicks,{" "}
           {probe.sampleMetrics?.directionRequests ?? 0} direction requests.
         </p>
+        {probe.endpoints && (
+          <ul className="mt-3 space-y-1 text-xs text-slate-400">
+            <li>Core metrics: {endpointLabel(probe.endpoints.coreMetrics)}</li>
+            <li>Profile views: {endpointLabel(probe.endpoints.impressions)}</li>
+            <li>Search keywords: {endpointLabel(probe.endpoints.searchKeywords)}</li>
+          </ul>
+        )}
+        {probe.partial && (
+          <p className="mt-3 text-sm text-slate-300">
+            GCP may show Performance API traffic with a low error rate — some endpoints can fail per
+            location while calls and clicks still work.
+          </p>
+        )}
       </div>
     );
   }
@@ -76,10 +118,16 @@ export default function GbpPerformanceSetup({
         {probe?.error ??
           "Google returned permission denied for profile views, calls, and direction clicks."}
       </p>
+      {probe?.endpoints && (
+        <ul className="mt-3 space-y-1 text-xs text-slate-400">
+          <li>Core metrics: {endpointLabel(probe.endpoints.coreMetrics)}</li>
+          <li>Profile views: {endpointLabel(probe.endpoints.impressions)}</li>
+          <li>Search keywords: {endpointLabel(probe.endpoints.searchKeywords)}</li>
+        </ul>
+      )}
       <p className="mt-3 text-sm text-slate-300">
-        Reviews and profile edits work because they use different APIs.{" "}
-        <strong className="text-white">Business Profile Performance API</strong> must be enabled
-        separately in the same Google Cloud project as your OAuth app.
+        Reviews and profile edits work because they use different APIs. If GCP already shows
+        Performance API requests, the API is enabled — this is usually a location permission issue.
       </p>
 
       <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-slate-300">

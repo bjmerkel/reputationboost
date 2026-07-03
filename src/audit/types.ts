@@ -89,6 +89,7 @@ export interface GbpPerformance {
   }>;
   source?: "api" | "unavailable";
   error?: string;
+  warnings?: string[];
 }
 
 export interface GbpIssues {
