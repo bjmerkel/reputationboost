@@ -14,13 +14,13 @@ export function formatSignedPoints(value: number): string {
   return `${value >= 0 ? "+" : ""}${value}`;
 }
 
-/** Human-readable projected vs observed listing-strength label. */
+/** Human-readable projected vs observed Reputation Boost Score label. */
 export function formatDriverImpactLabel(fields: DriverImpactFields): string | null {
   if (fields.preliminary) {
     if (fields.projectedDriverImpact != null) {
-      return `Tracking listing strength (projected ${formatSignedPoints(fields.projectedDriverImpact)} pts)`;
+      return `Tracking Reputation Boost Score (projected ${formatSignedPoints(fields.projectedDriverImpact)} pts)`;
     }
-    return "Tracking listing strength…";
+    return "Tracking Reputation Boost Score…";
   }
 
   const {
@@ -32,28 +32,28 @@ export function formatDriverImpactLabel(fields: DriverImpactFields): string | nu
 
   if (observedDriverImpact != null && projectedDriverImpact != null) {
     if (driverScoreBefore != null && driverScoreAfter != null) {
-      return `Listing strength ${driverScoreBefore} → ${driverScoreAfter} (projected ${formatSignedPoints(projectedDriverImpact)})`;
+      return `Reputation Boost Score ${driverScoreBefore} → ${driverScoreAfter} (projected ${formatSignedPoints(projectedDriverImpact)})`;
     }
 
     const error = observedDriverImpact - projectedDriverImpact;
     if (Math.abs(error) >= 3) {
-      return `Listing strength ${formatSignedPoints(observedDriverImpact)} pts (projected ${formatSignedPoints(projectedDriverImpact)})`;
+      return `Reputation Boost Score ${formatSignedPoints(observedDriverImpact)} pts (projected ${formatSignedPoints(projectedDriverImpact)})`;
     }
     if (observedDriverImpact > 0) {
-      return `Listing strength ${formatSignedPoints(observedDriverImpact)} pts`;
+      return `Reputation Boost Score ${formatSignedPoints(observedDriverImpact)} pts`;
     }
-    return `Listing strength ${formatSignedPoints(observedDriverImpact)} pts (projected ${formatSignedPoints(projectedDriverImpact)})`;
+    return `Reputation Boost Score ${formatSignedPoints(observedDriverImpact)} pts (projected ${formatSignedPoints(projectedDriverImpact)})`;
   }
 
   if (observedDriverImpact != null) {
     if (driverScoreBefore != null && driverScoreAfter != null) {
-      return `Listing strength ${driverScoreBefore} → ${driverScoreAfter}`;
+      return `Reputation Boost Score ${driverScoreBefore} → ${driverScoreAfter}`;
     }
-    return `Listing strength ${formatSignedPoints(observedDriverImpact)} pts`;
+    return `Reputation Boost Score ${formatSignedPoints(observedDriverImpact)} pts`;
   }
 
   if (projectedDriverImpact != null) {
-    return `Projected ${formatSignedPoints(projectedDriverImpact)} listing strength pts`;
+    return `Projected ${formatSignedPoints(projectedDriverImpact)} Reputation Boost Score pts`;
   }
 
   return null;

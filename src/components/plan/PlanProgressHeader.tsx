@@ -27,7 +27,7 @@ export default function PlanProgressHeader({
             Your optimization plan
           </p>
           <p className={`mt-1 text-sm font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
-            Listing strength {progress.currentHealthScore} → {progress.projectedHealthScore}
+            Reputation Boost Score {progress.currentHealthScore} → {progress.projectedHealthScore}
             <span className={isLight ? "text-[#5f6368]" : "text-slate-400"}>
               {" "}
               · {progress.completedSteps} of {progress.totalSteps} steps complete

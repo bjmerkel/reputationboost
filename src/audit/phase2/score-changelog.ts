@@ -112,8 +112,8 @@ export function buildScoreChangelogFromSnapshots(
       delta: overallDelta,
       label:
         overallDelta > 0
-          ? `Listing strength up ${overallDelta} pts`
-          : `Listing strength down ${Math.abs(overallDelta)} pts`,
+          ? `Reputation Boost Score up ${overallDelta} pts`
+          : `Reputation Boost Score down ${Math.abs(overallDelta)} pts`,
     });
   }
 

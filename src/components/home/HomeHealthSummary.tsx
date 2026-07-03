@@ -65,7 +65,7 @@ export default function HomeHealthSummary({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-lg font-semibold text-[#202124]">
-            Listing strength {displayScore}/100
+            Reputation Boost Score {displayScore}/100
           </p>
           <p className="text-sm text-[#5f6368]">
             Profile {scores.driverScore ?? scores.conversion}/100 · outcome{" "}

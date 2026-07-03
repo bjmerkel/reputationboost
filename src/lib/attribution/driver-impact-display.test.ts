@@ -23,7 +23,7 @@ describe("formatDriverImpactLabel", () => {
       driverScoreBefore: 58,
       driverScoreAfter: 62,
     });
-    assert.equal(label, "Listing strength 58 → 62 (projected +6)");
+    assert.equal(label, "Reputation Boost Score 58 → 62 (projected +6)");
   });
 
   it("shows tracking state with projected value during preliminary window", () => {
@@ -31,7 +31,7 @@ describe("formatDriverImpactLabel", () => {
       preliminary: true,
       projectedDriverImpact: 5,
     });
-    assert.match(label ?? "", /Tracking listing strength/);
+    assert.match(label ?? "", /Tracking Reputation Boost Score/);
     assert.match(label ?? "", /projected \+5/);
   });
 
