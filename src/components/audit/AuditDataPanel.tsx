@@ -73,6 +73,7 @@ export default function AuditDataPanel({
             title="Content & issues"
             rows={[
               ["Photos", String(audit.gbp.content.photoCount)],
+              ["Videos", String(audit.gbp.content.videoCount ?? 0)],
               ["Last post", formatDate(audit.gbp.content.lastPostDate)],
               ["Unanswered Q&A", String(audit.gbp.content.unansweredQa)],
               ["Verified", audit.gbp.issues.isVerified ? "Yes" : "No"],

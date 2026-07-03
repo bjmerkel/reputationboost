@@ -10,6 +10,12 @@ import {
   type GbpAttributeUpdate,
   type GbpCategoryRef,
 } from "./gbp-location";
+import {
+  createGbpMediaFromUrl,
+  extractPublicMediaUrl,
+  type GbpMediaCategory,
+  type GbpMediaFormat,
+} from "./gbp-media";
 
 export interface GbpApplyResult {
   success: boolean;
@@ -343,6 +349,66 @@ export async function applyGooglePost(
   };
 }
 
+export async function applyMediaUpload(
+  connection: GbpConnection,
+  options: {
+    sourceUrl: string;
+    mediaFormat: GbpMediaFormat;
+    category: GbpMediaCategory;
+    description?: string;
+  }
+): Promise<GbpApplyResult> {
+  const item = await createGbpMediaFromUrl(connection, options);
+  const kind = options.mediaFormat === "VIDEO" ? "Video" : "Photo";
+
+  return {
+    success: true,
+    message: `${kind} uploaded to your Google Business Profile (${options.category}).`,
+    applied: {
+      mediaName: item.name,
+      googleUrl: item.googleUrl,
+      category: options.category,
+      mediaFormat: options.mediaFormat,
+    },
+  };
+}
+
+export async function applyMediaFromDraft(
+  connection: GbpConnection,
+  draftContent: string,
+  payload: {
+    sourceUrl?: string;
+    mediaFormat?: GbpMediaFormat;
+    category?: GbpMediaCategory;
+    description?: string;
+  }
+): Promise<GbpApplyResult> {
+  const sourceUrl =
+    payload.sourceUrl?.trim() || extractPublicMediaUrl(draftContent) || "";
+  if (!sourceUrl) {
+    throw new Error(
+      "Add a public image or video URL to the draft (https://…) before running this task."
+    );
+  }
+
+  const mediaFormat = payload.mediaFormat ?? "PHOTO";
+  const category = payload.category ?? "ADDITIONAL";
+  const description =
+    payload.description ??
+    draftContent
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l && !l.startsWith("http") && !l.startsWith("Category:"))
+      ?.slice(0, 500);
+
+  return applyMediaUpload(connection, {
+    sourceUrl,
+    mediaFormat,
+    category,
+    description,
+  });
+}
+
 export async function applyReviewReply(
   connection: GbpConnection,
   reviewId: string,
@@ -381,6 +447,7 @@ export type GbpApplyAction =
   | "add_service_item"
   | "update_attributes"
   | "enable_recommended_attributes"
+  | "upload_media"
   | "create_post"
   | "reply_review";
 
@@ -397,6 +464,9 @@ export async function applyGbpAction(
     serviceName?: string;
     serviceDescription?: string;
     attributes?: GbpAttributeUpdate[];
+    sourceUrl?: string;
+    mediaFormat?: GbpMediaFormat;
+    category?: GbpMediaCategory;
     postSummary?: string;
     reviewId?: string;
     reviewReply?: string;
@@ -432,6 +502,14 @@ export async function applyGbpAction(
       return applyAttributes(connection, payload.attributes);
     case "enable_recommended_attributes":
       return applyRecommendedAttributes(connection);
+    case "upload_media":
+      if (!payload.sourceUrl) throw new Error("sourceUrl is required");
+      return applyMediaUpload(connection, {
+        sourceUrl: payload.sourceUrl,
+        mediaFormat: payload.mediaFormat ?? "PHOTO",
+        category: payload.category ?? "ADDITIONAL",
+        description: payload.description,
+      });
     case "create_post":
       if (!payload.postSummary) throw new Error("postSummary is required");
       return applyGooglePost(connection, payload.postSummary);

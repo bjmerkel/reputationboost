@@ -114,14 +114,18 @@ async function collectGbpFromApi(
         hasHolidayHours,
         hasDescription,
         serviceItems.length > 0,
-        (place?.photoCount ?? 0) > 0,
+        enrichment.media.photoCount > 0,
         Boolean(website),
       ]),
     },
     content: {
-      photoCount: place?.photoCount ?? 0,
-      photosByType: { all: place?.photoCount ?? 0 },
-      lastPhotoUpload: null,
+      photoCount: enrichment.media.photoCount || place?.photoCount || 0,
+      videoCount: enrichment.media.videoCount,
+      photosByType:
+        Object.keys(enrichment.media.photosByType).length > 0
+          ? enrichment.media.photosByType
+          : { all: place?.photoCount ?? 0 },
+      lastPhotoUpload: enrichment.media.lastPhotoUpload,
       postCount: posts.length,
       lastPostDate: sortedPosts[0]?.createTime ?? null,
       qaCount: questions.length,
@@ -213,6 +217,7 @@ async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<GbpSnap
     },
     content: {
       photoCount: place.photoCount,
+      videoCount: 0,
       photosByType: { all: place.photoCount },
       lastPhotoUpload: null,
       postCount: 0,

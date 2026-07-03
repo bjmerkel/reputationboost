@@ -59,6 +59,7 @@ export interface GbpCompleteness {
 
 export interface GbpContent {
   photoCount: number;
+  videoCount: number;
   photosByType: Record<string, number>;
   lastPhotoUpload: string | null;
   postCount: number;
@@ -369,6 +370,8 @@ export type GbpPlanActionType =
   | "add_secondary_categories"
   | "update_description"
   | "add_service_items"
+  | "upload_photo"
+  | "upload_video"
   | "update_attributes"
   | "update_website"
   | "create_post"
@@ -382,6 +385,8 @@ export interface GbpPlanActionData {
   websiteUri?: string;
   serviceName?: string;
   serviceDescription?: string;
+  sourceUrl?: string;
+  mediaCategory?: string;
 }
 
 export interface GbpPlanStep {
@@ -478,6 +483,8 @@ export type ExecutionType =
   | "gbp_primary_category"
   | "gbp_secondary_categories"
   | "gbp_services"
+  | "gbp_photo"
+  | "gbp_video"
   | "gbp_attributes"
   | "gbp_website"
   | "gbp_phone"

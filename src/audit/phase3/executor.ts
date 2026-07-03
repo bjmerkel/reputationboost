@@ -1,6 +1,7 @@
 import type { ExecutionTask, GbpConnection } from "../types";
-import { applyGbpAction } from "@/lib/google/gbp-apply";
+import { applyGbpAction, applyMediaFromDraft } from "@/lib/google/gbp-apply";
 import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
+import type { GbpMediaCategory, GbpMediaFormat } from "@/lib/google/gbp-media";
 
 /**
  * Execute an approved task — uses live GBP OAuth when connection is available.
@@ -31,6 +32,8 @@ export async function executeTask(
     gbp_primary_category: "Updated GBP primary category.",
     gbp_secondary_categories: "Updated GBP secondary categories.",
     gbp_services: "Added service to Google Business Profile.",
+    gbp_photo: "Photo uploaded to Google Business Profile.",
+    gbp_video: "Video uploaded to Google Business Profile.",
     gbp_attributes: "Updated business attributes on Google.",
     gbp_website: "Updated website URL on Google Business Profile.",
     gbp_phone: "Updated phone number on Google Business Profile.",
@@ -94,6 +97,16 @@ async function executeTaskLive(
       const result = await applyGbpAction(connection, "add_service_item", {
         serviceName,
         serviceDescription: task.draftContent,
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "gbp_photo":
+    case "gbp_video": {
+      const result = await applyMediaFromDraft(connection, task.draftContent, {
+        sourceUrl: task.payload.sourceUrl as string | undefined,
+        mediaFormat: (task.payload.mediaFormat as GbpMediaFormat) ??
+          (task.type === "gbp_video" ? "VIDEO" : "PHOTO"),
+        category: (task.payload.category as GbpMediaCategory) ?? "ADDITIONAL",
       });
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }

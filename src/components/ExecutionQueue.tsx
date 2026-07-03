@@ -27,6 +27,8 @@ const typeLabels: Record<ExecutionTask["type"], string> = {
   gbp_secondary_categories: "Secondary Categories",
   gbp_checklist: "GBP Checklist",
   gbp_services: "GBP Service",
+  gbp_photo: "GBP Photo Upload",
+  gbp_video: "GBP Video Upload",
   gbp_attributes: "GBP Attributes",
   gbp_website: "Website URL",
   gbp_phone: "Phone Number",

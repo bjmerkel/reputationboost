@@ -20,6 +20,8 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_primary_category",
     "gbp_secondary_categories",
     "gbp_services",
+    "gbp_photo",
+    "gbp_video",
     "gbp_attributes",
     "gbp_website",
     "gbp_phone",
@@ -156,6 +158,22 @@ function createTaskForAction(
             .map((k) => k.keyword)
             .join(", ")}.`,
           { photoCount: 5 }
+        ),
+      ];
+    case "gbp_photo":
+      return [
+        buildTask(
+          audit,
+          action,
+          "gbp_photo",
+          [
+            "Paste a public image URL on the first line (https://...), then approve to upload.",
+            "",
+            "Suggested: storefront exterior, team at work, completed projects, fleet/vehicles.",
+            "Category: ADDITIONAL",
+          ].join("\n"),
+          { mediaFormat: "PHOTO", category: "ADDITIONAL" },
+          "Upload GBP photos"
         ),
       ];
     case "qa_answer":

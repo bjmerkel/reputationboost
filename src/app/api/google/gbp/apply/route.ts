@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { applyGbpAction, type GbpApplyAction } from "@/lib/google/gbp-apply";
 import { getGbpLocationFull, type GbpAttributeUpdate } from "@/lib/google/gbp-location";
+import type { GbpMediaCategory, GbpMediaFormat } from "@/lib/google/gbp-media";
 import { getValidGbpConnection } from "@/lib/google/token-store";
 import { getUser } from "@/lib/supabase/server";
 
@@ -15,6 +16,7 @@ const ACTIONS: GbpApplyAction[] = [
   "add_service_item",
   "update_attributes",
   "enable_recommended_attributes",
+  "upload_media",
   "create_post",
   "reply_review",
 ];
@@ -62,6 +64,9 @@ export async function POST(request: Request) {
       serviceName?: string;
       serviceDescription?: string;
       attributes?: GbpAttributeUpdate[];
+      sourceUrl?: string;
+      mediaFormat?: GbpMediaFormat;
+      category?: GbpMediaCategory;
       postSummary?: string;
       reviewId?: string;
       reviewReply?: string;
@@ -91,6 +96,9 @@ export async function POST(request: Request) {
       serviceName: body.serviceName,
       serviceDescription: body.serviceDescription,
       attributes: body.attributes,
+      sourceUrl: body.sourceUrl,
+      mediaFormat: body.mediaFormat,
+      category: body.category,
       postSummary: body.postSummary,
       reviewId: body.reviewId,
       reviewReply: body.reviewReply,

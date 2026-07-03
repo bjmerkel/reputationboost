@@ -157,14 +157,19 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
           .map((kw) => `Add photos for "${kw}" service`),
         "Upload 5+ new photos every week",
       ],
+      gbpAction: "upload_photo",
     },
     {
       stepNumber: 7,
       title: "Videos",
       instruction: "Upload 2-4 short videos weekly (30-60 seconds each) to boost engagement signals.",
-      current: "Video count not available via API — check your GBP Media tab",
+      current:
+        audit.gbp.content.videoCount > 0
+          ? `${audit.gbp.content.videoCount} videos on profile`
+          : "No videos on profile yet",
       recommended: "2-4 videos per week showcasing your top services",
       bullets: targetKeywords.slice(0, 4).map((kw) => `Short video featuring ${kw}`),
+      gbpAction: "upload_video",
     },
     {
       stepNumber: 8,

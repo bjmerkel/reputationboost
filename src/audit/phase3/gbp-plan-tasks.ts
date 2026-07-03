@@ -6,7 +6,17 @@ import type {
   GbpPlanStep,
 } from "../types";
 import type { AuditGeneratedContent } from "@/lib/llm/content";
+import type { GbpMediaCategory } from "@/lib/google/gbp-media";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
+
+function mediaUploadDraft(hint: string, category: GbpMediaCategory): string {
+  return [
+    "Paste a public file URL on the first line (must start with https://), then approve to upload.",
+    "",
+    hint,
+    `Category: ${category}`,
+  ].join("\n");
+}
 
 function stepPriority(stepNumber: number): ActionPriority {
   if (stepNumber <= 3) return "P0";
@@ -22,6 +32,8 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_primary_category",
     "gbp_secondary_categories",
     "gbp_services",
+    "gbp_photo",
+    "gbp_video",
     "gbp_attributes",
     "gbp_website",
     "gbp_phone",
@@ -165,6 +177,73 @@ export function tasksFromGbpPlanStep(
           websiteUri: website,
         }),
       ];
+    }
+    case "upload_photo": {
+      const city = audit.gbp.identity.address.split(",").slice(-2, -1)[0]?.trim() ?? "your area";
+      const photoJobs: Array<{ title: string; category: GbpMediaCategory; hint: string }> = [
+        {
+          title: "Exterior & storefront",
+          category: "EXTERIOR",
+          hint: `Wide shot of ${audit.clientName} storefront or entrance in ${city}.`,
+        },
+        {
+          title: "Interior & team",
+          category: "INTERIOR",
+          hint: "Interior, showroom, or team photo that builds trust.",
+        },
+        {
+          title: "At work / service",
+          category: "AT_WORK",
+          hint: `Staff delivering your core service (${audit.gbp.identity.primaryCategory}).`,
+        },
+        ...audit.rankings.keywords.slice(0, 4).map((kw) => ({
+          title: `Service photo: ${kw.keyword}`,
+          category: "ADDITIONAL" as GbpMediaCategory,
+          hint: `Photo showcasing "${kw.keyword}" for ${city} customers.`,
+        })),
+      ];
+      return photoJobs.map((job, i) =>
+        buildGbpTask(
+          audit,
+          step,
+          "gbp_photo",
+          job.title,
+          mediaUploadDraft(job.hint, job.category),
+          { mediaFormat: "PHOTO", category: job.category, photoIndex: i + 1 }
+        )
+      );
+    }
+    case "upload_video": {
+      const city = audit.gbp.identity.address.split(",").slice(-2, -1)[0]?.trim() ?? "your area";
+      const keywords = audit.rankings.keywords.slice(0, 4);
+      if (keywords.length === 0) {
+        return [
+          buildGbpTask(
+            audit,
+            step,
+            "gbp_video",
+            step.title,
+            mediaUploadDraft(
+              `30-60 second walkthrough of ${audit.clientName} in ${city}.`,
+              "AT_WORK"
+            ),
+            { mediaFormat: "VIDEO", category: "AT_WORK" }
+          ),
+        ];
+      }
+      return keywords.map((kw, i) =>
+        buildGbpTask(
+          audit,
+          step,
+          "gbp_video",
+          `Video: ${kw.keyword}`,
+          mediaUploadDraft(
+            `30-60 second video featuring "${kw.keyword}" for ${city} customers.`,
+            "AT_WORK"
+          ),
+          { mediaFormat: "VIDEO", category: "AT_WORK", videoIndex: i + 1 }
+        )
+      );
     }
     case "create_post": {
       const posts = content.googlePosts.length

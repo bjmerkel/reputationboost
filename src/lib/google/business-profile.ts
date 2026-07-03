@@ -3,6 +3,7 @@ import {
   fetchGbpPerformanceData,
   type GbpPerformanceData,
 } from "./gbp-performance";
+import { fetchGbpMediaSummary, type GbpMediaSummary } from "./gbp-media";
 import { authHeadersForConnection } from "./token-store";
 
 export type GbpPerformanceMetrics = GbpPerformanceData;
@@ -32,6 +33,7 @@ export interface GbpEnrichment {
   posts: GbpLocalPost[];
   questions: GbpQuestion[];
   reviews: GbpReview[];
+  media: GbpMediaSummary;
 }
 
 async function fetchLocalPosts(connection: GbpConnection): Promise<GbpLocalPost[]> {
@@ -137,12 +139,19 @@ export async function fetchGbpEnrichment(
   connection: GbpConnection,
   options?: { userEmail?: string }
 ): Promise<GbpEnrichment> {
-  const [performance, posts, questions, reviews] = await Promise.all([
+  const [performance, posts, questions, reviews, media] = await Promise.all([
     fetchGbpPerformanceData(connection, 30, { platformEmail: options?.userEmail }),
     fetchLocalPosts(connection).catch(() => []),
     fetchQuestions(connection).catch(() => []),
     fetchGbpReviews(connection).catch(() => []),
+    fetchGbpMediaSummary(connection).catch(() => ({
+      photoCount: 0,
+      videoCount: 0,
+      photosByType: {},
+      lastPhotoUpload: null,
+      items: [],
+    })),
   ]);
 
-  return { performance, posts, questions, reviews };
+  return { performance, posts, questions, reviews, media };
 }
