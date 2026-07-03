@@ -135,6 +135,23 @@ export async function updateExecutionTask(
   return rowToTask(data);
 }
 
+export async function appendExecutionTasks(
+  userId: string,
+  client: ClientConfig,
+  tasks: ExecutionTask[]
+): Promise<void> {
+  if (tasks.length === 0) return;
+
+  const supabase = await createClient();
+  const businessId =
+    client.businessId ?? (await getBusinessIdForSlug(userId, client.id));
+  if (!businessId) throw new Error("Business not found");
+
+  const rows = tasks.map((t) => taskToRow(t, userId, businessId));
+  const { error } = await supabase.from("execution_tasks").upsert(rows, { onConflict: "id" });
+  if (error) throw new Error(`Failed to save execution tasks: ${error.message}`);
+}
+
 export async function getExecutionTask(
   userId: string,
   taskId: string

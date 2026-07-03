@@ -9,6 +9,8 @@ import type { AuditGeneratedContent } from "@/lib/llm/content";
 import { buildTemplatePhotoJobs, photoJobDraftContent } from "@/lib/llm/gbp-photos";
 import type { GbpMediaCategory } from "@/lib/google/gbp-media";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
+import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
+import { resolvePlanStepAction } from "./gbp-plan-actions";
 
 function mediaUploadDraft(hint: string, category: GbpMediaCategory): string {
   return [
@@ -97,14 +99,53 @@ function checklistContent(step: GbpPlanStep): string {
   return parts.join("\n");
 }
 
+export function buildPhotoExecutionTasks(
+  audit: FullAuditPayload,
+  content: AuditGeneratedContent,
+  step?: GbpPlanStep
+): ExecutionTask[] {
+  const photoStep: GbpPlanStep =
+    step ??
+    ({
+      stepNumber: 6,
+      title: "Photo Optimization",
+      instruction: "Upload marketing photos to your Google Business Profile.",
+      gbpAction: "upload_photo",
+    } as GbpPlanStep);
+
+  const jobs =
+    content.gbpPhotoJobs.length > 0 ? content.gbpPhotoJobs : buildTemplatePhotoJobs(audit);
+
+  return jobs.map((job, i) =>
+    buildGbpTask(audit, photoStep, "gbp_photo", job.title, photoJobDraftContent(job), {
+      mediaFormat: "PHOTO",
+      category: job.category,
+      photoIndex: i + 1,
+      imagePrompt: job.imagePrompt,
+      aiGenerated: job.aiGenerated ?? false,
+      hint: job.hint,
+    })
+  );
+}
+
 export function tasksFromGbpPlanStep(
   audit: FullAuditPayload,
   step: GbpPlanStep,
   content: AuditGeneratedContent
 ): ExecutionTask[] {
-  const data = step.actionData ?? {};
+  const templateStep = buildTemplateGbpPlan(audit).steps.find(
+    (s) => s.stepNumber === step.stepNumber
+  );
+  const resolvedAction = resolvePlanStepAction(step, templateStep);
+  const resolvedStep: GbpPlanStep = { ...step, gbpAction: resolvedAction };
 
-  switch (step.gbpAction) {
+  if (resolvedStep.stepNumber === 6 || resolvedAction === "upload_photo") {
+    return buildPhotoExecutionTasks(audit, content, resolvedStep);
+  }
+
+  const data = resolvedStep.actionData ?? {};
+
+  switch (resolvedAction) {
     case "update_primary_category":
       return [
         buildGbpTask(
@@ -182,30 +223,6 @@ export function tasksFromGbpPlanStep(
           websiteUri: website,
         }),
       ];
-    }
-    case "upload_photo": {
-      const jobs =
-        content.gbpPhotoJobs.length > 0
-          ? content.gbpPhotoJobs
-          : buildTemplatePhotoJobs(audit);
-
-      return jobs.map((job, i) =>
-        buildGbpTask(
-          audit,
-          step,
-          "gbp_photo",
-          job.title,
-          photoJobDraftContent(job),
-          {
-            mediaFormat: "PHOTO",
-            category: job.category,
-            photoIndex: i + 1,
-            imagePrompt: job.imagePrompt,
-            aiGenerated: job.aiGenerated ?? false,
-            hint: job.hint,
-          }
-        )
-      );
     }
     case "upload_video": {
       const city = audit.gbp.identity.address.split(",").slice(-2, -1)[0]?.trim() ?? "your area";

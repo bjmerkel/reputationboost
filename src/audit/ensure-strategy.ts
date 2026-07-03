@@ -25,6 +25,10 @@ function enrichGbpPlan(
         ...step,
         current: step.current ?? templateStep?.current,
         recommended: step.recommended ?? templateStep?.recommended,
+        gbpAction:
+          step.gbpAction && step.gbpAction !== "manual"
+            ? step.gbpAction
+            : (templateStep?.gbpAction ?? step.gbpAction),
       };
     }),
   };

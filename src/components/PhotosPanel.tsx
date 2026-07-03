@@ -81,6 +81,52 @@ export default function PhotosPanel({
     }
   }, [clientId, auditId]);
 
+  const ensurePhotoTasks = useCallback(async () => {
+    const res = await fetch("/api/execution/ensure-photo-tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId, auditId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Failed to create photo plan");
+    }
+    if (data.tasks?.length) {
+      setTasks(data.tasks as ExecutionTask[]);
+    }
+    return data.tasks as ExecutionTask[];
+  }, [clientId, auditId]);
+
+  useEffect(() => {
+    if (!gbpConnected) return;
+
+    let cancelled = false;
+
+    async function loadTasks() {
+      try {
+        await refresh();
+        if (cancelled) return;
+        const res = await fetch(`/api/execution?clientId=${clientId}&auditId=${auditId}`);
+        const data = await res.json();
+        const photoTasks = ((data.tasks as ExecutionTask[]) ?? []).filter(
+          (t) => t.type === "gbp_photo"
+        );
+        if (!cancelled && photoTasks.length === 0) {
+          await ensurePhotoTasks();
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Failed to load photo plan");
+        }
+      }
+    }
+
+    void loadTasks();
+    return () => {
+      cancelled = true;
+    };
+  }, [auditId, clientId, gbpConnected, refresh, ensurePhotoTasks]);
+
   useEffect(() => {
     if (!gbpConnected) return;
 
@@ -349,10 +395,12 @@ export default function PhotosPanel({
         </section>
       )}
 
-      {tasks.length === 0 && (
+      {tasks.length === 0 && !generating && (
         <div className="rounded-xl border border-white/8 bg-white/[0.02] p-8 text-center">
-          <p className="text-slate-300">No photo plan yet.</p>
-          <p className="mt-2 text-sm text-slate-500">Re-run your audit — we will create AI photos for you automatically.</p>
+          <p className="text-slate-300">Building your photo plan…</p>
+          <p className="mt-2 text-sm text-slate-500">
+            AI photos are created automatically. This usually takes a few seconds.
+          </p>
         </div>
       )}
 

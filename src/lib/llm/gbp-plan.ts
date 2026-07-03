@@ -1,6 +1,7 @@
 import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "@/audit/types";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { buildAuditContext } from "./audit-context";
+import { resolvePlanStepAction } from "@/audit/phase3/gbp-plan-actions";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
 
@@ -112,7 +113,7 @@ Return JSON:
       "recommended": "specific update to improve keyword rankings",
       "bullets": ["actionable bullet points"],
       "copyBlocks": [{ "label": "block label", "content": "paste-ready text" }],
-      "gbpAction": "update_primary_category | add_secondary_categories | update_description | create_post | manual",
+      "gbpAction": "update_primary_category | add_secondary_categories | update_description | add_service_items | upload_photo | upload_video | update_attributes | update_website | create_post | manual",
       "actionData": {
         "primaryCategory": "display name for step 1",
         "secondaryCategories": ["category display names for step 2"],
@@ -136,6 +137,15 @@ Return JSON:
             .sort((a, b) => a.stepNumber - b.stepNumber)
             .map((s) => {
               const templateStep = fallback.steps.find((t) => t.stepNumber === s.stepNumber);
+              const gbpAction = resolvePlanStepAction(
+                {
+                  stepNumber: s.stepNumber,
+                  title: s.title,
+                  instruction: s.instruction,
+                  gbpAction: s.gbpAction as GbpPlanStep["gbpAction"],
+                },
+                templateStep
+              );
               return {
                 stepNumber: s.stepNumber,
                 title: s.title,
@@ -144,7 +154,7 @@ Return JSON:
                 recommended: s.recommended ?? templateStep?.recommended,
                 bullets: s.bullets ?? templateStep?.bullets,
                 copyBlocks: s.copyBlocks ?? templateStep?.copyBlocks,
-                gbpAction: (s.gbpAction as GbpPlanStep["gbpAction"]) ?? templateStep?.gbpAction,
+                gbpAction,
                 actionData: s.actionData ?? templateStep?.actionData,
               };
             })
