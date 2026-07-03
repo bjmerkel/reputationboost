@@ -2,6 +2,7 @@
 
 import type { FullAuditPayload, MonthlyReport } from "@/audit/types";
 import type { AttributionSummary } from "@/audit/types/timeseries";
+import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
 
 function formatDelta(change: number, suffix = ""): string {
   if (change === 0) return `0${suffix}`;
@@ -46,16 +47,16 @@ export default function HomeHealthSummary({
         How am I doing?
       </p>
 
-      <div className="mt-4 flex flex-wrap items-center gap-4">
+      <div className="mt-4 flex flex-wrap items-start gap-4">
         <div
-          className="flex h-16 w-16 items-center justify-center rounded-full border-4 text-lg font-bold"
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-4 text-lg font-bold"
           style={{ borderColor: color, color }}
         >
           {score}
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-lg font-semibold text-[#202124]">
-            Listing health {score}/100
+            Listing strength {score}/100
           </p>
           <p className="text-sm capitalize text-[#5f6368]">{scores.grade.replace("_", " ")}</p>
           {mom && mom.overallScoreChange !== 0 && (
@@ -64,6 +65,10 @@ export default function HomeHealthSummary({
             </p>
           )}
         </div>
+      </div>
+
+      <div className="mt-4 border-t border-[#e8eaed] pt-4">
+        <ScoreBreakdown scores={scores} />
       </div>
 
       {report && <EngagementStrip report={report} />}

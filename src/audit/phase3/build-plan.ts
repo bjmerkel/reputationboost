@@ -68,11 +68,10 @@ function computeProgress(steps: PlanStep[], currentHealthScore: number): PlanPro
   const totalSteps = steps.length;
   const completedSteps = steps.filter((s) => s.status === "completed").length;
   const needsApproval = steps.filter((s) => s.status === "needs_approval").length;
-  const remaining = totalSteps - completedSteps;
-  const projectedHealthScore = Math.min(
-    100,
-    Math.round(currentHealthScore + remaining * 1.5)
-  );
+  const remainingImpact = steps
+    .filter((s) => s.status !== "completed" && s.status !== "skipped")
+    .reduce((sum, s) => sum + (s.context.healthScoreImpact ?? 0), 0);
+  const projectedHealthScore = Math.min(100, Math.round(currentHealthScore + remainingImpact));
 
   return {
     totalSteps,

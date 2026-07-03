@@ -66,6 +66,13 @@ export default function PlanStepCard({
               Targets &ldquo;{step.context.primaryKeyword}&rdquo;
             </p>
           )}
+          {step.status !== "completed" &&
+            step.status !== "skipped" &&
+            (step.context.healthScoreImpact ?? 0) > 0 && (
+              <p className={`mt-1 text-xs font-semibold ${isLight ? "text-[#188038]" : "text-emerald-400"}`}>
+                +{step.context.healthScoreImpact} listing strength pts
+              </p>
+            )}
           {!expanded && (
             <p className={`mt-1 line-clamp-2 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
               {step.context.expectedEffect}

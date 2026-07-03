@@ -314,6 +314,41 @@ export interface AuditRunResult {
 // ─── Phase 2: Scoring & Strategy ───────────────────────────────────────────
 
 export type HealthGrade = "healthy" | "at_risk" | "urgent";
+export type ScoreComponent = "visibility" | "conversion" | "revenueCapture";
+
+export interface ScoreInsight {
+  weakestComponent: ScoreComponent;
+  topOpportunityKeyword: string | null;
+  nextAction: string | null;
+}
+
+export interface EngagementOutcomes {
+  calls: number;
+  directions: number;
+  websiteClicks: number;
+  profileViews: number;
+}
+
+export interface HealthScores {
+  overall: number;
+  grade: HealthGrade;
+  /** Weighted keyword rankings — will you show up in Maps? */
+  visibility: number;
+  /** Profile trust signals — will searchers click you? */
+  conversion: number;
+  /** Impression-weighted share of map clicks captured */
+  revenueCapture: number;
+  insight: ScoreInsight;
+  /** Legacy / diagnostic fields */
+  gbpCompleteness: number;
+  localPackCoverage: number;
+  reviewStrength: number;
+  /** Raw 30d engagement totals (outcomes, not score inputs) */
+  engagement: number;
+  competitiveGap: number;
+  engagementOutcomes: EngagementOutcomes;
+}
+
 export type ActionPriority = "P0" | "P1" | "P2" | "P3";
 export type ActionCategory =
   | "gbp_profile"
@@ -324,16 +359,6 @@ export type ActionCategory =
   | "disputes"
   | "technical";
 
-export interface HealthScores {
-  overall: number;
-  grade: HealthGrade;
-  gbpCompleteness: number;
-  localPackCoverage: number;
-  reviewStrength: number;
-  engagement: number;
-  competitiveGap: number;
-}
-
 export interface GapFlag {
   id: string;
   priority: ActionPriority;
@@ -343,6 +368,8 @@ export interface GapFlag {
   impact: number;
   effort: number;
   impactScore: number;
+  scoreComponent?: ScoreComponent;
+  scoreImpact?: number;
 }
 
 export interface ActionItem {

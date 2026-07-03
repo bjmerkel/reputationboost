@@ -1,4 +1,5 @@
 import type { FullAuditPayload, GbpPlanStep, PlanStepContext } from "../types";
+import { estimateStepHealthImpact } from "../phase2/score-impact";
 
 function targetKeywords(audit: FullAuditPayload, step: GbpPlanStep): string[] {
   const fromPlan = audit.strategy.gbpPlan?.targetKeywords ?? [];
@@ -94,6 +95,7 @@ export function buildStepContext(audit: FullAuditPayload, step: GbpPlanStep): Pl
     expectedEffect: buildExpectedEffect(audit, step),
     currentValue: step.current,
     recommendedValue: step.recommended,
+    healthScoreImpact: estimateStepHealthImpact(audit, step.stepNumber),
   };
 }
 

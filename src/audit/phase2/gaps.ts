@@ -5,6 +5,7 @@ import type {
   Phase1AuditPayload,
 } from "../types";
 import type { OutcomesContext } from "../outcomes/types";
+import { gapScoreComponent, gapScoreImpact } from "./score-impact";
 
 function daysSince(iso: string | null): number {
   if (!iso) return 999;
@@ -24,7 +25,19 @@ function gap(
   impact: number,
   effort: number
 ): GapFlag {
-  return { id, priority, category, title, description, impact, effort, impactScore: impactScore(impact, effort) };
+  const flag: GapFlag = {
+    id,
+    priority,
+    category,
+    title,
+    description,
+    impact,
+    effort,
+    impactScore: impactScore(impact, effort),
+  };
+  flag.scoreComponent = gapScoreComponent(flag);
+  flag.scoreImpact = gapScoreImpact(flag);
+  return flag;
 }
 
 function applyOutcomeGapAdjustments(gaps: GapFlag[], outcomes: OutcomesContext): void {
@@ -65,6 +78,8 @@ function applyOutcomeGapAdjustments(gaps: GapFlag[], outcomes: OutcomesContext):
 
   for (const g of gaps) {
     g.impactScore = impactScore(g.impact, g.effort);
+    g.scoreComponent = gapScoreComponent(g);
+    g.scoreImpact = gapScoreImpact(g);
   }
 }
 

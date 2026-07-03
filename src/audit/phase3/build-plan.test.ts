@@ -69,6 +69,7 @@ describe("buildPlan", () => {
     assert.equal(step3!.phaseId, "foundation");
     assert.ok(step3!.context.expectedEffect.length > 0);
     assert.ok(step3!.context.targetKeywords.length > 0);
+    assert.ok((step3!.context.healthScoreImpact ?? 0) > 0);
 
     const tasksForStep3 = tasks.filter((t) => resolvePlanStepNumber(t) === 3);
     assert.equal(step3!.tasks.length, tasksForStep3.length);

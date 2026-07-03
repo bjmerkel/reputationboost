@@ -1,6 +1,7 @@
 "use client";
 
 import type { FullAuditPayload } from "@/audit/types";
+import { normalizeHealthScores } from "@/components/audit/ScoreBreakdown";
 
 interface AuditSummaryStripProps {
   audit: FullAuditPayload;
@@ -8,8 +9,10 @@ interface AuditSummaryStripProps {
 
 export default function AuditSummaryStrip({ audit }: AuditSummaryStripProps) {
   const { strategy, rankings, gbp } = audit;
-  const score = strategy?.scores.overall ?? 0;
-  const grade = strategy?.scores.grade ?? "at_risk";
+  const scores = normalizeHealthScores(strategy?.scores);
+  const score = scores?.overall ?? 0;
+  const grade = scores?.grade ?? "at_risk";
+  const outcomes = scores?.engagementOutcomes;
 
   const gradeColor =
     grade === "healthy"
@@ -20,20 +23,26 @@ export default function AuditSummaryStrip({ audit }: AuditSummaryStripProps) {
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <SummaryCard label="Health score" value={`${score}/100`} hint={grade.replace("_", " ")} hintClass={gradeColor} />
+      <SummaryCard label="Listing strength" value={`${score}/100`} hint={grade.replace("_", " ")} hintClass={gradeColor} />
       <SummaryCard
-        label="Local 3-Pack"
-        value={`${rankings.keywordsInPack}/${rankings.totalKeywords}`}
-        hint="keywords in top 3"
+        label="Visibility"
+        value={`${scores?.visibility ?? rankings.shareOfVoice}/100`}
+        hint={`${rankings.keywordsInPack}/${rankings.totalKeywords} in 3-Pack`}
       />
-      <SummaryCard label="Share of voice" value={`${rankings.shareOfVoice}%`} hint="pack coverage" />
       <SummaryCard
-        label="Profile views (30d)"
-        value={String(gbp.performance.profileViews ?? 0)}
+        label="Conversion"
+        value={`${scores?.conversion ?? "—"}/100`}
+        hint="profile trust signals"
+      />
+      <SummaryCard
+        label="Calls (30d)"
+        value={String(outcomes?.calls ?? gbp.performance.calls ?? 0)}
         hint={
-          gbp.performance.source === "api"
-            ? `${gbp.performance.calls ?? 0} calls · ${gbp.performance.directionRequests ?? 0} directions`
-            : "re-run audit for live data"
+          outcomes
+            ? `${outcomes.directions} directions · ${outcomes.websiteClicks} clicks`
+            : gbp.performance.source === "api"
+              ? "outcome metrics"
+              : "re-run audit for live data"
         }
       />
     </div>

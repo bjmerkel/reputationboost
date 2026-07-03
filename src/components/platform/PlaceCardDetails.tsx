@@ -2,6 +2,7 @@
 
 import type { FullAuditPayload } from "@/audit/types";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
+import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
 
 interface PlaceCardDetailsProps {
   audit: FullAuditPayload;
@@ -19,13 +20,18 @@ export default function PlaceCardDetails({ audit, onPreviewCustomer }: PlaceCard
 
   return (
     <div className="shrink-0 space-y-3 border-b border-[#dadce0] px-4 py-3">
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <ListingStrengthRing score={score} color={gradeColor} />
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-[#5f6368]">Listing strength</p>
           <p className="text-sm font-medium text-[#202124]">
             {score}/100 · {grade.replace("_", " ")}
           </p>
+          {strategy?.scores && (
+            <div className="mt-2">
+              <ScoreBreakdown scores={strategy.scores} compact showInsight />
+            </div>
+          )}
         </div>
       </div>
 

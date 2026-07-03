@@ -1,4 +1,12 @@
-import type { HealthGrade, HealthScores, Phase1AuditPayload } from "../types";
+import type {
+  HealthGrade,
+  HealthScores,
+  KeywordRankSnapshot,
+  LocalPackPosition,
+  Phase1AuditPayload,
+  ScoreComponent,
+  ScoreInsight,
+} from "../types";
 
 function clamp(n: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(n)));
@@ -15,25 +23,221 @@ function daysSince(iso: string | null): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export function computeHealthScores(audit: Phase1AuditPayload): HealthScores {
-  const gbpCompleteness = audit.gbp.completeness.completenessScore;
+/** Rank position → visibility points (deeper ranks decay smoothly). */
+export function positionVisibilityScore(position: LocalPackPosition | number): number {
+  if (position === 1) return 100;
+  if (position === 2) return 75;
+  if (position === 3) return 50;
+  if (position === "not_in_pack") return 0;
+  if (typeof position === "number") {
+    if (position <= 3) return positionVisibilityScore(position as 1 | 2 | 3);
+    return clamp(100 - (position - 3) * 12);
+  }
+  return 0;
+}
 
-  const localPackCoverage = audit.rankings.shareOfVoice;
+/** Estimated click-share % by pack position (industry heuristic for revenue capture). */
+export function positionClickShare(position: LocalPackPosition | number): number {
+  if (position === 1) return 45;
+  if (position === 2) return 25;
+  if (position === 3) return 15;
+  if (position === "not_in_pack") return 3;
+  if (typeof position === "number") {
+    if (position <= 3) return positionClickShare(position as 1 | 2 | 3);
+    return clamp(10 - (position - 4) * 1.5);
+  }
+  return 3;
+}
+
+function resolvePosition(kw: KeywordRankSnapshot): LocalPackPosition | number {
+  if (kw.inLocalPack && typeof kw.localPackPosition === "number") {
+    return kw.localPackPosition;
+  }
+  if (kw.inLocalPack) {
+    const rank1mi = kw.geoRanks.find((g) => g.distanceMiles === 1)?.rank;
+    if (rank1mi != null && rank1mi <= 3) return rank1mi as 1 | 2 | 3;
+  }
+  if (typeof kw.localPackPosition === "number") return kw.localPackPosition;
+  const rank1mi = kw.geoRanks.find((g) => g.distanceMiles === 1)?.rank;
+  return rank1mi ?? "not_in_pack";
+}
+
+function keywordImpressionWeight(
+  keyword: string,
+  searchKeywords: Array<{ keyword: string; impressions: number | null }>
+): number {
+  const lower = keyword.toLowerCase();
+  for (const sk of searchKeywords) {
+    const skLower = sk.keyword.toLowerCase();
+    if (skLower === lower || lower.includes(skLower) || skLower.includes(lower)) {
+      if (sk.impressions != null && sk.impressions > 0) return sk.impressions;
+    }
+  }
+  return 1;
+}
+
+function weightedKeywordMetric(
+  keywords: KeywordRankSnapshot[],
+  searchKeywords: Array<{ keyword: string; impressions: number | null }>,
+  metric: (position: LocalPackPosition | number) => number
+): number {
+  if (keywords.length === 0) return 0;
+
+  let totalWeight = 0;
+  let weightedSum = 0;
+
+  for (const kw of keywords) {
+    const weight = keywordImpressionWeight(kw.keyword, searchKeywords);
+    const position = resolvePosition(kw);
+    totalWeight += weight;
+    weightedSum += metric(position) * weight;
+  }
+
+  return totalWeight > 0 ? weightedSum / totalWeight : 0;
+}
+
+export function computeVisibilityScore(audit: Phase1AuditPayload): number {
+  const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+  return clamp(
+    weightedKeywordMetric(audit.rankings.keywords, searchKeywords, positionVisibilityScore)
+  );
+}
+
+export function computeConversionScore(audit: Phase1AuditPayload): number {
+  const { gbp, reviews } = audit;
 
   const avgLeaderReviews =
     audit.rankings.keywords.reduce((s, k) => s + k.packLeaderReviewCount, 0) /
     Math.max(audit.rankings.keywords.length, 1);
-  const ratingScore = clamp(((audit.gbp.engagement.averageRating - 3.5) / 1.5) * 100);
-  const volumeRatio = audit.gbp.engagement.reviewCount / Math.max(avgLeaderReviews, 1);
+  const ratingScore = clamp(((gbp.engagement.averageRating - 3.5) / 1.5) * 100);
+  const volumeRatio = gbp.engagement.reviewCount / Math.max(avgLeaderReviews, 1);
   const reviewStrength = clamp(ratingScore * 0.5 + Math.min(volumeRatio, 1) * 50);
 
-  const engagementRaw =
-    audit.gbp.performance.profileViews +
-    audit.gbp.performance.calls +
-    audit.gbp.performance.directionRequests +
-    audit.gbp.performance.websiteClicks;
-  const engagement = clamp((engagementRaw / 300) * 100);
+  const completeness = gbp.completeness.completenessScore;
+  const photoScore = clamp((gbp.content.photoCount / 60) * 100);
 
+  const daysSincePost = daysSince(gbp.content.lastPostDate);
+  const postScore =
+    daysSincePost <= 7 ? 100 : daysSincePost <= 14 ? 70 : daysSincePost <= 30 ? 40 : 10;
+
+  const responseScore = clamp(gbp.engagement.responseRate * 100);
+  const qaScore =
+    gbp.content.unansweredQa === 0 ? 100 : clamp(100 - gbp.content.unansweredQa * 15);
+
+  let score =
+    reviewStrength * 0.35 +
+    completeness * 0.2 +
+    photoScore * 0.15 +
+    postScore * 0.15 +
+    responseScore * 0.1 +
+    qaScore * 0.05;
+
+  if (reviews.unrespondedNegative > 0) {
+    score -= Math.min(15, reviews.unrespondedNegative * 8);
+  }
+
+  return clamp(score);
+}
+
+/** Share of available map clicks captured, weighted by keyword impressions. */
+export function computeRevenueCaptureScore(audit: Phase1AuditPayload): number {
+  const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+  const capture = weightedKeywordMetric(
+    audit.rankings.keywords,
+    searchKeywords,
+    positionClickShare
+  );
+  // Normalize: rank #1 on all keywords ≈ 45% click share → 100 pts
+  return clamp((capture / 45) * 100);
+}
+
+export function findTopOpportunityKeyword(audit: Phase1AuditPayload): string | null {
+  const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+  let bestKeyword: string | null = null;
+  let bestOpportunity = 0;
+
+  for (const kw of audit.rankings.keywords) {
+    const weight = keywordImpressionWeight(kw.keyword, searchKeywords);
+    const position = resolvePosition(kw);
+    const opportunity = (100 - positionVisibilityScore(position)) * weight;
+    if (opportunity > bestOpportunity) {
+      bestOpportunity = opportunity;
+      bestKeyword = kw.keyword;
+    }
+  }
+
+  return bestKeyword;
+}
+
+export function buildScoreInsight(
+  audit: Phase1AuditPayload,
+  visibility: number,
+  conversion: number,
+  revenueCapture: number
+): ScoreInsight {
+  const components: Array<{ id: ScoreComponent; score: number }> = [
+    { id: "visibility", score: visibility },
+    { id: "conversion", score: conversion },
+    { id: "revenueCapture", score: revenueCapture },
+  ];
+  components.sort((a, b) => a.score - b.score);
+  const weakest = components[0];
+
+  const topOpportunityKeyword = findTopOpportunityKeyword(audit);
+
+  let nextAction: string | null = null;
+  if (weakest.id === "visibility" && topOpportunityKeyword) {
+    const kw = audit.rankings.keywords.find((k) => k.keyword === topOpportunityKeyword);
+    const pos = kw ? resolvePosition(kw) : "not_in_pack";
+    const posLabel = pos === "not_in_pack" ? "outside the 3-Pack" : `#${pos}`;
+    nextAction = `Improve "${topOpportunityKeyword}" (${posLabel}) — highest revenue opportunity`;
+  } else if (weakest.id === "conversion") {
+    if (audit.reviews.unrespondedNegative > 0) {
+      nextAction = `Respond to ${audit.reviews.unrespondedNegative} negative review(s) to boost click-through`;
+    } else if (audit.gbp.engagement.responseRate < 0.85) {
+      nextAction = "Raise review response rate above 85%";
+    } else if (daysSince(audit.gbp.content.lastPostDate) > 14) {
+      nextAction = "Publish a Google Post — profile looks inactive";
+    } else {
+      nextAction = "Add photos and strengthen reviews to win more clicks in the pack";
+    }
+  } else {
+    nextAction = topOpportunityKeyword
+      ? `Move "${topOpportunityKeyword}" into the top 3 to capture more map clicks`
+      : "Enter the Local 3-Pack on more target keywords";
+  }
+
+  return {
+    weakestComponent: weakest.id,
+    topOpportunityKeyword,
+    nextAction,
+  };
+}
+
+/** Outcome metrics — shown separately, not blended into listing strength. */
+export function computeEngagementOutcomes(audit: Phase1AuditPayload): {
+  calls: number;
+  directions: number;
+  websiteClicks: number;
+  profileViews: number;
+} {
+  const perf = audit.gbp.performance;
+  return {
+    calls: perf.calls,
+    directions: perf.directionRequests,
+    websiteClicks: perf.websiteClicks,
+    profileViews: perf.profileViews,
+  };
+}
+
+export function computeHealthScores(audit: Phase1AuditPayload): HealthScores {
+  const visibility = computeVisibilityScore(audit);
+  const conversion = computeConversionScore(audit);
+  const revenueCapture = computeRevenueCaptureScore(audit);
+
+  const overall = clamp(visibility * 0.5 + conversion * 0.3 + revenueCapture * 0.2);
+
+  const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
   const outsidePack = audit.rankings.keywords.filter((k) => !k.inLocalPack);
   let competitiveGap = 100;
   if (outsidePack.length > 0) {
@@ -45,27 +249,28 @@ export function computeHealthScores(audit: Phase1AuditPayload): HealthScores {
     competitiveGap = clamp(100 - avgGap * 12);
   }
 
-  const postPenalty = daysSince(audit.gbp.content.lastPostDate) > 14 ? 5 : 0;
-  const responsePenalty =
-    audit.gbp.engagement.responseRate < 0.8 ? 5 : 0;
+  const avgLeaderReviews =
+    audit.rankings.keywords.reduce((s, k) => s + k.packLeaderReviewCount, 0) /
+    Math.max(audit.rankings.keywords.length, 1);
+  const ratingScore = clamp(((audit.gbp.engagement.averageRating - 3.5) / 1.5) * 100);
+  const volumeRatio = audit.gbp.engagement.reviewCount / Math.max(avgLeaderReviews, 1);
+  const reviewStrength = clamp(ratingScore * 0.5 + Math.min(volumeRatio, 1) * 50);
 
-  const overall = clamp(
-    gbpCompleteness * 0.2 +
-      localPackCoverage * 0.3 +
-      reviewStrength * 0.2 +
-      engagement * 0.15 +
-      competitiveGap * 0.15 -
-      postPenalty -
-      responsePenalty
-  );
+  const outcomes = computeEngagementOutcomes(audit);
 
   return {
     overall,
     grade: gradeFromScore(overall),
-    gbpCompleteness,
-    localPackCoverage,
-    reviewStrength: clamp(reviewStrength),
-    engagement,
+    visibility,
+    conversion,
+    revenueCapture,
+    insight: buildScoreInsight(audit, visibility, conversion, revenueCapture),
+    // Legacy fields for stored audits and LLM context
+    gbpCompleteness: audit.gbp.completeness.completenessScore,
+    localPackCoverage: audit.rankings.shareOfVoice,
+    reviewStrength,
+    engagement: outcomes.profileViews + outcomes.calls + outcomes.directions + outcomes.websiteClicks,
     competitiveGap,
+    engagementOutcomes: outcomes,
   };
 }

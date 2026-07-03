@@ -115,7 +115,7 @@ curl "http://localhost:3000/api/places/search?keyword=plumber&radiusMiles=1" -H 
 
 After Phase 1 data collection, the engine automatically:
 
-- **Scores** GBP completeness, Local 3-Pack coverage, review strength, engagement, competitive gap (0–100)
+- **Scores** visibility (keyword-weighted rankings), conversion (profile trust), and revenue capture (0–100), blended into listing strength
 - **Detects gaps** with P0–P3 priority (outside 3-Pack, review gaps, stale posts, etc.)
 - **Diffs** month-over-month vs. prior audit
 - **Generates** executive summary, KPI targets, and 30-day action plan with draft copy
