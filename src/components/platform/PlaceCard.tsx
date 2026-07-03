@@ -33,7 +33,7 @@ export default function PlaceCard({
   const category = gbp.identity.primaryCategory || gbp.liveProfile?.primaryCategory;
 
   return (
-    <aside className="flex h-[60vh] w-full min-h-0 flex-col overflow-hidden border-[#dadce0] bg-white lg:h-auto lg:min-h-0 lg:flex-[0_0_40%] lg:self-stretch lg:border-r">
+    <aside className="flex min-h-0 w-full flex-[1_1_60%] flex-col overflow-hidden border-[#dadce0] bg-white lg:flex-[0_0_40%] lg:self-stretch lg:border-r">
       {heroPhoto && (
         <div className="relative h-36 w-full shrink-0 overflow-hidden bg-[#e8eaed]">
           <ExternalImage
@@ -74,7 +74,7 @@ export default function PlaceCard({
         planPendingCount={planPendingCount}
       />
 
-      <div className="maps-panel-light min-h-0 flex-1 overflow-y-auto px-4 py-5">
+      <div className="maps-panel-light min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-5">
         {children}
       </div>
     </aside>

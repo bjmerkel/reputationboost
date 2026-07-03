@@ -180,7 +180,7 @@ export default function AuditDashboard({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {!gbpConnected && <div className="shrink-0"><GbpConnectBanner businessId={businessId} /></div>}
 
       {audit.gbp.performance.source !== "api" && audit.gbp.performance.accessCheck && (
@@ -291,7 +291,7 @@ export default function AuditDashboard({
           )}
         </PlaceCard>
 
-        <div className="relative flex h-[40vh] min-h-[240px] w-full shrink-0 flex-col lg:h-auto lg:min-h-[240px] lg:flex-[0_0_60%] lg:self-stretch">
+        <div className="relative flex min-h-[200px] w-full flex-[0_0_40%] flex-col overflow-hidden lg:min-h-0 lg:flex-[0_0_60%] lg:self-stretch">
           <RankingMap
             lat={businessLocation.lat}
             lng={businessLocation.lng}

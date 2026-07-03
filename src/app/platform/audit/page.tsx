@@ -60,7 +60,7 @@ export default async function PlatformAuditPage() {
   };
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col">
+    <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Suspense
         fallback={
           <div className="flex flex-1 items-center justify-center p-12 text-[#5f6368]">

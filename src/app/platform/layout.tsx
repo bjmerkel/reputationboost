@@ -11,7 +11,7 @@ export default async function PlatformLayout({
   const user = await getUser();
 
   return (
-    <div className="platform-theme flex min-h-screen flex-col">
+    <div className="platform-theme flex h-dvh flex-col overflow-hidden">
       <header className="shrink-0 border-b border-[#dadce0] bg-white">
         <div className="flex items-center justify-between px-4 py-3 sm:px-6">
           <Link href="/platform/audit" className="flex items-center gap-2.5">
@@ -50,7 +50,7 @@ export default async function PlatformLayout({
           </div>
         </div>
       </header>
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
     </div>
   );
 }
