@@ -27,7 +27,9 @@ export default function PhotosPanel({
   auditId,
   gbpConnected,
   initialTasks,
-}: PhotosPanelProps) {
+  variant = "dark",
+}: PhotosPanelProps & { variant?: "dark" | "light" }) {
+  const isLight = variant === "light";
   const [tasks, setTasks] = useState(
     initialTasks.filter((t) => t.type === "gbp_photo")
   );
@@ -294,17 +296,29 @@ export default function PhotosPanel({
 
   return (
     <div className="space-y-8">
-      <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-5">
-        <h3 className="text-lg font-bold text-white">Your photo workflow</h3>
-        <p className="mt-2 text-sm leading-relaxed text-slate-300">
+      <div
+        className={`rounded-xl border p-5 ${
+          isLight
+            ? "border-[#d2e3fc] bg-[#e8f0fe]"
+            : "border-violet-500/20 bg-violet-500/5"
+        }`}
+      >
+        <h3 className={`text-lg font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
+          Your photo workflow
+        </h3>
+        <p
+          className={`mt-2 text-sm leading-relaxed ${
+            isLight ? "text-[#3c4043]" : "text-slate-300"
+          }`}
+        >
           We analyze your profile, create AI marketing photos for you, and upload them to Google
           in one click. Real storefront and interior shots use your camera — everything else is
           handled here.
         </p>
         <div className="mt-4 flex flex-wrap gap-3 text-sm">
-          <StatPill label="On Google now" value={String(audit.gbp.content.photoCount)} />
-          <StatPill label="Ready to upload" value={String(readyAi.length)} />
-          <StatPill label="Uploaded this session" value={String(completedCount)} />
+          <StatPill label="On Google now" value={String(audit.gbp.content.photoCount)} light={isLight} />
+          <StatPill label="Ready to upload" value={String(readyAi.length)} light={isLight} />
+          <StatPill label="Uploaded this session" value={String(completedCount)} light={isLight} />
         </div>
       </div>
 
@@ -413,11 +427,23 @@ export default function PhotosPanel({
   );
 }
 
-function StatPill({ label, value }: { label: string; value: string }) {
+function StatPill({
+  label,
+  value,
+  light = false,
+}: {
+  label: string;
+  value: string;
+  light?: boolean;
+}) {
   return (
-    <div className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5">
-      <span className="text-slate-400">{label}: </span>
-      <span className="font-semibold text-white">{value}</span>
+    <div
+      className={`rounded-full border px-4 py-1.5 ${
+        light ? "border-[#dadce0] bg-white" : "border-white/10 bg-white/5"
+      }`}
+    >
+      <span className={light ? "text-[#5f6368]" : "text-slate-400"}>{label}: </span>
+      <span className={`font-semibold ${light ? "text-[#202124]" : "text-white"}`}>{value}</span>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import type { ClientConfig } from "@/audit/types";
-import type { CompetitorProfile, CompetitorSnapshot, KeywordRankSnapshot, RankSnapshot } from "@/audit/types";
+import type { CompetitorProfile, CompetitorSnapshot, GeoGridPoint, KeywordRankSnapshot, RankSnapshot } from "@/audit/types";
 import {
   geocodeAddress,
   milesToMeters,
@@ -9,6 +9,7 @@ import {
   type PlaceResult,
   type SearchRadiusMiles,
 } from "./places";
+import { collectKeywordGeoGrid } from "./geo-grid";
 
 const TOP_COMPETITORS = 5;
 
@@ -106,7 +107,8 @@ function buildKeywordSnapshot(
   keyword: string,
   ranksByRadius: Record<SearchRadiusMiles, number | null>,
   resultsAt1Mi: PlaceResult[],
-  matchOptions: BusinessMatchOptions
+  matchOptions: BusinessMatchOptions,
+  geoGrid?: GeoGridPoint[]
 ): KeywordRankSnapshot {
   const rankAt1Mi = ranksByRadius[1];
   const inLocalPack = rankAt1Mi !== null && rankAt1Mi <= 3;
@@ -131,6 +133,7 @@ function buildKeywordSnapshot(
     packLeaderReviewCount: leader?.reviewCount ?? 0,
     clientRating: ownPlace?.rating ?? 0,
     clientReviewCount: ownPlace?.reviewCount ?? 0,
+    geoGrid,
   };
 }
 
@@ -188,8 +191,16 @@ export async function collectPlacesRankData(client: ClientConfig): Promise<{
       "nearby"
     );
 
+    const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions);
+
     keywords.push(
-      buildKeywordSnapshot(keyword, ranksByRadius, resultsByRadius[1], matchOptions)
+      buildKeywordSnapshot(
+        keyword,
+        ranksByRadius,
+        resultsByRadius[1],
+        matchOptions,
+        geoGrid
+      )
     );
 
     const competitorPlaces = extractCompetitors(resultsByRadius[1], matchOptions, TOP_COMPETITORS);

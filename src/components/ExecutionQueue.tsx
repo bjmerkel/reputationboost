@@ -47,7 +47,9 @@ export default function ExecutionQueue({
   initialTasks,
   contentSource,
   embedded = false,
-}: ExecutionQueueProps & { embedded?: boolean }) {
+  variant = "dark",
+}: ExecutionQueueProps & { embedded?: boolean; variant?: "dark" | "light" }) {
+  const isLight = variant === "light";
   const [tasks, setTasks] = useState<ExecutionTask[]>(initialTasks);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +135,13 @@ export default function ExecutionQueue({
 
   if (tasks.length === 0) {
     return (
-      <div className="rounded-xl border border-white/8 bg-white/[0.02] p-8 text-center text-slate-400">
+      <div
+        className={`rounded-xl border p-8 text-center ${
+          isLight
+            ? "border-[#dadce0] bg-[#f8f9fa] text-[#5f6368]"
+            : "border-white/8 bg-white/[0.02] text-slate-400"
+        }`}
+      >
         No execution tasks yet. Run a full audit to generate the action queue.
       </div>
     );
@@ -148,10 +156,12 @@ export default function ExecutionQueue({
               Phase 3 — Execution Queue
             </span>
           )}
-          <p className={`text-sm text-slate-400 ${embedded ? "" : "mt-1"}`}>
+          <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"} ${embedded ? "" : "mt-1"}`}>
             {pending} pending · {approved} approved · {completed} completed
             {contentSource === "llm" && (
-              <span className="ml-2 text-violet-400">· AI-generated copy</span>
+              <span className={isLight ? "ml-2 text-[#9334e6]" : "ml-2 text-violet-400"}>
+                · AI-generated copy
+              </span>
             )}
           </p>
         </div>
@@ -177,13 +187,17 @@ export default function ExecutionQueue({
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && (
+        <p className={`text-sm ${isLight ? "text-[#d93025]" : "text-red-400"}`}>{error}</p>
+      )}
 
       <div className="space-y-3">
         {tasks.map((task) => (
           <div
             key={task.id}
-            className="rounded-xl border border-white/8 bg-white/[0.02] p-5"
+            className={`rounded-xl border p-5 ${
+              isLight ? "border-[#dadce0] bg-white" : "border-white/8 bg-white/[0.02]"
+            }`}
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -237,7 +251,9 @@ export default function ExecutionQueue({
               </div>
             </div>
 
-            <p className="mt-3 font-medium text-white">{task.title}</p>
+            <p className={`mt-3 font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
+              {task.title}
+            </p>
             {typeof task.payload.gbpStepNumber === "number" && (
               <p className="mt-1 text-xs text-slate-500">
                 From plan step {task.payload.gbpStepNumber}
@@ -278,7 +294,11 @@ export default function ExecutionQueue({
                   ? "Draft reply"
                   : "Draft content"}
             </p>
-            <p className="mt-1 rounded-lg bg-white/5 p-3 text-sm leading-relaxed text-slate-300">
+            <p
+              className={`mt-1 rounded-lg p-3 text-sm leading-relaxed ${
+                isLight ? "bg-[#f8f9fa] text-[#3c4043]" : "bg-white/5 text-slate-300"
+              }`}
+            >
               {normalizeTextContent(task.draftContent)}
             </p>
 

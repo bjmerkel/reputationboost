@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { CompetitorProfile, KeywordRankSnapshot } from "@/audit/types";
+import type { CompetitorProfile, GeoGridPoint, KeywordRankSnapshot } from "@/audit/types";
 import MapLayerControls, {
   createDefaultMapLayers,
   type MapLayerState,
@@ -13,7 +13,7 @@ function milesToMeters(miles: number): number {
   return Math.round(miles * 1609.34);
 }
 
-function rankColor(rank: number | null): string {
+export function rankColor(rank: number | null): string {
   if (rank === null) return "#9aa0a6";
   if (rank <= 3) return "#34a853";
   if (rank <= 10) return "#fbbc04";
@@ -44,10 +44,48 @@ export default function RankingMap({
   const businessMarkerRef = useRef<google.maps.Marker | null>(null);
   const competitorMarkersRef = useRef<google.maps.Marker[]>([]);
   const circlesRef = useRef<google.maps.Circle[]>([]);
+  const gridCirclesRef = useRef<google.maps.Circle[]>([]);
   const centerRef = useRef<google.maps.LatLngLiteral | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [layers, setLayers] = useState<MapLayerState>(createDefaultMapLayers);
+  const [gridPoints, setGridPoints] = useState<GeoGridPoint[] | undefined>(
+    keywordRank?.geoGrid
+  );
+  const [gridLoading, setGridLoading] = useState(false);
+
+  useEffect(() => {
+    setGridPoints(keywordRank?.geoGrid);
+  }, [keywordRank?.geoGrid, keywordRank?.keyword]);
+
+  useEffect(() => {
+    if (!layers.showHeatmap || !activeKeyword || !ready) return;
+    if (gridPoints?.length) return;
+
+    let cancelled = false;
+
+    async function loadGrid() {
+      setGridLoading(true);
+      try {
+        const res = await fetch(
+          `/api/places/grid?keyword=${encodeURIComponent(activeKeyword!)}`
+        );
+        const data = (await res.json()) as { geoGrid?: GeoGridPoint[] };
+        if (!cancelled && res.ok && data.geoGrid?.length) {
+          setGridPoints(data.geoGrid);
+        }
+      } catch {
+        // Heatmap unavailable without grid data
+      } finally {
+        if (!cancelled) setGridLoading(false);
+      }
+    }
+
+    void loadGrid();
+    return () => {
+      cancelled = true;
+    };
+  }, [layers.showHeatmap, activeKeyword, ready, gridPoints?.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +194,34 @@ export default function RankingMap({
   useEffect(() => {
     if (!ready || !mapInstance.current) return;
 
+    gridCirclesRef.current.forEach((c) => c.setMap(null));
+    gridCirclesRef.current = [];
+
+    if (!layers.showHeatmap || !gridPoints?.length) return;
+
+    const google = window.google;
+    if (!google) return;
+
+    for (const point of gridPoints) {
+      const color = rankColor(point.rank);
+      const circle = new google.maps.Circle({
+        map: mapInstance.current,
+        center: { lat: point.lat, lng: point.lng },
+        radius: 140,
+        fillColor: color,
+        fillOpacity: 0.55,
+        strokeColor: color,
+        strokeOpacity: 0.85,
+        strokeWeight: 1,
+        clickable: false,
+      });
+      gridCirclesRef.current.push(circle);
+    }
+  }, [gridPoints, layers.showHeatmap, ready]);
+
+  useEffect(() => {
+    if (!ready || !mapInstance.current) return;
+
     competitorMarkersRef.current.forEach((m) => m.setMap(null));
     competitorMarkersRef.current = [];
 
@@ -231,13 +297,16 @@ export default function RankingMap({
       <MapLayerControls layers={layers} onChange={setLayers} />
       <div ref={mapRef} className="absolute inset-0" />
       {keywordRank && (
-        <div className="absolute bottom-4 left-4 max-w-[220px] rounded-lg bg-white/95 px-3 py-2 text-xs shadow-md">
+        <div className="absolute bottom-4 left-4 max-w-[240px] rounded-lg bg-white/95 px-3 py-2 text-xs shadow-md">
           <p className="font-medium text-[#202124]">{keywordRank.keyword}</p>
           <p className="mt-0.5 text-[#5f6368]">
             {keywordRank.inLocalPack
               ? `Rank #${keywordRank.localPackPosition} in Local 3-Pack`
               : "Not in Local 3-Pack"}
           </p>
+          {gridLoading && layers.showHeatmap && (
+            <p className="mt-1 text-[#1a73e8]">Loading heatmap…</p>
+          )}
           <div className="mt-2 flex flex-wrap gap-1.5">
             {keywordRank.geoRanks.map((g) => (
               <span
@@ -252,6 +321,30 @@ export default function RankingMap({
               </span>
             ))}
           </div>
+          {layers.showHeatmap && gridPoints && gridPoints.length > 0 && (
+            <div className="mt-2 border-t border-[#dadce0] pt-2">
+              <p className="text-[10px] font-medium text-[#5f6368]">Geo grid legend</p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {[
+                  { label: "Top 3", color: rankColor(1) },
+                  { label: "4–10", color: rankColor(7) },
+                  { label: "11+", color: rankColor(15) },
+                  { label: "N/F", color: rankColor(null) },
+                ].map((item) => (
+                  <span
+                    key={item.label}
+                    className="inline-flex items-center gap-1 text-[10px] text-[#5f6368]"
+                  >
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

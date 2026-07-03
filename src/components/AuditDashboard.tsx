@@ -12,6 +12,7 @@ import MonthlyReportPanel from "@/components/MonthlyReportPanel";
 import PerformancePermissionBanner from "@/components/PerformancePermissionBanner";
 import PhotosPanel from "@/components/PhotosPanel";
 import MapsSearchBar from "@/components/platform/MapsSearchBar";
+import InlineOptimizationCards from "@/components/platform/InlineOptimizationCards";
 import PlaceCard from "@/components/platform/PlaceCard";
 import PlatformShell from "@/components/platform/PlatformShell";
 import RankingMap from "@/components/platform/RankingMap";
@@ -206,6 +207,15 @@ export default function AuditDashboard({
           pendingTasks={pendingTasks}
           pendingPhotoTasks={pendingPhotoTasks}
         >
+          {view === "report" && (
+            <InlineOptimizationCards
+              clientId={clientId}
+              auditId={audit.auditId}
+              tasks={tasks}
+              onViewAll={() => setView("execute")}
+            />
+          )}
+
           {view === "report" && audit.strategy?.monthlyReport && (
             <MonthlyReportPanel report={audit.strategy.monthlyReport} embedded variant="light" />
           )}
@@ -232,6 +242,7 @@ export default function AuditDashboard({
               auditId={audit.auditId}
               gbpConnected={gbpConnected}
               initialTasks={tasks}
+              variant="light"
             />
           )}
 
@@ -243,6 +254,7 @@ export default function AuditDashboard({
               contentSource={audit.execution?.contentSource}
               initialTasks={actionTasks}
               embedded
+              variant="light"
             />
           )}
 

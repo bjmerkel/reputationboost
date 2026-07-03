@@ -1,5 +1,6 @@
-import type { ClientConfig, KeywordRankSnapshot, RankSnapshot } from "../types";
+import type { ClientConfig, GeoGridPoint, KeywordRankSnapshot, RankSnapshot } from "../types";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
+import { buildDemoGeoGrid } from "@/lib/google/geo-grid";
 import { collectPlacesRankData } from "@/lib/google/local-rankings";
 
 const DISTANCES = [1, 3, 5, 10] as const;
@@ -35,7 +36,10 @@ function collectRanksDemo(client: ClientConfig): RankSnapshot {
     { keyword: client.keywords[4] ?? "stucco installation", packPos: "not_in_pack", baseRank: 11, leaderReviews: 156 },
   ];
 
-  const keywords: KeywordRankSnapshot[] = keywordData.map((kw) => ({
+  const keywords: KeywordRankSnapshot[] = keywordData.map((kw) => {
+    const center = client.location;
+    const baseRank = kw.packPos === "not_in_pack" ? kw.baseRank : (kw.packPos as number);
+    return {
     keyword: kw.keyword,
     localPackPosition: kw.packPos,
     inLocalPack: kw.packPos !== "not_in_pack",
@@ -48,11 +52,16 @@ function collectRanksDemo(client: ClientConfig): RankSnapshot {
         inLocalPack: rank <= 3,
       };
     }),
+    geoGrid: buildDemoGeoGrid(
+      { lat: center.lat || 32.7157, lng: center.lng || -117.1611 },
+      baseRank
+    ),
     packLeaderRating: 4.8,
     packLeaderReviewCount: kw.leaderReviews,
     clientRating: 4.6,
     clientReviewCount: 47,
-  }));
+  };
+  });
 
   const keywordsInPack = keywords.filter((k) => k.inLocalPack).length;
 

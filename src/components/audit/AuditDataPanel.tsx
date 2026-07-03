@@ -201,6 +201,11 @@ export default function AuditDataPanel({
       )}
 
       {tab === "rankings" && (
+        <div className="space-y-3">
+          <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+            Rankings by search radius from your business. Toggle <strong>Heatmap</strong> on the
+            map for the full geo grid view.
+          </p>
         <div
           className={`overflow-x-auto rounded-xl border ${
             isLight ? "border-[#dadce0]" : "border-white/8"
@@ -247,6 +252,7 @@ export default function AuditDataPanel({
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       )}
 

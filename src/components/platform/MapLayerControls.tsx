@@ -4,6 +4,7 @@ import { SEARCH_RADII_MILES } from "@/lib/google/places";
 
 export type MapLayerState = {
   showCompetitors: boolean;
+  showHeatmap: boolean;
   enabledRadii: Set<number>;
 };
 
@@ -15,6 +16,7 @@ interface MapLayerControlsProps {
 export function createDefaultMapLayers(): MapLayerState {
   return {
     showCompetitors: true,
+    showHeatmap: true,
     enabledRadii: new Set(SEARCH_RADII_MILES),
   };
 }
@@ -49,6 +51,17 @@ export default function MapLayerControls({ layers, onChange }: MapLayerControlsP
           </button>
         );
       })}
+      <button
+        type="button"
+        onClick={() => onChange({ ...layers, showHeatmap: !layers.showHeatmap })}
+        className={`rounded-full px-3 py-1.5 text-xs font-medium shadow-md transition ${
+          layers.showHeatmap
+            ? "bg-[#34a853] text-white"
+            : "bg-white text-[#3c4043] hover:bg-[#f1f3f4]"
+        }`}
+      >
+        Heatmap
+      </button>
       <button
         type="button"
         onClick={() =>

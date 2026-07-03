@@ -159,11 +159,23 @@ export interface GeoRankPoint {
   inLocalPack: boolean;
 }
 
+/** Spatial rank sample at a grid point around the business (geo heatmap). */
+export interface GeoGridPoint {
+  lat: number;
+  lng: number;
+  offsetNorthMiles: number;
+  offsetEastMiles: number;
+  rank: number | null;
+  inLocalPack: boolean;
+}
+
 export interface KeywordRankSnapshot {
   keyword: string;
   localPackPosition: LocalPackPosition | number;
   inLocalPack: boolean;
   geoRanks: GeoRankPoint[];
+  /** 5×5 spatial grid for heatmap visualization (optional on older audits). */
+  geoGrid?: GeoGridPoint[];
   packLeaderRating: number;
   packLeaderReviewCount: number;
   clientRating: number;
