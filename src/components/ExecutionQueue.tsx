@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { ExecutionTask } from "@/audit/types";
-import AiPhotoPreview from "@/components/AiPhotoPreview";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 
 interface ExecutionQueueProps {
@@ -283,17 +282,6 @@ export default function ExecutionQueue({
               {normalizeTextContent(task.draftContent)}
             </p>
 
-            {task.type === "gbp_photo" && getImagePrompt(task) && (
-              <AiPhotoPreview
-                prompt={getImagePrompt(task)!}
-                category={
-                  typeof task.payload.category === "string"
-                    ? task.payload.category
-                    : undefined
-                }
-              />
-            )}
-
             {task.result && (
               <p
                 className={`mt-2 text-sm ${
@@ -329,13 +317,4 @@ function formatViolationLabel(code: string): string {
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/^\w/, (c) => c.toUpperCase());
-}
-
-function getImagePrompt(task: ExecutionTask): string | null {
-  if (typeof task.payload.imagePrompt === "string" && task.payload.imagePrompt.trim()) {
-    return task.payload.imagePrompt.trim();
-  }
-
-  const match = task.draftContent.match(/Image prompt:\s*\n([\s\S]+?)(?:\n\n|$)/);
-  return match?.[1]?.trim() ?? null;
 }

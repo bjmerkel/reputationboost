@@ -1,8 +1,8 @@
 "use client";
 
-export type AuditView = "report" | "strategy" | "execute" | "data";
+export type AuditView = "report" | "strategy" | "photos" | "execute" | "data";
 
-export const AUDIT_VIEWS: AuditView[] = ["report", "strategy", "execute", "data"];
+export const AUDIT_VIEWS: AuditView[] = ["report", "strategy", "photos", "execute", "data"];
 
 export interface AuditStoryStep {
   id: AuditView;
@@ -25,14 +25,20 @@ export const AUDIT_STORY_STEPS: AuditStoryStep[] = [
     subtitle: "KPI targets & 16-step GBP playbook",
   },
   {
-    id: "execute",
+    id: "photos",
     step: 3,
+    title: "Photos",
+    subtitle: "AI-generated shots — upload in one click",
+  },
+  {
+    id: "execute",
+    step: 4,
     title: "Take Action",
-    subtitle: "Approve & publish every recommendation",
+    subtitle: "Approve & publish everything else",
   },
   {
     id: "data",
-    step: 4,
+    step: 5,
     title: "Deep Dive",
     subtitle: "Full audit breakdown",
   },

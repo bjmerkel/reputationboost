@@ -12,6 +12,7 @@ import { isAuditView, type AuditView } from "@/components/audit/types";
 import ExecutionQueue from "@/components/ExecutionQueue";
 import MonthlyReportPanel from "@/components/MonthlyReportPanel";
 import PerformancePermissionBanner from "@/components/PerformancePermissionBanner";
+import PhotosPanel from "@/components/PhotosPanel";
 import StrategyPanel from "@/components/StrategyPanel";
 
 interface AuditRunnerProps {
@@ -53,7 +54,12 @@ export default function AuditDashboard({
 
   const tasks =
     audit?.execution?.tasks?.length ? audit.execution.tasks : initialExecutionTasks;
-  const pendingTasks = tasks.filter((t) => t.status === "pending_approval").length;
+
+  const photoTasks = tasks.filter((t) => t.type === "gbp_photo");
+  const actionTasks = tasks.filter((t) => t.type !== "gbp_photo" && t.type !== "gbp_video");
+
+  const pendingPhotoTasks = photoTasks.filter((t) => t.status === "pending_approval").length;
+  const pendingTasks = actionTasks.filter((t) => t.status === "pending_approval").length;
 
   async function runAudit() {
     setLoading(true);
@@ -150,7 +156,12 @@ export default function AuditDashboard({
       <AuditSummaryStrip audit={audit} />
 
       <div className="flex min-h-[calc(100vh-14rem)] flex-col overflow-hidden rounded-2xl border border-white/8 bg-slate-950/40 lg:flex-row">
-        <AuditSidebar active={view} onChange={setView} pendingTasks={pendingTasks} />
+        <AuditSidebar
+          active={view}
+          onChange={setView}
+          pendingTasks={pendingTasks}
+          pendingPhotoTasks={pendingPhotoTasks}
+        />
 
         <div className="min-w-0 flex-1 overflow-y-auto p-6 md:p-8">
           <AuditViewHeader view={view} />
@@ -165,8 +176,23 @@ export default function AuditDashboard({
           )}
 
         {view === "strategy" && audit.strategy && (
-          <StrategyPanel strategy={audit.strategy} embedded gbpConnected={gbpConnected} />
+          <StrategyPanel
+            strategy={audit.strategy}
+            embedded
+            gbpConnected={gbpConnected}
+            onOpenPhotos={() => setView("photos")}
+          />
         )}
+
+          {view === "photos" && (
+            <PhotosPanel
+              audit={audit}
+              clientId={clientId}
+              auditId={audit.auditId}
+              gbpConnected={gbpConnected}
+              initialTasks={tasks}
+            />
+          )}
 
           {view === "execute" && (
             <ExecutionQueue
@@ -174,7 +200,7 @@ export default function AuditDashboard({
               clientId={clientId}
               auditId={audit.auditId}
               contentSource={audit.execution?.contentSource}
-              initialTasks={tasks}
+              initialTasks={actionTasks}
               embedded
             />
           )}

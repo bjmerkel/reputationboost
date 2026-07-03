@@ -192,21 +192,8 @@ export async function generateGbpPhotoImage(
 
 export function photoJobDraftContent(job: GbpPhotoJob): string {
   if (job.aiGenerated && job.imagePrompt) {
-    return [
-      "AI-generated photo — will be created and uploaded to Google when you run this task.",
-      "",
-      `Scene: ${job.hint}`,
-      `Category: ${job.category}`,
-      "",
-      "Image prompt:",
-      job.imagePrompt,
-    ].join("\n");
+    return `AI photo ready in the Photos tab — ${job.hint}`;
   }
 
-  return [
-    "Paste a public photo URL on the first line (https://…), then approve to upload.",
-    "",
-    job.hint,
-    `Category: ${job.category}`,
-  ].join("\n");
+  return `Upload your real photo in the Photos tab — ${job.hint}`;
 }

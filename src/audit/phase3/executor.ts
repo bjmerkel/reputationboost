@@ -4,6 +4,16 @@ import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
 import type { GbpMediaCategory, GbpMediaFormat } from "@/lib/google/gbp-media";
 import { generateGbpPhotoImage } from "@/lib/llm/gbp-photos";
 
+function dataUrlToBytes(dataUrl: string): { bytes: ArrayBuffer; contentType: string } {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) throw new Error("Invalid image preview data.");
+  const binary = Buffer.from(match[2], "base64");
+  return {
+    bytes: binary.buffer.slice(binary.byteOffset, binary.byteOffset + binary.byteLength),
+    contentType: match[1],
+  };
+}
+
 /**
  * Execute an approved task — uses live GBP OAuth when connection is available.
  */
@@ -105,8 +115,13 @@ async function executeTaskLive(
     case "gbp_photo":
     case "gbp_video": {
       const imagePrompt = task.payload.imagePrompt as string | undefined;
-      if (task.type === "gbp_photo" && imagePrompt) {
-        const { bytes, contentType } = await generateGbpPhotoImage(imagePrompt);
+      const previewDataUrl = task.payload.previewDataUrl as string | undefined;
+
+      if (task.type === "gbp_photo" && (imagePrompt || previewDataUrl)) {
+        const { bytes, contentType } = previewDataUrl?.startsWith("data:")
+          ? dataUrlToBytes(previewDataUrl)
+          : await generateGbpPhotoImage(imagePrompt!);
+
         const result = await applyMediaFromBytes(connection, bytes, contentType, {
           mediaFormat: "PHOTO",
           category: (task.payload.category as GbpMediaCategory) ?? "ADDITIONAL",

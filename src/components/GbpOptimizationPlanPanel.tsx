@@ -7,12 +7,14 @@ interface GbpOptimizationPlanPanelProps {
   plan: GbpOptimizationPlan;
   kpiTargets?: string[];
   gbpConnected?: boolean;
+  onOpenPhotos?: () => void;
 }
 
 export default function GbpOptimizationPlanPanel({
   plan,
   kpiTargets = [],
   gbpConnected = false,
+  onOpenPhotos,
 }: GbpOptimizationPlanPanelProps) {
   const [expanded, setExpanded] = useState<number | null>(plan.steps[0]?.stepNumber ?? 1);
 
@@ -125,7 +127,10 @@ export default function GbpOptimizationPlanPanel({
                   {step.stepNumber}
                 </span>
                 <span className="min-w-0 flex-1 font-semibold text-white">{step.title}</span>
-                {step.gbpAction && step.gbpAction !== "manual" && gbpConnected && (
+                {step.gbpAction &&
+                  step.gbpAction !== "manual" &&
+                  step.gbpAction !== "upload_photo" &&
+                  gbpConnected && (
                   <span className="hidden shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-400 sm:inline">
                     One-click
                   </span>
@@ -182,7 +187,11 @@ export default function GbpOptimizationPlanPanel({
                     </div>
                   ))}
 
-                  <GbpApplyButton step={step} gbpConnected={gbpConnected} />
+                  <GbpApplyButton
+                    step={step}
+                    gbpConnected={gbpConnected}
+                    onOpenPhotos={onOpenPhotos}
+                  />
                 </div>
               )}
             </div>
@@ -319,9 +328,11 @@ function KeywordRankingsSection({
 function GbpApplyButton({
   step,
   gbpConnected,
+  onOpenPhotos,
 }: {
   step: GbpPlanStep;
   gbpConnected: boolean;
+  onOpenPhotos?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -329,6 +340,34 @@ function GbpApplyButton({
 
   const action = step.gbpAction;
   if (!action || action === "manual") return null;
+
+  if (action === "upload_photo") {
+    if (!gbpConnected) {
+      return (
+        <p className="mt-4 text-xs text-slate-500">
+          Connect Google Business Profile to upload photos.
+        </p>
+      );
+    }
+    return (
+      <div className="mt-5 border-t border-white/8 pt-4">
+        <p className="mb-3 text-sm text-slate-400">
+          AI photos are created for you automatically. Review and upload from one place.
+        </p>
+        {onOpenPhotos ? (
+          <button
+            type="button"
+            onClick={onOpenPhotos}
+            className="btn-primary rounded-full px-5 py-2 text-sm font-semibold text-white"
+          >
+            Open Photos →
+          </button>
+        ) : (
+          <p className="text-sm text-violet-300">Go to the Photos step in the sidebar.</p>
+        )}
+      </div>
+    );
+  }
 
   if (!gbpConnected) {
     return (

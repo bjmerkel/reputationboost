@@ -109,7 +109,9 @@ export async function listExecutionTasks(
 export async function updateExecutionTask(
   userId: string,
   taskId: string,
-  updates: Partial<Pick<ExecutionTask, "status" | "draftContent" | "completedAt" | "result" | "scheduledFor">>
+  updates: Partial<
+    Pick<ExecutionTask, "status" | "draftContent" | "completedAt" | "result" | "scheduledFor" | "payload">
+  >
 ): Promise<ExecutionTask | null> {
   const supabase = await createClient();
 
@@ -119,6 +121,7 @@ export async function updateExecutionTask(
   if (updates.completedAt !== undefined) patch.completed_at = updates.completedAt;
   if (updates.result !== undefined) patch.result = updates.result;
   if (updates.scheduledFor !== undefined) patch.scheduled_for = updates.scheduledFor;
+  if (updates.payload !== undefined) patch.payload = updates.payload;
 
   const { data, error } = await supabase
     .from("execution_tasks")

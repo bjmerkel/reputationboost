@@ -13,10 +13,12 @@ export default function StrategyPanel({
   strategy,
   embedded = false,
   gbpConnected = false,
+  onOpenPhotos,
 }: {
   strategy: StrategyReport;
   embedded?: boolean;
   gbpConnected?: boolean;
+  onOpenPhotos?: () => void;
 }) {
   const { scores } = strategy;
 
@@ -61,6 +63,7 @@ export default function StrategyPanel({
           plan={strategy.gbpPlan}
           kpiTargets={strategy.kpiTargets}
           gbpConnected={gbpConnected}
+          onOpenPhotos={onOpenPhotos}
         />
       ) : (
         <p className="text-slate-400">GBP optimization plan will appear after audit completes.</p>

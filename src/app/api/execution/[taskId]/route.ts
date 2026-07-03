@@ -18,6 +18,7 @@ export async function PATCH(
   const body = (await request.json()) as {
     status?: "approved" | "rejected";
     draftContent?: string;
+    payload?: Record<string, unknown>;
   };
 
   const task = await getExecutionTask(user.id, taskId);
@@ -25,9 +26,14 @@ export async function PATCH(
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
+  const mergedPayload = body.payload
+    ? { ...task.payload, ...body.payload }
+    : task.payload;
+
   const updated = await updateExecutionTask(user.id, taskId, {
     status: body.status ?? task.status,
     draftContent: body.draftContent ?? task.draftContent,
+    payload: body.payload ? mergedPayload : undefined,
     scheduledFor: body.status === "approved" ? new Date().toISOString() : task.scheduledFor,
   });
 
