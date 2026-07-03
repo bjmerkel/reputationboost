@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import { ensureStrategy } from "@/audit/ensure-strategy";
-import AuditDataPanel from "@/components/audit/AuditDataPanel";
+import ResultsView from "@/components/results/ResultsView";
 import { normalizeAuditView, type AuditView } from "@/components/audit/types";
 import MonthlyReportPanel from "@/components/MonthlyReportPanel";
 import PerformancePermissionBanner from "@/components/PerformancePermissionBanner";
@@ -275,13 +275,15 @@ export default function AuditDashboard({
           )}
 
           {view === "data" && (
-            <AuditDataPanel
+            <ResultsView
               audit={audit}
               clientId={clientId}
+              tasks={tasks}
+              attributions={attributionData.attributions}
+              summary={attributionData.summary}
+              attributionLoading={attributionLoading}
               activeKeyword={activeKeyword}
               onKeywordChange={setActiveKeyword}
-              embedded
-              variant="light"
               gbpConnected={gbpConnected}
             />
           )}
