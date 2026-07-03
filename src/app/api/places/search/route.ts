@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { getUser } from "@/lib/supabase/server";
 import {
-  extractCompetitors,
   findBusinessRank,
   resolveBusinessLocation,
+  resolveCompetitorResults,
 } from "@/lib/google/local-rankings";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { milesToMeters, nearbySearch, type PlaceResult } from "@/lib/google/places";
@@ -81,7 +81,13 @@ export async function GET(request: Request) {
 
   const businesses = await nearbySearch(keyword, location, radiusMeters);
   const businessRank = findBusinessRank(businesses, matchOptions);
-  const competitors = extractCompetitors(businesses, matchOptions, 3);
+  const competitors = await resolveCompetitorResults(keyword, location, matchOptions, {
+    limit: 3,
+    initialResults: businesses,
+    locationLabel: address
+      ? undefined
+      : `${business.location.city}, ${business.location.state}`,
+  });
 
   return NextResponse.json({
     keyword,

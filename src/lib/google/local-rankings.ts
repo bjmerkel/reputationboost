@@ -12,6 +12,8 @@ import {
 import { collectKeywordGeoGrid } from "./geo-grid";
 
 const TOP_COMPETITORS = 5;
+/** Radii tried when harvesting competitors (ranking still uses all four). */
+const COMPETITOR_SEARCH_RADII: SearchRadiusMiles[] = [1, 3, 5];
 
 export interface BusinessMatchOptions {
   businessName: string;
@@ -21,7 +23,7 @@ export interface BusinessMatchOptions {
 
 /**
  * Match the target business in an ordered Places result list.
- * Prefers place_id when available; falls back to name substring match.
+ * Prefers place_id when available; falls back to normalized exact name match.
  */
 export function isOwnBusiness(
   place: PlaceResult,
@@ -29,17 +31,24 @@ export function isOwnBusiness(
 ): boolean {
   if (placeId && place.placeId === placeId) return true;
 
-  const nameMatch = place.name.toLowerCase().includes(businessName.toLowerCase());
-  if (nameMatch) return true;
+  const normalizedPlace = normalizeBusinessName(place.name);
+  const normalizedBusiness = normalizeBusinessName(businessName);
+  if (normalizedPlace && normalizedBusiness && normalizedPlace === normalizedBusiness) {
+    return true;
+  }
 
   if (businessAddress && place.address) {
     const addrFragment = businessAddress.split(",")[0]?.trim().toLowerCase();
-    if (addrFragment && place.address.toLowerCase().includes(addrFragment)) {
+    if (addrFragment && addrFragment.length >= 5 && place.address.toLowerCase().includes(addrFragment)) {
       return true;
     }
   }
 
   return false;
+}
+
+function normalizeBusinessName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 /** Rank in ordered list (1-indexed), or null if not found. */
@@ -59,6 +68,75 @@ export function extractCompetitors(
   return results
     .filter((place) => !isOwnBusiness(place, options))
     .slice(0, limit);
+}
+
+/**
+ * Merge additional Places results into a competitor list, skipping duplicates and own business.
+ */
+export function mergeCompetitorCandidates(
+  existing: PlaceResult[],
+  incoming: PlaceResult[],
+  options: BusinessMatchOptions,
+  limit: number
+): PlaceResult[] {
+  const seen = new Set(existing.map((place) => place.placeId));
+  const merged = [...existing];
+
+  for (const place of incoming) {
+    if (isOwnBusiness(place, options)) continue;
+    if (seen.has(place.placeId)) continue;
+    seen.add(place.placeId);
+    merged.push({ ...place, position: merged.length + 1 });
+    if (merged.length >= limit) break;
+  }
+
+  return merged;
+}
+
+export interface ResolveCompetitorOptions {
+  limit?: number;
+  /** Seed list (e.g. 1mi Nearby results already fetched for rankings). */
+  initialResults?: PlaceResult[];
+  /** City/state appended to Text Search queries — closer to Maps UI behavior. */
+  locationLabel?: string;
+}
+
+/**
+ * Harvest competitors for a keyword using multiple search strategies.
+ * Nearby Search at 1mi can return ZERO_RESULTS while Maps shows businesses via Text Search.
+ */
+export async function resolveCompetitorResults(
+  keyword: string,
+  location: GeoLocation,
+  matchOptions: BusinessMatchOptions,
+  options: ResolveCompetitorOptions = {}
+): Promise<PlaceResult[]> {
+  const limit = options.limit ?? TOP_COMPETITORS;
+  const textQuery = options.locationLabel
+    ? `${keyword} in ${options.locationLabel}`
+    : keyword;
+
+  let competitors = extractCompetitors(options.initialResults ?? [], matchOptions, limit);
+  if (competitors.length >= limit) return competitors;
+
+  for (const miles of COMPETITOR_SEARCH_RADII) {
+    const radiusMeters = milesToMeters(miles);
+
+    // Skip re-fetching 1mi nearby when we already seeded from rankings.
+    if (!(miles === 1 && options.initialResults)) {
+      const nearbyResults = await searchPlaces(keyword, location, radiusMeters, "nearby");
+      competitors = mergeCompetitorCandidates(competitors, nearbyResults, matchOptions, limit);
+      if (competitors.length >= limit) return competitors;
+    }
+
+    const textResults = await searchPlaces(keyword, location, radiusMeters, "text", {
+      textQuery,
+    });
+    competitors = mergeCompetitorCandidates(competitors, textResults, matchOptions, limit);
+    if (competitors.length >= limit) return competitors;
+  }
+
+  return competitors;
 }
 
 function formatClientAddress(client: ClientConfig): string {
@@ -203,7 +281,16 @@ export async function collectPlacesRankData(client: ClientConfig): Promise<{
       )
     );
 
-    const competitorPlaces = extractCompetitors(resultsByRadius[1], matchOptions, TOP_COMPETITORS);
+    const competitorPlaces = await resolveCompetitorResults(
+      keyword,
+      location,
+      matchOptions,
+      {
+        limit: TOP_COMPETITORS,
+        initialResults: resultsByRadius[1],
+        locationLabel: `${client.location.city}, ${client.location.state}`,
+      }
+    );
     competitorSnapshots.push({
       collectedAt: now,
       keyword,

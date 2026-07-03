@@ -196,13 +196,19 @@ export async function textSearch(
 
 export type PlacesSearchMode = "nearby" | "text";
 
+export interface SearchPlacesOptions {
+  /** Override the Text Search query string (Nearby Search always uses keyword). */
+  textQuery?: string;
+}
+
 export async function searchPlaces(
   keyword: string,
   location: GeoLocation,
   radiusMeters: number,
-  mode: PlacesSearchMode = "nearby"
+  mode: PlacesSearchMode = "nearby",
+  options?: SearchPlacesOptions
 ): Promise<PlaceResult[]> {
   return mode === "text"
-    ? textSearch(keyword, location, radiusMeters)
+    ? textSearch(options?.textQuery ?? keyword, location, radiusMeters)
     : nearbySearch(keyword, location, radiusMeters);
 }

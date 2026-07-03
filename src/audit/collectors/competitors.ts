@@ -20,8 +20,18 @@ export async function collectCompetitorSnapshots(
 
 function collectCompetitorsDemo(client: ClientConfig): CompetitorSnapshot[] {
   const now = new Date().toISOString();
+  const keywordList =
+    client.keywords.length > 0
+      ? client.keywords
+      : [
+          "san diego stucco",
+          "stucco repair",
+          "exterior plaster",
+          "stucco contractor near me",
+          "stucco installation",
+        ];
 
-  return client.keywords.slice(0, 3).map((keyword, index) => ({
+  return keywordList.map((keyword, index) => ({
     collectedAt: now,
     keyword,
     competitors: buildCompetitorsForKeyword(keyword, index),
