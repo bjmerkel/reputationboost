@@ -12,7 +12,7 @@
     "lint": "eslint",
     "audit:run": "npx tsx scripts/run-audit.ts",
     "backfill:timeseries": "npx tsx scripts/backfill-timeseries.ts",
-    "test": "node --import tsx --test src/audit/phase3/build-plan.test.ts src/audit/phase3/build-timeline.test.ts src/lib/execution/pending-tasks.test.ts src/lib/business/display-category.test.ts src/lib/google/local-rankings.test.ts"
+    "test": "node --import tsx --test src/audit/phase3/build-plan.test.ts src/audit/phase3/build-timeline.test.ts src/lib/execution/pending-tasks.test.ts src/lib/business/display-category.test.ts src/lib/google/local-rankings.test.ts src/lib/llm/gbp-photos.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

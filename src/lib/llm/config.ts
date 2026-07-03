@@ -7,7 +7,7 @@ export function getOpenAiModel(): string {
 }
 
 export function getOpenAiImageModel(): string {
-  return process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2-2026-04-21";
+  return process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2";
 }
 
 export function isLlmConfigured(): boolean {

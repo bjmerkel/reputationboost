@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Image generation failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = /not configured|prompt is required/i.test(message) ? 400 : 502;
+    return NextResponse.json({ error: message }, { status });
   }
 }

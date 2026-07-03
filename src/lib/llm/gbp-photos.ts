@@ -140,6 +140,37 @@ interface OpenAiImageResponse {
   error?: { message?: string };
 }
 
+/** Build a model-compatible OpenAI Images API request body. */
+export function buildOpenAiImageRequestBody(
+  prompt: string,
+  model: string
+): Record<string, unknown> {
+  const isGptImage = model.includes("gpt-image");
+  const isDalle3 = model.includes("dall-e-3");
+
+  const body: Record<string, unknown> = {
+    model,
+    prompt: prompt.trim(),
+    n: 1,
+  };
+
+  if (isGptImage) {
+    // GPT Image models always return base64 and reject response_format.
+    body.size = "1536x1024";
+    body.quality = "high";
+  } else if (isDalle3) {
+    body.size = "1024x1024";
+    body.quality = "hd";
+    body.style = "natural";
+    body.response_format = "b64_json";
+  } else {
+    body.size = "1024x1024";
+    body.response_format = "b64_json";
+  }
+
+  return body;
+}
+
 /** Generate an image via OpenAI Images API — returns bytes for direct GBP upload. */
 export async function generateGbpPhotoImage(
   prompt: string
@@ -148,23 +179,7 @@ export async function generateGbpPhotoImage(
   if (!key) throw new Error("OPENAI_API_KEY is not configured.");
 
   const model = getOpenAiImageModel();
-  const isGptImage = model.includes("gpt-image");
-  const isDalle3 = model.includes("dall-e-3");
-
-  const body: Record<string, unknown> = {
-    model,
-    prompt: prompt.trim(),
-    n: 1,
-    size: isGptImage ? "1536x1024" : "1024x1024",
-    response_format: "b64_json",
-  };
-
-  if (isGptImage) {
-    body.quality = "high";
-  } else if (isDalle3) {
-    body.quality = "hd";
-    body.style = "natural";
-  }
+  const body = buildOpenAiImageRequestBody(prompt, model);
 
   const res = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
