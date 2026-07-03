@@ -3,6 +3,7 @@
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution, AttributionSummary } from "@/audit/types/timeseries";
 import ActionAttributionFeed from "@/components/attribution/ActionAttributionFeed";
+import ListingStrengthInsights from "@/components/audit/ListingStrengthInsights";
 import HomeApprovalCTA from "@/components/home/HomeApprovalCTA";
 import HomeHealthSummary from "@/components/home/HomeHealthSummary";
 import { pendingBatchTasks } from "@/lib/execution/pending-tasks";
@@ -13,6 +14,8 @@ export default function HomeView({
   summary,
   attributions,
   attributionLoading = false,
+  avgCustomerValue,
+  avgCustomerValueCurrency = "USD",
   onReviewPending,
 }: {
   audit: FullAuditPayload;
@@ -20,6 +23,8 @@ export default function HomeView({
   summary: AttributionSummary | null;
   attributions: ActionAttribution[];
   attributionLoading?: boolean;
+  avgCustomerValue?: number | null;
+  avgCustomerValueCurrency?: string;
   onReviewPending: () => void;
 }) {
   const batchableCount = pendingBatchTasks(tasks).length;
@@ -28,6 +33,14 @@ export default function HomeView({
   return (
     <div className="space-y-6">
       <HomeHealthSummary audit={audit} summary={summary} loading={attributionLoading} />
+
+      <ListingStrengthInsights
+        audit={audit}
+        tasks={tasks}
+        attributions={attributions}
+        avgCustomerValue={avgCustomerValue}
+        currency={avgCustomerValueCurrency}
+      />
 
       <ActionAttributionFeed
         attributions={attributions}

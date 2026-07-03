@@ -75,6 +75,8 @@ export default async function PlatformAuditPage() {
           businessIndustry={business.industry}
           businessLocation={businessLocation}
           gbpConnected={gbpConnected}
+          avgCustomerValue={business.avgCustomerValue}
+          avgCustomerValueCurrency={business.avgCustomerValueCurrency}
           initialAudit={latestAudit}
           initialExecutionTasks={initialExecutionTasks}
         />

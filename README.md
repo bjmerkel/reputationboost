@@ -116,6 +116,9 @@ curl "http://localhost:3000/api/places/search?keyword=plumber&radiusMiles=1" -H 
 After Phase 1 data collection, the engine automatically:
 
 - **Scores** visibility (keyword-weighted rankings), conversion (profile trust), and revenue capture (0–100), blended into listing strength
+- **Keyword score cards** per target keyword with impressions, revenue estimates, and suggested actions
+- **Path to 70** projects score gains and estimated monthly revenue from prioritized gaps and plan steps
+- **Attribution calibration** adjusts step score impacts from historical action outcomes when available
 - **Detects gaps** with P0–P3 priority (outside 3-Pack, review gaps, stale posts, etc.)
 - **Diffs** month-over-month vs. prior audit
 - **Generates** executive summary, KPI targets, and 30-day action plan with draft copy

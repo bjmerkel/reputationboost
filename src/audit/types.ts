@@ -322,6 +322,42 @@ export interface ScoreInsight {
   nextAction: string | null;
 }
 
+export interface KeywordScoreCard {
+  keyword: string;
+  visibilityScore: number;
+  revenueCaptureScore: number;
+  position: number | "not_in_pack";
+  positionLabel: string;
+  inLocalPack: boolean;
+  impressions: number | null;
+  impressionsLabel: string;
+  estimatedMonthlyRevenue: number | null;
+  potentialAtRank1: number | null;
+  scoreImpactIfRank1: number;
+  suggestedAction: string;
+}
+
+export interface PathToHealthyStep {
+  id: string;
+  title: string;
+  scoreImpact: number;
+  source: "gap" | "plan";
+  priority?: string;
+  order: number;
+}
+
+export interface PathToHealthy {
+  targetScore: number;
+  currentScore: number;
+  pointsNeeded: number;
+  projectedScore: number;
+  steps: PathToHealthyStep[];
+  estimatedRevenueGain: number | null;
+  estimatedRevenueGainLabel: string | null;
+  topKeywords: KeywordScoreCard[];
+  alreadyHealthy: boolean;
+}
+
 export interface EngagementOutcomes {
   calls: number;
   directions: number;

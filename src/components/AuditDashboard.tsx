@@ -33,6 +33,8 @@ interface AuditRunnerProps {
   businessIndustry?: string;
   businessLocation: BusinessLocation;
   gbpConnected?: boolean;
+  avgCustomerValue?: number | null;
+  avgCustomerValueCurrency?: string;
   initialAudit: FullAuditPayload | null;
   initialExecutionTasks?: ExecutionTask[];
 }
@@ -44,6 +46,8 @@ export default function AuditDashboard({
   businessIndustry,
   businessLocation,
   gbpConnected = true,
+  avgCustomerValue,
+  avgCustomerValueCurrency = "USD",
   initialAudit,
   initialExecutionTasks = [],
 }: AuditRunnerProps) {
@@ -247,6 +251,8 @@ export default function AuditDashboard({
               summary={attributionData.summary}
               attributions={attributionData.attributions}
               attributionLoading={attributionLoading}
+              avgCustomerValue={avgCustomerValue}
+              avgCustomerValueCurrency={avgCustomerValueCurrency}
               onReviewPending={openBatchReview}
             />
           )}

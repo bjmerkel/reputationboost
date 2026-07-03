@@ -1,4 +1,5 @@
 import type { FullAuditPayload, GbpPlanStep, PlanStepContext } from "../types";
+import type { AttributionCalibration } from "../phase2/attribution-calibration";
 import { estimateStepHealthImpact } from "../phase2/score-impact";
 
 function targetKeywords(audit: FullAuditPayload, step: GbpPlanStep): string[] {
@@ -83,7 +84,11 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
   }
 }
 
-export function buildStepContext(audit: FullAuditPayload, step: GbpPlanStep): PlanStepContext {
+export function buildStepContext(
+  audit: FullAuditPayload,
+  step: GbpPlanStep,
+  calibration?: AttributionCalibration
+): PlanStepContext {
   const keywords = targetKeywords(audit, step);
   const outsidePack = keywordsOutsidePack(audit);
   const primaryKeyword =
@@ -95,7 +100,7 @@ export function buildStepContext(audit: FullAuditPayload, step: GbpPlanStep): Pl
     expectedEffect: buildExpectedEffect(audit, step),
     currentValue: step.current,
     recommendedValue: step.recommended,
-    healthScoreImpact: estimateStepHealthImpact(audit, step.stepNumber),
+    healthScoreImpact: estimateStepHealthImpact(audit, step.stepNumber, calibration),
   };
 }
 

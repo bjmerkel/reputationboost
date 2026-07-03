@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import { getPhaseForStep, PLAN_PHASE_DEFINITIONS } from "./plan-phases";
 import { resolvePlanStepNumber } from "./plan-task-utils";
+import { buildAttributionCalibration } from "../phase2/attribution-calibration";
 import { buildStepContext } from "./step-context";
 import { findStepOutcome } from "./step-outcomes";
 
@@ -42,7 +43,8 @@ function buildPlanStep(
   audit: FullAuditPayload,
   step: GbpPlanStep,
   tasks: ExecutionTask[],
-  attributions: ActionAttribution[]
+  attributions: ActionAttribution[],
+  calibration: ReturnType<typeof buildAttributionCalibration>
 ): PlanStep {
   const status = deriveStepStatus(tasks);
   const outcome =
@@ -53,7 +55,7 @@ function buildPlanStep(
     phaseId: getPhaseForStep(step.stepNumber),
     title: step.title,
     instruction: step.instruction,
-    context: buildStepContext(audit, step),
+    context: buildStepContext(audit, step, calibration),
     gbpAction: step.gbpAction,
     actionData: step.actionData,
     copyBlocks: step.copyBlocks,
@@ -101,8 +103,9 @@ export function buildPlan(
   if (!gbpPlan) return null;
 
   const tasksByStep = groupTasksByStep(tasks);
+  const calibration = buildAttributionCalibration(attributions);
   const planSteps = gbpPlan.steps.map((step) =>
-    buildPlanStep(audit, step, tasksByStep.get(step.stepNumber) ?? [], attributions)
+    buildPlanStep(audit, step, tasksByStep.get(step.stepNumber) ?? [], attributions, calibration)
   );
 
   const currentHealthScore = Number.isFinite(audit.strategy.scores?.overall)

@@ -1,4 +1,6 @@
 import type { FullAuditPayload, GapFlag, ScoreComponent } from "../types";
+import type { AttributionCalibration } from "./attribution-calibration";
+import { calibratedStepImpact } from "./attribution-calibration";
 
 const STEP_BASE_IMPACT: Record<number, { visibility: number; conversion: number }> = {
   1: { visibility: 4, conversion: 1 },
@@ -30,7 +32,11 @@ function keywordsOutsidePack(audit: FullAuditPayload): string[] {
  * Estimated listing-strength points if this plan step is completed.
  * Weighted toward visibility (50%) and conversion (30%) to match overall formula.
  */
-export function estimateStepHealthImpact(audit: FullAuditPayload, stepNumber: number): number {
+export function estimateStepHealthImpact(
+  audit: FullAuditPayload,
+  stepNumber: number,
+  calibration?: AttributionCalibration
+): number {
   const base = STEP_BASE_IMPACT[stepNumber] ?? { visibility: 2, conversion: 2 };
   const outsidePack = keywordsOutsidePack(audit);
 
@@ -49,7 +55,8 @@ export function estimateStepHealthImpact(audit: FullAuditPayload, stepNumber: nu
   }
 
   const raw = visibilityBoost * 0.5 + conversionBoost * 0.3 + (visibilityBoost + conversionBoost) * 0.1;
-  return Math.max(1, Math.min(8, Math.round(raw)));
+  const heuristic = Math.max(1, Math.min(8, Math.round(raw)));
+  return calibratedStepImpact(stepNumber, heuristic, calibration);
 }
 
 const CATEGORY_COMPONENT: Partial<Record<GapFlag["category"], ScoreComponent>> = {

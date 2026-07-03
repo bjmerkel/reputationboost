@@ -49,7 +49,7 @@ export function positionClickShare(position: LocalPackPosition | number): number
   return 3;
 }
 
-function resolvePosition(kw: KeywordRankSnapshot): LocalPackPosition | number {
+export function resolveKeywordPosition(kw: KeywordRankSnapshot): LocalPackPosition | number {
   if (kw.inLocalPack && typeof kw.localPackPosition === "number") {
     return kw.localPackPosition;
   }
@@ -62,7 +62,11 @@ function resolvePosition(kw: KeywordRankSnapshot): LocalPackPosition | number {
   return rank1mi ?? "not_in_pack";
 }
 
-function keywordImpressionWeight(
+function resolvePosition(kw: KeywordRankSnapshot): LocalPackPosition | number {
+  return resolveKeywordPosition(kw);
+}
+
+export function keywordImpressionWeight(
   keyword: string,
   searchKeywords: Array<{ keyword: string; impressions: number | null }>
 ): number {
