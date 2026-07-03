@@ -67,6 +67,8 @@ export function computeScoreDailySnapshot(
     businessId: audit.clientId,
     date,
     overall: scores.overall,
+    driverScore: scores.driverScore,
+    outcomeIndex: scores.outcomeIndex,
     visibility: scores.visibility,
     conversion: scores.conversion,
     revenueCapture: scores.revenueCapture,

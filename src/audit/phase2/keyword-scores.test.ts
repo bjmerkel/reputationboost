@@ -49,9 +49,9 @@ describe("buildPathToHealthy", () => {
     const path = buildPathToHealthy(audit);
 
     assert.ok(path);
-    assert.ok(path!.currentScore < 70);
+    assert.ok(path!.currentDriverScore < 70);
     assert.ok(path!.pointsNeeded > 0);
-    assert.ok(path!.projectedScore >= path!.currentScore);
+    assert.ok(path!.projectedDriverScore >= path!.currentDriverScore);
     assert.ok(path!.steps.length > 0);
     assert.equal(path!.alreadyHealthy, false);
     assert.ok(path!.topKeywords.length > 0);

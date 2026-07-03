@@ -1,11 +1,14 @@
 import type { HealthScores, RankMovement, ScoreChangelogEntry, ScoreComponent } from "../types";
 import type { ScoreDailySnapshot } from "../types/timeseries";
 import { positionVisibilityScore } from "./scoring";
+import { computeOutcomeIndex } from "./score-driver-outcome";
 
 const COMPONENT_LABELS: Record<ScoreComponent, string> = {
   visibility: "Visibility",
   conversion: "Conversion",
   revenueCapture: "Revenue capture",
+  driver: "Profile strength",
+  outcome: "Ranking outcome",
 };
 
 function componentDelta(
@@ -32,27 +35,67 @@ function keywordRankEntry(movement: RankMovement): ScoreChangelogEntry | null {
 
   const fromVis = from != null ? positionVisibilityScore(from) : 0;
   const toVis = to != null ? positionVisibilityScore(to) : 0;
-  const delta = Math.round((toVis - fromVis) * 0.5);
+  const delta = Math.round((toVis - fromVis) * 0.3);
 
   if (movement.improved) {
     const fromLabel = from == null ? "unranked" : `#${from}`;
     const toLabel = to == null ? "unranked" : `#${to}`;
     return {
-      component: "visibility",
+      component: "outcome",
       delta: Math.max(1, delta),
       keyword: movement.keyword,
-      label: `Entered stronger position on "${movement.keyword}" (${fromLabel} → ${toLabel})`,
+      label: `Ranking improved on "${movement.keyword}" (${fromLabel} → ${toLabel})`,
     };
   }
 
   const fromLabel = from == null ? "unranked" : `#${from}`;
   const toLabel = to == null ? "unranked" : `#${to}`;
   return {
-    component: "visibility",
+    component: "outcome",
     delta: Math.min(-1, delta),
     keyword: movement.keyword,
-    label: `Dropped on "${movement.keyword}" (${fromLabel} → ${toLabel})`,
+    label: `Ranking dropped on "${movement.keyword}" (${fromLabel} → ${toLabel})`,
   };
+}
+
+function driverOutcomeDeltas(
+  current: ScoreDailySnapshot,
+  prior: ScoreDailySnapshot
+): ScoreChangelogEntry[] {
+  const entries: ScoreChangelogEntry[] = [];
+  const curDriver = current.driverScore ?? current.conversion;
+  const prevDriver = prior.driverScore ?? prior.conversion;
+  const driverDelta = curDriver - prevDriver;
+  if (driverDelta !== 0) {
+    entries.push({
+      component: "driver",
+      delta: driverDelta,
+      label:
+        driverDelta > 0
+          ? `Profile strength up ${driverDelta} pts`
+          : `Profile strength down ${Math.abs(driverDelta)} pts`,
+    });
+  }
+
+  const curOutcome =
+    current.outcomeIndex ??
+    computeOutcomeIndex(current.visibility, current.revenueCapture);
+  const prevOutcome =
+    prior.outcomeIndex ??
+    computeOutcomeIndex(prior.visibility, prior.revenueCapture);
+  const outcomeDelta = curOutcome - prevOutcome;
+  if (outcomeDelta !== 0) {
+    entries.push({
+      component: "outcome",
+      delta: outcomeDelta,
+      label:
+        outcomeDelta > 0
+          ? `Ranking outcome up ${outcomeDelta} pts`
+          : `Ranking outcome down ${Math.abs(outcomeDelta)} pts`,
+    });
+  }
+
+  return entries;
 }
 
 export function buildScoreChangelogFromSnapshots(
@@ -79,6 +122,8 @@ export function buildScoreChangelogFromSnapshots(
     if (entry) entries.push(entry);
   }
 
+  entries.push(...driverOutcomeDeltas(current, prior));
+
   for (const movement of rankMovements) {
     const entry = keywordRankEntry(movement);
     if (entry) entries.push(entry);
@@ -97,6 +142,8 @@ export function buildScoreChangelogFromHealthScores(
       businessId: "",
       date: "",
       overall: current.overall,
+      driverScore: current.driverScore,
+      outcomeIndex: current.outcomeIndex,
       visibility: current.visibility,
       conversion: current.conversion,
       revenueCapture: current.revenueCapture,
@@ -106,6 +153,8 @@ export function buildScoreChangelogFromHealthScores(
       businessId: "",
       date: "",
       overall: prior.overall,
+      driverScore: prior.driverScore,
+      outcomeIndex: prior.outcomeIndex,
       visibility: prior.visibility,
       conversion: prior.conversion,
       revenueCapture: prior.revenueCapture,

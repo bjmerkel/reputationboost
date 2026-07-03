@@ -1,42 +1,57 @@
-import type { HealthScores, ScoreComponent } from "@/audit/types";
+import type { HealthScores } from "@/audit/types";
 
-const COMPONENT_META: Record<
-  ScoreComponent,
-  { label: string; description: string; color: string }
-> = {
+const DRIVER_META = {
+  label: "Profile strength",
+  description: "Controllable signals — relevance, reviews, content",
+  color: "#007b83",
+};
+
+const OUTCOME_META = {
+  label: "Ranking outcome",
+  description: "Where you rank today — visibility + click share",
+  color: "#1a73e8",
+};
+
+const OUTCOME_DETAIL = {
   visibility: {
     label: "Visibility",
-    description: "Keyword rankings in Google Maps",
     color: "#1a73e8",
-  },
-  conversion: {
-    label: "Conversion",
-    description: "Profile trust — reviews, photos, posts",
-    color: "#007b83",
   },
   revenueCapture: {
     label: "Revenue capture",
-    description: "Share of map clicks you're winning",
     color: "#188038",
   },
 };
 
 export function normalizeHealthScores(scores: HealthScores | undefined | null): HealthScores | null {
   if (!scores) return null;
+
+  const driverScore = scores.driverScore ?? scores.conversion ?? 0;
+  const outcomeIndex =
+    scores.outcomeIndex ??
+    Math.round((scores.visibility ?? 0) * 0.6 + (scores.revenueCapture ?? 0) * 0.4);
+
   if (
     Number.isFinite(scores.visibility) &&
     Number.isFinite(scores.conversion) &&
     Number.isFinite(scores.revenueCapture)
   ) {
-    return scores;
+    return {
+      ...scores,
+      driverScore,
+      outcomeIndex,
+    };
   }
+
   return {
     ...scores,
-    visibility: scores.localPackCoverage ?? 0,
-    conversion: scores.reviewStrength ?? 0,
-    revenueCapture: scores.competitiveGap ?? 0,
+    driverScore,
+    outcomeIndex,
+    visibility: scores.localPackCoverage ?? scores.visibility ?? 0,
+    conversion: scores.reviewStrength ?? scores.conversion ?? 0,
+    revenueCapture: scores.competitiveGap ?? scores.revenueCapture ?? 0,
     insight: scores.insight ?? {
-      weakestComponent: "visibility",
+      weakestComponent: "conversion",
       topOpportunityKeyword: null,
       nextAction: null,
     },
@@ -93,24 +108,41 @@ export default function ScoreBreakdown({
   const normalized = normalizeHealthScores(scores);
   if (!normalized) return null;
 
-  const components: ScoreComponent[] = ["visibility", "conversion", "revenueCapture"];
-
   return (
     <div className={compact ? "space-y-2" : "space-y-3"}>
-      {components.map((id) => {
-        const meta = COMPONENT_META[id];
-        const value = normalized[id];
-        return (
-          <ScoreBar
-            key={id}
-            label={meta.label}
-            value={value}
-            color={meta.color}
-            description={meta.description}
-            compact={compact}
-          />
-        );
-      })}
+      <ScoreBar
+        label={DRIVER_META.label}
+        value={normalized.driverScore}
+        color={DRIVER_META.color}
+        description={DRIVER_META.description}
+        compact={compact}
+      />
+
+      <div>
+        <ScoreBar
+          label={OUTCOME_META.label}
+          value={normalized.outcomeIndex}
+          color={OUTCOME_META.color}
+          description={OUTCOME_META.description}
+          compact={compact}
+        />
+        {!compact && (
+          <div className="mt-2 space-y-1.5 border-l-2 border-[#e8eaed] pl-3">
+            <ScoreBar
+              label={OUTCOME_DETAIL.visibility.label}
+              value={normalized.visibility}
+              color={OUTCOME_DETAIL.visibility.color}
+              compact
+            />
+            <ScoreBar
+              label={OUTCOME_DETAIL.revenueCapture.label}
+              value={normalized.revenueCapture}
+              color={OUTCOME_DETAIL.revenueCapture.color}
+              compact
+            />
+          </div>
+        )}
+      </div>
 
       {showInsight && normalized.insight?.nextAction && (
         <p className={`rounded-lg bg-[#f8f9fa] text-[#3c4043] ${compact ? "px-2 py-1.5 text-[10px]" : "px-3 py-2 text-xs"}`}>
@@ -122,4 +154,4 @@ export default function ScoreBreakdown({
   );
 }
 
-export { COMPONENT_META };
+export { DRIVER_META, OUTCOME_META };

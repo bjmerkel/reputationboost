@@ -41,6 +41,8 @@ describe("buildScoreChangelogFromSnapshots", () => {
 
     assert.ok(entries.some((e) => e.component === "overall" && e.delta === 5));
     assert.ok(entries.some((e) => e.component === "visibility" && e.delta === 5));
+    assert.ok(entries.some((e) => e.component === "driver" && e.delta === 2));
+    assert.ok(entries.some((e) => e.component === "outcome"));
     assert.ok(entries.some((e) => e.keyword === "emergency plumber dallas"));
   });
 });

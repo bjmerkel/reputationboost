@@ -8,7 +8,7 @@ import type {
 } from "../types";
 import { formatCurrency } from "../attribution/roi";
 import { computeKeywordScores } from "./keyword-scores";
-import { estimateStepHealthImpact } from "./score-impact";
+import { estimateStepHealthImpact, gapDriverScoreImpact } from "./score-impact";
 import type { AttributionCalibration } from "./attribution-calibration";
 import { computeHealthScores } from "./scoring";
 
@@ -24,7 +24,7 @@ function gapToPathStep(gap: GapFlag, index: number): PathToHealthyStep {
   return {
     id: gap.id,
     title: gap.title,
-    scoreImpact: gap.scoreImpact ?? 0,
+    scoreImpact: gapDriverScoreImpact(gap),
     source: "gap",
     priority: gap.priority,
     order: index,
@@ -90,13 +90,19 @@ export function buildPathToHealthy(
 ): PathToHealthy | null {
   const scores = computeHealthScores(audit);
   const currentScore = scores.overall;
+  const currentDriverScore = scores.driverScore;
+  const outcomeIndex = scores.outcomeIndex;
+  const driverTarget = HEALTHY_THRESHOLD;
 
-  if (currentScore >= HEALTHY_THRESHOLD) {
+  if (currentDriverScore >= driverTarget) {
     return {
-      targetScore: HEALTHY_THRESHOLD,
+      targetScore: driverTarget,
       currentScore,
+      currentDriverScore,
+      outcomeIndex,
       pointsNeeded: 0,
       projectedScore: currentScore,
+      projectedDriverScore: currentDriverScore,
       steps: [],
       estimatedRevenueGain: null,
       estimatedRevenueGainLabel: null,
@@ -105,9 +111,11 @@ export function buildPathToHealthy(
     };
   }
 
-  const pointsNeeded = HEALTHY_THRESHOLD - currentScore;
+  const pointsNeeded = driverTarget - currentDriverScore;
 
-  const gapSteps = (audit.strategy?.gaps ?? []).map(gapToPathStep);
+  const gapSteps = (audit.strategy?.gaps ?? [])
+    .map(gapToPathStep)
+    .filter((s) => s.scoreImpact > 0);
   const planPathSteps = plan
     ? plan.steps
         .filter((s) => s.status !== "completed" && s.status !== "skipped")
@@ -129,15 +137,22 @@ export function buildPathToHealthy(
     }
   }
   const { selected, projectedGain } = pickStepsToTarget(combined, pointsNeeded);
-  const projectedScore = Math.min(100, currentScore + projectedGain);
+  const projectedDriverScore = Math.min(100, currentDriverScore + projectedGain);
+  const projectedScore = Math.min(
+    100,
+    Math.round(currentScore + projectedGain * 0.7)
+  );
   const revenueGain = estimateRevenueGain(audit, options);
 
   return {
-    targetScore: HEALTHY_THRESHOLD,
+    targetScore: driverTarget,
     currentScore,
+    currentDriverScore,
+    outcomeIndex,
     pointsNeeded,
     projectedScore,
-    steps: selected,
+    projectedDriverScore,
+    steps: selected.filter((s) => s.scoreImpact > 0),
     estimatedRevenueGain: revenueGain,
     estimatedRevenueGainLabel:
       revenueGain != null

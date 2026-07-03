@@ -67,6 +67,11 @@ export default function HomeHealthSummary({
           <p className="text-lg font-semibold text-[#202124]">
             Listing strength {displayScore}/100
           </p>
+          <p className="text-sm text-[#5f6368]">
+            Profile {scores.driverScore ?? scores.conversion}/100 · outcome{" "}
+            {scores.outcomeIndex ?? Math.round(scores.visibility * 0.6 + scores.revenueCapture * 0.4)}
+            /100
+          </p>
           <p className="text-sm capitalize text-[#5f6368]">{scores.grade.replace("_", " ")}</p>
           {liveScoreDate && liveScore != null && liveScore !== scores.overall && (
             <p className="mt-1 text-xs text-[#1a73e8]">

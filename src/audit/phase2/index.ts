@@ -13,6 +13,12 @@ export {
   effectiveScoreModel,
   topClickSharePercent,
 } from "./score-learning";
+export {
+  DRIVER_OUTCOME_BLEND,
+  OUTCOME_INDEX_WEIGHTS,
+  computeOutcomeIndex,
+  computeOverallFromDriverOutcome,
+} from "./score-driver-outcome";
 export { computeKeywordScores } from "./keyword-scores";
 export { buildPathToHealthy } from "./path-to-healthy";
 export { buildAttributionCalibration, calibratedStepImpact, mergeCalibrations } from "./attribution-calibration";
@@ -20,7 +26,12 @@ export { applyRankSnapshotsToAudit, computeScoreDailySnapshot } from "./score-sn
 export { buildScoreChangelogFromSnapshots, buildScoreChangelogFromHealthScores, buildRankMovementsFromSnapshots } from "./score-changelog";
 export { ingestScoreDailyForBusiness } from "./score-ingest";
 export { detectGaps } from "./gaps";
-export { estimateStepHealthImpact, gapScoreImpact, gapScoreComponent } from "./score-impact";
+export {
+  estimateStepHealthImpact,
+  gapDriverScoreImpact,
+  gapScoreImpact,
+  gapScoreComponent,
+} from "./score-impact";
 export { computeMonthOverMonth } from "./diff";
 export { buildStrategy } from "./strategy";
 export { buildMonthlyReport, buildFirstAuditReport, describeRankMovement, describeCompetitorDelta } from "./monthly-report";

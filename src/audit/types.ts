@@ -334,7 +334,12 @@ export interface AuditRunResult {
 // ─── Phase 2: Scoring & Strategy ───────────────────────────────────────────
 
 export type HealthGrade = "healthy" | "at_risk" | "urgent";
-export type ScoreComponent = "visibility" | "conversion" | "revenueCapture";
+export type ScoreComponent =
+  | "visibility"
+  | "conversion"
+  | "revenueCapture"
+  | "driver"
+  | "outcome";
 
 export interface ScoreInsight {
   weakestComponent: ScoreComponent;
@@ -370,9 +375,15 @@ export interface PathToHealthyStep {
 
 export interface PathToHealthy {
   targetScore: number;
+  /** Headline listing strength (driver + outcome blend) */
   currentScore: number;
+  /** Controllable profile strength — target for path steps */
+  currentDriverScore: number;
+  /** Rank-derived results (visibility + revenue capture) */
+  outcomeIndex: number;
   pointsNeeded: number;
   projectedScore: number;
+  projectedDriverScore: number;
   steps: PathToHealthyStep[];
   estimatedRevenueGain: number | null;
   estimatedRevenueGainLabel: string | null;
@@ -390,11 +401,15 @@ export interface EngagementOutcomes {
 export interface HealthScores {
   overall: number;
   grade: HealthGrade;
-  /** Weighted keyword rankings — will you show up in Maps? */
+  /** Controllable profile + relevance signals (predicts future rank movement) */
+  driverScore: number;
+  /** Rank-derived results: visibility + revenue capture */
+  outcomeIndex: number;
+  /** Weighted keyword rankings — outcome input */
   visibility: number;
-  /** Profile trust signals — will searchers click you? */
+  /** Profile trust + relevance — driver input */
   conversion: number;
-  /** Impression-weighted share of map clicks captured */
+  /** Impression-weighted share of map clicks captured — outcome input */
   revenueCapture: number;
   insight: ScoreInsight;
   /** Legacy / diagnostic fields */

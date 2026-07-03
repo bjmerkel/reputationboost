@@ -7,10 +7,13 @@ export default function PathToHealthyPanel({ path }: { path: PathToHealthy }) {
     return (
       <section className="rounded-xl border border-[#ceead6] bg-[#f6faf7] p-4">
         <p className="text-xs font-semibold uppercase tracking-wider text-[#137333]">
-          Listing strength
+          Profile strength
         </p>
         <p className="mt-1 text-sm font-medium text-[#202124]">
-          You&apos;re Healthy at {path.currentScore}/100 — maintain your weekly cadence.
+          Profile strength is Healthy at {path.currentDriverScore}/100 — maintain your weekly cadence.
+        </p>
+        <p className="mt-1 text-xs text-[#5f6368]">
+          Listing strength {path.currentScore}/100 · ranking outcome {path.outcomeIndex}/100
         </p>
       </section>
     );
@@ -19,29 +22,36 @@ export default function PathToHealthyPanel({ path }: { path: PathToHealthy }) {
   const pct = Math.min(
     100,
     path.pointsNeeded > 0
-      ? Math.round(((path.projectedScore - path.currentScore) / path.pointsNeeded) * 100)
+      ? Math.round(
+          ((path.projectedDriverScore - path.currentDriverScore) / path.pointsNeeded) * 100
+        )
       : 100
   );
 
   return (
     <section className="rounded-xl border border-[#dadce0] bg-white p-4 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-wider text-[#80868b]">
-        Path to {path.targetScore} (Healthy)
+        Path to {path.targetScore} profile strength
       </p>
 
       <div className="mt-2 flex flex-wrap items-baseline gap-2">
         <p className="text-lg font-semibold text-[#202124]">
-          {path.currentScore} → {path.projectedScore}
+          {path.currentDriverScore} → {path.projectedDriverScore}
         </p>
         <p className="text-sm text-[#5f6368]">
-          need {path.pointsNeeded} pts · ~{path.steps.length} action
+          need {path.pointsNeeded} driver pts · ~{path.steps.length} action
           {path.steps.length === 1 ? "" : "s"}
         </p>
       </div>
 
+      <p className="mt-1 text-xs text-[#80868b]">
+        Listing strength {path.currentScore} → {path.projectedScore} · ranking outcome{" "}
+        {path.outcomeIndex}/100 (tracks rank, not profile actions)
+      </p>
+
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e8eaed]">
         <div
-          className="h-full rounded-full bg-[#1a73e8] transition-all"
+          className="h-full rounded-full bg-[#007b83] transition-all"
           style={{ width: `${pct}%` }}
         />
       </div>

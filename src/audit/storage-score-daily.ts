@@ -9,6 +9,10 @@ function rowToSnapshot(row: Record<string, unknown>): ScoreDailySnapshot {
     businessId: row.business_id as string,
     date: row.date as string,
     overall: row.overall as number,
+    driverScore:
+      row.driver_score != null ? Number(row.driver_score) : undefined,
+    outcomeIndex:
+      row.outcome_index != null ? Number(row.outcome_index) : undefined,
     visibility: row.visibility as number,
     conversion: row.conversion as number,
     revenueCapture: row.revenue_capture as number,
@@ -23,6 +27,8 @@ export async function upsertScoreDaily(snapshot: ScoreDailySnapshot): Promise<vo
       business_id: snapshot.businessId,
       date: snapshot.date,
       overall: snapshot.overall,
+      driver_score: snapshot.driverScore ?? snapshot.conversion,
+      outcome_index: snapshot.outcomeIndex,
       visibility: snapshot.visibility,
       conversion: snapshot.conversion,
       revenue_capture: snapshot.revenueCapture,
@@ -48,7 +54,9 @@ export async function listScoreDailyForUser(
 
   const { data, error } = await supabase
     .from("score_daily")
-    .select("business_id, date, overall, visibility, conversion, revenue_capture, source")
+    .select(
+      "business_id, date, overall, driver_score, outcome_index, visibility, conversion, revenue_capture, source"
+    )
     .eq("business_id", businessId)
     .gte("date", start.toISOString().slice(0, 10))
     .order("date", { ascending: true });
@@ -109,7 +117,9 @@ export async function listScoreDailyForBusinessAdmin(
 
   const { data, error } = await supabase
     .from("score_daily")
-    .select("business_id, date, overall, visibility, conversion, revenue_capture, source")
+    .select(
+      "business_id, date, overall, driver_score, outcome_index, visibility, conversion, revenue_capture, source"
+    )
     .eq("business_id", businessId)
     .gte("date", start.toISOString().slice(0, 10))
     .order("date", { ascending: true });
@@ -125,7 +135,9 @@ export async function listAllScoreDailyAdmin(days = 90): Promise<ScoreDailySnaps
 
   const { data, error } = await supabase
     .from("score_daily")
-    .select("business_id, date, overall, visibility, conversion, revenue_capture, source")
+    .select(
+      "business_id, date, overall, driver_score, outcome_index, visibility, conversion, revenue_capture, source"
+    )
     .gte("date", start.toISOString().slice(0, 10))
     .order("date", { ascending: true });
 

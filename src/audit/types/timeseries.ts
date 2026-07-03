@@ -89,6 +89,8 @@ export interface ScoreDailySnapshot {
   businessId: string;
   date: string;
   overall: number;
+  driverScore?: number;
+  outcomeIndex?: number;
   visibility: number;
   conversion: number;
   revenueCapture: number;

@@ -21,16 +21,9 @@ const STEP_BASE_IMPACT: Record<number, { visibility: number; conversion: number 
   16: { visibility: 3, conversion: 2 },
 };
 
-function keywordsOutsidePack(audit: FullAuditPayload): string[] {
-  const rankings = audit.strategy?.gbpPlan?.keywordRankings ?? audit.rankings.keywords;
-  return rankings
-    .filter((r) => ("inLocalPack" in r ? !r.inLocalPack : false))
-    .map((r) => r.keyword);
-}
-
 /**
- * Estimated listing-strength points if this plan step is completed.
- * Weighted toward visibility (50%) and conversion (30%) to match overall formula.
+ * Estimated driver-score points if this plan step is completed.
+ * Only controllable profile/relevance signals — not rank outcomes.
  */
 export function estimateStepHealthImpact(
   audit: FullAuditPayload,
@@ -39,25 +32,33 @@ export function estimateStepHealthImpact(
   globalCalibration?: AttributionCalibration
 ): number {
   const base = STEP_BASE_IMPACT[stepNumber] ?? { visibility: 2, conversion: 2 };
-  const outsidePack = keywordsOutsidePack(audit);
 
-  let visibilityBoost = base.visibility;
-  let conversionBoost = base.conversion;
+  let driverBoost = base.conversion;
 
-  if ([1, 2, 3, 4, 5, 8].includes(stepNumber) && outsidePack.length > 0) {
-    visibilityBoost = Math.min(8, visibilityBoost + 1);
+  // Profile/relevance steps also move the driver score
+  if ([1, 2, 3, 4, 5, 8].includes(stepNumber)) {
+    driverBoost = Math.min(8, driverBoost + base.visibility * 0.5);
   }
   if (stepNumber === 11 && audit.reviews.unrespondedNegative > 0) {
-    conversionBoost = Math.min(8, conversionBoost + 2);
+    driverBoost = Math.min(8, driverBoost + 2);
   }
   if (stepNumber === 8 && audit.gbp.content.lastPostDate == null) {
-    visibilityBoost = Math.min(8, visibilityBoost + 1);
+    driverBoost = Math.min(8, driverBoost + 1);
   }
 
-  const raw = visibilityBoost * 0.5 + conversionBoost * 0.3 + (visibilityBoost + conversionBoost) * 0.1;
-  const heuristic = Math.max(1, Math.min(8, Math.round(raw)));
+  const heuristic = Math.max(1, Math.min(8, Math.round(driverBoost)));
   const merged = mergeCalibrations(calibration, globalCalibration);
   return calibratedStepImpact(stepNumber, heuristic, merged);
+}
+
+/** Driver-only impact for gaps — rank-outcome gaps do not promise point gains. */
+export function gapDriverScoreImpact(gap: GapFlag): number {
+  if (gap.id.startsWith("rank-outside-pack")) return 0;
+  const component = gapScoreComponent(gap);
+  if (component === "visibility" || component === "revenueCapture") {
+    return gap.id.startsWith("relevance-gap") ? gapScoreImpact(gap) : 0;
+  }
+  return gap.scoreImpact ?? gapScoreImpact(gap);
 }
 
 const CATEGORY_COMPONENT: Partial<Record<GapFlag["category"], ScoreComponent>> = {

@@ -8,10 +8,12 @@ import type {
   ScoreInsight,
 } from "../types";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
-import type { ClickShareCurve, LearnedScoreModel, ScoreBlendWeights } from "./score-learning";
+import type { LearnedScoreModel } from "./score-learning";
 import {
-  DEFAULT_BLEND_WEIGHTS,
-  DEFAULT_CLICK_SHARE_CURVE,
+  computeOverallFromDriverOutcome,
+  computeOutcomeIndex,
+} from "./score-driver-outcome";
+import {
   DEFAULT_LEARNED_SCORE_MODEL,
   effectiveScoreModel,
   topClickSharePercent,
@@ -296,11 +298,15 @@ export function findTopOpportunityKeyword(audit: Phase1AuditPayload): string | n
 
 export function buildScoreInsight(
   audit: Phase1AuditPayload,
+  driverScore: number,
+  outcomeIndex: number,
   visibility: number,
   conversion: number,
   revenueCapture: number
 ): ScoreInsight {
   const components: Array<{ id: ScoreComponent; score: number }> = [
+    { id: "driver", score: driverScore },
+    { id: "outcome", score: outcomeIndex },
     { id: "visibility", score: visibility },
     { id: "conversion", score: conversion },
     { id: "revenueCapture", score: revenueCapture },
@@ -311,12 +317,7 @@ export function buildScoreInsight(
   const topOpportunityKeyword = findTopOpportunityKeyword(audit);
 
   let nextAction: string | null = null;
-  if (weakest.id === "visibility" && topOpportunityKeyword) {
-    const kw = audit.rankings.keywords.find((k) => k.keyword === topOpportunityKeyword);
-    const pos = kw ? resolvePosition(kw) : "not_in_pack";
-    const posLabel = pos === "not_in_pack" ? "outside the 3-Pack" : `#${pos}`;
-    nextAction = `Improve "${topOpportunityKeyword}" (${posLabel}) — highest revenue opportunity`;
-  } else if (weakest.id === "conversion") {
+  if (weakest.id === "driver" || weakest.id === "conversion") {
     const relevance = resolveKeywordRelevance(audit)
       .filter((r) => r.score < 60)
       .sort((a, b) => a.score - b.score)[0];
@@ -331,6 +332,15 @@ export function buildScoreInsight(
     } else {
       nextAction = "Add photos and strengthen reviews to win more clicks in the pack";
     }
+  } else if (weakest.id === "outcome" || weakest.id === "visibility" || weakest.id === "revenueCapture") {
+    if (topOpportunityKeyword) {
+      const kw = audit.rankings.keywords.find((k) => k.keyword === topOpportunityKeyword);
+      const pos = kw ? resolvePosition(kw) : "not_in_pack";
+      const posLabel = pos === "not_in_pack" ? "outside the 3-Pack" : `#${pos}`;
+      nextAction = `Ranking outcome: improve "${topOpportunityKeyword}" (${posLabel}) — strengthen profile relevance first`;
+    } else {
+      nextAction = "Ranking outcome is lagging — align categories and services with target keywords";
+    }
   } else {
     nextAction = topOpportunityKeyword
       ? `Move "${topOpportunityKeyword}" into the top 3 to capture more map clicks`
@@ -338,7 +348,7 @@ export function buildScoreInsight(
   }
 
   return {
-    weakestComponent: weakest.id,
+    weakestComponent: weakest.id === "driver" || weakest.id === "conversion" ? "conversion" : weakest.id === "outcome" ? "visibility" : weakest.id,
     topOpportunityKeyword,
     nextAction,
   };
@@ -369,12 +379,9 @@ export function computeHealthScores(
   const conversion = computeConversionScore(audit);
   const revenueCapture = computeRevenueCaptureScore(audit, active);
 
-  const blend: ScoreBlendWeights = active.blendWeights ?? DEFAULT_BLEND_WEIGHTS;
-  const overall = clamp(
-    visibility * blend.visibility +
-      conversion * blend.conversion +
-      revenueCapture * blend.revenueCapture
-  );
+  const driverScore = conversion;
+  const outcomeIndex = computeOutcomeIndex(visibility, revenueCapture);
+  const overall = computeOverallFromDriverOutcome(driverScore, outcomeIndex);
 
   const outsidePack = audit.rankings.keywords.filter((k) => !k.inLocalPack);
   let competitiveGap = 100;
@@ -399,10 +406,19 @@ export function computeHealthScores(
   return {
     overall,
     grade: gradeFromScore(overall),
+    driverScore,
+    outcomeIndex,
     visibility,
     conversion,
     revenueCapture,
-    insight: buildScoreInsight(audit, visibility, conversion, revenueCapture),
+    insight: buildScoreInsight(
+      audit,
+      driverScore,
+      outcomeIndex,
+      visibility,
+      conversion,
+      revenueCapture
+    ),
     // Legacy fields for stored audits and LLM context
     gbpCompleteness: audit.gbp.completeness.completenessScore,
     localPackCoverage: audit.rankings.shareOfVoice,

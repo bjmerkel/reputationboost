@@ -10,7 +10,11 @@ import {
   matchSearchKeywordImpressions,
   positionVisibilityScore,
 } from "./scoring";
-import { gapScoreImpact } from "./score-impact";
+import {
+  computeOutcomeIndex,
+  computeOverallFromDriverOutcome,
+} from "./score-driver-outcome";
+import { gapDriverScoreImpact, gapScoreImpact } from "./score-impact";
 import { detectGaps } from "./gaps";
 import { createTestAudit } from "../phase3/test-fixtures";
 
@@ -113,12 +117,19 @@ describe("computeHealthScores", () => {
     const scores = computeHealthScores(audit);
 
     assert.ok(scores.overall >= 0 && scores.overall <= 100);
+    assert.ok(scores.driverScore >= 0 && scores.driverScore <= 100);
+    assert.ok(scores.outcomeIndex >= 0 && scores.outcomeIndex <= 100);
     assert.ok(scores.visibility >= 0 && scores.visibility <= 100);
     assert.ok(scores.conversion >= 0 && scores.conversion <= 100);
     assert.ok(scores.revenueCapture >= 0 && scores.revenueCapture <= 100);
+    assert.equal(scores.driverScore, scores.conversion);
+    assert.equal(
+      scores.outcomeIndex,
+      computeOutcomeIndex(scores.visibility, scores.revenueCapture)
+    );
     assert.equal(
       scores.overall,
-      Math.round(scores.visibility * 0.5 + scores.conversion * 0.3 + scores.revenueCapture * 0.2)
+      computeOverallFromDriverOutcome(scores.driverScore, scores.outcomeIndex)
     );
     assert.ok(scores.insight.nextAction);
     assert.ok(scores.engagementOutcomes.calls > 0);
@@ -208,5 +219,6 @@ describe("gap score impact", () => {
     assert.ok(rankGap);
     assert.equal(rankGap!.scoreComponent, "visibility");
     assert.ok(gapScoreImpact(rankGap!) >= 8);
+    assert.equal(gapDriverScoreImpact(rankGap!), 0);
   });
 });
