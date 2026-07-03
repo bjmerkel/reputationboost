@@ -41,6 +41,8 @@ export interface IngestRunResult {
   businessesProcessed: number;
   performanceRowsUpserted: number;
   rankRowsUpserted: number;
+  scoreRowsUpserted: number;
+  calibrationStepsUpdated: number;
   errors: Array<{ businessId: string; step: string; message: string }>;
 }
 
@@ -81,4 +83,26 @@ export interface AttributionSummary {
   currency: string;
   hasCustomerValue: boolean;
   topWins: ActionAttribution[];
+}
+
+export interface ScoreDailySnapshot {
+  businessId: string;
+  date: string;
+  overall: number;
+  visibility: number;
+  conversion: number;
+  revenueCapture: number;
+  source: "ingest" | "audit";
+}
+
+export interface ScoreHistoryResponse {
+  series: ScoreDailySnapshot[];
+  changelog: Array<{
+    component: string;
+    delta: number;
+    label: string;
+    keyword?: string;
+  }>;
+  latestDate: string | null;
+  days: number;
 }

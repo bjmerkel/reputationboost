@@ -1,7 +1,10 @@
 export { computeHealthScores, computeVisibilityScore, computeConversionScore, computeRevenueCaptureScore, positionVisibilityScore, positionClickShare, resolveKeywordPosition, keywordImpressionWeight } from "./scoring";
 export { computeKeywordScores } from "./keyword-scores";
 export { buildPathToHealthy } from "./path-to-healthy";
-export { buildAttributionCalibration, calibratedStepImpact } from "./attribution-calibration";
+export { buildAttributionCalibration, calibratedStepImpact, mergeCalibrations } from "./attribution-calibration";
+export { applyRankSnapshotsToAudit, computeScoreDailySnapshot } from "./score-snapshot";
+export { buildScoreChangelogFromSnapshots, buildScoreChangelogFromHealthScores, buildRankMovementsFromSnapshots } from "./score-changelog";
+export { ingestScoreDailyForBusiness } from "./score-ingest";
 export { detectGaps } from "./gaps";
 export { estimateStepHealthImpact, gapScoreImpact, gapScoreComponent } from "./score-impact";
 export { computeMonthOverMonth } from "./diff";

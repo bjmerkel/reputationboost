@@ -19,6 +19,7 @@ import HomeView from "@/components/home/HomeView";
 import BatchReviewSession from "@/components/plan/BatchReviewSession";
 import PlanView from "@/components/plan/PlanView";
 import { useAttributionDashboard } from "@/hooks/useAttributionDashboard";
+import { useScoreHistory } from "@/hooks/useScoreHistory";
 
 interface BusinessLocation {
   lat: number;
@@ -71,6 +72,7 @@ export default function AuditDashboard({
   const reviewParam = searchParams.get("review");
 
   const { data: attributionData, loading: attributionLoading } = useAttributionDashboard(clientId);
+  const { data: scoreHistory, loading: scoreHistoryLoading } = useScoreHistory(clientId);
 
   const openBatchReview = useCallback(() => {
     setBatchReviewOpen(true);
@@ -250,9 +252,13 @@ export default function AuditDashboard({
               tasks={tasks}
               summary={attributionData.summary}
               attributions={attributionData.attributions}
-              attributionLoading={attributionLoading}
+              attributionLoading={attributionLoading || scoreHistoryLoading}
               avgCustomerValue={avgCustomerValue}
               avgCustomerValueCurrency={avgCustomerValueCurrency}
+              liveScore={scoreHistory.liveScores?.overall ?? null}
+              liveScoreDate={scoreHistory.latestDate}
+              scoreChangelog={scoreHistory.changelog}
+              globalCalibration={scoreHistory.globalCalibration}
               onReviewPending={openBatchReview}
             />
           )}

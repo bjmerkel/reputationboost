@@ -1,8 +1,9 @@
 "use client";
 
-import type { FullAuditPayload, MonthlyReport } from "@/audit/types";
+import type { FullAuditPayload, MonthlyReport, ScoreChangelogEntry } from "@/audit/types";
 import type { AttributionSummary } from "@/audit/types/timeseries";
 import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
+import ScoreChangelog from "@/components/audit/ScoreChangelog";
 
 function formatDelta(change: number, suffix = ""): string {
   if (change === 0) return `0${suffix}`;
@@ -19,10 +20,16 @@ export default function HomeHealthSummary({
   audit,
   summary,
   loading = false,
+  liveScore,
+  liveScoreDate,
+  dailyChangelog = [],
 }: {
   audit: FullAuditPayload;
   summary: AttributionSummary | null;
   loading?: boolean;
+  liveScore?: number | null;
+  liveScoreDate?: string | null;
+  dailyChangelog?: ScoreChangelogEntry[];
 }) {
   const scores = audit.strategy?.scores;
   const mom = audit.strategy?.monthOverMonth;
@@ -38,8 +45,10 @@ export default function HomeHealthSummary({
 
   if (!scores) return null;
 
-  const score = Number.isFinite(scores.overall) ? scores.overall : 0;
+  const displayScore = Number.isFinite(liveScore) ? liveScore! : Number.isFinite(scores.overall) ? scores.overall : 0;
   const color = gradeColor(scores.grade);
+  const auditChangelog = mom?.scoreChangelog ?? [];
+  const changelog = dailyChangelog.length > 0 ? dailyChangelog : auditChangelog;
 
   return (
     <section className="rounded-xl border border-[#dadce0] bg-white p-5 shadow-sm">
@@ -52,14 +61,19 @@ export default function HomeHealthSummary({
           className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-4 text-lg font-bold"
           style={{ borderColor: color, color }}
         >
-          {score}
+          {displayScore}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-lg font-semibold text-[#202124]">
-            Listing strength {score}/100
+            Listing strength {displayScore}/100
           </p>
           <p className="text-sm capitalize text-[#5f6368]">{scores.grade.replace("_", " ")}</p>
-          {mom && mom.overallScoreChange !== 0 && (
+          {liveScoreDate && liveScore != null && liveScore !== scores.overall && (
+            <p className="mt-1 text-xs text-[#1a73e8]">
+              Live score {liveScore}/100 · updated {liveScoreDate}
+            </p>
+          )}
+          {mom && mom.overallScoreChange !== 0 && !liveScoreDate && (
             <p className={`mt-1 text-sm ${mom.overallScoreChange > 0 ? "text-[#137333]" : "text-[#d93025]"}`}>
               {formatDelta(mom.overallScoreChange)} pts since last audit
             </p>
@@ -70,6 +84,12 @@ export default function HomeHealthSummary({
       <div className="mt-4 border-t border-[#e8eaed] pt-4">
         <ScoreBreakdown scores={scores} />
       </div>
+
+      {changelog.length > 0 && (
+        <div className="mt-4 border-t border-[#e8eaed] pt-4">
+          <ScoreChangelog entries={changelog} title="What changed" />
+        </div>
+      )}
 
       {report && <EngagementStrip report={report} />}
 

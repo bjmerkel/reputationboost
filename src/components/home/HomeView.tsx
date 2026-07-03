@@ -1,12 +1,13 @@
 "use client";
 
-import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
+import type { ExecutionTask, FullAuditPayload, ScoreChangelogEntry } from "@/audit/types";
 import type { ActionAttribution, AttributionSummary } from "@/audit/types/timeseries";
 import ActionAttributionFeed from "@/components/attribution/ActionAttributionFeed";
 import ListingStrengthInsights from "@/components/audit/ListingStrengthInsights";
 import HomeApprovalCTA from "@/components/home/HomeApprovalCTA";
 import HomeHealthSummary from "@/components/home/HomeHealthSummary";
 import { pendingBatchTasks } from "@/lib/execution/pending-tasks";
+import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 
 export default function HomeView({
   audit,
@@ -16,6 +17,10 @@ export default function HomeView({
   attributionLoading = false,
   avgCustomerValue,
   avgCustomerValueCurrency = "USD",
+  liveScore,
+  liveScoreDate,
+  scoreChangelog = [],
+  globalCalibration = {},
   onReviewPending,
 }: {
   audit: FullAuditPayload;
@@ -25,6 +30,10 @@ export default function HomeView({
   attributionLoading?: boolean;
   avgCustomerValue?: number | null;
   avgCustomerValueCurrency?: string;
+  liveScore?: number | null;
+  liveScoreDate?: string | null;
+  scoreChangelog?: ScoreChangelogEntry[];
+  globalCalibration?: AttributionCalibration;
   onReviewPending: () => void;
 }) {
   const batchableCount = pendingBatchTasks(tasks).length;
@@ -32,7 +41,14 @@ export default function HomeView({
 
   return (
     <div className="space-y-6">
-      <HomeHealthSummary audit={audit} summary={summary} loading={attributionLoading} />
+      <HomeHealthSummary
+        audit={audit}
+        summary={summary}
+        loading={attributionLoading}
+        liveScore={liveScore}
+        liveScoreDate={liveScoreDate}
+        dailyChangelog={scoreChangelog}
+      />
 
       <ListingStrengthInsights
         audit={audit}
@@ -40,6 +56,7 @@ export default function HomeView({
         attributions={attributions}
         avgCustomerValue={avgCustomerValue}
         currency={avgCustomerValueCurrency}
+        globalCalibration={globalCalibration}
       />
 
       <ActionAttributionFeed

@@ -173,5 +173,20 @@ async function persistAudit(
   }
 
   await saveAuditToSupabase(userId, businessId, audit);
+
+  try {
+    const { computeScoreDailySnapshot } = await import("@/audit/phase2/score-snapshot");
+    const { upsertScoreDaily } = await import("@/audit/storage-score-daily");
+    const snapshot = computeScoreDailySnapshot(
+      audit,
+      audit.completedAt.slice(0, 10),
+      "audit"
+    );
+    snapshot.businessId = businessId;
+    await upsertScoreDaily(snapshot);
+  } catch {
+    // Non-fatal: score history is optional until migration 008 is applied
+  }
+
   return `supabase://audit_runs/${businessId}/${audit.auditId}`;
 }

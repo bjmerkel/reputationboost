@@ -176,6 +176,9 @@ describe("buildPlanTimeline", () => {
       websiteClicksChange: 0,
       shareOfVoiceChange: 0,
       overallScoreChange: 4,
+      visibilityScoreChange: 3,
+      conversionScoreChange: 1,
+      revenueCaptureScoreChange: 0,
       improvedKeywords: ["plumber near me"],
       declinedKeywords: [],
       rankMovements: [

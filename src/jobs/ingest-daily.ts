@@ -1,5 +1,7 @@
 import { listOnboardedBusinesses } from "@/audit/businesses-admin";
 import { recomputeAttributionsForBusiness } from "@/audit/attribution";
+import { ingestScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
+import { refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import { businessRecordToClientConfig, type BusinessRecord } from "@/audit/businesses";
 import {
   completeIngestRun,
@@ -40,6 +42,8 @@ function emptyResult(): IngestRunResult {
     businessesProcessed: 0,
     performanceRowsUpserted: 0,
     rankRowsUpserted: 0,
+    scoreRowsUpserted: 0,
+    calibrationStepsUpdated: 0,
     errors: [],
   };
 }
@@ -179,6 +183,17 @@ async function ingestBusiness(
     });
   }
 
+  try {
+    const saved = await ingestScoreDailyForBusiness(row.id, targetDate);
+    if (saved) result.scoreRowsUpserted += 1;
+  } catch (error) {
+    result.errors.push({
+      businessId: row.id,
+      step: "score_daily",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   result.businessesProcessed += 1;
 }
 
@@ -203,6 +218,16 @@ export async function ingestDailyMetrics(
 
     for (const row of businesses) {
       await ingestBusiness(row, targetDateStr, result);
+    }
+
+    try {
+      result.calibrationStepsUpdated = await refreshGlobalScoreCalibration();
+    } catch (error) {
+      result.errors.push({
+        businessId: "",
+        step: "calibration",
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
 
     if (runId) {

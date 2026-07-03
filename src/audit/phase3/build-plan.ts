@@ -11,7 +11,8 @@ import type {
 } from "../types";
 import { getPhaseForStep, PLAN_PHASE_DEFINITIONS } from "./plan-phases";
 import { resolvePlanStepNumber } from "./plan-task-utils";
-import { buildAttributionCalibration } from "../phase2/attribution-calibration";
+import { buildAttributionCalibration, mergeCalibrations } from "../phase2/attribution-calibration";
+import type { AttributionCalibration } from "../phase2/attribution-calibration";
 import { buildStepContext } from "./step-context";
 import { findStepOutcome } from "./step-outcomes";
 
@@ -44,7 +45,7 @@ function buildPlanStep(
   step: GbpPlanStep,
   tasks: ExecutionTask[],
   attributions: ActionAttribution[],
-  calibration: ReturnType<typeof buildAttributionCalibration>
+  calibration?: AttributionCalibration
 ): PlanStep {
   const status = deriveStepStatus(tasks);
   const outcome =
@@ -97,13 +98,17 @@ function filterPhasesWithSteps(phases: PlanPhase[], steps: PlanStep[]): PlanPhas
 export function buildPlan(
   audit: FullAuditPayload,
   tasks: ExecutionTask[],
-  attributions: ActionAttribution[] = []
+  attributions: ActionAttribution[] = [],
+  globalCalibration?: AttributionCalibration
 ): Plan | null {
   const gbpPlan = audit.strategy?.gbpPlan;
   if (!gbpPlan) return null;
 
   const tasksByStep = groupTasksByStep(tasks);
-  const calibration = buildAttributionCalibration(attributions);
+  const calibration = mergeCalibrations(
+    buildAttributionCalibration(attributions),
+    globalCalibration
+  );
   const planSteps = gbpPlan.steps.map((step) =>
     buildPlanStep(audit, step, tasksByStep.get(step.stepNumber) ?? [], attributions, calibration)
   );

@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 import type { FullAuditPayload, Plan } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
-import { buildAttributionCalibration } from "@/audit/phase2/attribution-calibration";
+import { buildAttributionCalibration, mergeCalibrations } from "@/audit/phase2/attribution-calibration";
+import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { computeKeywordScores } from "@/audit/phase2/keyword-scores";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { buildPlan } from "@/audit/phase3/build-plan";
@@ -16,6 +17,7 @@ export default function ListingStrengthInsights({
   attributions = [],
   avgCustomerValue,
   currency = "USD",
+  globalCalibration = {},
   showKeywords = true,
 }: {
   audit: FullAuditPayload;
@@ -23,16 +25,22 @@ export default function ListingStrengthInsights({
   attributions?: ActionAttribution[];
   avgCustomerValue?: number | null;
   currency?: string;
+  globalCalibration?: AttributionCalibration;
   showKeywords?: boolean;
 }) {
-  const calibration = useMemo(
+  const businessCalibration = useMemo(
     () => buildAttributionCalibration(attributions),
     [attributions]
   );
 
+  const calibration = useMemo(
+    () => mergeCalibrations(businessCalibration, globalCalibration),
+    [businessCalibration, globalCalibration]
+  );
+
   const plan = useMemo(
-    () => buildPlan(audit, tasks, attributions),
-    [audit, tasks, attributions]
+    () => buildPlan(audit, tasks, attributions, globalCalibration),
+    [audit, tasks, attributions, globalCalibration]
   );
 
   const path = useMemo(

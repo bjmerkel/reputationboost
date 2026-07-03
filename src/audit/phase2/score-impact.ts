@@ -1,6 +1,6 @@
 import type { FullAuditPayload, GapFlag, ScoreComponent } from "../types";
 import type { AttributionCalibration } from "./attribution-calibration";
-import { calibratedStepImpact } from "./attribution-calibration";
+import { calibratedStepImpact, mergeCalibrations } from "./attribution-calibration";
 
 const STEP_BASE_IMPACT: Record<number, { visibility: number; conversion: number }> = {
   1: { visibility: 4, conversion: 1 },
@@ -35,7 +35,8 @@ function keywordsOutsidePack(audit: FullAuditPayload): string[] {
 export function estimateStepHealthImpact(
   audit: FullAuditPayload,
   stepNumber: number,
-  calibration?: AttributionCalibration
+  calibration?: AttributionCalibration,
+  globalCalibration?: AttributionCalibration
 ): number {
   const base = STEP_BASE_IMPACT[stepNumber] ?? { visibility: 2, conversion: 2 };
   const outsidePack = keywordsOutsidePack(audit);
@@ -43,7 +44,6 @@ export function estimateStepHealthImpact(
   let visibilityBoost = base.visibility;
   let conversionBoost = base.conversion;
 
-  // Steps that target rankings benefit more when keywords are outside the pack
   if ([1, 2, 3, 4, 5, 8].includes(stepNumber) && outsidePack.length > 0) {
     visibilityBoost = Math.min(8, visibilityBoost + 1);
   }
@@ -56,7 +56,8 @@ export function estimateStepHealthImpact(
 
   const raw = visibilityBoost * 0.5 + conversionBoost * 0.3 + (visibilityBoost + conversionBoost) * 0.1;
   const heuristic = Math.max(1, Math.min(8, Math.round(raw)));
-  return calibratedStepImpact(stepNumber, heuristic, calibration);
+  const merged = mergeCalibrations(calibration, globalCalibration);
+  return calibratedStepImpact(stepNumber, heuristic, merged);
 }
 
 const CATEGORY_COMPONENT: Partial<Record<GapFlag["category"], ScoreComponent>> = {

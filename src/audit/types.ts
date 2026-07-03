@@ -448,10 +448,21 @@ export interface MonthOverMonthDelta {
   websiteClicksChange: number;
   shareOfVoiceChange: number;
   overallScoreChange: number;
+  visibilityScoreChange: number;
+  conversionScoreChange: number;
+  revenueCaptureScoreChange: number;
   improvedKeywords: string[];
   declinedKeywords: string[];
   rankMovements: RankMovement[];
   competitorDeltas: CompetitorDelta[];
+  scoreChangelog?: ScoreChangelogEntry[];
+}
+
+export interface ScoreChangelogEntry {
+  component: ScoreComponent | "overall";
+  delta: number;
+  label: string;
+  keyword?: string;
 }
 
 export interface MonthlyReport {

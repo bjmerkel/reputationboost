@@ -83,5 +83,37 @@ export function calibratedStepImpact(
 ): number {
   const cal = calibration?.[stepNumber];
   if (!cal || cal.sampleSize < 2) return heuristicImpact;
-  return Math.max(1, Math.min(8, Math.round(heuristicImpact * 0.35 + cal.estimatedScoreImpact * 0.65)));
+  const weight = cal.sampleSize >= 10 ? 0.75 : 0.65;
+  return Math.max(
+    1,
+    Math.min(8, Math.round(heuristicImpact * (1 - weight) + cal.estimatedScoreImpact * weight))
+  );
+}
+
+/** Prefer business-specific calibration; fall back to global cross-customer data. */
+export function mergeCalibrations(
+  business?: AttributionCalibration,
+  global?: AttributionCalibration
+): AttributionCalibration | undefined {
+  if (!business && !global) return undefined;
+
+  const merged: AttributionCalibration = { ...global };
+  for (const [step, cal] of Object.entries(business ?? {})) {
+    const stepNum = Number(step);
+    const globalCal = global?.[stepNum];
+    if (!cal || cal.sampleSize < 2) continue;
+    if (!globalCal || globalCal.sampleSize < 5) {
+      merged[stepNum] = cal;
+      continue;
+    }
+    merged[stepNum] = {
+      sampleSize: cal.sampleSize + globalCal.sampleSize,
+      medianRankDelta: cal.medianRankDelta ?? globalCal.medianRankDelta,
+      medianCallsDelta: cal.medianCallsDelta || globalCal.medianCallsDelta,
+      estimatedScoreImpact: Math.round(
+        cal.estimatedScoreImpact * 0.7 + globalCal.estimatedScoreImpact * 0.3
+      ),
+    };
+  }
+  return merged;
 }

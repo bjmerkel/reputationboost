@@ -178,6 +178,10 @@ export function computeMonthOverMonth(
     shareOfVoiceChange:
       current.rankings.shareOfVoice - prior.rankings.shareOfVoice,
     overallScoreChange: currentScores.overall - priorScores.overall,
+    visibilityScoreChange: currentScores.visibility - priorScores.visibility,
+    conversionScoreChange: currentScores.conversion - priorScores.conversion,
+    revenueCaptureScoreChange:
+      currentScores.revenueCapture - priorScores.revenueCapture,
     improvedKeywords,
     declinedKeywords,
     rankMovements: buildRankMovements(current, prior),

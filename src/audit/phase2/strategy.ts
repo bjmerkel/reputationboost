@@ -11,6 +11,7 @@ import { detectGaps } from "./gaps";
 import { computeMonthOverMonth } from "./diff";
 import { buildMonthlyReport } from "./monthly-report";
 import { computeHealthScores } from "./scoring";
+import { buildScoreChangelogFromHealthScores } from "./score-changelog";
 
 function gapToAction(gap: GapFlag, index: number): ActionItem {
   const dueDays =
@@ -167,7 +168,18 @@ export function buildStrategy(
 ): StrategyReport {
   const scores = computeHealthScores(audit);
   const gaps = detectGaps(audit, outcomes);
-  const mom = computeMonthOverMonth(audit, priorAudit);
+  let mom = computeMonthOverMonth(audit, priorAudit);
+  if (mom && priorAudit) {
+    const priorScores = computeHealthScores(priorAudit);
+    mom = {
+      ...mom,
+      scoreChangelog: buildScoreChangelogFromHealthScores(
+        scores,
+        priorScores,
+        mom.rankMovements
+      ),
+    };
+  }
   const actionPlan = gaps.slice(0, 12).map(gapToAction);
 
   const localPackStatus = `In the Local 3-Pack for ${audit.rankings.keywordsInPack} of ${audit.rankings.totalKeywords} target keywords (${audit.rankings.shareOfVoice}% share of voice).`;
