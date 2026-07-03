@@ -2,7 +2,7 @@ import type { ClientConfig, GbpConnection, GbpSnapshot } from "../types";
 import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
 import { isReviewResponded } from "@/lib/google/gbp-reviews";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
-import { getGbpLocationProfile } from "@/lib/google/gbp-location";
+import { getGbpEnabledAttributeLabels, getGbpLocationProfile } from "@/lib/google/gbp-location";
 import {
   fetchPlaceDetails,
   primaryCategoryFromTypes,
@@ -55,6 +55,10 @@ async function collectGbpFromApi(
       : Promise.resolve(null),
   ]);
 
+  const attributeSummary = await getGbpEnabledAttributeLabels(connection, {
+    profile: liveProfileResult,
+  }).catch(() => ({ labels: [], details: [] }));
+
   const liveProfile = liveProfileResult;
   const description =
     liveProfile?.description || place?.description || "";
@@ -79,7 +83,10 @@ async function collectGbpFromApi(
     : secondaryCategoriesFromTypes(place?.types ?? []);
 
   const serviceItems = liveProfile?.serviceItems ?? [];
-  const attributes = liveProfile?.attributes ?? [];
+  const attributes =
+    attributeSummary.labels.length > 0
+      ? attributeSummary.labels
+      : (liveProfile?.attributes ?? []);
   const hasHours = liveProfile?.hasRegularHours ?? place?.hasHours ?? false;
   const hasHolidayHours = liveProfile?.hasMoreHours ?? place?.hasHolidayHours ?? false;
 

@@ -3,7 +3,9 @@ import { authHeadersForConnection } from "./auth-headers";
 import {
   getGbpLocationProfile,
   getLocationAttributes,
+  isEnabledGbpAttribute,
   listAvailableAttributes,
+  attributeKey,
   patchGbpLocation,
   resolveCategoryByDisplayName,
   updateLocationAttributes,
@@ -288,13 +290,15 @@ export async function applyRecommendedAttributes(
     getLocationAttributes(connection),
   ]);
 
-  const currentNames = new Set(current.map((a) => a.name));
+  const currentEnabled = new Set(
+    current.filter(isEnabledGbpAttribute).map((a) => attributeKey(a.name))
+  );
   const updates: GbpAttributeUpdate[] = [];
 
   for (const meta of available) {
     if (updates.length >= limit) break;
     if (meta.deprecated || meta.valueType !== "BOOL") continue;
-    if (currentNames.has(meta.name)) continue;
+    if (currentEnabled.has(attributeKey(meta.name))) continue;
 
     updates.push({ name: meta.name, boolValue: true });
   }

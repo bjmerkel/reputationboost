@@ -130,28 +130,86 @@ function formatStorefrontAddress(
     .join(", ");
 }
 
+function attributeKey(name: string): string {
+  return name.split("/").pop() ?? name;
+}
+
+function humanizeAttributeKey(key: string): string {
+  return key
+    .replace(/^attributes\//, "")
+    .replace(/^has_/, "")
+    .replace(/^is_/, "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function coerceAttributeValues(attr: AttributeApi): string[] {
+  const values: string[] = [];
+
+  if (attr.repeatedEnumValue?.setValues?.length) {
+    values.push(...attr.repeatedEnumValue.setValues);
+  }
+
+  if (attr.values?.length) {
+    for (const value of attr.values) {
+      if (typeof value === "boolean") {
+        values.push(value ? "__BOOL_TRUE__" : "__BOOL_FALSE__");
+      } else {
+        values.push(String(value));
+      }
+    }
+  }
+
+  if (attr.uriValues?.length) {
+    values.push(...attr.uriValues.map((u) => u.uri ?? "").filter(Boolean));
+  }
+
+  return values;
+}
+
+export function isEnabledGbpAttribute(attr: GbpLocationAttribute): boolean {
+  const valueType = attr.valueType?.toUpperCase() ?? "";
+
+  if (valueType === "BOOL" || valueType === "BOOLEAN") {
+    if (attr.values.length === 0) return true;
+    return attr.values.some((v) => v === "__BOOL_TRUE__" || v === "true");
+  }
+
+  if (valueType === "REPEATED_ENUM" || valueType === "ENUM") {
+    return attr.values.length > 0;
+  }
+
+  return attr.values.length > 0;
+}
+
+export function formatGbpAttributeLabel(
+  attr: GbpLocationAttribute,
+  metadataByKey: Map<string, GbpAttributeMetadata>
+): string | null {
+  if (!isEnabledGbpAttribute(attr)) return null;
+
+  const key = attributeKey(attr.name);
+  const meta = metadataByKey.get(key) ?? metadataByKey.get(attr.name);
+  const enumValues = attr.values
+    .filter((v) => !v.startsWith("__BOOL_") && v !== "true" && v !== "false")
+    .map((v) => humanizeAttributeKey(v));
+
+  if (meta?.displayName) {
+    return enumValues.length ? `${meta.displayName}: ${enumValues.join(", ")}` : meta.displayName;
+  }
+
+  if (enumValues.length) return enumValues.join(", ");
+  return humanizeAttributeKey(key);
+}
+
 function parseInlineAttributes(attrs: AttributeApi[] | undefined): {
   labels: string[];
   details: GbpLocationAttribute[];
 } {
-  const labels: string[] = [];
   const details: GbpLocationAttribute[] = [];
 
   for (const attr of attrs ?? []) {
-    const values: string[] = [];
-    if (attr.repeatedEnumValue?.setValues?.length) {
-      values.push(...attr.repeatedEnumValue.setValues);
-    } else if (attr.values?.length) {
-      values.push(...attr.values.map((v) => String(v)));
-    } else if (attr.uriValues?.length) {
-      values.push(...attr.uriValues.map((u) => u.uri ?? "").filter(Boolean));
-    }
-
-    if (values.length) {
-      labels.push(...values);
-    } else if (attr.name) {
-      labels.push(attr.name.split("/").pop() ?? attr.name);
-    }
+    const values = coerceAttributeValues(attr);
 
     if (attr.name) {
       details.push({
@@ -161,6 +219,11 @@ function parseInlineAttributes(attrs: AttributeApi[] | undefined): {
       });
     }
   }
+
+  const labels = details
+    .filter(isEnabledGbpAttribute)
+    .map((attr) => formatGbpAttributeLabel(attr, new Map()) ?? "")
+    .filter(Boolean);
 
   return { labels, details };
 }
@@ -521,6 +584,39 @@ export async function searchGoogleLocations(
   });
 }
 
+/** Resolve enabled attribute labels via getAttributes + metadata display names. */
+export async function getGbpEnabledAttributeLabels(
+  connection: GbpConnection,
+  options?: { profile?: GbpLocationProfile | null }
+): Promise<{ labels: string[]; details: GbpLocationAttribute[] }> {
+  const profile =
+    options?.profile !== undefined
+      ? options.profile
+      : await getGbpLocationProfile(connection).catch(() => null);
+
+  const [dedicated, available] = await Promise.all([
+    getLocationAttributes(connection).catch(() => [] as GbpLocationAttribute[]),
+    listAvailableAttributes(connection).catch(() => [] as GbpAttributeMetadata[]),
+  ]);
+
+  const details =
+    dedicated.length > 0 ? dedicated : (profile?.attributeDetails ?? []);
+
+  const metadataByKey = new Map<string, GbpAttributeMetadata>();
+  for (const meta of available) {
+    metadataByKey.set(attributeKey(meta.name), meta);
+    metadataByKey.set(meta.name, meta);
+  }
+
+  const labels: string[] = [];
+  for (const attr of details) {
+    const label = formatGbpAttributeLabel(attr, metadataByKey);
+    if (label) labels.push(label);
+  }
+
+  return { labels, details };
+}
+
 /** Combined profile + dedicated attributes + Google-updated snapshot. */
 export async function getGbpLocationFull(connection: GbpConnection): Promise<{
   profile: GbpLocationProfile;
@@ -530,15 +626,29 @@ export async function getGbpLocationFull(connection: GbpConnection): Promise<{
 }> {
   const profile = await getGbpLocationProfile(connection);
 
-  const [attributes, availableAttributes, googleUpdated] = await Promise.all([
-    getLocationAttributes(connection).catch(() => profile.attributeDetails),
+  const [attributeSummary, availableAttributes, googleUpdated] = await Promise.all([
+    getGbpEnabledAttributeLabels(connection).catch(() => ({
+      labels: profile.attributes,
+      details: profile.attributeDetails,
+    })),
     listAvailableAttributes(connection).catch(() => [] as GbpAttributeMetadata[]),
     profile.hasGoogleUpdated
       ? getGoogleUpdatedLocation(connection).catch(() => null)
       : Promise.resolve(null),
   ]);
 
-  return { profile, attributes, availableAttributes, googleUpdated };
+  const enrichedProfile: GbpLocationProfile = {
+    ...profile,
+    attributes: attributeSummary.labels,
+    attributeDetails: attributeSummary.details,
+  };
+
+  return {
+    profile: enrichedProfile,
+    attributes: attributeSummary.details,
+    availableAttributes,
+    googleUpdated,
+  };
 }
 
 export async function patchGbpLocation(
@@ -567,4 +677,4 @@ export async function patchGbpLocation(
   }
 }
 
-export { normalizeCategoryName, locationResourceName };
+export { normalizeCategoryName, locationResourceName, attributeKey };
