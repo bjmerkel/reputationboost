@@ -8,6 +8,7 @@ interface GbpDisconnectProps {
   businessName: string;
   connectedAt: string | null;
   googleEmail?: string | null;
+  variant?: "dark" | "light";
 }
 
 export default function GbpDisconnect({
@@ -15,7 +16,9 @@ export default function GbpDisconnect({
   businessName,
   connectedAt,
   googleEmail,
+  variant = "dark",
 }: GbpDisconnectProps) {
+  const isLight = variant === "light";
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -45,25 +48,38 @@ export default function GbpDisconnect({
   }
 
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-6">
-      <h2 className="text-lg font-bold text-white">Google Business Profile</h2>
-      <p className="mt-2 text-sm text-slate-400">
-        Location: <span className="text-slate-200">{businessName}</span>
+    <div
+      className={`rounded-xl border p-6 ${
+        isLight ? "border-[#dadce0] bg-white shadow-sm" : "border-white/8 bg-white/[0.02]"
+      }`}
+    >
+      <h2 className={`text-lg font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
+        Google Business Profile
+      </h2>
+      <p className={`mt-2 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+        Location: <span className={isLight ? "text-[#3c4043]" : "text-slate-200"}>{businessName}</span>
         {googleEmail && (
           <>
             <br />
-            Google account: <span className="text-slate-200">{googleEmail}</span>
+            Google account:{" "}
+            <span className={isLight ? "text-[#3c4043]" : "text-slate-200"}>{googleEmail}</span>
           </>
         )}
         {connectedAt && (
-          <span className="text-slate-500">
+          <span className={isLight ? "text-[#80868b]" : "text-slate-500"}>
             {" "}
             · connected {new Date(connectedAt).toLocaleDateString()}
           </span>
         )}
       </p>
 
-      <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-200/90">
+      <div
+        className={`mt-4 rounded-lg border px-4 py-3 text-sm ${
+          isLight
+            ? "border-[#ceead6] bg-[#e6f4ea] text-[#137333]"
+            : "border-emerald-500/20 bg-emerald-500/5 text-emerald-200/90"
+        }`}
+      >
         Live GBP data, audits, and execution queue require an active connection.
       </div>
 
@@ -71,14 +87,26 @@ export default function GbpDisconnect({
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="mt-6 rounded-full border border-red-500/30 bg-red-500/10 px-5 py-2.5 text-sm font-semibold text-red-300 transition hover:border-red-500/50 hover:bg-red-500/15"
+          className={`mt-6 rounded-full border px-5 py-2.5 text-sm font-semibold transition ${
+            isLight
+              ? "border-[#f6aea9] bg-[#fce8e6] text-[#c5221f] hover:bg-[#f9dedc]"
+              : "border-red-500/30 bg-red-500/10 text-red-300 hover:border-red-500/50 hover:bg-red-500/15"
+          }`}
         >
           Disconnect Google Business Profile
         </button>
       ) : (
-        <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/5 p-4">
-          <p className="text-sm font-medium text-red-200">Disconnect Google Business Profile?</p>
-          <p className="mt-2 text-sm text-slate-400">
+        <div
+          className={`mt-6 rounded-xl border p-4 ${
+            isLight
+              ? "border-[#f6aea9] bg-[#fce8e6]"
+              : "border-red-500/30 bg-red-500/5"
+          }`}
+        >
+          <p className={`text-sm font-medium ${isLight ? "text-[#c5221f]" : "text-red-200"}`}>
+            Disconnect Google Business Profile?
+          </p>
+          <p className={`mt-2 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
             This revokes access tokens, clears your GBP location link, and stops live data
             collection. Your business profile and audit history are kept — you can reconnect
             anytime.
@@ -96,7 +124,11 @@ export default function GbpDisconnect({
               type="button"
               onClick={() => setConfirming(false)}
               disabled={loading}
-              className="rounded-full border border-white/10 px-5 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 disabled:opacity-50"
+              className={`rounded-full border px-5 py-2 text-sm font-medium transition disabled:opacity-50 ${
+                isLight
+                  ? "border-[#dadce0] text-[#3c4043] hover:bg-[#f8f9fa]"
+                  : "border-white/10 text-slate-300 hover:bg-white/5"
+              }`}
             >
               Cancel
             </button>
@@ -104,7 +136,9 @@ export default function GbpDisconnect({
         </div>
       )}
 
-      {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+      {error && (
+        <p className={`mt-4 text-sm ${isLight ? "text-[#d93025]" : "text-red-400"}`}>{error}</p>
+      )}
     </div>
   );
 }

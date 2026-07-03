@@ -85,53 +85,77 @@ export default function GbpOptimizationPlanPanel({
         )}
 
         {kpiTargets.length > 0 && (
-          <div className="mt-5 border-t border-white/10 pt-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <div className={`mt-5 border-t pt-4 ${isLight ? "border-[#dadce0]" : "border-white/10"}`}>
+            <p
+              className={`text-xs font-semibold uppercase tracking-wider ${
+                isLight ? "text-[#80868b]" : "text-slate-500"
+              }`}
+            >
               30-Day KPI Targets
             </p>
             <ul className="mt-2 space-y-1.5">
               {kpiTargets.map((target) => (
-                <li key={target} className="flex gap-2 text-sm text-slate-300">
-                  <span className="text-emerald-400">→</span>
+                <li
+                  key={target}
+                  className={`flex gap-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}
+                >
+                  <span className={isLight ? "text-[#188038]" : "text-emerald-400"}>→</span>
                   {target}
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-xs text-slate-500">
-              Each recommendation below maps to an item in <strong className="text-slate-400">Take Action</strong> — approve and publish from there.
+            <p className={`mt-3 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+              Each recommendation below maps to an item in{" "}
+              <strong className={isLight ? "text-[#5f6368]" : "text-slate-400"}>Take Action</strong>{" "}
+              — approve and publish from there.
             </p>
           </div>
         )}
       </div>
 
       {plan.currentState && (
-        <CurrentProfileSection state={plan.currentState} />
+        <CurrentProfileSection state={plan.currentState} isLight={isLight} />
       )}
 
       {plan.keywordRankings && plan.keywordRankings.length > 0 && (
-        <KeywordRankingsSection rankings={plan.keywordRankings} />
+        <KeywordRankingsSection rankings={plan.keywordRankings} isLight={isLight} />
       )}
 
       {/* Search keywords from Google Performance API shown in plan when audit has them */}
       {plan.currentState?.fields.some((f) => f.label.includes("Profile views")) && (
-        <p className="text-xs text-slate-500">
+        <p className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
           Performance metrics (profile views, calls, directions) are pulled from the Google Business
           Profile Performance API during each audit.
         </p>
       )}
 
       {plan.keywordPriority.length > 0 && (
-        <div className="rounded-xl border border-white/8 bg-white/[0.02] p-5">
-          <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+        <div
+          className={`rounded-xl border p-5 ${
+            isLight ? "border-[#dadce0] bg-white" : "border-white/8 bg-white/[0.02]"
+          }`}
+        >
+          <h4
+            className={`text-sm font-semibold uppercase tracking-wider ${
+              isLight ? "text-[#80868b]" : "text-slate-500"
+            }`}
+          >
             Keyword priority
           </h4>
           <ol className="mt-3 space-y-2">
             {plan.keywordPriority.map((kp) => (
               <li key={kp.keyword} className="flex gap-3 text-sm">
-                <span className="font-bold text-emerald-400">{kp.rank}.</span>
+                <span className={`font-bold ${isLight ? "text-[#188038]" : "text-emerald-400"}`}>
+                  {kp.rank}.
+                </span>
                 <span>
-                  <span className="font-medium text-white">{kp.keyword}</span>
-                  <span className="text-slate-400"> — {kp.reason}</span>
+                  <span className={`font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
+                    {kp.keyword}
+                  </span>
+                  <span className={isLight ? "text-[#5f6368]" : "text-slate-400"}>
+                    {" "}
+                    — {kp.reason}
+                  </span>
                 </span>
               </li>
             ))}
@@ -145,48 +169,114 @@ export default function GbpOptimizationPlanPanel({
           return (
             <div
               key={step.stepNumber}
-              className="overflow-hidden rounded-xl border border-white/8 bg-white/[0.02]"
+              className={`overflow-hidden rounded-xl border ${
+                isLight ? "border-[#dadce0] bg-white" : "border-white/8 bg-white/[0.02]"
+              }`}
             >
               <button
                 type="button"
                 onClick={() => setExpanded(isOpen ? null : step.stepNumber)}
-                className="flex w-full items-center gap-4 px-4 py-4 text-left transition hover:bg-white/[0.03] md:px-5"
+                className={`flex w-full items-center gap-4 px-4 py-4 text-left transition md:px-5 ${
+                  isLight ? "hover:bg-[#f8f9fa]" : "hover:bg-white/[0.03]"
+                }`}
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-sm font-bold text-emerald-400">
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                    isLight
+                      ? "bg-[#e6f4ea] text-[#137333]"
+                      : "bg-emerald-500/15 text-emerald-400"
+                  }`}
+                >
                   {step.stepNumber}
                 </span>
-                <span className="min-w-0 flex-1 font-semibold text-white">{step.title}</span>
+                <span
+                  className={`min-w-0 flex-1 font-semibold ${
+                    isLight ? "text-[#202124]" : "text-white"
+                  }`}
+                >
+                  {step.title}
+                </span>
                 {step.gbpAction &&
                   step.gbpAction !== "manual" &&
                   step.gbpAction !== "upload_photo" &&
                   gbpConnected && (
-                  <span className="hidden shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-400 sm:inline">
+                  <span
+                    className={`hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase sm:inline ${
+                      isLight
+                        ? "bg-[#e6f4ea] text-[#137333]"
+                        : "bg-emerald-500/15 text-emerald-400"
+                    }`}
+                  >
                     One-click
                   </span>
                 )}
-                <span className="shrink-0 text-slate-500">{isOpen ? "−" : "+"}</span>
+                <span className={`shrink-0 ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                  {isOpen ? "−" : "+"}
+                </span>
               </button>
 
               {isOpen && (
-                <div className="border-t border-white/8 px-4 pb-5 pt-2 md:px-5">
-                  <p className="text-sm leading-relaxed text-slate-300">{step.instruction}</p>
+                <div
+                  className={`border-t px-4 pb-5 pt-2 md:px-5 ${
+                    isLight ? "border-[#dadce0]" : "border-white/8"
+                  }`}
+                >
+                  <p
+                    className={`text-sm leading-relaxed ${
+                      isLight ? "text-[#3c4043]" : "text-slate-300"
+                    }`}
+                  >
+                    {step.instruction}
+                  </p>
 
                   {(step.current || step.recommended) && (
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
                       {step.current && (
-                        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-                          <p className="text-xs font-semibold uppercase text-amber-400">
+                        <div
+                          className={`rounded-lg border p-3 ${
+                            isLight
+                              ? "border-[#feefc3] bg-[#fef7e0]"
+                              : "border-amber-500/20 bg-amber-500/5"
+                          }`}
+                        >
+                          <p
+                            className={`text-xs font-semibold uppercase ${
+                              isLight ? "text-[#e37400]" : "text-amber-400"
+                            }`}
+                          >
                             Current on GBP
                           </p>
-                          <p className="mt-1 text-sm text-slate-200">{step.current}</p>
+                          <p
+                            className={`mt-1 text-sm ${
+                              isLight ? "text-[#3c4043]" : "text-slate-200"
+                            }`}
+                          >
+                            {step.current}
+                          </p>
                         </div>
                       )}
                       {step.recommended && (
-                        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
-                          <p className="text-xs font-semibold uppercase text-emerald-400">
+                        <div
+                          className={`rounded-lg border p-3 ${
+                            isLight
+                              ? "border-[#ceead6] bg-[#e6f4ea]"
+                              : "border-emerald-500/20 bg-emerald-500/5"
+                          }`}
+                        >
+                          <p
+                            className={`text-xs font-semibold uppercase ${
+                              isLight ? "text-[#137333]" : "text-emerald-400"
+                            }`}
+                          >
                             Recommended update
                           </p>
-                          <p className="mt-1 text-sm text-slate-200">{step.recommended}</p>
+                          <p
+                            className={`mt-1 text-sm ${
+                              isLight ? "text-[#3c4043]" : "text-slate-200"
+                            }`}
+                          >
+                            {step.recommended}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -197,7 +287,11 @@ export default function GbpOptimizationPlanPanel({
                       {step.bullets.map((bullet) => (
                         <li
                           key={bullet}
-                          className="flex gap-2 text-sm text-slate-300 before:shrink-0 before:text-emerald-400 before:content-['•']"
+                          className={`flex gap-2 text-sm before:shrink-0 before:content-['•'] ${
+                            isLight
+                              ? "text-[#3c4043] before:text-[#188038]"
+                              : "text-slate-300 before:text-emerald-400"
+                          }`}
                         >
                           {bullet}
                         </li>
@@ -206,11 +300,24 @@ export default function GbpOptimizationPlanPanel({
                   )}
 
                   {step.copyBlocks?.map((block) => (
-                    <div key={block.label} className="mt-4 rounded-lg bg-white/5 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    <div
+                      key={block.label}
+                      className={`mt-4 rounded-lg p-4 ${
+                        isLight ? "bg-[#f8f9fa]" : "bg-white/5"
+                      }`}
+                    >
+                      <p
+                        className={`text-xs font-semibold uppercase tracking-wider ${
+                          isLight ? "text-[#80868b]" : "text-slate-500"
+                        }`}
+                      >
                         {block.label}
                       </p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-200">
+                      <p
+                        className={`mt-2 whitespace-pre-wrap text-sm leading-relaxed ${
+                          isLight ? "text-[#3c4043]" : "text-slate-200"
+                        }`}
+                      >
                         {block.content}
                       </p>
                     </div>
@@ -220,6 +327,7 @@ export default function GbpOptimizationPlanPanel({
                     step={step}
                     gbpConnected={gbpConnected}
                     onOpenPhotos={onOpenPhotos}
+                    isLight={isLight}
                   />
                 </div>
               )}
@@ -229,8 +337,8 @@ export default function GbpOptimizationPlanPanel({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <CadenceCard title="Weekly cadence" items={plan.weeklyCadence} />
-        <CadenceCard title="Monthly cadence" items={plan.monthlyCadence} />
+        <CadenceCard title="Weekly cadence" items={plan.weeklyCadence} isLight={isLight} />
+        <CadenceCard title="Monthly cadence" items={plan.monthlyCadence} isLight={isLight} />
       </div>
     </div>
   );
@@ -238,28 +346,40 @@ export default function GbpOptimizationPlanPanel({
 
 function CurrentProfileSection({
   state,
+  isLight,
 }: {
   state: NonNullable<GbpOptimizationPlan["currentState"]>;
+  isLight: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-5">
-      <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+    <div
+      className={`rounded-xl border p-5 ${
+        isLight ? "border-[#dadce0] bg-white" : "border-white/8 bg-white/[0.02]"
+      }`}
+    >
+      <h4
+        className={`text-sm font-semibold uppercase tracking-wider ${
+          isLight ? "text-[#80868b]" : "text-slate-500"
+        }`}
+      >
         Current profile on Google
       </h4>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
         Pulled live from your connected Google Business Profile during the audit.
       </p>
       <div className="mt-4 space-y-2">
         {state.fields.map((field) => (
-          <ProfileFieldRow key={field.label} field={field} />
+          <ProfileFieldRow key={field.label} field={field} isLight={isLight} />
         ))}
       </div>
       {state.profileGaps.length > 0 && (
-        <div className="mt-4 border-t border-white/8 pt-4">
-          <p className="text-xs font-semibold uppercase text-red-400/80">Gaps detected</p>
+        <div className={`mt-4 border-t pt-4 ${isLight ? "border-[#dadce0]" : "border-white/8"}`}>
+          <p className={`text-xs font-semibold uppercase ${isLight ? "text-[#d93025]" : "text-red-400/80"}`}>
+            Gaps detected
+          </p>
           <ul className="mt-2 space-y-1">
             {state.profileGaps.map((gap) => (
-              <li key={gap} className="text-sm text-slate-300">
+              <li key={gap} className={`text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
                 • {gap}
               </li>
             ))}
@@ -270,12 +390,18 @@ function CurrentProfileSection({
   );
 }
 
-function ProfileFieldRow({ field }: { field: GbpProfileField }) {
-  const statusStyles = {
+function ProfileFieldRow({ field, isLight }: { field: GbpProfileField; isLight: boolean }) {
+  const statusStylesDark = {
     good: "bg-emerald-500/15 text-emerald-400",
     needs_work: "bg-amber-500/15 text-amber-300",
     missing: "bg-red-500/15 text-red-300",
   };
+  const statusStylesLight = {
+    good: "bg-[#e6f4ea] text-[#137333]",
+    needs_work: "bg-[#fef7e0] text-[#e37400]",
+    missing: "bg-[#fce8e6] text-[#c5221f]",
+  };
+  const statusStyles = isLight ? statusStylesLight : statusStylesDark;
   const statusLabel = {
     good: "Good",
     needs_work: "Needs work",
@@ -283,15 +409,21 @@ function ProfileFieldRow({ field }: { field: GbpProfileField }) {
   };
 
   return (
-    <div className="flex flex-col gap-1 rounded-lg bg-white/[0.03] px-3 py-2.5 sm:flex-row sm:items-start sm:gap-3">
+    <div
+      className={`flex flex-col gap-1 rounded-lg px-3 py-2.5 sm:flex-row sm:items-start sm:gap-3 ${
+        isLight ? "bg-[#f8f9fa]" : "bg-white/[0.03]"
+      }`}
+    >
       <span
         className={`shrink-0 self-start rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${statusStyles[field.status]}`}
       >
         {statusLabel[field.status]}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-slate-500">{field.label}</p>
-        <p className="text-sm text-slate-200">{field.current}</p>
+        <p className={`text-xs font-medium ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+          {field.label}
+        </p>
+        <p className={`text-sm ${isLight ? "text-[#3c4043]" : "text-slate-200"}`}>{field.current}</p>
       </div>
     </div>
   );
@@ -299,50 +431,71 @@ function ProfileFieldRow({ field }: { field: GbpProfileField }) {
 
 function KeywordRankingsSection({
   rankings,
+  isLight,
 }: {
   rankings: NonNullable<GbpOptimizationPlan["keywordRankings"]>;
+  isLight: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-5">
-      <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+    <div
+      className={`rounded-xl border p-5 ${
+        isLight ? "border-[#dadce0] bg-white" : "border-white/8 bg-white/[0.02]"
+      }`}
+    >
+      <h4
+        className={`text-sm font-semibold uppercase tracking-wider ${
+          isLight ? "text-[#80868b]" : "text-slate-500"
+        }`}
+      >
         Keyword rankings &amp; GBP updates
       </h4>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
         Current Maps position per keyword and which profile fields to update to improve ranking.
       </p>
       <div className="mt-4 space-y-4">
         {rankings.map((kr) => (
           <div
             key={kr.keyword}
-            className="rounded-lg border border-white/8 bg-white/[0.02] p-4"
+            className={`rounded-lg border p-4 ${
+              isLight ? "border-[#dadce0] bg-[#f8f9fa]" : "border-white/8 bg-white/[0.02]"
+            }`}
           >
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-white">{kr.keyword}</span>
+              <span className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+                {kr.keyword}
+              </span>
               <span
                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                   kr.inLocalPack
-                    ? "bg-emerald-500/15 text-emerald-400"
-                    : "bg-red-500/15 text-red-300"
+                    ? isLight
+                      ? "bg-[#e6f4ea] text-[#137333]"
+                      : "bg-emerald-500/15 text-emerald-400"
+                    : isLight
+                      ? "bg-[#fce8e6] text-[#c5221f]"
+                      : "bg-red-500/15 text-red-300"
                 }`}
               >
                 {kr.position}
               </span>
               {kr.rankAt1Mi && (
-                <span className="text-xs text-slate-500">
+                <span className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
                   1mi: #{kr.rankAt1Mi}
                   {kr.rankAt3Mi ? ` · 3mi: #${kr.rankAt3Mi}` : ""}
                   {kr.rankAt5Mi ? ` · 5mi: #${kr.rankAt5Mi}` : ""}
                 </span>
               )}
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
               Reviews: {kr.clientReviews} yours vs {kr.packLeaderReviews} pack leader
               {kr.reviewGap > 0 ? ` (${kr.reviewGap} gap)` : ""}
             </p>
             <ul className="mt-3 space-y-1">
               {kr.gbpUpdates.map((update) => (
-                <li key={update} className="flex gap-2 text-sm text-slate-300">
-                  <span className="text-cyan-400">→</span>
+                <li
+                  key={update}
+                  className={`flex gap-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}
+                >
+                  <span className={isLight ? "text-[#1a73e8]" : "text-cyan-400"}>→</span>
                   {update}
                 </li>
               ))}
@@ -358,10 +511,12 @@ function GbpApplyButton({
   step,
   gbpConnected,
   onOpenPhotos,
+  isLight,
 }: {
   step: GbpPlanStep;
   gbpConnected: boolean;
   onOpenPhotos?: () => void;
+  isLight: boolean;
 }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -373,14 +528,16 @@ function GbpApplyButton({
   if (action === "upload_photo") {
     if (!gbpConnected) {
       return (
-        <p className="mt-4 text-xs text-slate-500">
+        <p className={`mt-4 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
           Connect Google Business Profile to upload photos.
         </p>
       );
     }
     return (
-      <div className="mt-5 border-t border-white/8 pt-4">
-        <p className="mb-3 text-sm text-slate-400">
+      <div
+        className={`mt-5 border-t pt-4 ${isLight ? "border-[#dadce0]" : "border-white/8"}`}
+      >
+        <p className={`mb-3 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
           AI photos are created for you automatically. Review and upload from one place.
         </p>
         {onOpenPhotos ? (
@@ -392,7 +549,9 @@ function GbpApplyButton({
             Open Photos →
           </button>
         ) : (
-          <p className="text-sm text-violet-300">Go to the Photos step in the sidebar.</p>
+          <p className={`text-sm ${isLight ? "text-[#9334e6]" : "text-violet-300"}`}>
+            Go to the Photos step in the sidebar.
+          </p>
         )}
       </div>
     );
@@ -400,7 +559,7 @@ function GbpApplyButton({
 
   if (!gbpConnected) {
     return (
-      <p className="mt-4 text-xs text-slate-500">
+      <p className={`mt-4 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
         Connect Google Business Profile in Settings to apply this step directly.
       </p>
     );
@@ -431,7 +590,7 @@ function GbpApplyButton({
   }
 
   return (
-    <div className="mt-5 border-t border-white/8 pt-4">
+    <div className={`mt-5 border-t pt-4 ${isLight ? "border-[#dadce0]" : "border-white/8"}`}>
       <button
         type="button"
         onClick={handleApply}
@@ -440,8 +599,14 @@ function GbpApplyButton({
       >
         {loading ? "Applying to GBP…" : label}
       </button>
-      {result && <p className="mt-2 text-sm text-emerald-400">✓ {result}</p>}
-      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+      {result && (
+        <p className={`mt-2 text-sm ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>
+          ✓ {result}
+        </p>
+      )}
+      {error && (
+        <p className={`mt-2 text-sm ${isLight ? "text-[#d93025]" : "text-red-400"}`}>{error}</p>
+      )}
     </div>
   );
 }
@@ -490,14 +655,31 @@ function buildPayload(action: GbpPlanActionType, step: GbpPlanStep) {
   }
 }
 
-function CadenceCard({ title, items }: { title: string; items: string[] }) {
+function CadenceCard({
+  title,
+  items,
+  isLight,
+}: {
+  title: string;
+  items: string[];
+  isLight: boolean;
+}) {
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
-      <h4 className="text-sm font-semibold text-white">{title}</h4>
+    <div
+      className={`rounded-xl border p-4 ${
+        isLight ? "border-[#dadce0] bg-white" : "border-white/8 bg-white/[0.02]"
+      }`}
+    >
+      <h4 className={`text-sm font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+        {title}
+      </h4>
       <ul className="mt-3 space-y-1.5">
         {items.map((item) => (
-          <li key={item} className="flex gap-2 text-sm text-slate-300">
-            <span className="text-emerald-400">✓</span>
+          <li
+            key={item}
+            className={`flex gap-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}
+          >
+            <span className={isLight ? "text-[#188038]" : "text-emerald-400"}>✓</span>
             {item}
           </li>
         ))}

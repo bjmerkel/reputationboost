@@ -167,6 +167,7 @@ export default function AuditDashboard({
         <PerformancePermissionBanner
           accessCheck={audit.gbp.performance.accessCheck}
           businessId={businessId}
+          variant="light"
         />
       )}
 
@@ -280,7 +281,7 @@ export default function AuditDashboard({
           )}
         </PlaceCard>
 
-        <div className="min-h-[280px] flex-1 lg:min-h-0">
+        <div className="relative h-[38vh] min-h-[220px] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
           <RankingMap
             lat={businessLocation.lat}
             lng={businessLocation.lng}

@@ -3,9 +3,9 @@
 import type { FullAuditPayload } from "@/audit/types";
 import type { AuditView } from "@/components/audit/types";
 import ExternalImage from "@/components/ExternalImage";
-import { PLACE_CARD_TABS } from "@/components/platform/types";
 import ActionMetricsBar from "@/components/platform/ActionMetricsBar";
 import PlaceCardDetails from "@/components/platform/PlaceCardDetails";
+import PlaceCardTabNav from "@/components/platform/PlaceCardTabNav";
 
 interface PlaceCardProps {
   audit: FullAuditPayload;
@@ -35,7 +35,7 @@ export default function PlaceCard({
   const category = gbp.identity.primaryCategory || gbp.liveProfile?.primaryCategory;
 
   return (
-    <aside className="flex h-full w-full flex-col border-[#dadce0] bg-white lg:w-[400px] lg:shrink-0 lg:border-r">
+    <aside className="flex h-[52vh] w-full flex-col border-[#dadce0] bg-white lg:h-full lg:w-[400px] lg:shrink-0 lg:border-r">
       {heroPhoto && (
         <div className="relative h-36 w-full shrink-0 overflow-hidden bg-[#e8eaed]">
           <ExternalImage
@@ -70,44 +70,13 @@ export default function PlaceCard({
 
       <PlaceCardDetails audit={audit} onPreviewCustomer={onPreviewCustomer} />
 
-      <nav
-        aria-label="Business sections"
-        className="flex shrink-0 gap-0 overflow-x-auto border-b border-[#dadce0] px-2"
-      >
-        {PLACE_CARD_TABS.map((tab) => {
-          const isActive = activeView === tab.id;
-          const badge =
-            tab.id === "execute"
-              ? pendingTasks
-              : tab.id === "photos"
-                ? pendingPhotoTasks
-                : tab.id === "reviews"
-                  ? unrespondedReviews
-                  : 0;
-
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onViewChange(tab.id)}
-              className={`relative shrink-0 px-4 py-3 text-sm font-medium transition ${
-                isActive
-                  ? "text-[#007b83] after:absolute after:bottom-0 after:left-2 after:right-2 after:h-0.5 after:rounded-full after:bg-[#007b83]"
-                  : "text-[#5f6368] hover:text-[#3c4043]"
-              }`}
-            >
-              <span className="flex items-center gap-1.5">
-                {tab.mapsLabel}
-                {badge > 0 && (
-                  <span className="rounded-full bg-[#fce8e6] px-1.5 py-0.5 text-[10px] font-bold text-[#d93025]">
-                    {badge}
-                  </span>
-                )}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
+      <PlaceCardTabNav
+        activeView={activeView}
+        onViewChange={onViewChange}
+        pendingTasks={pendingTasks}
+        pendingPhotoTasks={pendingPhotoTasks}
+        unrespondedReviews={unrespondedReviews}
+      />
 
       <div className="maps-panel-light min-h-0 flex-1 overflow-y-auto px-4 py-5">
         {children}

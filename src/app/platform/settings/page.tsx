@@ -41,48 +41,56 @@ export default async function SettingsPage() {
   }
 
   return (
-    <main className="relative overflow-hidden py-10">
-      <div className="mesh-bg absolute inset-0" />
-      <div className="relative mx-auto max-w-2xl px-6">
-        <div className="mb-10">
-          <span className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
+    <main className="bg-[#f8f9fa] py-8 lg:py-10">
+      <div className="mx-auto max-w-2xl px-4 sm:px-6">
+        <Link
+          href="/platform/audit"
+          className="mb-6 inline-flex items-center gap-2 text-sm text-[#5f6368] transition-colors hover:text-[#202124]"
+        >
+          ← Back to dashboard
+        </Link>
+
+        <div className="mb-8">
+          <span className="text-sm font-semibold uppercase tracking-widest text-[#1a73e8]">
             Settings
           </span>
-          <h1 className="mt-2 text-4xl font-extrabold text-white">Account &amp; connections</h1>
-          <p className="mt-3 text-slate-400">
+          <h1 className="mt-2 text-3xl font-bold text-[#202124] sm:text-4xl">
+            Account &amp; connections
+          </h1>
+          <p className="mt-3 text-[#5f6368]">
             Manage your Google Business Profile connection and platform access.
           </p>
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-6">
+          <div className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-4">
-              <h2 className="text-lg font-bold text-white">Business</h2>
+              <h2 className="text-lg font-bold text-[#202124]">Business</h2>
               <Link
                 href="/platform/onboard?change=1"
-                className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/5"
+                className="rounded-full border border-[#dadce0] px-4 py-2 text-sm font-semibold text-[#3c4043] transition hover:bg-[#f8f9fa]"
               >
                 Change business
               </Link>
             </div>
             <dl className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Name</dt>
-                <dd className="text-slate-200">{business.name}</dd>
+                <dt className="text-[#80868b]">Name</dt>
+                <dd className="text-[#3c4043]">{business.name}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Industry</dt>
-                <dd className="text-slate-200">{business.industry}</dd>
+                <dt className="text-[#80868b]">Industry</dt>
+                <dd className="text-[#3c4043]">{business.industry}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Location</dt>
-                <dd className="text-right text-slate-200">
+                <dt className="text-[#80868b]">Location</dt>
+                <dd className="text-right text-[#3c4043]">
                   {business.location.city}, {business.location.state}
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Keywords</dt>
-                <dd className="text-right text-slate-200">{business.keywords.length} tracked</dd>
+                <dt className="text-[#80868b]">Keywords</dt>
+                <dd className="text-right text-[#3c4043]">{business.keywords.length} tracked</dd>
               </div>
             </dl>
             <div className="mt-4">
@@ -101,18 +109,20 @@ export default async function SettingsPage() {
                 reconnectHref={`/api/google/gbp/connect?businessId=${business.businessId}`}
                 platformEmail={user.email ?? undefined}
                 storedGoogleEmail={record?.gbp_google_email ?? business.gbpConnection?.googleEmail}
+                variant="light"
               />
               <GbpDisconnect
                 businessId={business.businessId}
                 businessName={business.name}
                 connectedAt={record?.gbp_connected_at ?? null}
                 googleEmail={record?.gbp_google_email ?? business.gbpConnection?.googleEmail}
+                variant="light"
               />
             </>
           ) : (
-            <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-6">
-              <h2 className="text-lg font-bold text-white">Google Business Profile</h2>
-              <p className="mt-2 text-sm text-slate-400">Not connected.</p>
+            <div className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-bold text-[#202124]">Google Business Profile</h2>
+              <p className="mt-2 text-sm text-[#5f6368]">Not connected.</p>
               <Link
                 href="/platform/onboard"
                 className="btn-primary mt-4 inline-block rounded-full px-5 py-2.5 text-sm font-semibold text-white"
@@ -122,13 +132,13 @@ export default async function SettingsPage() {
             </div>
           )}
 
-          <p className="text-center text-sm text-slate-500">
-            App login: <span className="text-slate-300">{user.email}</span>
+          <p className="text-center text-sm text-[#80868b]">
+            App login: <span className="text-[#3c4043]">{user.email}</span>
             {(record?.gbp_google_email ?? business.gbpConnection?.googleEmail) && (
               <>
                 {" "}
                 · Profile manager:{" "}
-                <span className="text-slate-300">
+                <span className="text-[#3c4043]">
                   {record?.gbp_google_email ?? business.gbpConnection?.googleEmail}
                 </span>
               </>
