@@ -1,4 +1,5 @@
 import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
+import SectionHeader from "@/components/marketing/SectionHeader";
 
 const attributionChain = [
   {
@@ -30,23 +31,21 @@ const metrics = [
 
 export default function ResultsAttribution() {
   return (
-    <section id="results" className="relative py-24 lg:py-32">
+    <section id="results" className="relative scroll-mt-28 py-24 lg:py-32">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-emerald-500/[0.03] to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
-            Results & Attribution
-          </span>
-          <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            We don&apos;t just promise rankings.{" "}
-            <span className="gradient-text">We prove revenue.</span>
-          </h2>
-          <p className="mt-4 text-lg text-slate-400">
-            Every completed action is tracked against keyword movement, engagement
-            metrics, and estimated revenue — so you see exactly what paid off.
-          </p>
-        </div>
+        <SectionHeader
+          label="Results & Attribution"
+          labelColor="emerald"
+          title={
+            <>
+              We don&apos;t just promise rankings.{" "}
+              <span className="gradient-text">We prove revenue.</span>
+            </>
+          }
+          subtitle="Every completed action is tracked against keyword movement, engagement metrics, and estimated revenue — so you see exactly what paid off."
+        />
 
         <div className="mt-12 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {metrics.map((m) => (

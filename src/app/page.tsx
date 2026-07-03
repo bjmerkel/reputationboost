@@ -10,22 +10,32 @@ import ExecutionAutomation from "@/components/ExecutionAutomation";
 import ResultsAttribution from "@/components/ResultsAttribution";
 import HowItWorks from "@/components/HowItWorks";
 import Testimonial from "@/components/Testimonial";
+import RoiCalculator from "@/components/marketing/RoiCalculator";
 import PricingPreview from "@/components/PricingPreview";
 import FAQ from "@/components/FAQ";
 import CTA from "@/components/CTA";
 import Footer from "@/components/Footer";
+import MobileStickyCTA from "@/components/marketing/MobileStickyCTA";
+import FaqJsonLd from "@/components/marketing/FaqJsonLd";
 
 export const metadata: Metadata = {
   title: "Reputation Boost Score | Free Google Maps GBP Audit",
   description:
     "Get your free Reputation Boost Score. We audit your Google Business Profile, track keyword rankings, build your action plan, and prove the revenue from calls, directions, and profile views.",
+  openGraph: {
+    title: "Reputation Boost Score | Free Google Maps GBP Audit",
+    description:
+      "Get your free Reputation Boost Score. Audit your GBP, track keyword rankings, and build a plan to increase calls and revenue.",
+    type: "website",
+  },
 };
 
 export default function Home() {
   return (
     <>
+      <FaqJsonLd />
       <Navbar />
-      <main>
+      <main className="marketing-main">
         <Hero />
         <ValueChain />
         <ReputationScore />
@@ -36,11 +46,13 @@ export default function Home() {
         <ResultsAttribution />
         <HowItWorks />
         <Testimonial />
+        <RoiCalculator />
         <PricingPreview />
         <FAQ />
         <CTA />
       </main>
       <Footer />
+      <MobileStickyCTA />
     </>
   );
 }

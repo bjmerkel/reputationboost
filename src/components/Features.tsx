@@ -1,3 +1,5 @@
+import SectionHeader from "@/components/marketing/SectionHeader";
+
 const features = [
   {
     id: "ai-keywords",
@@ -211,23 +213,21 @@ const features = [
 
 export default function Features() {
   return (
-    <section id="features" className="relative py-24 lg:py-32">
+    <section id="features" className="relative scroll-mt-28 py-24 lg:py-32">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-emerald-500/[0.03] to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
-            Keyword Intelligence
-          </span>
-          <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            Know where you rank, what it costs, and{" "}
-            <span className="gradient-text">what to fix</span>
-          </h2>
-          <p className="mt-4 text-lg text-slate-400">
-            Eight data layers that power your Reputation Boost Score — from
-            keyword discovery to daily rank tracking and revenue projections.
-          </p>
-        </div>
+        <SectionHeader
+          label="Keyword Intelligence"
+          labelColor="emerald"
+          title={
+            <>
+              Know where you rank, what it costs, and{" "}
+              <span className="gradient-text">what to fix</span>
+            </>
+          }
+          subtitle="Eight data layers that power your Reputation Boost Score — from keyword discovery to daily rank tracking and revenue projections."
+        />
 
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((feature) => (

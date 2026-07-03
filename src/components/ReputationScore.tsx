@@ -1,4 +1,6 @@
 import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
+import SectionHeader from "@/components/marketing/SectionHeader";
+import ScoreImpactSlider from "@/components/marketing/ScoreImpactSlider";
 
 const pillars = [
   {
@@ -14,7 +16,6 @@ const pillars = [
       "Keyword relevance in profile",
     ],
     example: "Only 12 photos vs. competitor avg of 47",
-    color: "emerald",
   },
   {
     title: "Ranking Outcome",
@@ -29,7 +30,6 @@ const pillars = [
       "Daily rank movement tracking",
     ],
     example: "In pack for only 23% of your service area",
-    color: "cyan",
   },
 ];
 
@@ -41,21 +41,19 @@ const grades = [
 
 export default function ReputationScore() {
   return (
-    <section id="reputation-score" className="relative py-24 lg:py-32">
+    <section id="reputation-score" className="relative scroll-mt-28 py-24 lg:py-32">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
-            Reputation Boost Score
-          </span>
-          <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            One number that tells you if Google is{" "}
-            <span className="gradient-text">sending you customers</span>
-          </h2>
-          <p className="mt-4 text-lg text-slate-400">
-            Most businesses guess. You&apos;ll know — and you&apos;ll know
-            exactly what to do next.
-          </p>
-        </div>
+        <SectionHeader
+          label="Reputation Boost Score"
+          labelColor="emerald"
+          title={
+            <>
+              One number that tells you if Google is{" "}
+              <span className="gradient-text">sending you customers</span>
+            </>
+          }
+          subtitle="Most businesses guess. You'll know — and you'll know exactly what to do next."
+        />
 
         <div className="mt-12 flex flex-wrap justify-center gap-4">
           {grades.map((grade) => (
@@ -113,30 +111,11 @@ export default function ReputationScore() {
                   See what happens when you complete your plan
                 </h3>
                 <p className="mt-3 text-slate-400">
-                  Complete your prioritized actions and watch your score climb —
-                  with projected revenue impact at every step.
+                  Drag the slider to simulate plan completion — watch your score
+                  climb and projected revenue grow in real time.
                 </p>
               </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-400">Current score</span>
-                  <span className="text-2xl font-bold text-orange-400">47</span>
-                </div>
-                <div className="h-3 overflow-hidden rounded-full bg-white/10">
-                  <div className="flex h-full">
-                    <div className="w-[47%] bg-orange-500 transition-all" />
-                    <div className="w-[25%] bg-emerald-500/60" />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-400">After plan completion</span>
-                  <span className="text-2xl font-bold text-emerald-400">72</span>
-                </div>
-                <p className="text-center text-sm font-medium text-emerald-400">
-                  +$4,200/mo estimated revenue gain
-                </p>
-              </div>
+              <ScoreImpactSlider />
             </div>
           </div>
         </div>

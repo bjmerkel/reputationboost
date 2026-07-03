@@ -1,3 +1,5 @@
+import SectionHeader from "@/components/marketing/SectionHeader";
+
 const capabilities = [
   {
     title: "Google Posts",
@@ -33,22 +35,19 @@ const capabilities = [
 
 export default function ExecutionAutomation() {
   return (
-    <section id="execution" className="relative py-24 lg:py-32">
+    <section id="execution" className="relative scroll-mt-28 py-24 lg:py-32">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="text-sm font-semibold uppercase tracking-widest text-cyan-400">
-            Execution & Automation
-          </span>
-          <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            We do the work.{" "}
-            <span className="gradient-text">You approve. Google gets updated.</span>
-          </h2>
-          <p className="mt-4 text-lg text-slate-400">
-            Unlike DIY tools that hand you a checklist, Reputation Boost executes
-            approved changes on your behalf — with a dedicated account manager
-            overseeing every plan.
-          </p>
-        </div>
+        <SectionHeader
+          label="Execution & Automation"
+          labelColor="cyan"
+          title={
+            <>
+              We do the work.{" "}
+              <span className="gradient-text">You approve. Google gets updated.</span>
+            </>
+          }
+          subtitle="Unlike DIY tools that hand you a checklist, Reputation Boost executes approved changes on your behalf — with a dedicated account manager overseeing every plan."
+        />
 
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {capabilities.map((cap) => (

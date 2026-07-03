@@ -1,26 +1,25 @@
 import Link from "next/link";
 import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 import { pricingPlans } from "@/lib/pricing";
+import SectionHeader from "@/components/marketing/SectionHeader";
 
 export default function PricingPreview() {
   return (
-    <section id="pricing" className="relative py-24 lg:py-32">
+    <section id="pricing" className="relative scroll-mt-28 py-24 lg:py-32">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-violet-500/[0.03] to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="text-sm font-semibold uppercase tracking-widest text-violet-400">
-            Pricing
-          </span>
-          <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            Plans built around your{" "}
-            <span className="gradient-text">Reputation Boost Score</span>
-          </h2>
-          <p className="mt-4 text-lg text-slate-400">
-            Every plan includes your score audit, AI action plan, GBP optimization
-            tools, and a dedicated account manager.
-          </p>
-        </div>
+        <SectionHeader
+          label="Pricing"
+          labelColor="violet"
+          title={
+            <>
+              Plans built around your{" "}
+              <span className="gradient-text">Reputation Boost Score</span>
+            </>
+          }
+          subtitle="Every plan includes your score audit, AI action plan, GBP optimization tools, and a dedicated account manager."
+        />
 
         <div className="mt-16 grid gap-6 lg:grid-cols-3">
           {pricingPlans.map((plan) => (

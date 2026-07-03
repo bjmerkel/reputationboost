@@ -1,3 +1,5 @@
+import SectionHeader from "@/components/marketing/SectionHeader";
+
 const steps = [
   {
     step: "01",
@@ -21,21 +23,18 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="relative py-24 lg:py-32">
+    <section id="how-it-works" className="relative scroll-mt-28 py-24 lg:py-32">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="text-sm font-semibold uppercase tracking-widest text-cyan-400">
-            How It Works
-          </span>
-          <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            From score to{" "}
-            <span className="gradient-text">revenue</span>
-          </h2>
-          <p className="mt-4 text-lg text-slate-400">
-            Three steps to know your score, fix what&apos;s holding you back,
-            and prove the results with real attribution data.
-          </p>
-        </div>
+        <SectionHeader
+          label="How It Works"
+          labelColor="cyan"
+          title={
+            <>
+              From score to <span className="gradient-text">revenue</span>
+            </>
+          }
+          subtitle="Three steps to know your score, fix what's holding you back, and prove the results with real attribution data."
+        />
 
         <div className="relative mt-16">
           <div className="absolute left-1/2 top-0 hidden h-full w-px -translate-x-1/2 bg-gradient-to-b from-emerald-500/50 via-cyan-500/30 to-transparent lg:block" />

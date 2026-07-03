@@ -28,6 +28,57 @@ html {
   scroll-behavior: smooth;
 }
 
+[id] {
+  scroll-margin-top: 7rem;
+}
+
+.marketing-main {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 1023px) {
+  .marketing-main {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+}
+
+.score-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  cursor: pointer;
+}
+
+.score-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #06b6d4);
+  box-shadow: 0 2px 12px rgba(16, 185, 129, 0.5);
+  cursor: grab;
+  transition: transform 0.15s ease;
+}
+
+.score-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.1);
+}
+
+.score-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #06b6d4);
+  box-shadow: 0 2px 12px rgba(16, 185, 129, 0.5);
+  cursor: grab;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

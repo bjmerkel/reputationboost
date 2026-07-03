@@ -1,4 +1,5 @@
 import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
+import SectionHeader from "@/components/marketing/SectionHeader";
 
 const phases = [
   {
@@ -42,23 +43,21 @@ const phases = [
 
 export default function ActionPlan() {
   return (
-    <section id="action-plan" className="relative py-24 lg:py-32">
+    <section id="action-plan" className="relative scroll-mt-28 py-24 lg:py-32">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-violet-500/[0.03] to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="text-sm font-semibold uppercase tracking-widest text-violet-400">
-            Your Action Plan
-          </span>
-          <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            A personalized plan —{" "}
-            <span className="gradient-text">not a PDF that collects dust</span>
-          </h2>
-          <p className="mt-4 text-lg text-slate-400">
-            16 prioritized GBP optimizations across four phases. Each step shows
-            projected Reputation Boost Score impact so you know what moves the needle.
-          </p>
-        </div>
+        <SectionHeader
+          label="Your Action Plan"
+          labelColor="violet"
+          title={
+            <>
+              A personalized plan —{" "}
+              <span className="gradient-text">not a PDF that collects dust</span>
+            </>
+          }
+          subtitle="16 prioritized GBP optimizations across four phases. Each step shows projected Reputation Boost Score impact so you know what moves the needle."
+        />
 
         <div className="mt-16 grid gap-6 lg:grid-cols-2">
           {phases.map((phase) => (

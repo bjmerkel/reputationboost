@@ -7,6 +7,7 @@ const footerLinks = {
     { label: "Keyword Intelligence", href: "/#features" },
     { label: "Action Plan", href: "/#action-plan" },
     { label: "Results & Attribution", href: "/#results" },
+    { label: "Revenue Calculator", href: "/#roi-calculator" },
     { label: "Pricing", href: "/#pricing" },
     { label: SIGNUP_CTA_LABEL, href: SIGNUP_URL },
   ],

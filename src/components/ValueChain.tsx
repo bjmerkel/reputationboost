@@ -1,4 +1,5 @@
 import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
+import SectionHeader from "@/components/marketing/SectionHeader";
 
 const steps = [
   {
@@ -60,23 +61,20 @@ const steps = [
 
 export default function ValueChain() {
   return (
-    <section id="value-chain" className="relative py-24 lg:py-32">
+    <section id="value-chain" className="relative scroll-mt-28 py-24 lg:py-32">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/[0.03] to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="text-sm font-semibold uppercase tracking-widest text-cyan-400">
-            How It All Connects
-          </span>
-          <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            From keywords to{" "}
-            <span className="gradient-text">revenue</span>
-          </h2>
-          <p className="mt-4 text-lg text-slate-400">
-            Every step feeds the next. Your score tells you where you stand.
-            Your plan tells you what to fix. Your results prove it worked.
-          </p>
-        </div>
+        <SectionHeader
+          label="How It All Connects"
+          labelColor="cyan"
+          title={
+            <>
+              From keywords to <span className="gradient-text">revenue</span>
+            </>
+          }
+          subtitle="Every step feeds the next. Your score tells you where you stand. Your plan tells you what to fix. Your results prove it worked."
+        />
 
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
           {steps.map((step, index) => (

@@ -1,3 +1,5 @@
+import SectionHeader from "@/components/marketing/SectionHeader";
+
 const testimonials = [
   {
     quote:
@@ -60,17 +62,18 @@ const caseStudies = [
 
 export default function Testimonial() {
   return (
-    <section id="testimonials" className="relative py-24 lg:py-32">
+    <section id="testimonials" className="relative scroll-mt-28 py-24 lg:py-32">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
-            Social Proof
-          </span>
-          <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            Real businesses.{" "}
-            <span className="gradient-text">Real score improvements.</span>
-          </h2>
-        </div>
+        <SectionHeader
+          label="Social Proof"
+          labelColor="emerald"
+          title={
+            <>
+              Real businesses.{" "}
+              <span className="gradient-text">Real score improvements.</span>
+            </>
+          }
+        />
 
         <div className="mt-16 grid gap-6 lg:grid-cols-3">
           {testimonials.map((t) => (

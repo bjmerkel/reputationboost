@@ -1,3 +1,5 @@
+import SectionHeader from "@/components/marketing/SectionHeader";
+
 export default function LocalPack() {
   const clickShare = [
     { position: "#1", share: "40–50%", revenue: "Highest click-share" },
@@ -30,23 +32,21 @@ export default function LocalPack() {
   ];
 
   return (
-    <section id="local-pack" className="relative py-24 lg:py-32">
+    <section id="local-pack" className="relative scroll-mt-28 py-24 lg:py-32">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-emerald-500/[0.04] via-transparent to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="text-sm font-semibold uppercase tracking-widest text-cyan-400">
-            The Local 3-Pack
-          </span>
-          <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            Why ranking in the top 3 on{" "}
-            <span className="gradient-text">Google Maps matters</span>
-          </h2>
-          <p className="mt-4 text-lg leading-relaxed text-slate-400">
-            Your Reputation Boost Score tracks exactly where you sit in this pack
-            — and what it costs you when you&apos;re outside it.
-          </p>
-        </div>
+        <SectionHeader
+          label="The Local 3-Pack"
+          labelColor="cyan"
+          title={
+            <>
+              Why ranking in the top 3 on{" "}
+              <span className="gradient-text">Google Maps matters</span>
+            </>
+          }
+          subtitle="Your Reputation Boost Score tracks exactly where you sit in this pack — and what it costs you when you're outside it."
+        />
 
         <div className="mt-16 grid gap-6 sm:grid-cols-3">
           {[
