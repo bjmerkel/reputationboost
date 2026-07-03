@@ -2,7 +2,7 @@
 
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import ExternalImage from "@/components/ExternalImage";
-import { getOptimizedPreview } from "@/components/platform/ListingDiffCards";
+import { getOptimizedPreview } from "@/lib/execution/listing-preview";
 
 interface ViewAsCustomerModalProps {
   audit: FullAuditPayload;

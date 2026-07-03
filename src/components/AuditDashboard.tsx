@@ -1,18 +1,15 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import AuditDataPanel from "@/components/audit/AuditDataPanel";
-import { isAuditView, type AuditView } from "@/components/audit/types";
-import ExecutionQueue from "@/components/ExecutionQueue";
+import { normalizeAuditView, type AuditView } from "@/components/audit/types";
 import MonthlyReportPanel from "@/components/MonthlyReportPanel";
 import PerformancePermissionBanner from "@/components/PerformancePermissionBanner";
-import PhotosPanel from "@/components/PhotosPanel";
 import MapsSearchBar from "@/components/platform/MapsSearchBar";
-import ListingDiffCards from "@/components/platform/ListingDiffCards";
 import PlaceCard from "@/components/platform/PlaceCard";
 import PlaceCardReviewsPanel from "@/components/platform/PlaceCardReviewsPanel";
 import PlatformShell from "@/components/platform/PlatformShell";
@@ -51,12 +48,12 @@ export default function AuditDashboard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const paramView = searchParams.get("view");
-  const initialView: AuditView = isAuditView(paramView) ? paramView : "report";
+  const normalizedView = normalizeAuditView(paramView);
 
   const [audit, setAudit] = useState<FullAuditPayload | null>(
     initialAudit ? ensureStrategy(initialAudit) : null
   );
-  const [view, setViewState] = useState<AuditView>(initialView);
+  const [view, setViewState] = useState<AuditView>(normalizedView);
   const [activeKeyword, setActiveKeyword] = useState(
     () => initialAudit?.rankings.keywords[0]?.keyword ?? ""
   );
@@ -76,15 +73,20 @@ export default function AuditDashboard({
     [router, searchParams]
   );
 
+  useEffect(() => {
+    if (paramView && paramView !== normalizedView) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("view", normalizedView);
+      router.replace(`?${params.toString()}`, { scroll: false });
+    }
+    setViewState(normalizedView);
+  }, [paramView, normalizedView, router, searchParams]);
+
   const tasks =
     audit?.execution?.tasks?.length ? audit.execution.tasks : initialExecutionTasks;
 
-  const photoTasks = tasks.filter((t) => t.type === "gbp_photo");
-  const actionTasks = tasks.filter((t) => t.type !== "gbp_photo" && t.type !== "gbp_video");
-
-  const pendingPhotoTasks = photoTasks.filter((t) => t.status === "pending_approval").length;
-  const pendingTasks = actionTasks.filter((t) => t.status === "pending_approval").length;
-  const pendingReviewReplies = actionTasks.filter(
+  const planPendingCount = tasks.filter((t) => t.status === "pending_approval").length;
+  const pendingReviewReplies = tasks.filter(
     (t) => t.type === "review_response" && t.status === "pending_approval"
   ).length;
 
@@ -216,9 +218,7 @@ export default function AuditDashboard({
           audit={audit}
           activeView={view}
           onViewChange={setView}
-          pendingTasks={pendingTasks}
-          pendingPhotoTasks={pendingPhotoTasks}
-          unrespondedReviews={audit.reviews.unrespondedNegative}
+          planPendingCount={planPendingCount}
           onPreviewCustomer={() => setPreviewOpen(true)}
           sparklines={attributionData.sparklines}
         >
@@ -232,13 +232,18 @@ export default function AuditDashboard({
                 attributions={attributionData.attributions}
                 loading={attributionLoading}
               />
-              <ListingDiffCards
-                audit={audit}
-                clientId={clientId}
-                auditId={audit.auditId}
-                tasks={tasks}
-                onViewAll={() => setView("strategy")}
-              />
+              {planPendingCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setView("strategy")}
+                  className="w-full rounded-xl border border-[#fdd663] bg-[#fef7e0] px-4 py-4 text-left transition hover:bg-[#fef0c7]"
+                >
+                  <p className="text-sm font-semibold text-[#3c4043]">
+                    {planPendingCount} item{planPendingCount === 1 ? "" : "s"} need your approval
+                  </p>
+                  <p className="mt-1 text-sm text-[#5f6368]">Review now in your Plan →</p>
+                </button>
+              )}
             </div>
           )}
 
@@ -255,7 +260,7 @@ export default function AuditDashboard({
             <PlaceCardReviewsPanel
               audit={audit}
               unrespondedCount={pendingReviewReplies}
-              onOpenUpdates={() => setView("strategy")}
+              onOpenPlan={() => setView("strategy")}
             />
           )}
 
@@ -265,30 +270,6 @@ export default function AuditDashboard({
               clientId={clientId}
               gbpConnected={gbpConnected}
               attributionByTaskId={attributionData.attributionByTaskId}
-              variant="light"
-            />
-          )}
-
-          {view === "photos" && (
-            <PhotosPanel
-              audit={audit}
-              clientId={clientId}
-              auditId={audit.auditId}
-              gbpConnected={gbpConnected}
-              initialTasks={tasks}
-              variant="light"
-            />
-          )}
-
-          {view === "execute" && (
-            <ExecutionQueue
-              key={audit.auditId}
-              clientId={clientId}
-              auditId={audit.auditId}
-              contentSource={audit.execution?.contentSource}
-              initialTasks={actionTasks}
-              attributionByTaskId={attributionData.attributionByTaskId}
-              embedded
               variant="light"
             />
           )}

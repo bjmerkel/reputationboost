@@ -1,15 +1,16 @@
 "use client";
 
-export type AuditView = "report" | "reviews" | "strategy" | "photos" | "execute" | "data";
+export type AuditView = "report" | "reviews" | "strategy" | "data";
 
-export const AUDIT_VIEWS: AuditView[] = [
-  "report",
-  "reviews",
-  "strategy",
-  "photos",
-  "execute",
-  "data",
-];
+/** @deprecated Legacy views redirected to strategy */
+export type LegacyAuditView = "photos" | "execute";
+
+export const AUDIT_VIEWS: AuditView[] = ["report", "reviews", "strategy", "data"];
+
+const LEGACY_VIEW_REDIRECTS: Record<LegacyAuditView, AuditView> = {
+  photos: "strategy",
+  execute: "strategy",
+};
 
 export interface AuditStoryStep {
   id: AuditView;
@@ -22,41 +23,38 @@ export const AUDIT_STORY_STEPS: AuditStoryStep[] = [
   {
     id: "report",
     step: 1,
-    title: "Your Results",
-    subtitle: "See what changed this month",
+    title: "Home",
+    subtitle: "Health, recent wins, and what needs you",
+  },
+  {
+    id: "strategy",
+    step: 2,
+    title: "Plan",
+    subtitle: "16-step checklist — approve and publish in one place",
   },
   {
     id: "reviews",
-    step: 2,
+    step: 3,
     title: "Reviews",
     subtitle: "Sentiment, replies, and response queue",
   },
   {
-    id: "strategy",
-    step: 3,
-    title: "Your Plan",
-    subtitle: "KPI targets & 16-step GBP playbook",
-  },
-  {
-    id: "photos",
-    step: 4,
-    title: "Photos",
-    subtitle: "AI-generated shots — upload in one click",
-  },
-  {
-    id: "execute",
-    step: 5,
-    title: "Take Action",
-    subtitle: "Approve & publish everything else",
-  },
-  {
     id: "data",
-    step: 6,
-    title: "Deep Dive",
-    subtitle: "Full audit breakdown",
+    step: 4,
+    title: "Results",
+    subtitle: "Rankings, competitors, and audit data",
   },
 ];
 
 export function isAuditView(value: string | null): value is AuditView {
   return AUDIT_VIEWS.includes(value as AuditView);
+}
+
+export function normalizeAuditView(value: string | null): AuditView {
+  if (!value) return "report";
+  if (isAuditView(value)) return value;
+  if (value in LEGACY_VIEW_REDIRECTS) {
+    return LEGACY_VIEW_REDIRECTS[value as LegacyAuditView];
+  }
+  return "report";
 }

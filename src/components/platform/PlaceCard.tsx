@@ -11,9 +11,7 @@ interface PlaceCardProps {
   audit: FullAuditPayload;
   activeView: AuditView;
   onViewChange: (view: AuditView) => void;
-  pendingTasks?: number;
-  pendingPhotoTasks?: number;
-  unrespondedReviews?: number;
+  planPendingCount?: number;
   onPreviewCustomer?: () => void;
   sparklines?: Record<string, number[]>;
   children: React.ReactNode;
@@ -23,9 +21,7 @@ export default function PlaceCard({
   audit,
   activeView,
   onViewChange,
-  pendingTasks = 0,
-  pendingPhotoTasks = 0,
-  unrespondedReviews = 0,
+  planPendingCount = 0,
   onPreviewCustomer,
   sparklines,
   children,
@@ -75,9 +71,7 @@ export default function PlaceCard({
       <PlaceCardTabNav
         activeView={activeView}
         onViewChange={onViewChange}
-        pendingTasks={pendingTasks}
-        pendingPhotoTasks={pendingPhotoTasks}
-        unrespondedReviews={unrespondedReviews}
+        planPendingCount={planPendingCount}
       />
 
       <div className="maps-panel-light min-h-0 flex-1 overflow-y-auto px-4 py-5">

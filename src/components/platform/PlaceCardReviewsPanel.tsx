@@ -5,13 +5,13 @@ import ExternalImage from "@/components/ExternalImage";
 
 interface PlaceCardReviewsPanelProps {
   audit: FullAuditPayload;
-  onOpenUpdates?: () => void;
+  onOpenPlan?: () => void;
   unrespondedCount?: number;
 }
 
 export default function PlaceCardReviewsPanel({
   audit,
-  onOpenUpdates,
+  onOpenPlan,
   unrespondedCount = 0,
 }: PlaceCardReviewsPanelProps) {
   const { reviews } = audit;
@@ -32,14 +32,14 @@ export default function PlaceCardReviewsPanel({
         <Stat label="Total reviews" value={String(reviews.reviews.length)} />
       </div>
 
-      {unrespondedCount > 0 && onOpenUpdates && (
+      {unrespondedCount > 0 && onOpenPlan && (
         <button
           type="button"
-          onClick={onOpenUpdates}
+          onClick={onOpenPlan}
           className="w-full rounded-lg border border-[#fdd663] bg-[#fef7e0] px-4 py-3 text-left text-sm text-[#3c4043] hover:bg-[#fef0c7]"
         >
           <span className="font-medium">{unrespondedCount} review replies</span> waiting for
-          approval in Updates →
+          approval in Plan →
         </button>
       )}
 

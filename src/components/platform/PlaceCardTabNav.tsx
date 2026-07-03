@@ -6,22 +6,16 @@ import { PLACE_CARD_TABS } from "@/components/platform/types";
 interface PlaceCardTabNavProps {
   activeView: AuditView;
   onViewChange: (view: AuditView) => void;
-  pendingTasks?: number;
-  pendingPhotoTasks?: number;
-  unrespondedReviews?: number;
+  planPendingCount?: number;
 }
 
 export default function PlaceCardTabNav({
   activeView,
   onViewChange,
-  pendingTasks = 0,
-  pendingPhotoTasks = 0,
-  unrespondedReviews = 0,
+  planPendingCount = 0,
 }: PlaceCardTabNavProps) {
   function badgeFor(tabId: AuditView): number {
-    if (tabId === "execute") return pendingTasks;
-    if (tabId === "photos") return pendingPhotoTasks;
-    if (tabId === "reviews") return unrespondedReviews;
+    if (tabId === "strategy") return planPendingCount;
     return 0;
   }
 

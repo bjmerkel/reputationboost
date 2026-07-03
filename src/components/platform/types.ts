@@ -7,12 +7,10 @@ export interface PlaceCardTab {
   shortLabel: string;
 }
 
-/** Maps-native tab labels mapped to existing audit views (?view= stays compatible). */
+/** Four-tab navigation: Home, Plan, Reviews, Results */
 export const PLACE_CARD_TABS: PlaceCardTab[] = [
-  { id: "report", label: "Overview", mapsLabel: "Overview", shortLabel: "Overview" },
-  { id: "reviews", label: "Reviews", mapsLabel: "Reviews", shortLabel: "Reviews" },
+  { id: "report", label: "Home", mapsLabel: "Home", shortLabel: "Home" },
   { id: "strategy", label: "Plan", mapsLabel: "Plan", shortLabel: "Plan" },
-  { id: "photos", label: "Photos", mapsLabel: "Photos", shortLabel: "Photos" },
-  { id: "execute", label: "Updates", mapsLabel: "Updates", shortLabel: "Updates" },
-  { id: "data", label: "Insights", mapsLabel: "Insights", shortLabel: "Data" },
+  { id: "reviews", label: "Reviews", mapsLabel: "Reviews", shortLabel: "Reviews" },
+  { id: "data", label: "Results", mapsLabel: "Results", shortLabel: "Results" },
 ];
