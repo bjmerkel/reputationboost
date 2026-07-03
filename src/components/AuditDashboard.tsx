@@ -181,18 +181,20 @@ export default function AuditDashboard({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {!gbpConnected && <GbpConnectBanner businessId={businessId} />}
+      {!gbpConnected && <div className="shrink-0"><GbpConnectBanner businessId={businessId} /></div>}
 
       {audit.gbp.performance.source !== "api" && audit.gbp.performance.accessCheck && (
-        <PerformancePermissionBanner
-          accessCheck={audit.gbp.performance.accessCheck}
-          businessId={businessId}
-          variant="light"
-        />
+        <div className="shrink-0">
+          <PerformancePermissionBanner
+            accessCheck={audit.gbp.performance.accessCheck}
+            businessId={businessId}
+            variant="light"
+          />
+        </div>
       )}
 
       {audit.gbp.performance.warnings && audit.gbp.performance.warnings.length > 0 && (
-        <div className="mb-3 rounded-lg border border-[#dadce0] bg-[#f8f9fa] px-4 py-3">
+        <div className="mb-3 shrink-0 rounded-lg border border-[#dadce0] bg-[#f8f9fa] px-4 py-3">
           <p className="text-sm text-[#5f6368]">
             Some Google insights are limited for this location. Your audit still includes
             everything else.
@@ -200,7 +202,7 @@ export default function AuditDashboard({
         </div>
       )}
 
-      {error && <p className="mb-3 text-sm text-[#d93025]">{error}</p>}
+      {error && <p className="mb-3 shrink-0 text-sm text-[#d93025]">{error}</p>}
 
       <PlatformShell
         searchBar={
@@ -289,7 +291,7 @@ export default function AuditDashboard({
           )}
         </PlaceCard>
 
-        <div className="relative h-[38vh] min-h-[220px] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
+        <div className="relative h-[40vh] min-h-[220px] w-full shrink-0 lg:h-full lg:min-h-0 lg:w-[60%]">
           <RankingMap
             lat={businessLocation.lat}
             lng={businessLocation.lng}

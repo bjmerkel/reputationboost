@@ -18,7 +18,7 @@ export default function PlaceCardDetails({ audit, onPreviewCustomer }: PlaceCard
     grade === "healthy" ? "#188038" : grade === "urgent" ? "#d93025" : "#e37400";
 
   return (
-    <div className="space-y-3 border-b border-[#dadce0] px-4 py-3">
+    <div className="shrink-0 space-y-3 border-b border-[#dadce0] px-4 py-3">
       <div className="flex items-center gap-3">
         <ListingStrengthRing score={score} color={gradeColor} />
         <div>

@@ -15,7 +15,9 @@ export default function PlatformShell({ searchBar, toolbar, children }: Platform
           {toolbar}
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col-reverse lg:flex-row">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col-reverse overflow-hidden lg:flex-row">
+        {children}
+      </div>
     </div>
   );
 }
