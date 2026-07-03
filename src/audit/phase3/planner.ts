@@ -9,9 +9,17 @@ import type { AuditGeneratedContent } from "@/lib/llm/content";
 import { buildTemplateContent } from "@/lib/llm/content";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { mapActionToExecutionType } from "./content";
+import { SUPPLEMENTARY_GAP_IDS, tasksFromGbpPlan } from "./gbp-plan-tasks";
 
 function requiresApproval(type: ExecutionTask["type"]): boolean {
-  return ["google_post", "review_response", "social_post", "gbp_description"].includes(type);
+  return [
+    "google_post",
+    "review_response",
+    "social_post",
+    "gbp_description",
+    "gbp_primary_category",
+    "gbp_secondary_categories",
+  ].includes(type);
 }
 
 function buildTask(
@@ -180,9 +188,12 @@ export function generateExecutionQueue(
   content?: AuditGeneratedContent
 ): Phase3ExecutionReport {
   const resolvedContent = content ?? buildTemplateContent(audit);
-  const tasks: ExecutionTask[] = [];
+  const tasks: ExecutionTask[] = tasksFromGbpPlan(audit, resolvedContent);
 
   for (const action of audit.strategy.actionPlan) {
+    const index = audit.strategy.actionPlan.indexOf(action);
+    const gapId = audit.strategy.gaps[index]?.id ?? "";
+    if (!SUPPLEMENTARY_GAP_IDS.has(gapId)) continue;
     tasks.push(...createTaskForAction(audit, action, resolvedContent));
   }
 

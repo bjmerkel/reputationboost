@@ -395,6 +395,9 @@ export type ExecutionStatus =
 export type ExecutionType =
   | "google_post"
   | "gbp_description"
+  | "gbp_primary_category"
+  | "gbp_secondary_categories"
+  | "gbp_checklist"
   | "gbp_services"
   | "review_response"
   | "review_request"

@@ -27,6 +27,9 @@ export async function executeTask(
   const resultByType: Record<ExecutionTask["type"], string> = {
     google_post: `Published Google Post: "${task.draftContent.slice(0, 60)}…"`,
     gbp_description: "Updated GBP business description.",
+    gbp_primary_category: "Updated GBP primary category.",
+    gbp_secondary_categories: "Updated GBP secondary categories.",
+    gbp_checklist: `Completed: ${task.title}`,
     gbp_services: "Queued photo upload and service list update.",
     review_response: `Posted review response for review ${task.payload.reviewId ?? "unknown"}.`,
     review_request: `Sent ${task.payload.batchSize ?? 15} SMS review requests.`,
@@ -62,6 +65,24 @@ async function executeTaskLive(
       });
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
+    case "gbp_primary_category": {
+      const category = String(
+        task.payload.primaryCategory ?? task.draftContent
+      );
+      const result = await applyGbpAction(connection, "update_primary_category", {
+        primaryCategory: category,
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "gbp_secondary_categories": {
+      const categories = Array.isArray(task.payload.secondaryCategories)
+        ? (task.payload.secondaryCategories as string[])
+        : task.draftContent.split("\n").filter(Boolean);
+      const result = await applyGbpAction(connection, "add_secondary_categories", {
+        secondaryCategories: categories,
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
     case "review_response": {
       const reviewId = String(task.payload.reviewId ?? "");
       const result = await applyGbpAction(connection, "reply_review", {
@@ -70,12 +91,25 @@ async function executeTaskLive(
       });
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
+    case "gbp_checklist":
+    case "gbp_services":
+    case "qa_answer":
+    case "review_request":
+    case "schema_markup":
+    case "citation_fix":
+    case "social_post":
+      return {
+        ...task,
+        status: "completed",
+        completedAt: now,
+        result: `Step marked complete. Verify "${task.title}" in Google Business Profile or your other tools.`,
+      };
     default:
       return {
         ...task,
         status: "completed",
         completedAt: now,
-        result: `Task "${task.title}" marked complete. Manual steps may still be required for ${task.type}.`,
+        result: `Task "${task.title}" marked complete.`,
       };
   }
 }

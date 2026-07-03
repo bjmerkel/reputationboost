@@ -23,6 +23,9 @@ const statusColors: Record<ExecutionTask["status"], string> = {
 const typeLabels: Record<ExecutionTask["type"], string> = {
   google_post: "Google Post",
   gbp_description: "GBP Description",
+  gbp_primary_category: "Primary Category",
+  gbp_secondary_categories: "Secondary Categories",
+  gbp_checklist: "GBP Checklist",
   gbp_services: "GBP Photos & Services",
   review_response: "Review Response",
   review_request: "Review Request",
@@ -224,6 +227,12 @@ export default function ExecutionQueue({
             </div>
 
             <p className="mt-3 font-medium text-white">{task.title}</p>
+            {typeof task.payload.gbpStepNumber === "number" && (
+              <p className="mt-1 text-xs text-slate-500">
+                From plan step {task.payload.gbpStepNumber}
+                {task.payload.gbpStepTitle ? `: ${task.payload.gbpStepTitle}` : ""}
+              </p>
+            )}
             <p className="mt-2 rounded-lg bg-white/5 p-3 text-sm leading-relaxed text-slate-300">
               {normalizeTextContent(task.draftContent)}
             </p>

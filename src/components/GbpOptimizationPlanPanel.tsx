@@ -5,11 +5,13 @@ import type { GbpOptimizationPlan, GbpPlanActionType, GbpPlanStep } from "@/audi
 
 interface GbpOptimizationPlanPanelProps {
   plan: GbpOptimizationPlan;
+  kpiTargets?: string[];
   gbpConnected?: boolean;
 }
 
 export default function GbpOptimizationPlanPanel({
   plan,
+  kpiTargets = [],
   gbpConnected = false,
 }: GbpOptimizationPlanPanelProps) {
   const [expanded, setExpanded] = useState<number | null>(plan.steps[0]?.stepNumber ?? 1);
@@ -49,6 +51,25 @@ export default function GbpOptimizationPlanPanel({
           <span className="mt-3 inline-block rounded-full bg-violet-500/20 px-2.5 py-0.5 text-xs font-medium text-violet-300">
             AI-generated comprehensive plan
           </span>
+        )}
+
+        {kpiTargets.length > 0 && (
+          <div className="mt-5 border-t border-white/10 pt-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              30-Day KPI Targets
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {kpiTargets.map((target) => (
+                <li key={target} className="flex gap-2 text-sm text-slate-300">
+                  <span className="text-emerald-400">→</span>
+                  {target}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs text-slate-500">
+              Each recommendation below maps to an item in <strong className="text-slate-400">Take Action</strong> — approve and publish from there.
+            </p>
+          </div>
         )}
       </div>
 

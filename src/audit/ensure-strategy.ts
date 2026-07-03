@@ -75,7 +75,14 @@ export function ensureStrategy(
     },
   };
 
-  if (withMonthly.execution) {
+  const planStepCount = withMonthly.strategy.gbpPlan?.steps.length ?? 0;
+  const hasPlanBasedTasks =
+    withMonthly.execution?.tasks.some((t) => t.actionItemId.startsWith("gbp-step-")) ??
+    false;
+  const needsExecutionBackfill =
+    !withMonthly.execution || (planStepCount > 0 && !hasPlanBasedTasks);
+
+  if (withMonthly.execution && !needsExecutionBackfill) {
     return {
       ...withMonthly,
       execution: normalizeExecutionReport(withMonthly.execution),
