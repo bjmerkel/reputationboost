@@ -47,6 +47,19 @@ interface GooglePlacesSearchResponse {
   error_message?: string;
 }
 
+interface PlacesTextSearchNewResponse {
+  places?: Array<{
+    id?: string;
+    displayName?: { text?: string };
+    formattedAddress?: string;
+    rating?: number;
+    userRatingCount?: number;
+    types?: string[];
+  }>;
+  nextPageToken?: string;
+  error?: { message?: string; status?: string };
+}
+
 function apiKeyOrThrow(): string {
   const key = getGoogleMapsApiKey();
   if (!key) {
@@ -151,7 +164,88 @@ export async function nearbySearch(
  * Places Text Search — alternate ordering (CRM / legacy RankTracker flow).
  * Nearby and Text Search can return different orderings for the same keyword.
  */
-export async function textSearch(
+function normalizePlaceId(id: string): string {
+  return id.startsWith("places/") ? id.slice("places/".length) : id;
+}
+
+function mapNewTextSearchPlace(
+  raw: NonNullable<PlacesTextSearchNewResponse["places"]>[number],
+  position: number
+): PlaceResult | null {
+  const placeId = raw.id ? normalizePlaceId(raw.id) : "";
+  const name = raw.displayName?.text?.trim();
+  if (!placeId || !name) return null;
+
+  return {
+    placeId,
+    name,
+    rating: raw.rating ?? null,
+    reviewCount: raw.userRatingCount ?? 0,
+    address: raw.formattedAddress ?? "",
+    types: raw.types ?? [],
+    position,
+  };
+}
+
+async function textSearchNew(
+  keyword: string,
+  location: GeoLocation,
+  radiusMeters: number
+): Promise<PlaceResult[]> {
+  const key = apiKeyOrThrow();
+  const results: PlaceResult[] = [];
+  let pageToken: string | undefined;
+  const radius = Math.min(Math.max(radiusMeters, 1), 50000);
+
+  for (let page = 0; page < MAX_NEARBY_PAGES; page++) {
+    const body: Record<string, unknown> = {
+      textQuery: keyword,
+      pageSize: 20,
+      locationBias: {
+        circle: {
+          center: { latitude: location.lat, longitude: location.lng },
+          radius,
+        },
+      },
+    };
+    if (pageToken) body.pageToken = pageToken;
+
+    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask":
+          "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types,nextPageToken",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = (await res.json()) as PlacesTextSearchNewResponse;
+    if (!res.ok) {
+      const message = data.error?.message ?? res.statusText;
+      throw new Error(
+        `Places Text Search (New) failed for "${keyword}": ${data.error?.status ?? res.status}${message ? ` — ${message}` : ""}`
+      );
+    }
+
+    const pageResults = data.places ?? [];
+    for (const place of pageResults) {
+      const mapped = mapNewTextSearchPlace(place, results.length + 1);
+      if (mapped) results.push(mapped);
+    }
+
+    if (!data.nextPageToken) break;
+    pageToken = data.nextPageToken;
+    if (page < MAX_NEARBY_PAGES - 1) {
+      await sleep(PAGE_TOKEN_DELAY_MS);
+    }
+  }
+
+  return results;
+}
+
+async function textSearchLegacy(
   keyword: string,
   location: GeoLocation,
   radiusMeters: number
@@ -192,6 +286,18 @@ export async function textSearch(
   }
 
   return results;
+}
+
+export async function textSearch(
+  keyword: string,
+  location: GeoLocation,
+  radiusMeters: number
+): Promise<PlaceResult[]> {
+  try {
+    return await textSearchNew(keyword, location, radiusMeters);
+  } catch {
+    return textSearchLegacy(keyword, location, radiusMeters);
+  }
 }
 
 export type PlacesSearchMode = "nearby" | "text";

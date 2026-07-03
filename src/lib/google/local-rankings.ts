@@ -105,6 +105,18 @@ export interface ResolveCompetitorOptions {
  * Harvest competitors for a keyword using multiple search strategies.
  * Nearby Search at 1mi can return ZERO_RESULTS while Maps shows businesses via Text Search.
  */
+export function buildCompetitorTextQuery(keyword: string, locationLabel?: string): string {
+  const trimmed = locationLabel?.trim();
+  if (!trimmed) return keyword;
+
+  const city = trimmed.split(",")[0]?.trim().toLowerCase();
+  if (city && city.length >= 3 && keyword.toLowerCase().includes(city)) {
+    return keyword;
+  }
+
+  return `${keyword} in ${trimmed}`;
+}
+
 export async function resolveCompetitorResults(
   keyword: string,
   location: GeoLocation,
@@ -112,9 +124,7 @@ export async function resolveCompetitorResults(
   options: ResolveCompetitorOptions = {}
 ): Promise<PlaceResult[]> {
   const limit = options.limit ?? TOP_COMPETITORS;
-  const textQuery = options.locationLabel
-    ? `${keyword} in ${options.locationLabel}`
-    : keyword;
+  const textQuery = buildCompetitorTextQuery(keyword, options.locationLabel);
 
   let competitors = extractCompetitors(options.initialResults ?? [], matchOptions, limit);
   if (competitors.length >= limit) return competitors;
@@ -129,10 +139,14 @@ export async function resolveCompetitorResults(
       if (competitors.length >= limit) return competitors;
     }
 
-    const textResults = await searchPlaces(keyword, location, radiusMeters, "text", {
-      textQuery,
-    });
-    competitors = mergeCompetitorCandidates(competitors, textResults, matchOptions, limit);
+    try {
+      const textResults = await searchPlaces(keyword, location, radiusMeters, "text", {
+        textQuery,
+      });
+      competitors = mergeCompetitorCandidates(competitors, textResults, matchOptions, limit);
+    } catch {
+      // Text search is supplemental; nearby results still power rankings.
+    }
     if (competitors.length >= limit) return competitors;
   }
 
