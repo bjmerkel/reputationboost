@@ -42,7 +42,7 @@ export const AUDIT_STORY_STEPS: AuditStoryStep[] = [
     id: "data",
     step: 4,
     title: "Results",
-    subtitle: "Rankings, competitors, and audit data",
+    subtitle: "Plan changelog and measured outcomes",
   },
 ];
 

@@ -6,13 +6,13 @@ import type {
   Plan,
   PlanPhase,
   PlanStep,
-  PlanStepOutcome,
   PlanStepStatus,
   PlanProgress,
 } from "../types";
 import { getPhaseForStep, PLAN_PHASE_DEFINITIONS } from "./plan-phases";
 import { resolvePlanStepNumber } from "./plan-task-utils";
 import { buildStepContext } from "./step-context";
+import { findStepOutcome } from "./step-outcomes";
 
 function groupTasksByStep(tasks: ExecutionTask[]): Map<number, ExecutionTask[]> {
   const grouped = new Map<number, ExecutionTask[]>();
@@ -36,57 +36,6 @@ function deriveStepStatus(tasks: ExecutionTask[]): PlanStepStatus {
   }
   if (tasks.some((t) => t.status === "failed")) return "needs_approval";
   return "pending";
-}
-
-function formatRank(rank: number | null): string {
-  if (rank === null) return "—";
-  if (rank > 20) return "#20+";
-  return `#${rank}`;
-}
-
-function buildOutcomeFromAttribution(attr: ActionAttribution): PlanStepOutcome {
-  const rankChanged =
-    attr.rankBefore !== attr.rankAfter && attr.rankAfter !== null && attr.primaryKeyword;
-  const narrative = rankChanged
-    ? `Published ${new Date(attr.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} → '${attr.primaryKeyword}' moved ${formatRank(attr.rankBefore)} → ${formatRank(attr.rankAfter)}`
-    : attr.narrative;
-
-  return {
-    publishedAt: attr.publishedAt,
-    attributionId: attr.id,
-    rankBefore: attr.rankBefore,
-    rankAfter: attr.rankAfter,
-    keyword: attr.primaryKeyword ?? undefined,
-    narrative,
-  };
-}
-
-function findStepOutcome(
-  stepNumber: number,
-  tasks: ExecutionTask[],
-  attributions: ActionAttribution[]
-): PlanStepOutcome | undefined {
-  const taskIds = new Set(tasks.map((t) => t.id));
-  const byActionItem = attributions.find((a) => a.actionItemId === `gbp-step-${stepNumber}`);
-  if (byActionItem) return buildOutcomeFromAttribution(byActionItem);
-
-  const byTask = attributions.find((a) => taskIds.has(a.executionTaskId));
-  if (byTask) return buildOutcomeFromAttribution(byTask);
-
-  const completedTask = tasks.find((t) => t.status === "completed" && t.completedAt);
-  if (!completedTask?.completedAt) return undefined;
-
-  if (completedTask.result) {
-    return {
-      publishedAt: completedTask.completedAt,
-      narrative: completedTask.result,
-    };
-  }
-
-  return {
-    publishedAt: completedTask.completedAt,
-    narrative: `Published ${new Date(completedTask.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · Tracking results…`,
-  };
 }
 
 function buildPlanStep(
