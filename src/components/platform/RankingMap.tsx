@@ -13,6 +13,28 @@ function milesToMeters(miles: number): number {
   return Math.round(miles * 1609.34);
 }
 
+function waitForElementSize(el: HTMLElement): Promise<void> {
+  return new Promise((resolve) => {
+    if (el.offsetWidth > 0 && el.offsetHeight > 0) {
+      resolve();
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      if (el.offsetWidth > 0 && el.offsetHeight > 0) {
+        observer.disconnect();
+        resolve();
+      }
+    });
+    observer.observe(el);
+
+    window.setTimeout(() => {
+      observer.disconnect();
+      resolve();
+    }, 3000);
+  });
+}
+
 export function rankColor(rank: number | null): string {
   if (rank === null) return "#9aa0a6";
   if (rank <= 3) return "#34a853";
@@ -40,6 +62,7 @@ export default function RankingMap({
   activeKeyword,
 }: RankingMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<google.maps.Map | null>(null);
   const businessMarkerRef = useRef<google.maps.Marker | null>(null);
   const competitorMarkersRef = useRef<google.maps.Marker[]>([]);
@@ -93,6 +116,9 @@ export default function RankingMap({
     async function initMap() {
       try {
         const google = await loadGoogleMaps();
+        if (cancelled || !mapRef.current || !mapContainerRef.current) return;
+
+        await waitForElementSize(mapContainerRef.current);
         if (cancelled || !mapRef.current) return;
 
         let center: google.maps.LatLngLiteral = { lat, lng };
@@ -148,6 +174,9 @@ export default function RankingMap({
           businessMarkerRef.current?.setPosition(center);
         }
 
+        google.maps.event.trigger(mapInstance.current, "resize");
+        mapInstance.current.setCenter(center);
+
         setReady(true);
       } catch (e) {
         if (!cancelled) {
@@ -161,6 +190,22 @@ export default function RankingMap({
       cancelled = true;
     };
   }, [lat, lng, address, businessName]);
+
+  useEffect(() => {
+    if (!ready || !mapInstance.current || !mapContainerRef.current) return;
+
+    const observer = new ResizeObserver(() => {
+      const map = mapInstance.current;
+      const center = centerRef.current;
+      if (!map || !window.google) return;
+
+      window.google.maps.event.trigger(map, "resize");
+      if (center) map.setCenter(center);
+    });
+
+    observer.observe(mapContainerRef.current);
+    return () => observer.disconnect();
+  }, [ready]);
 
   useEffect(() => {
     if (!ready || !mapInstance.current || !centerRef.current) return;
@@ -293,7 +338,7 @@ export default function RankingMap({
   }
 
   return (
-    <div className="relative h-full min-h-[240px] w-full lg:min-h-0">
+    <div ref={mapContainerRef} className="relative h-full min-h-[240px] w-full flex-1">
       <MapLayerControls layers={layers} onChange={setLayers} />
       <div ref={mapRef} className="absolute inset-0" />
       {keywordRank && (
