@@ -86,6 +86,32 @@ export interface GbpIssues {
   napInconsistencies: string[];
 }
 
+export interface GbpServiceItem {
+  name: string;
+  description: string;
+}
+
+export interface GbpPostItem {
+  createTime: string;
+  summary: string;
+}
+
+export interface GbpQaItem {
+  question: string;
+  answerCount: number;
+  topAnswer?: string;
+}
+
+/** Live profile data pulled from GBP OAuth Business Information API. */
+export interface GbpLiveProfile {
+  primaryCategory: string;
+  secondaryCategories: string[];
+  description: string;
+  services: GbpServiceItem[];
+  attributes: string[];
+  source: "oauth" | "places";
+}
+
 export interface GbpSnapshot {
   collectedAt: string;
   identity: GbpIdentity;
@@ -94,6 +120,9 @@ export interface GbpSnapshot {
   engagement: GbpEngagement;
   performance: GbpPerformance;
   issues: GbpIssues;
+  liveProfile?: GbpLiveProfile;
+  recentPosts?: GbpPostItem[];
+  qaItems?: GbpQaItem[];
 }
 
 export interface GeoRankPoint {
@@ -335,6 +364,7 @@ export interface GbpPlanStep {
   stepNumber: number;
   title: string;
   instruction: string;
+  current?: string;
   recommended?: string;
   bullets?: string[];
   copyBlocks?: GbpPlanCopyBlock[];
@@ -348,12 +378,38 @@ export interface GbpKeywordPriority {
   reason: string;
 }
 
+export interface GbpProfileField {
+  label: string;
+  current: string;
+  status: "good" | "needs_work" | "missing";
+}
+
+export interface GbpCurrentStateSummary {
+  fields: GbpProfileField[];
+  profileGaps: string[];
+}
+
+export interface KeywordRankAnalysis {
+  keyword: string;
+  inLocalPack: boolean;
+  position: string;
+  rankAt1Mi: number | null;
+  rankAt3Mi: number | null;
+  rankAt5Mi: number | null;
+  packLeaderReviews: number;
+  clientReviews: number;
+  reviewGap: number;
+  gbpUpdates: string[];
+}
+
 export interface GbpOptimizationPlan {
   title: string;
   businessName: string;
   address: string;
   objective: string;
   targetKeywords: string[];
+  currentState: GbpCurrentStateSummary;
+  keywordRankings: KeywordRankAnalysis[];
   steps: GbpPlanStep[];
   keywordPriority: GbpKeywordPriority[];
   weeklyCadence: string[];

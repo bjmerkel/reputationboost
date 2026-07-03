@@ -11,6 +11,8 @@ Write detailed, step-by-step GBP optimization reports. Every recommendation must
 - Actionable with ready-to-paste copy (descriptions, services, Q&A, review response templates)
 - GBP-only — do NOT include website SEO, backlinks, citations, or paid ads
 - Honest about current audit data (review count, photos, pack positions)
+- ALWAYS reference the LIVE GBP profile data (current description, categories, services) vs recommended changes
+- For each keyword, explain current ranking position and which GBP fields to update to improve it
 
 Return valid JSON only. Be comprehensive — each step should have enough detail that the owner can execute without guessing.`;
 
@@ -21,6 +23,7 @@ interface LlmGbpPlanResponse {
     stepNumber: number;
     title: string;
     instruction: string;
+    current?: string;
     recommended?: string;
     bullets?: string[];
     copyBlocks?: Array<{ label: string; content: string }>;
@@ -63,10 +66,19 @@ Secondary categories: ${audit.gbp.identity.secondaryCategories.join(", ") || "no
 TARGET KEYWORDS (rank in Top 3 for ALL combined):
 ${targetKeywords.map((k) => `- ${k}`).join("\n")}
 
+LIVE GBP PROFILE (from Google — use as "current" for each step):
+${JSON.stringify(audit.gbp.liveProfile, null, 2)}
+
+CURRENT RANKINGS & RECOMMENDED GBP UPDATES PER KEYWORD:
+${JSON.stringify(fallback.keywordRankings, null, 2)}
+
+PROFILE GAPS DETECTED:
+${JSON.stringify(fallback.currentState.profileGaps, null, 2)}
+
 AUDIT DATA:
 ${context}
 
-Write exactly 16 steps covering ONLY GBP optimization:
+Write exactly 16 steps covering ONLY GBP optimization. For EVERY step include a "current" field quoting live profile data and a "recommended" field with the specific update needed.
 1. Primary Category
 2. Add Secondary Categories
 3. Rewrite the Business Description (include full paste-ready description in copyBlocks)
@@ -95,8 +107,9 @@ Return JSON:
     {
       "stepNumber": 1,
       "title": "step title",
-      "instruction": "detailed paragraph explaining why and how",
-      "recommended": "specific recommendation if applicable",
+      "instruction": "detailed paragraph — reference current profile state and ranking data",
+      "current": "what is live on GBP right now for this area",
+      "recommended": "specific update to improve keyword rankings",
       "bullets": ["actionable bullet points"],
       "copyBlocks": [{ "label": "block label", "content": "paste-ready text" }],
       "gbpAction": "update_primary_category | add_secondary_categories | update_description | create_post | manual",
@@ -121,16 +134,20 @@ Return JSON:
       llm.steps?.length >= 10
         ? llm.steps
             .sort((a, b) => a.stepNumber - b.stepNumber)
-            .map((s) => ({
-              stepNumber: s.stepNumber,
-              title: s.title,
-              instruction: s.instruction,
-              recommended: s.recommended,
-              bullets: s.bullets,
-              copyBlocks: s.copyBlocks,
-              gbpAction: s.gbpAction as GbpPlanStep["gbpAction"],
-              actionData: s.actionData,
-            }))
+            .map((s) => {
+              const templateStep = fallback.steps.find((t) => t.stepNumber === s.stepNumber);
+              return {
+                stepNumber: s.stepNumber,
+                title: s.title,
+                instruction: s.instruction,
+                current: s.current ?? templateStep?.current,
+                recommended: s.recommended ?? templateStep?.recommended,
+                bullets: s.bullets ?? templateStep?.bullets,
+                copyBlocks: s.copyBlocks ?? templateStep?.copyBlocks,
+                gbpAction: (s.gbpAction as GbpPlanStep["gbpAction"]) ?? templateStep?.gbpAction,
+                actionData: s.actionData ?? templateStep?.actionData,
+              };
+            })
         : fallback.steps;
 
     return {
@@ -139,6 +156,8 @@ Return JSON:
       address: audit.gbp.identity.address,
       objective: llm.objective || fallback.objective,
       targetKeywords,
+      currentState: fallback.currentState,
+      keywordRankings: fallback.keywordRankings,
       steps,
       keywordPriority:
         llm.keywordPriority?.length > 0 ? llm.keywordPriority : fallback.keywordPriority,

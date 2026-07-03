@@ -1,12 +1,12 @@
-import type { ClientConfig, GbpSnapshot } from "../types";
+import type { ClientConfig, GbpConnection, GbpSnapshot } from "../types";
 import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
+import { getGbpLocationProfile } from "@/lib/google/gbp-location";
 import {
   fetchPlaceDetails,
   primaryCategoryFromTypes,
   secondaryCategoriesFromTypes,
 } from "@/lib/google/place-details";
-import type { GbpConnection } from "../types";
 
 function completenessScore(fields: boolean[]): number {
   const filled = fields.filter(Boolean).length;
@@ -43,12 +43,18 @@ async function collectGbpFromApi(
   connection: GbpConnection
 ): Promise<GbpSnapshot> {
   const now = new Date().toISOString();
-  const enrichment = await fetchGbpEnrichment(connection);
 
-  const placeId = connection.placeId ?? client.gbpPlaceId;
-  const place = placeId ? await fetchPlaceDetails(placeId).catch(() => null) : null;
+  const [enrichment, liveProfileResult, place] = await Promise.all([
+    fetchGbpEnrichment(connection),
+    getGbpLocationProfile(connection).catch(() => null),
+    (connection.placeId ?? client.gbpPlaceId)
+      ? fetchPlaceDetails(connection.placeId ?? client.gbpPlaceId!).catch(() => null)
+      : Promise.resolve(null),
+  ]);
 
-  const description = place?.description ?? "";
+  const liveProfile = liveProfileResult;
+  const description =
+    liveProfile?.description || place?.description || "";
   const hasDescription = description.length > 0;
   const posts = enrichment.posts;
   const sortedPosts = [...posts].sort(
@@ -66,11 +72,23 @@ async function collectGbpFromApi(
     periodDays: 30,
   };
 
-  const name = place?.name || client.name;
+  const primaryCategory =
+    liveProfile?.primaryCategory?.displayName ||
+    primaryCategoryFromTypes(place?.types ?? []) ||
+    client.industry;
+  const secondaryCategories = liveProfile?.additionalCategories.length
+    ? liveProfile.additionalCategories.map((c) => c.displayName)
+    : secondaryCategoriesFromTypes(place?.types ?? []);
+
+  const serviceItems = liveProfile?.serviceItems ?? [];
+  const attributes = liveProfile?.attributes ?? [];
+  const hasHours = liveProfile?.hasRegularHours ?? place?.hasHours ?? false;
+  const hasHolidayHours = liveProfile?.hasMoreHours ?? place?.hasHolidayHours ?? false;
+
+  const name = liveProfile?.title || place?.name || client.name;
   const address = place?.address || formatAddress(client);
   const phone = place?.phone || client.phone || "";
   const website = place?.website || client.website || "";
-  const types = place?.types ?? [];
 
   return {
     collectedAt: now,
@@ -79,22 +97,22 @@ async function collectGbpFromApi(
       address,
       phone,
       website,
-      primaryCategory: primaryCategoryFromTypes(types) || client.industry,
-      secondaryCategories: secondaryCategoriesFromTypes(types),
+      primaryCategory,
+      secondaryCategories,
     },
     completeness: {
-      hasHours: place?.hasHours ?? false,
-      hasHolidayHours: place?.hasHolidayHours ?? false,
+      hasHours,
+      hasHolidayHours,
       hasDescription,
       descriptionLength: description.length,
-      hasServices: false,
-      serviceCount: 0,
-      attributeCount: 0,
+      hasServices: serviceItems.length > 0,
+      serviceCount: serviceItems.length,
+      attributeCount: attributes.length,
       completenessScore: completenessScore([
-        place?.hasHours ?? false,
-        place?.hasHolidayHours ?? false,
+        hasHours,
+        hasHolidayHours,
         hasDescription,
-        false,
+        serviceItems.length > 0,
         (place?.photoCount ?? 0) > 0,
         Boolean(website),
       ]),
@@ -128,12 +146,30 @@ async function collectGbpFromApi(
       hasDuplicateListings: false,
       napInconsistencies: [],
     },
+    liveProfile: {
+      primaryCategory,
+      secondaryCategories,
+      description,
+      services: serviceItems,
+      attributes,
+      source: liveProfile ? "oauth" : "places",
+    },
+    recentPosts: sortedPosts.slice(0, 5).map((p) => ({
+      createTime: p.createTime,
+      summary: p.summary,
+    })),
+    qaItems: questions.slice(0, 10).map((q) => ({
+      question: q.text,
+      answerCount: q.answerCount,
+      topAnswer: q.topAnswer,
+    })),
   };
 }
 
 async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<GbpSnapshot> {
   const place = await fetchPlaceDetails(client.gbpPlaceId!);
   const now = new Date().toISOString();
+  const description = place.description;
 
   return {
     collectedAt: now,
@@ -148,15 +184,15 @@ async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<GbpSnap
     completeness: {
       hasHours: place.hasHours,
       hasHolidayHours: place.hasHolidayHours,
-      hasDescription: place.description.length > 0,
-      descriptionLength: place.description.length,
+      hasDescription: description.length > 0,
+      descriptionLength: description.length,
       hasServices: false,
       serviceCount: 0,
       attributeCount: 0,
       completenessScore: completenessScore([
         place.hasHours,
         place.hasHolidayHours,
-        place.description.length > 0,
+        description.length > 0,
         false,
         place.photoCount > 0,
         Boolean(place.website),
@@ -186,6 +222,16 @@ async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<GbpSnap
       hasDuplicateListings: false,
       napInconsistencies: [],
     },
+    liveProfile: {
+      primaryCategory: primaryCategoryFromTypes(place.types) || client.industry,
+      secondaryCategories: secondaryCategoriesFromTypes(place.types),
+      description,
+      services: [],
+      attributes: [],
+      source: "places",
+    },
+    recentPosts: [],
+    qaItems: [],
   };
 }
 

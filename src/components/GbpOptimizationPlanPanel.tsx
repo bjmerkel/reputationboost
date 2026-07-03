@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { GbpOptimizationPlan, GbpPlanActionType, GbpPlanStep } from "@/audit/types";
+import type { GbpOptimizationPlan, GbpPlanActionType, GbpPlanStep, GbpProfileField } from "@/audit/types";
 
 interface GbpOptimizationPlanPanelProps {
   plan: GbpOptimizationPlan;
@@ -73,6 +73,14 @@ export default function GbpOptimizationPlanPanel({
         )}
       </div>
 
+      {plan.currentState && (
+        <CurrentProfileSection state={plan.currentState} />
+      )}
+
+      {plan.keywordRankings && plan.keywordRankings.length > 0 && (
+        <KeywordRankingsSection rankings={plan.keywordRankings} />
+      )}
+
       {plan.keywordPriority.length > 0 && (
         <div className="rounded-xl border border-white/8 bg-white/[0.02] p-5">
           <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
@@ -121,12 +129,24 @@ export default function GbpOptimizationPlanPanel({
                 <div className="border-t border-white/8 px-4 pb-5 pt-2 md:px-5">
                   <p className="text-sm leading-relaxed text-slate-300">{step.instruction}</p>
 
-                  {step.recommended && (
-                    <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
-                      <p className="text-xs font-semibold uppercase text-emerald-400">
-                        Recommended
-                      </p>
-                      <p className="mt-1 text-sm text-slate-200">{step.recommended}</p>
+                  {(step.current || step.recommended) && (
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      {step.current && (
+                        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                          <p className="text-xs font-semibold uppercase text-amber-400">
+                            Current on GBP
+                          </p>
+                          <p className="mt-1 text-sm text-slate-200">{step.current}</p>
+                        </div>
+                      )}
+                      {step.recommended && (
+                        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                          <p className="text-xs font-semibold uppercase text-emerald-400">
+                            Recommended update
+                          </p>
+                          <p className="mt-1 text-sm text-slate-200">{step.recommended}</p>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -165,6 +185,124 @@ export default function GbpOptimizationPlanPanel({
       <div className="grid gap-4 md:grid-cols-2">
         <CadenceCard title="Weekly cadence" items={plan.weeklyCadence} />
         <CadenceCard title="Monthly cadence" items={plan.monthlyCadence} />
+      </div>
+    </div>
+  );
+}
+
+function CurrentProfileSection({
+  state,
+}: {
+  state: NonNullable<GbpOptimizationPlan["currentState"]>;
+}) {
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-5">
+      <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+        Current profile on Google
+      </h4>
+      <p className="mt-1 text-xs text-slate-500">
+        Pulled live from your connected Google Business Profile during the audit.
+      </p>
+      <div className="mt-4 space-y-2">
+        {state.fields.map((field) => (
+          <ProfileFieldRow key={field.label} field={field} />
+        ))}
+      </div>
+      {state.profileGaps.length > 0 && (
+        <div className="mt-4 border-t border-white/8 pt-4">
+          <p className="text-xs font-semibold uppercase text-red-400/80">Gaps detected</p>
+          <ul className="mt-2 space-y-1">
+            {state.profileGaps.map((gap) => (
+              <li key={gap} className="text-sm text-slate-300">
+                • {gap}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProfileFieldRow({ field }: { field: GbpProfileField }) {
+  const statusStyles = {
+    good: "bg-emerald-500/15 text-emerald-400",
+    needs_work: "bg-amber-500/15 text-amber-300",
+    missing: "bg-red-500/15 text-red-300",
+  };
+  const statusLabel = {
+    good: "Good",
+    needs_work: "Needs work",
+    missing: "Missing",
+  };
+
+  return (
+    <div className="flex flex-col gap-1 rounded-lg bg-white/[0.03] px-3 py-2.5 sm:flex-row sm:items-start sm:gap-3">
+      <span
+        className={`shrink-0 self-start rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${statusStyles[field.status]}`}
+      >
+        {statusLabel[field.status]}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-slate-500">{field.label}</p>
+        <p className="text-sm text-slate-200">{field.current}</p>
+      </div>
+    </div>
+  );
+}
+
+function KeywordRankingsSection({
+  rankings,
+}: {
+  rankings: NonNullable<GbpOptimizationPlan["keywordRankings"]>;
+}) {
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-5">
+      <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+        Keyword rankings &amp; GBP updates
+      </h4>
+      <p className="mt-1 text-xs text-slate-500">
+        Current Maps position per keyword and which profile fields to update to improve ranking.
+      </p>
+      <div className="mt-4 space-y-4">
+        {rankings.map((kr) => (
+          <div
+            key={kr.keyword}
+            className="rounded-lg border border-white/8 bg-white/[0.02] p-4"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-white">{kr.keyword}</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  kr.inLocalPack
+                    ? "bg-emerald-500/15 text-emerald-400"
+                    : "bg-red-500/15 text-red-300"
+                }`}
+              >
+                {kr.position}
+              </span>
+              {kr.rankAt1Mi && (
+                <span className="text-xs text-slate-500">
+                  1mi: #{kr.rankAt1Mi}
+                  {kr.rankAt3Mi ? ` · 3mi: #${kr.rankAt3Mi}` : ""}
+                  {kr.rankAt5Mi ? ` · 5mi: #${kr.rankAt5Mi}` : ""}
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Reviews: {kr.clientReviews} yours vs {kr.packLeaderReviews} pack leader
+              {kr.reviewGap > 0 ? ` (${kr.reviewGap} gap)` : ""}
+            </p>
+            <ul className="mt-3 space-y-1">
+              {kr.gbpUpdates.map((update) => (
+                <li key={update} className="flex gap-2 text-sm text-slate-300">
+                  <span className="text-cyan-400">→</span>
+                  {update}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
     </div>
   );

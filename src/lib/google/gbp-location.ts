@@ -12,6 +12,10 @@ export interface GbpLocationProfile {
   description: string;
   primaryCategory: GbpCategoryRef | null;
   additionalCategories: GbpCategoryRef[];
+  serviceItems: Array<{ name: string; description: string }>;
+  attributes: string[];
+  hasRegularHours: boolean;
+  hasMoreHours: boolean;
 }
 
 interface CategoryApi {
@@ -86,7 +90,10 @@ export async function getGbpLocationProfile(
   const url = new URL(
     `https://mybusinessbusinessinformation.googleapis.com/v1/${resource}`
   );
-  url.searchParams.set("readMask", "name,title,profile,categories");
+  url.searchParams.set(
+    "readMask",
+    "name,title,profile,categories,serviceItems,attributes,regularHours,moreHours"
+  );
 
   const res = await fetch(url.toString(), {
     headers: authHeadersForConnection(connection),
@@ -100,6 +107,13 @@ export async function getGbpLocationProfile(
       primaryCategory?: CategoryApi;
       additionalCategories?: CategoryApi[];
     };
+    serviceItems?: Array<{
+      structuredServiceItem?: { description?: string; serviceTypeId?: string };
+      freeFormServiceItem?: { label?: string; description?: string; category?: string };
+    }>;
+    attributes?: Array<{ name?: string; values?: string[]; repeatedEnumValue?: { setValues?: string[] } }>;
+    regularHours?: { periods?: unknown[] };
+    moreHours?: unknown[];
     error?: { message?: string };
   };
 
@@ -109,6 +123,28 @@ export async function getGbpLocationProfile(
 
   const primary = data.categories?.primaryCategory;
   const additional = data.categories?.additionalCategories ?? [];
+
+  const serviceItems = (data.serviceItems ?? [])
+    .map((item) => {
+      const free = item.freeFormServiceItem;
+      const structured = item.structuredServiceItem;
+      const name = free?.label ?? structured?.serviceTypeId ?? "";
+      const description = free?.description ?? structured?.description ?? "";
+      if (!name && !description) return null;
+      return { name: name || "Service", description };
+    })
+    .filter((s): s is { name: string; description: string } => Boolean(s));
+
+  const attributes: string[] = [];
+  for (const attr of data.attributes ?? []) {
+    if (attr.repeatedEnumValue?.setValues?.length) {
+      attributes.push(...attr.repeatedEnumValue.setValues);
+    } else if (attr.values?.length) {
+      attributes.push(...attr.values);
+    } else if (attr.name) {
+      attributes.push(attr.name);
+    }
+  }
 
   return {
     locationName: data.name ?? resource,
@@ -126,6 +162,10 @@ export async function getGbpLocationProfile(
         name: normalizeCategoryName(c.name!),
         displayName: c.displayName ?? "",
       })),
+    serviceItems,
+    attributes,
+    hasRegularHours: Boolean(data.regularHours?.periods?.length),
+    hasMoreHours: Boolean(data.moreHours?.length),
   };
 }
 

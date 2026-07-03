@@ -1,4 +1,10 @@
 import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "../types";
+import {
+  buildGbpCurrentState,
+  buildKeywordRankAnalysis,
+  inferRecommendedSecondaryCategories,
+  missingKeywordsForServices,
+} from "./gbp-current-state";
 
 function keywords(audit: Phase1AuditPayload): string[] {
   return audit.rankings.keywords.map((k) => k.keyword);
@@ -20,10 +26,37 @@ function descriptionDraft(audit: Phase1AuditPayload): string {
 }
 
 function serviceSteps(audit: Phase1AuditPayload): GbpPlanStep["copyBlocks"] {
-  return keywords(audit).map((kw, i) => ({
+  const missing = missingKeywordsForServices(audit);
+  const toAdd = missing.length > 0 ? missing : keywords(audit);
+  const city = cityFromAddress(audit.gbp.identity.address);
+
+  return toAdd.map((kw, i) => ({
     label: `Service #${i + 1}: ${kw}`,
-    content: `Add "${kw}" as a named service with a 2-3 sentence description mentioning ${cityFromAddress(audit.gbp.identity.address)}, the specific use cases customers search for, and what makes ${audit.clientName} the trusted local choice.`,
+    content: `Add "${kw}" as a named service with a 2-3 sentence description mentioning ${city}, the specific use cases customers search for, and what makes ${audit.clientName} the trusted local choice.`,
   }));
+}
+
+function currentDescription(audit: Phase1AuditPayload): string {
+  const desc = audit.gbp.liveProfile?.description ?? "";
+  if (!desc) return "No description on your Google profile";
+  const len = desc.length;
+  return `${len} characters: "${desc.slice(0, 200)}${len > 200 ? "…" : ""}"`;
+}
+
+function currentServices(audit: Phase1AuditPayload): string {
+  const services = audit.gbp.liveProfile?.services ?? [];
+  if (services.length === 0) return "No services listed on your profile";
+  return services.map((s) => s.name).join(", ");
+}
+
+function currentPosts(audit: Phase1AuditPayload): string {
+  const posts = audit.gbp.recentPosts ?? [];
+  if (posts.length === 0) return "No recent Google Posts";
+  const latest = posts[0];
+  const days = Math.floor(
+    (Date.now() - new Date(latest.createTime).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  return `Last post ${days} days ago: "${latest.summary.slice(0, 100)}${latest.summary.length > 100 ? "…" : ""}"`;
 }
 
 export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimizationPlan {
@@ -32,17 +65,24 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
   const category = audit.gbp.identity.primaryCategory;
   const reviewTarget = Math.max(200, audit.gbp.engagement.reviewCount + 50);
   const photoTarget = Math.max(200, audit.gbp.content.photoCount + 80);
+  const currentState = buildGbpCurrentState(audit);
+  const keywordRankings = buildKeywordRankAnalysis(audit);
+  const recommendedSecondary = inferRecommendedSecondaryCategories(audit);
+  const liveSecondary =
+    audit.gbp.liveProfile?.secondaryCategories ?? audit.gbp.identity.secondaryCategories;
 
   const steps: GbpPlanStep[] = [
     {
       stepNumber: 1,
       title: "Primary Category",
       instruction:
-        "The primary category carries the most weight for Google Maps relevance. Choose the single category that best matches your core revenue service.",
+        "The primary category carries the most weight for Google Maps relevance. Your current category is shown below — update only if audit keywords suggest a better fit.",
+      current: audit.gbp.liveProfile?.primaryCategory || category,
       recommended: category,
       bullets: [
-        `Keep "${category}" as primary unless audit data shows a better fit.`,
-        "Do not switch categories frequently — stability signals trust.",
+        `Current: ${audit.gbp.liveProfile?.primaryCategory || category}`,
+        "Primary category should match your core revenue service and top keywords",
+        "Do not switch categories frequently — stability signals trust",
       ],
       gbpAction: "update_primary_category",
       actionData: { primaryCategory: category },
@@ -51,30 +91,23 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       stepNumber: 2,
       title: "Add Secondary Categories",
       instruction:
-        "Add only categories that directly support your target keywords. Avoid irrelevant categories that dilute relevance.",
+        "Secondary categories expand relevance for related searches. Compare what's live on your profile vs what keywords need coverage.",
+      current: liveSecondary.length ? liveSecondary.join(", ") : "None listed",
+      recommended: recommendedSecondary.join(", ") || "Add categories matching your target keywords",
       bullets: [
-        `${category} (Primary)`,
-        "Airport Shuttle Service (if airport keywords apply)",
-        "Transportation Service",
-        "Chauffeur Service",
-        "Car Service",
-        "Add event-specific categories only if you actively offer them",
+        `Currently on profile: ${liveSecondary.length ? liveSecondary.join(", ") : "none"}`,
+        ...recommendedSecondary.map((c) => `Add: ${c}`),
+        "Only add categories for services you actively offer",
       ],
       gbpAction: "add_secondary_categories",
-      actionData: {
-        secondaryCategories: [
-          "Airport Shuttle Service",
-          "Transportation Service",
-          "Chauffeur Service",
-          "Car Service",
-        ],
-      },
+      actionData: { secondaryCategories: recommendedSecondary },
     },
     {
       stepNumber: 3,
       title: "Rewrite the Business Description",
-      instruction:
-        "Google descriptions should weave in services, city names, and trust signals. Aim for 600-750 characters.",
+      instruction: `Your live description is ${audit.gbp.completeness.descriptionLength} characters. Google descriptions should weave in services, city names, and trust signals. Aim for 600-750 characters with every target keyword mentioned naturally.`,
+      current: currentDescription(audit),
+      recommended: "Updated description below — includes all target keywords",
       copyBlocks: [{ label: "Recommended description (paste into GBP)", content: descriptionDraft(audit) }],
       gbpAction: "update_description",
       actionData: { description: descriptionDraft(audit) },
@@ -83,61 +116,66 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       stepNumber: 4,
       title: "Complete Every Service Section",
       instruction:
-        "Services are one of the most underutilized ranking factors. Create a dedicated GBP service entry for every target keyword plus high-intent variants.",
+        "Services are one of the strongest ranking signals. Add a dedicated GBP service for each keyword you're not yet ranking for.",
+      current: currentServices(audit),
+      recommended: `Add ${missingKeywordsForServices(audit).length || targetKeywords.length} service(s) for uncovered keywords`,
       copyBlocks: serviceSteps(audit),
       bullets: [
-        "Add wedding, prom, corporate, airport, and event-specific service variants",
-        "Each service needs its own description — do not duplicate text",
-        `Complete all ${targetKeywords.length} core keyword services first`,
+        `Currently listed: ${currentServices(audit)}`,
+        `Missing keywords as services: ${missingKeywordsForServices(audit).join(", ") || "none — maintain and expand"}`,
+        "Each service needs its own unique description",
       ],
     },
     {
       stepNumber: 5,
       title: "Products Section",
       instruction:
-        "Most local businesses ignore Products. Create one product per core keyword to reinforce relevance.",
-      copyBlocks: targetKeywords.map((kw) => ({
-        label: `Product: ${kw}`,
-        content: `Create a product titled "${kw}" with a starting price, photo of your fleet or team, and a 2-sentence description focused on ${city} customers.`,
-      })),
+        "Most local businesses ignore Products. Create one product per core keyword to reinforce relevance for keywords outside the 3-Pack.",
+      current: "Check Products tab in GBP — not synced via API",
+      recommended: `Create products for: ${targetKeywords.filter((k) => !keywordRankings.find((r) => r.keyword === k)?.inLocalPack).join(", ") || targetKeywords[0]}`,
+      copyBlocks: targetKeywords
+        .filter((kw) => !keywordRankings.find((r) => r.keyword === kw)?.inLocalPack)
+        .slice(0, 5)
+        .map((kw) => ({
+          label: `Product: ${kw}`,
+          content: `Create a product titled "${kw}" with a starting price, photo, and a 2-sentence description focused on ${city} customers.`,
+        })),
     },
     {
       stepNumber: 6,
       title: "Photo Optimization",
-      instruction: `Google rewards active profiles. You currently have ${audit.gbp.content.photoCount} photos — target ${photoTarget}+.`,
+      instruction: `Google rewards active profiles. You currently have ${audit.gbp.content.photoCount} photos — target ${photoTarget}+ to compete with pack leaders.`,
+      current: `${audit.gbp.content.photoCount} photos on profile`,
+      recommended: `${photoTarget}+ photos with service-specific shots for each keyword`,
       bullets: [
         "Exterior & storefront: 10 photos",
-        "Interior / cabin shots: 10 photos",
-        "Fleet & vehicles: 40+ photos (every vehicle type)",
-        "Team & chauffeurs: 10 photos",
-        "Customers (with permission): 20 photos",
-        "Service-specific: airport pickups, weddings, proms, events — 20 each",
+        "Interior / team / fleet shots: 20+ photos",
+        ...targetKeywords
+          .filter((kw) => !keywordRankings.find((r) => r.keyword === kw)?.inLocalPack)
+          .slice(0, 4)
+          .map((kw) => `Add photos for "${kw}" service`),
         "Upload 5+ new photos every week",
       ],
     },
     {
       stepNumber: 7,
       title: "Videos",
-      instruction: "Upload 2-4 short videos weekly (30-60 seconds each).",
-      bullets: [
-        "Interior walkthrough / party bus lights",
-        "Airport pickup arrival",
-        "Wedding or prom arrival",
-        "Fleet showcase",
-        "Chauffeur opening doors / customer celebration",
-      ],
+      instruction: "Upload 2-4 short videos weekly (30-60 seconds each) to boost engagement signals.",
+      current: "Video count not available via API — check your GBP Media tab",
+      recommended: "2-4 videos per week showcasing your top services",
+      bullets: targetKeywords.slice(0, 4).map((kw) => `Short video featuring ${kw}`),
     },
     {
       stepNumber: 8,
       title: "Weekly Google Posts",
       instruction:
-        "Post every week. Rotate posts around your target keywords — include a photo, 150-300 words, and a call button.",
-      bullets: targetKeywords.flatMap((kw, i) => [
-        `Week ${i + 1}: ${kw}`,
-        ...(i < targetKeywords.length - 1
-          ? []
-          : [`Week ${targetKeywords.length + 1}: ${targetKeywords[0]} — event variant`]),
-      ]).slice(0, 8),
+        "Post every week. Rotate posts around keywords where you're outside the 3-Pack — include a photo, 150-300 words, and a call button.",
+      current: currentPosts(audit),
+      recommended: "1 post per week, prioritizing keywords not in the 3-Pack",
+      bullets: keywordRankings
+        .filter((k) => !k.inLocalPack)
+        .slice(0, 6)
+        .map((k, i) => `Week ${i + 1}: Post targeting "${k.keyword}" (${k.position})`),
       gbpAction: "create_post",
       actionData: {
         postSummary: `Looking for ${targetKeywords[0]} in ${city}? ${audit.clientName} delivers professional ${category} with ${audit.gbp.engagement.reviewCount}+ reviews. Call ${audit.gbp.identity.phone} today.`,
@@ -147,24 +185,32 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       stepNumber: 9,
       title: "Q&A Section",
       instruction:
-        "Seed 15-25 questions from a personal Google account. Answer every question on your profile.",
+        "Seed questions customers actually search for. Answer every question on your profile — unanswered Q&As hurt trust.",
+      current: `${audit.gbp.content.qaCount} questions · ${audit.gbp.content.unansweredQa} unanswered`,
+      recommended: "15-25 Q&A pairs covering each target keyword and service area",
       copyBlocks: targetKeywords.slice(0, 3).map((kw) => ({
         label: `Q: Do you provide ${kw.toLowerCase()}?`,
         content: `Yes, ${audit.clientName} offers ${kw.toLowerCase()} throughout ${city} and surrounding areas. Call ${audit.gbp.identity.phone} for availability.`,
       })),
       bullets: [
-        "Add questions about 24/7 availability, service area, pricing, and airport service",
-        `Answer all ${audit.gbp.content.unansweredQa} unanswered Q&As currently on your profile`,
+        ...(audit.gbp.qaItems ?? []).slice(0, 3).map((q) => `Existing: "${q.question}" (${q.answerCount} answers)`),
+        `Answer all ${audit.gbp.content.unansweredQa} unanswered Q&As`,
       ],
     },
     {
       stepNumber: 10,
       title: "Reviews Strategy",
-      instruction: `Reviews are one of the strongest ranking factors. Target ${reviewTarget}+ total reviews with keyword-rich natural language.`,
+      instruction: `Reviews are one of the strongest ranking factors. Target ${reviewTarget}+ total reviews. Focus on keywords where you're behind the pack leader on review count.`,
+      current: `${audit.gbp.engagement.reviewCount} reviews at ${audit.gbp.engagement.averageRating}★`,
+      recommended: `${reviewTarget}+ reviews with keyword-rich natural language`,
       bullets: [
-        `Current: ${audit.gbp.engagement.reviewCount} reviews at ${audit.gbp.engagement.averageRating}★`,
-        "Ask customers to mention which service they used — never script word-for-word",
-        `Aim for ~30% of new reviews mentioning each target keyword theme`,
+        ...keywordRankings
+          .filter((k) => k.reviewGap > 20)
+          .slice(0, 4)
+          .map(
+            (k) =>
+              `"${k.keyword}": you have ${k.clientReviews} reviews vs leader's ${k.packLeaderReviews} (${k.reviewGap} gap)`
+          ),
         ...targetKeywords.map((kw) => `Request reviews that naturally mention "${kw}"`),
       ],
     },
@@ -173,8 +219,9 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       title: "Review Responses",
       instruction:
         "Respond to every review within 24 hours. Mention the service and city naturally in your reply. Each response in Take Action is AI-drafted for that specific review.",
+      current: `${Math.round(audit.gbp.engagement.responseRate * 100)}% response rate · ${audit.reviews.unrespondedNegative} unresponded negative`,
+      recommended: "100% response rate within 24 hours",
       bullets: [
-        `Current response rate: ${Math.round(audit.gbp.engagement.responseRate * 100)}% — target 100%`,
         `Respond to ${audit.reviews.unrespondedNegative} unresponded negative review(s) immediately`,
         "Approve personalized replies in Take Action before publishing",
       ],
@@ -183,9 +230,14 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       stepNumber: 12,
       title: "Maintain Accurate Hours",
       instruction: "Inconsistent hours hurt rankings and customer trust.",
+      current: audit.gbp.completeness.hasHours
+        ? audit.gbp.completeness.hasHolidayHours
+          ? "Regular + holiday hours configured"
+          : "Regular hours set · holiday hours missing"
+        : "Hours not detected on profile",
+      recommended: "Accurate regular hours + holiday/special hours",
       bullets: [
         "Keep regular hours accurate — update for holidays",
-        "Add special event hours when applicable",
         audit.gbp.completeness.hasHolidayHours
           ? "Holiday hours: configured ✓"
           : "Add holiday hours — currently missing",
@@ -195,18 +247,23 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       stepNumber: 13,
       title: "Attributes",
       instruction: "Enable every applicable attribute to strengthen relevance and trust.",
+      current:
+        (audit.gbp.liveProfile?.attributes ?? []).length > 0
+          ? (audit.gbp.liveProfile?.attributes ?? []).join(", ")
+          : "No attributes detected",
+      recommended: "Enable all applicable business attributes",
       bullets: [
         "Online appointments / booking",
-        "Wheelchair accessibility (if applicable)",
-        "Veteran-owned, women-owned, Latino-owned (if applicable)",
-        "LGBTQ-friendly (if applicable)",
-        `Currently ${audit.gbp.completeness.attributeCount} attributes — add all that apply`,
+        "Accessibility, ownership, and identity attributes where applicable",
+        `Currently ${audit.gbp.completeness.attributeCount} attributes on profile`,
       ],
     },
     {
       stepNumber: 14,
       title: "Messaging",
       instruction: "Turn on GBP chat/messages and respond within minutes when possible.",
+      current: "Check Messaging tab in GBP",
+      recommended: "Enable messaging with fast response times",
       bullets: [
         "Fast response rates increase engagement signals",
         "Set up mobile notifications for new messages",
@@ -216,48 +273,59 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       stepNumber: 15,
       title: "Booking Feature",
       instruction: "Enable online booking or appointment links if available.",
+      current: audit.gbp.identity.website || "No website linked",
+      recommended: `Link booking to ${audit.gbp.identity.website || "your booking page"}`,
       bullets: [
         "Booking creates conversion signals directly inside Google",
-        `Link to ${audit.gbp.identity.website || "your booking page"}`,
       ],
     },
     {
       stepNumber: 16,
       title: "Continuous Activity",
       instruction:
-        "Google favors active profiles. Execute this cadence consistently for 6-12 months to compete for Top 3 positions.",
+        "Google favors active profiles. Execute this cadence consistently for 6-12 months to move keywords into the Top 3.",
+      current: `${audit.rankings.keywordsInPack}/${audit.rankings.totalKeywords} keywords in 3-Pack (${audit.rankings.shareOfVoice}% share of voice)`,
+      recommended: "Top 3 for all target keywords within 6-12 months",
       bullets: [
         "Weekly: 5 new photos, 2 videos, 1 Google Post, respond to all reviews, answer new Q&As",
         "Monthly: add 3-5 services, add new products, upload event photos, refresh descriptions",
+        ...keywordRankings
+          .filter((k) => !k.inLocalPack)
+          .slice(0, 3)
+          .map((k) => `Priority keyword: "${k.keyword}" — ${k.position}`),
       ],
     },
   ];
+
+  const outsidePack = keywordRankings.filter((k) => !k.inLocalPack).length;
 
   return {
     title: "Google Business Profile Optimization Report",
     businessName: audit.clientName,
     address: audit.gbp.identity.address,
-    objective: `Rank ${audit.clientName} in the Google Maps Top 3 for all target keywords by maximizing relevance, prominence, and proximity through GBP optimization only.`,
+    objective: `${audit.clientName} is in the 3-Pack for ${audit.rankings.keywordsInPack} of ${audit.rankings.totalKeywords} keywords (${audit.rankings.shareOfVoice}% share of voice). This plan uses your live GBP profile data and current rankings to recommend specific profile updates that improve visibility for ${outsidePack > 0 ? `the ${outsidePack} keyword(s) outside the 3-Pack` : "all target keywords"}.`,
     targetKeywords,
+    currentState,
+    keywordRankings,
     steps,
-    keywordPriority: targetKeywords.map((kw, i) => {
-      const rank = audit.rankings.keywords.find((k) => k.keyword === kw);
-      const reason = rank?.inLocalPack
-        ? `Already in the 3-Pack at #${rank.localPackPosition} — defend and expand share.`
-        : `Outside the 3-Pack — highest priority for GBP service, post, and review optimization.`;
-      return { rank: i + 1, keyword: kw, reason };
-    }),
+    keywordPriority: keywordRankings.map((kr, i) => ({
+      rank: i + 1,
+      keyword: kr.keyword,
+      reason: kr.inLocalPack
+        ? `In 3-Pack at ${kr.position} — defend and strengthen profile relevance.`
+        : `${kr.position} — ${kr.gbpUpdates[0] ?? "Optimize GBP for this keyword."}`,
+    })),
     weeklyCadence: [
       "5 new photos",
       "2 videos",
-      "1 Google Post (rotate target keywords)",
+      "1 Google Post (rotate keywords outside 3-Pack)",
       "Respond to all new reviews",
       "Answer new Q&A questions",
     ],
     monthlyCadence: [
-      "Add 3-5 new GBP services",
+      "Add 3-5 new GBP services for uncovered keywords",
       "Add or update products",
-      "Upload event-specific photo batches",
+      "Upload service-specific photo batches",
       "Refresh business description if offerings changed",
     ],
     contentSource: "template",

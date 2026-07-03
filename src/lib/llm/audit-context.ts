@@ -32,6 +32,7 @@ export function buildAuditContext(audit: Phase1AuditPayload): string {
       sentiment: r.sentiment,
     }));
 
+  const live = audit.gbp.liveProfile;
   const payload = {
     business: {
       name: audit.clientName,
@@ -40,6 +41,22 @@ export function buildAuditContext(audit: Phase1AuditPayload): string {
       phone: audit.gbp.identity.phone,
       website: audit.gbp.identity.website,
     },
+    liveGbpProfile: live
+      ? {
+          primaryCategory: live.primaryCategory,
+          secondaryCategories: live.secondaryCategories,
+          description: live.description.slice(0, 500),
+          descriptionLength: live.description.length,
+          services: live.services.map((s) => ({ name: s.name, description: s.description.slice(0, 120) })),
+          attributes: live.attributes,
+          source: live.source,
+        }
+      : null,
+    recentPosts: (audit.gbp.recentPosts ?? []).slice(0, 3).map((p) => ({
+      daysAgo: Math.floor((Date.now() - new Date(p.createTime).getTime()) / 86400000),
+      summary: p.summary.slice(0, 150),
+    })),
+    qaItems: (audit.gbp.qaItems ?? []).slice(0, 5),
     rankings: {
       shareOfVoice: audit.rankings.shareOfVoice,
       keywordsInPack: audit.rankings.keywordsInPack,
@@ -50,6 +67,8 @@ export function buildAuditContext(audit: Phase1AuditPayload): string {
       completenessScore: audit.gbp.completeness.completenessScore,
       photoCount: audit.gbp.content.photoCount,
       lastPostDate: audit.gbp.content.lastPostDate,
+      serviceCount: audit.gbp.completeness.serviceCount,
+      attributeCount: audit.gbp.completeness.attributeCount,
       reviewCount: audit.gbp.engagement.reviewCount,
       averageRating: audit.gbp.engagement.averageRating,
       responseRate: audit.gbp.engagement.responseRate,

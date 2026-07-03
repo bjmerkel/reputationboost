@@ -1,10 +1,34 @@
-import type { FullAuditPayload, Phase1AuditPayload } from "@/audit/types";
+import type { FullAuditPayload, GbpOptimizationPlan, Phase1AuditPayload } from "@/audit/types";
 import { buildStrategy } from "@/audit/phase2/strategy";
 import { buildFirstAuditReport, buildMonthlyReport } from "@/audit/phase2/monthly-report";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { buildTemplateContent } from "@/lib/llm/content";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { generateExecutionQueue } from "@/audit/phase3/planner";
+
+function enrichGbpPlan(
+  audit: Phase1AuditPayload,
+  plan: GbpOptimizationPlan
+): GbpOptimizationPlan {
+  if (plan.currentState?.fields?.length && plan.keywordRankings?.length) {
+    return plan;
+  }
+  const fresh = buildTemplateGbpPlan(audit);
+  return {
+    ...plan,
+    currentState: plan.currentState ?? fresh.currentState,
+    keywordRankings: plan.keywordRankings ?? fresh.keywordRankings,
+    objective: plan.objective || fresh.objective,
+    steps: plan.steps.map((step) => {
+      const templateStep = fresh.steps.find((s) => s.stepNumber === step.stepNumber);
+      return {
+        ...step,
+        current: step.current ?? templateStep?.current,
+        recommended: step.recommended ?? templateStep?.recommended,
+      };
+    }),
+  };
+}
 
 function normalizeStrategyDrafts(
   audit: FullAuditPayload
@@ -71,7 +95,10 @@ export function ensureStrategy(
     ...withStrategy,
     strategy: {
       ...normalizeStrategyDrafts({ ...withStrategy, strategy })!,
-      gbpPlan: strategy.gbpPlan ?? buildTemplateGbpPlan(audit),
+      gbpPlan: enrichGbpPlan(
+        audit,
+        strategy.gbpPlan ?? buildTemplateGbpPlan(audit)
+      ),
     },
   };
 
