@@ -32,6 +32,16 @@ export {
   gapScoreImpact,
   gapScoreComponent,
 } from "./score-impact";
+export {
+  applyGapMutation,
+  applyStepMutation,
+  cloneAudit,
+  isStepSatisfied,
+  projectHealthScoresFromActions,
+  projectHealthScoresFromStepNumbers,
+  simulateGapDriverImpact,
+  simulateStepDriverImpact,
+} from "./counterfactual";
 export { computeMonthOverMonth } from "./diff";
 export { buildStrategy } from "./strategy";
 export { buildMonthlyReport, buildFirstAuditReport, describeRankMovement, describeCompetitorDelta } from "./monthly-report";

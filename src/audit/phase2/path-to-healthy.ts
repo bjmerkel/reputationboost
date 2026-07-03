@@ -7,6 +7,7 @@ import type {
   Plan,
 } from "../types";
 import { formatCurrency } from "../attribution/roi";
+import { projectHealthScoresFromActions } from "./counterfactual";
 import { computeKeywordScores } from "./keyword-scores";
 import { estimateStepHealthImpact, gapDriverScoreImpact } from "./score-impact";
 import type { AttributionCalibration } from "./attribution-calibration";
@@ -20,11 +21,15 @@ export interface PathToHealthyOptions {
   calibration?: AttributionCalibration;
 }
 
-function gapToPathStep(gap: GapFlag, index: number): PathToHealthyStep {
+function gapToPathStep(
+  audit: FullAuditPayload,
+  gap: GapFlag,
+  index: number
+): PathToHealthyStep {
   return {
     id: gap.id,
     title: gap.title,
-    scoreImpact: gapDriverScoreImpact(gap),
+    scoreImpact: gapDriverScoreImpact(gap, audit),
     source: "gap",
     priority: gap.priority,
     order: index,
@@ -55,6 +60,7 @@ function pickStepsToTarget(
 
   for (const step of sorted) {
     if (gain >= pointsNeeded) break;
+    if (step.scoreImpact <= 0) continue;
     selected.push(step);
     gain += step.scoreImpact;
   }
@@ -114,7 +120,7 @@ export function buildPathToHealthy(
   const pointsNeeded = driverTarget - currentDriverScore;
 
   const gapSteps = (audit.strategy?.gaps ?? [])
-    .map(gapToPathStep)
+    .map((gap, index) => gapToPathStep(audit, gap, index))
     .filter((s) => s.scoreImpact > 0);
   const planPathSteps = plan
     ? plan.steps
@@ -122,11 +128,14 @@ export function buildPathToHealthy(
         .map((s) => ({
           id: `gbp-step-${s.stepNumber}`,
           title: s.title,
-          scoreImpact: s.context.healthScoreImpact ?? estimateStepHealthImpact(audit, s.stepNumber, options.calibration),
+          scoreImpact:
+            s.context.healthScoreImpact ??
+            estimateStepHealthImpact(audit, s.stepNumber, options.calibration),
           source: "plan" as const,
           order: s.stepNumber,
         }))
-    : planStepsToPath(audit, options.calibration);
+        .filter((s) => s.scoreImpact > 0)
+    : planStepsToPath(audit, options.calibration).filter((s) => s.scoreImpact > 0);
 
   const combined: PathToHealthyStep[] = [...gapSteps];
   const seen = new Set(gapSteps.map((s) => s.id));
@@ -136,11 +145,14 @@ export function buildPathToHealthy(
       seen.add(step.id);
     }
   }
-  const { selected, projectedGain } = pickStepsToTarget(combined, pointsNeeded);
-  const projectedDriverScore = Math.min(100, currentDriverScore + projectedGain);
-  const projectedScore = Math.min(
-    100,
-    Math.round(currentScore + projectedGain * 0.7)
+
+  const { selected } = pickStepsToTarget(combined, pointsNeeded);
+  const projection = projectHealthScoresFromActions(
+    audit,
+    selected.map((s) => ({
+      source: s.source,
+      id: s.id,
+    }))
   );
   const revenueGain = estimateRevenueGain(audit, options);
 
@@ -150,9 +162,9 @@ export function buildPathToHealthy(
     currentDriverScore,
     outcomeIndex,
     pointsNeeded,
-    projectedScore,
-    projectedDriverScore,
-    steps: selected.filter((s) => s.scoreImpact > 0),
+    projectedScore: projection.projectedOverallScore,
+    projectedDriverScore: projection.projectedDriverScore,
+    steps: selected,
     estimatedRevenueGain: revenueGain,
     estimatedRevenueGainLabel:
       revenueGain != null

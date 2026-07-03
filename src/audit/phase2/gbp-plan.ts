@@ -1,4 +1,5 @@
 import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "../types";
+import { isStepSatisfied } from "./counterfactual";
 import {
   buildGbpCurrentState,
   buildKeywordRankAnalysis,
@@ -71,7 +72,7 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
   const liveSecondary =
     audit.gbp.liveProfile?.secondaryCategories ?? audit.gbp.identity.secondaryCategories;
 
-  const steps: GbpPlanStep[] = [
+  const allSteps: GbpPlanStep[] = [
     {
       stepNumber: 1,
       title: "Primary Category",
@@ -306,6 +307,8 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       ],
     },
   ];
+
+  const steps = allSteps.filter((step) => !isStepSatisfied(audit, step.stepNumber));
 
   const outsidePack = keywordRankings.filter((k) => !k.inLocalPack).length;
 

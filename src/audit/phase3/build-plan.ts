@@ -13,6 +13,7 @@ import { getPhaseForStep, PLAN_PHASE_DEFINITIONS } from "./plan-phases";
 import { resolvePlanStepNumber } from "./plan-task-utils";
 import { buildAttributionCalibration, mergeCalibrations } from "../phase2/attribution-calibration";
 import type { AttributionCalibration } from "../phase2/attribution-calibration";
+import { projectHealthScoresFromStepNumbers } from "../phase2/counterfactual";
 import { buildStepContext } from "./step-context";
 import { findStepOutcome } from "./step-outcomes";
 
@@ -67,14 +68,21 @@ function buildPlanStep(
   };
 }
 
-function computeProgress(steps: PlanStep[], currentHealthScore: number): PlanProgress {
+function computeProgress(
+  audit: FullAuditPayload,
+  steps: PlanStep[],
+  currentHealthScore: number
+): PlanProgress {
   const totalSteps = steps.length;
   const completedSteps = steps.filter((s) => s.status === "completed").length;
   const needsApproval = steps.filter((s) => s.status === "needs_approval").length;
-  const remainingImpact = steps
+  const remainingStepNumbers = steps
     .filter((s) => s.status !== "completed" && s.status !== "skipped")
-    .reduce((sum, s) => sum + (s.context.healthScoreImpact ?? 0), 0);
-  const projectedHealthScore = Math.min(100, Math.round(currentHealthScore + remainingImpact));
+    .map((s) => s.stepNumber);
+  const projectedHealthScore =
+    remainingStepNumbers.length > 0
+      ? projectHealthScoresFromStepNumbers(audit, remainingStepNumbers).projectedOverallScore
+      : currentHealthScore;
 
   return {
     totalSteps,
@@ -124,6 +132,6 @@ export function buildPlan(
     targetKeywords: gbpPlan.targetKeywords,
     phases: filterPhasesWithSteps(PLAN_PHASE_DEFINITIONS, planSteps),
     steps: planSteps,
-    progress: computeProgress(planSteps, currentHealthScore),
+    progress: computeProgress(audit, planSteps, currentHealthScore),
   };
 }

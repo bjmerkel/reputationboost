@@ -51,14 +51,15 @@ describe("buildPlan", () => {
     assert.equal(plan, null);
   });
 
-  it("assembles 16 steps with tasks grouped by step number", () => {
+  it("assembles plan steps with tasks grouped by step number", () => {
     const audit = createTestAudit();
     const tasks = audit.execution!.tasks;
     const plan = buildPlan(audit, tasks);
 
     assert.ok(plan);
-    assert.equal(plan!.steps.length, 16);
-    assert.equal(plan!.progress.totalSteps, 16);
+    assert.ok(plan!.steps.length > 0);
+    assert.ok(plan!.steps.length <= 16);
+    assert.equal(plan!.progress.totalSteps, plan!.steps.length);
     assert.ok(plan!.progress.currentHealthScore >= 0);
     assert.ok(Number.isFinite(plan!.progress.currentHealthScore));
     assert.ok(plan!.progress.projectedHealthScore >= plan!.progress.currentHealthScore);
