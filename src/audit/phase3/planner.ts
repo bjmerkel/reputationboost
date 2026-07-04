@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createId } from "@/lib/create-id";
 import type {
   ActionItem,
   ExecutionTask,
@@ -40,7 +40,7 @@ function buildTask(
   const needsApproval = requiresApproval(type);
   const content = normalizeTextContent(draftContent);
   return {
-    id: randomUUID(),
+    id: createId(),
     auditId: audit.auditId,
     actionItemId: action.id,
     type,

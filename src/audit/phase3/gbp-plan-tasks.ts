@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createId } from "@/lib/create-id";
 import type {
   ActionPriority,
   ExecutionTask,
@@ -61,7 +61,7 @@ function buildGbpTask(
   const phaseId = getPhaseForStep(step.stepNumber);
   const contextPayload = buildTaskPayloadContext(audit, step);
   return {
-    id: randomUUID(),
+    id: createId(),
     auditId: audit.auditId,
     actionItemId: `gbp-step-${step.stepNumber}`,
     type,

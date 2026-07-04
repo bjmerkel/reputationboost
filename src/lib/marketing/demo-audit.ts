@@ -1,9 +1,9 @@
-import { createTestAudit } from "@/audit/phase3/test-fixtures";
 import type { FullAuditPayload } from "@/audit/types";
+import demoAuditPayload from "./demo-audit-payload.json";
 
 /** Static demo audit for the marketing platform explorer when no business is selected. */
 export function createMarketingDemoAudit(): FullAuditPayload {
-  return createTestAudit();
+  return demoAuditPayload as FullAuditPayload;
 }
 
 export const DEMO_BUSINESS = {
