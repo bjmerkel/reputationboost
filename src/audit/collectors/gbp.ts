@@ -4,6 +4,7 @@ import { compareNap } from "@/lib/google/nap-drift";
 import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
 import { isReviewResponded } from "@/lib/google/gbp-reviews";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
+import { analyzeGbpMediaCoverage } from "@/lib/google/gbp-media-coverage";
 import {
   enrichGbpLocationProfile,
   fetchAllGoogleSuggestions,
@@ -123,6 +124,9 @@ async function collectGbpFromApi(
     liveProfile?.hasSpecialHours ?? liveProfile?.hasMoreHours ?? place?.hasHolidayHours ?? false;
   const noPendingEdits = liveProfile ? !liveProfile.hasPendingEdits : true;
   const photoCount = enrichment.media.photoCount || place?.photoCount || 0;
+  const mediaCoverage = analyzeGbpMediaCoverage(enrichment.media.items, {
+    totalCount: enrichment.media.totalMediaItemCount,
+  });
 
   const name = liveProfile?.title || place?.name || client.name;
   const address = place?.address || formatAddress(client);
@@ -195,6 +199,8 @@ async function collectGbpFromApi(
           : { all: place?.photoCount ?? 0 },
       lastPhotoUpload: enrichment.media.lastPhotoUpload,
       mediaPreviews: mediaPreviewsFromEnrichment(enrichment.media.items),
+      mediaCoverage,
+      totalMediaItemCount: enrichment.media.totalMediaItemCount,
       postCount: posts.length,
       lastPostDate: sortedPosts[0]?.createTime ?? null,
       qaCount: questions.length,

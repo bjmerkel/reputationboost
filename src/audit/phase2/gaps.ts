@@ -171,6 +171,55 @@ export function detectGaps(
     );
   }
 
+  const mediaCoverage = audit.gbp.content.mediaCoverage;
+  if (mediaCoverage) {
+    for (const category of mediaCoverage.missingCategories) {
+      gaps.push(
+        gap(
+          `missing-media-${category.toLowerCase()}`,
+          "P2",
+          "gbp_profile",
+          `Missing ${category.toLowerCase().replace(/_/g, " ")} photos`,
+          `Your profile is missing ${category.toLowerCase().replace(/_/g, " ")} photos. Google uses category variety to judge listing quality.`,
+          5,
+          2
+        )
+      );
+    }
+
+    if (!mediaCoverage.hasVideo) {
+      gaps.push(
+        gap(
+          "missing-video",
+          "P2",
+          "gbp_profile",
+          "No GBP videos",
+          "Add at least one short video showing your team, workspace, or service in action.",
+          4,
+          2
+        )
+      );
+    }
+
+    if (
+      mediaCoverage.daysSinceLastUpload !== null &&
+      mediaCoverage.daysSinceLastUpload > 90 &&
+      audit.gbp.content.photoCount > 0
+    ) {
+      gaps.push(
+        gap(
+          "stale-media",
+          "P3",
+          "gbp_profile",
+          "Photos are getting stale",
+          `Your newest Google photo is ${mediaCoverage.daysSinceLastUpload} days old. Fresh media signals an active business.`,
+          3,
+          2
+        )
+      );
+    }
+  }
+
   if (!audit.gbp.completeness.hasHolidayHours) {
     gaps.push(
       gap(

@@ -79,6 +79,8 @@ export function generateReviewRequestSms(audit: FullAuditPayload): string {
 export function mapActionToExecutionType(actionId: string): ExecutionType | null {
   if (actionId === "stale-posts" || actionId === "competitor-post-frequency") return "google_post";
   if (actionId === "low-photos") return "gbp_photo";
+  if (actionId === "missing-video") return "gbp_video";
+  if (actionId.startsWith("missing-media-")) return "gbp_photo";
   if (actionId.startsWith("rank-outside-pack")) return "gbp_description";
   if (actionId === "unresponded-negative" || actionId === "low-response-rate") return "review_response";
   if (actionId.startsWith("review-gap")) return "review_request";

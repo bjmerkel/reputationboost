@@ -1,5 +1,9 @@
 import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
+import {
+  validateMediaImageDimensions,
+  validateMediaUploadBytes,
+} from "./gbp-media-coverage";
 
 const GBP_V4 = "https://mybusiness.googleapis.com/v4";
 const GBP_UPLOAD = "https://mybusiness.googleapis.com/upload/v1";
@@ -21,6 +25,18 @@ export type GbpMediaCategory =
   | "TEAMS"
   | "ADDITIONAL";
 
+export interface GbpMediaAttribution {
+  profileName?: string;
+  profilePhotoUrl?: string;
+  profileUrl?: string;
+  takedownUrl?: string;
+}
+
+export interface GbpMediaDimensions {
+  widthPixels: number;
+  heightPixels: number;
+}
+
 export interface GbpMediaItem {
   name: string;
   mediaFormat: GbpMediaFormat;
@@ -30,6 +46,8 @@ export interface GbpMediaItem {
   createTime: string;
   description: string;
   viewCount: string;
+  dimensions?: GbpMediaDimensions;
+  attribution?: GbpMediaAttribution;
 }
 
 export interface GbpMediaSummary {
@@ -37,6 +55,7 @@ export interface GbpMediaSummary {
   videoCount: number;
   photosByType: Record<string, number>;
   lastPhotoUpload: string | null;
+  totalMediaItemCount: number;
   items: GbpMediaItem[];
 }
 
@@ -49,6 +68,45 @@ interface MediaApiItem {
   createTime?: string;
   description?: string;
   insights?: { viewCount?: string };
+  dimensions?: { widthPixels?: number; heightPixels?: number };
+  attribution?: {
+    profileName?: string;
+    profilePhotoUrl?: string;
+    profileUrl?: string;
+    takedownUrl?: string;
+  };
+}
+
+function mapMediaItem(item: MediaApiItem): GbpMediaItem {
+  const googleUrl = item.googleUrl ?? "";
+  const thumbnailUrl = item.thumbnailUrl || googleUrl;
+  const dimensions =
+    item.dimensions?.widthPixels && item.dimensions?.heightPixels
+      ? {
+          widthPixels: item.dimensions.widthPixels,
+          heightPixels: item.dimensions.heightPixels,
+        }
+      : undefined;
+
+  return {
+    name: item.name ?? "",
+    mediaFormat: normalizeFormat(item.mediaFormat),
+    category: normalizeCategory(item.locationAssociation?.category),
+    googleUrl,
+    thumbnailUrl,
+    createTime: item.createTime ?? "",
+    description: item.description ?? "",
+    viewCount: item.insights?.viewCount ?? "0",
+    dimensions,
+    attribution: item.attribution?.profileName
+      ? {
+          profileName: item.attribution.profileName,
+          profilePhotoUrl: item.attribution.profilePhotoUrl,
+          profileUrl: item.attribution.profileUrl,
+          takedownUrl: item.attribution.takedownUrl,
+        }
+      : undefined,
+  };
 }
 
 function mediaParent(connection: GbpConnection): string {
@@ -71,9 +129,13 @@ export function extractPublicMediaUrl(text: string): string | null {
 }
 
 /** accounts.locations.media.list */
-export async function listGbpMedia(connection: GbpConnection): Promise<GbpMediaItem[]> {
+export async function listGbpMedia(connection: GbpConnection): Promise<{
+  items: GbpMediaItem[];
+  totalMediaItemCount: number;
+}> {
   const items: GbpMediaItem[] = [];
   let pageToken: string | undefined;
+  let totalMediaItemCount = 0;
 
   do {
     const url = new URL(`${GBP_V4}/${mediaParent(connection)}/media`);
@@ -87,6 +149,7 @@ export async function listGbpMedia(connection: GbpConnection): Promise<GbpMediaI
     const data = (await res.json()) as {
       mediaItems?: MediaApiItem[];
       nextPageToken?: string;
+      totalMediaItemCount?: number;
       error?: { message?: string };
     };
 
@@ -94,28 +157,81 @@ export async function listGbpMedia(connection: GbpConnection): Promise<GbpMediaI
       throw new Error(data.error?.message ?? `Media list failed (${res.status})`);
     }
 
+    if (typeof data.totalMediaItemCount === "number") {
+      totalMediaItemCount = data.totalMediaItemCount;
+    }
+
     for (const item of data.mediaItems ?? []) {
-      const googleUrl = item.googleUrl ?? "";
-      const thumbnailUrl = item.thumbnailUrl || googleUrl;
-      items.push({
-        name: item.name ?? "",
-        mediaFormat: normalizeFormat(item.mediaFormat),
-        category: normalizeCategory(item.locationAssociation?.category),
-        googleUrl,
-        thumbnailUrl,
-        createTime: item.createTime ?? "",
-        description: item.description ?? "",
-        viewCount: item.insights?.viewCount ?? "0",
-      });
+      items.push(mapMediaItem(item));
     }
 
     pageToken = data.nextPageToken;
   } while (pageToken && items.length < 500);
 
-  return items;
+  return {
+    items,
+    totalMediaItemCount: totalMediaItemCount || items.length,
+  };
 }
 
-export function summarizeGbpMedia(items: GbpMediaItem[]): GbpMediaSummary {
+/** accounts.locations.media.get */
+export async function getGbpMedia(
+  connection: GbpConnection,
+  mediaName: string
+): Promise<GbpMediaItem> {
+  const resource = mediaName.includes("/")
+    ? mediaName
+    : `${mediaParent(connection)}/media/${mediaName}`;
+
+  const res = await fetch(`${GBP_V4}/${resource}`, {
+    headers: authHeadersForConnection(connection),
+  });
+
+  const data = (await res.json()) as MediaApiItem & { error?: { message?: string } };
+  if (!res.ok) {
+    throw new Error(data.error?.message ?? `Media get failed (${res.status})`);
+  }
+
+  return mapMediaItem(data);
+}
+
+/** accounts.locations.media.patch — recategorize an existing media item. */
+export async function patchGbpMediaCategory(
+  connection: GbpConnection,
+  mediaName: string,
+  category: GbpMediaCategory
+): Promise<GbpMediaItem> {
+  const resource = mediaName.includes("/")
+    ? mediaName
+    : `${mediaParent(connection)}/media/${mediaName}`;
+
+  const url = new URL(`${GBP_V4}/${resource}`);
+  url.searchParams.set("updateMask", "locationAssociation");
+
+  const res = await fetch(url.toString(), {
+    method: "PATCH",
+    headers: {
+      ...authHeadersForConnection(connection),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: resource,
+      locationAssociation: { category },
+    }),
+  });
+
+  const data = (await res.json()) as MediaApiItem & { error?: { message?: string } };
+  if (!res.ok) {
+    throw new Error(data.error?.message ?? `Media patch failed (${res.status})`);
+  }
+
+  return mapMediaItem(data);
+}
+
+export function summarizeGbpMedia(
+  items: GbpMediaItem[],
+  totalMediaItemCount?: number
+): GbpMediaSummary {
   const photos = items.filter((i) => i.mediaFormat === "PHOTO");
   const videos = items.filter((i) => i.mediaFormat === "VIDEO");
   const photosByType: Record<string, number> = {};
@@ -134,6 +250,7 @@ export function summarizeGbpMedia(items: GbpMediaItem[]): GbpMediaSummary {
     videoCount: videos.length,
     photosByType,
     lastPhotoUpload: sortedPhotos[0]?.createTime ?? null,
+    totalMediaItemCount: totalMediaItemCount ?? items.length,
     items,
   };
 }
@@ -141,8 +258,8 @@ export function summarizeGbpMedia(items: GbpMediaItem[]): GbpMediaSummary {
 export async function fetchGbpMediaSummary(
   connection: GbpConnection
 ): Promise<GbpMediaSummary> {
-  const items = await listGbpMedia(connection);
-  return summarizeGbpMedia(items);
+  const listed = await listGbpMedia(connection);
+  return summarizeGbpMedia(listed.items, listed.totalMediaItemCount);
 }
 
 /** accounts.locations.media.create via public sourceUrl */
@@ -184,16 +301,12 @@ export async function createGbpMediaFromUrl(
     throw new Error(data.error?.message ?? `Media upload failed (${res.status})`);
   }
 
-  return {
-    name: data.name ?? "",
-    mediaFormat: normalizeFormat(data.mediaFormat ?? options.mediaFormat),
-    category: normalizeCategory(data.locationAssociation?.category ?? options.category),
-    googleUrl: data.googleUrl ?? sourceUrl,
-    thumbnailUrl: data.thumbnailUrl ?? "",
-    createTime: data.createTime ?? new Date().toISOString(),
-    description: data.description ?? options.description ?? "",
-    viewCount: data.insights?.viewCount ?? "0",
-  };
+  return mapMediaItem({
+    ...data,
+    locationAssociation: data.locationAssociation ?? { category: options.category },
+    mediaFormat: data.mediaFormat ?? options.mediaFormat,
+    description: data.description ?? options.description,
+  });
 }
 
 /** accounts.locations.media.startUpload */
@@ -277,16 +390,12 @@ export async function createGbpMediaFromUpload(
     throw new Error(data.error?.message ?? `Media create failed (${res.status})`);
   }
 
-  return {
-    name: data.name ?? "",
-    mediaFormat: normalizeFormat(data.mediaFormat ?? options.mediaFormat),
-    category: normalizeCategory(data.locationAssociation?.category ?? options.category),
-    googleUrl: data.googleUrl ?? "",
-    thumbnailUrl: data.thumbnailUrl ?? "",
-    createTime: data.createTime ?? new Date().toISOString(),
-    description: data.description ?? options.description ?? "",
-    viewCount: data.insights?.viewCount ?? "0",
-  };
+  return mapMediaItem({
+    ...data,
+    locationAssociation: data.locationAssociation ?? { category: options.category },
+    mediaFormat: data.mediaFormat ?? options.mediaFormat,
+    description: data.description ?? options.description,
+  });
 }
 
 /** Convenience: startUpload → upload bytes → create media item. */
@@ -299,6 +408,16 @@ export async function uploadGbpMediaFile(
     description?: string;
   }
 ): Promise<GbpMediaItem> {
+  const sizeCheck = validateMediaUploadBytes(file.bytes);
+  if (!sizeCheck.valid) {
+    throw new Error(sizeCheck.reason ?? "Media file is too small.");
+  }
+
+  const dimensionCheck = await validateMediaImageDimensions(file.bytes, file.contentType);
+  if (!dimensionCheck.valid) {
+    throw new Error(dimensionCheck.reason ?? "Media dimensions are too small.");
+  }
+
   const resourceName = await startGbpMediaUpload(connection);
   await uploadGbpMediaBytes(connection, resourceName, file.bytes, file.contentType);
   return createGbpMediaFromUpload(connection, {

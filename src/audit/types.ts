@@ -76,12 +76,32 @@ export interface GbpMediaPreview {
   description?: string;
 }
 
+export interface GbpMediaCoverage {
+  totalCount: number;
+  ownerPhotoCount: number;
+  customerPhotoCount: number;
+  hasCover: boolean;
+  hasLogo: boolean;
+  hasExterior: boolean;
+  hasInterior: boolean;
+  hasTeam: boolean;
+  hasAtWork: boolean;
+  hasVideo: boolean;
+  categoryCount: number;
+  missingCategories: string[];
+  coverageScore: number;
+  totalViews: number;
+  daysSinceLastUpload: number | null;
+}
+
 export interface GbpContent {
   photoCount: number;
   videoCount: number;
   photosByType: Record<string, number>;
   lastPhotoUpload: string | null;
   mediaPreviews?: GbpMediaPreview[];
+  mediaCoverage?: GbpMediaCoverage;
+  totalMediaItemCount?: number;
   postCount: number;
   lastPostDate: string | null;
   qaCount: number;

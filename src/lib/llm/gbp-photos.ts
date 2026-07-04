@@ -1,5 +1,6 @@
 import type { FullAuditPayload } from "@/audit/types";
 import type { GbpMediaCategory } from "@/lib/google/gbp-media";
+import { mediaCategoryLabel } from "@/lib/google/gbp-media-coverage";
 import { buildAuditContext } from "./audit-context";
 import { completeJson } from "./client";
 import { getOpenAiApiKey, getOpenAiImageModel, isImageGenerationConfigured } from "./config";
@@ -32,33 +33,89 @@ function cityFromAudit(audit: FullAuditPayload): string {
 export function buildTemplatePhotoJobs(audit: FullAuditPayload): GbpPhotoJob[] {
   const city = cityFromAudit(audit);
   const category = audit.gbp.identity.primaryCategory;
+  const missing = new Set(audit.gbp.content.mediaCoverage?.missingCategories ?? []);
 
-  return [
-    {
-      title: "Exterior & storefront",
-      category: "EXTERIOR",
-      hint: `Upload a real wide shot of your storefront or entrance in ${city}. AI cannot replace this — use your own photo.`,
-      aiGenerated: false,
-    },
-    {
-      title: "Interior & team",
-      category: "INTERIOR",
-      hint: "Upload a real interior, showroom, or team photo. Use your own camera — builds the most trust.",
-      aiGenerated: false,
-    },
-    {
-      title: "At work / service",
-      category: "AT_WORK",
-      hint: `Staff delivering ${category} — professional service-in-action shot.`,
-      aiGenerated: false,
-    },
-    ...audit.rankings.keywords.slice(0, 4).map((kw) => ({
+  const jobs: GbpPhotoJob[] = [];
+
+  const maybePush = (job: GbpPhotoJob) => {
+    if (!missing.has(job.category)) return;
+    jobs.push(job);
+  };
+
+  maybePush({
+    title: "Exterior & storefront",
+    category: "EXTERIOR",
+    hint: `Upload a real wide shot of your storefront or entrance in ${city}. AI cannot replace this — use your own photo.`,
+    aiGenerated: false,
+  });
+  maybePush({
+    title: "Interior & team",
+    category: "INTERIOR",
+    hint: "Upload a real interior, showroom, or team photo. Use your own camera — builds the most trust.",
+    aiGenerated: false,
+  });
+  maybePush({
+    title: "At work / service",
+    category: "AT_WORK",
+    hint: `Staff delivering ${category} — professional service-in-action shot.`,
+    aiGenerated: false,
+  });
+  maybePush({
+    title: "Team photo",
+    category: "TEAMS",
+    hint: `Show your crew or staff serving ${city} customers.`,
+    aiGenerated: false,
+  });
+
+  if (jobs.length === 0) {
+    return [
+      {
+        title: "Exterior & storefront",
+        category: "EXTERIOR",
+        hint: `Upload a real wide shot of your storefront or entrance in ${city}. AI cannot replace this — use your own photo.`,
+        aiGenerated: false,
+      },
+      {
+        title: "Interior & team",
+        category: "INTERIOR",
+        hint: "Upload a real interior, showroom, or team photo. Use your own camera — builds the most trust.",
+        aiGenerated: false,
+      },
+      {
+        title: "At work / service",
+        category: "AT_WORK",
+        hint: `Staff delivering ${category} — professional service-in-action shot.`,
+        aiGenerated: false,
+      },
+      ...audit.rankings.keywords.slice(0, 4).map((kw) => ({
+        title: `Service photo: ${kw.keyword}`,
+        category: "ADDITIONAL" as GbpMediaCategory,
+        hint: `Showcase "${kw.keyword}" for ${city} customers.`,
+        aiGenerated: false,
+      })),
+    ];
+  }
+
+  for (const missingCategory of missing) {
+    if (jobs.some((job) => job.category === missingCategory)) continue;
+    jobs.push({
+      title: `${mediaCategoryLabel(missingCategory as GbpMediaCategory)} photo`,
+      category: missingCategory as GbpMediaCategory,
+      hint: `Add a ${mediaCategoryLabel(missingCategory as GbpMediaCategory).toLowerCase()} photo to round out your Google profile.`,
+      aiGenerated: missingCategory === "AT_WORK" || missingCategory === "ADDITIONAL",
+    });
+  }
+
+  jobs.push(
+    ...audit.rankings.keywords.slice(0, Math.max(2, 4 - jobs.length)).map((kw) => ({
       title: `Service photo: ${kw.keyword}`,
       category: "ADDITIONAL" as GbpMediaCategory,
       hint: `Showcase "${kw.keyword}" for ${city} customers.`,
-      aiGenerated: false,
-    })),
-  ];
+      aiGenerated: true,
+    }))
+  );
+
+  return jobs;
 }
 
 const PHOTO_PROMPT_SYSTEM = `You write GPT Image 2 prompts for Google Business Profile marketing photos.

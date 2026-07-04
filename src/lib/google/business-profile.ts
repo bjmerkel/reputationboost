@@ -85,6 +85,7 @@ export async function fetchGbpEnrichment(
       videoCount: 0,
       photosByType: {},
       lastPhotoUpload: null,
+      totalMediaItemCount: 0,
       items: [],
     })),
   ]);

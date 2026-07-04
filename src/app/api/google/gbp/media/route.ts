@@ -5,6 +5,7 @@ import {
   deleteGbpMedia,
   fetchGbpMediaSummary,
   listGbpMedia,
+  patchGbpMediaCategory,
   uploadGbpMediaFile,
   type GbpMediaCategory,
   type GbpMediaFormat,
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
     }
 
     const items = await listGbpMedia(connection);
-    return NextResponse.json({ items });
+    return NextResponse.json({ items: items.items, totalCount: items.totalMediaItemCount });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load media";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -138,6 +139,41 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Media delete failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+/** Recategorize an existing media item. */
+export async function PATCH(request: Request) {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = (await request.json()) as {
+      name?: string;
+      category?: GbpMediaCategory;
+    };
+
+    if (!body.name || !body.category) {
+      return NextResponse.json({ error: "name and category are required" }, { status: 400 });
+    }
+
+    const business = await getPrimaryBusiness(user.id);
+    if (!business?.gbpConnection) {
+      return NextResponse.json({ error: "GBP not connected" }, { status: 400 });
+    }
+
+    const connection = await getValidGbpConnection(user.id, business);
+    if (!connection) {
+      return NextResponse.json({ error: "GBP connection expired" }, { status: 401 });
+    }
+
+    const item = await patchGbpMediaCategory(connection, body.name, body.category);
+    return NextResponse.json({ success: true, item });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Media update failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
