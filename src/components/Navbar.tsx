@@ -5,9 +5,8 @@ import Link from "next/link";
 import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 
 const navLinks = [
-  { label: "Platform", href: "/#platform-explorer" },
-  { label: "Score", href: "/#your-score" },
-  { label: "Money", href: "/#your-money" },
+  { label: "Get Started", href: "/#hero-search" },
+  { label: "How It Works", href: "/#how-it-works" },
   { label: "Pricing", href: "/#pricing" },
 ];
 

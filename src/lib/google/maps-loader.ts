@@ -86,10 +86,19 @@ export function loadGoogleMaps(): Promise<typeof google> {
     return Promise.resolve(window.google);
   }
 
-  return loadGoogleMapsCore().then((google) => {
-    if (!google.maps?.places) {
-      return Promise.reject(new Error("Google Places library failed to load."));
+  return loadGoogleMapsCore().then(async (google) => {
+    if (google.maps?.places) {
+      return google;
     }
-    return google;
+
+    // Places can initialize slightly after the maps callback with loading=async
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await new Promise((resolve) => window.setTimeout(resolve, 100));
+      if (google.maps?.places) {
+        return google;
+      }
+    }
+
+    return Promise.reject(new Error("Google Places library failed to load."));
   });
 }

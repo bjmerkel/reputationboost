@@ -7,7 +7,7 @@ import MapLayerControls, {
   type MapLayerState,
 } from "@/components/platform/MapLayerControls";
 import { getPlaceGeometry } from "@/lib/google/place-geometry";
-import { loadGoogleMaps } from "@/lib/google/maps-loader";
+import { loadGoogleMapsCore } from "@/lib/google/maps-loader";
 import {
   createBusinessPinIcon,
   createCompetitorMarkerIcon,
@@ -133,7 +133,7 @@ export default function RankingMap({
       lastSizeRef.current = { width, height };
 
       try {
-        const google = await loadGoogleMaps();
+        const google = await loadGoogleMapsCore();
         if (cancelled || !mapRef.current) return;
 
         let center: google.maps.LatLngLiteral = { lat, lng };

@@ -2,10 +2,10 @@
 
 import PlatformDemo from "@/components/marketing/PlatformDemo";
 import PlatformLoading from "@/components/marketing/PlatformLoading";
-import PlatformWelcome from "@/components/marketing/PlatformWelcome";
 import { usePreviewAudit } from "@/context/PreviewAuditContext";
 import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 
+/** Only renders after the user searches — no empty shell or fake data. */
 export default function PlatformExplorer() {
   const {
     platformAudit,
@@ -16,6 +16,10 @@ export default function PlatformExplorer() {
     loading,
     preview,
   } = usePreviewAudit();
+
+  if (!loading && !isLive) {
+    return null;
+  }
 
   return (
     <section id="platform-explorer" className="scroll-mt-16 bg-[#e8eaed]">
@@ -52,8 +56,6 @@ export default function PlatformExplorer() {
           </div>
         </>
       )}
-
-      {!loading && !isLive && <PlatformWelcome />}
     </section>
   );
 }

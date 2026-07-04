@@ -29,24 +29,6 @@ const howItWorks = [
   },
 ];
 
-const demoAttribution = [
-  {
-    action: "Updated business description for target keyword",
-    outcome: "Keyword moved #8 → #3",
-    revenue: "+$1,850 estimated revenue",
-  },
-  {
-    action: "Published 12 new service photos",
-    outcome: "Profile strength +6 pts · +340 profile views",
-    revenue: "+$920 estimated revenue",
-  },
-  {
-    action: "Responded to 8 pending reviews",
-    outcome: "Response rate 100% · +3 calls, +7 directions",
-    revenue: "+$640 estimated revenue",
-  },
-];
-
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -56,40 +38,65 @@ function formatCurrency(value: number): string {
 }
 
 export default function ProofNarrative() {
-  const { preview, isLive, platformAudit } = usePreviewAudit();
+  const { preview, isLive } = usePreviewAudit();
 
-  const currentScore = preview?.score.overall ?? 47;
-  const projectedScore = preview?.pathToHealthy.projectedScore ?? 72;
-  const revenueGain =
-    preview?.pathToHealthy.estimatedRevenueGain ?? 4200;
-  const driverScore = preview?.score.driverScore ?? platformAudit.strategy?.scores.driverScore ?? 52;
-  const outcomeScore = preview?.score.outcomeIndex ?? platformAudit.strategy?.scores.outcomeIndex ?? 38;
+  if (!isLive || !preview) {
+    return (
+      <section id="how-it-works" className="scroll-mt-28 border-b border-[#dadce0] bg-[#f8f9fa] py-16 lg:py-20">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <SectionHeader
+            label="How It Works"
+            labelColor="cyan"
+            title={
+              <>
+                From score to <span className="gradient-text font-semibold">revenue</span>
+              </>
+            }
+            subtitle="Search your business above — we'll audit your Google listing and build your plan."
+          />
 
-  const profileGap =
-    preview?.topGap?.title.includes("photo") || preview?.topGap?.title.includes("Photo")
-      ? preview.topGap.title
-      : platformAudit.gbp.content.photoCount < 20
-        ? `Only ${platformAudit.gbp.content.photoCount} photos — top competitors average 60+`
-        : "Strengthen reviews, photos, and posts to win more clicks";
+          <div className="mt-10 grid gap-6 sm:grid-cols-3">
+            {howItWorks.map((item) => (
+              <div
+                key={item.step}
+                className="rounded-xl border border-[#dadce0] bg-white p-6 text-center"
+              >
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#e8f0fe] text-sm font-bold text-[#1a73e8]">
+                  {item.step}
+                </div>
+                <h3 className="mt-4 text-lg font-semibold text-[#202124]">{item.title}</h3>
+                <p className="mt-2 text-sm text-[#5f6368]">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
-  const rankingGap =
-    preview?.keywords.find((k) => !k.inLocalPack)?.keyword != null
-      ? `Outside the Local 3-Pack on "${preview.keywords.find((k) => !k.inLocalPack)?.keyword}"`
-      : "In pack for only part of your service area";
+  const currentScore = preview.score.overall;
+  const projectedScore = preview.pathToHealthy.projectedScore;
+  const revenueGain = preview.pathToHealthy.estimatedRevenueGain ?? 0;
+  const driverScore = preview.score.driverScore;
+  const outcomeScore = preview.score.outcomeIndex;
 
-  const attributionItems =
-    preview?.pathToHealthy.topActions.length
-      ? preview.pathToHealthy.topActions.map((action) => ({
-          action: action.title,
-          outcome: `Projected +${action.scoreImpact} pts on your score`,
-          revenue:
-            revenueGain > 0
-              ? `Part of ${formatCurrency(revenueGain)}/mo path to healthy`
-              : "Revenue tracked after signup",
-        }))
-      : demoAttribution;
+  const profileGap = preview.topGap?.title ?? "Strengthen reviews, photos, and posts to win more clicks";
 
-  const totalAttributed = preview?.pathToHealthy.estimatedRevenueGain ?? 3410;
+  const rankingKw = preview.keywords.find((k) => !k.inLocalPack);
+  const rankingGap = rankingKw
+    ? `Outside the Local 3-Pack on "${rankingKw.keyword}"`
+    : "In pack for your tracked keywords";
+
+  const attributionItems = preview.pathToHealthy.topActions.map((action) => ({
+    action: action.title,
+    outcome: `Projected +${action.scoreImpact} pts on your score`,
+    revenue:
+      revenueGain > 0
+        ? `Part of ${formatCurrency(revenueGain)}/mo path to healthy`
+        : "Revenue tracked after signup",
+  }));
+
+  const totalAttributed = preview.pathToHealthy.estimatedRevenueGain ?? 0;
 
   return (
     <>
@@ -108,11 +115,7 @@ export default function ProofNarrative() {
                 <span className="gradient-text font-semibold">sending you customers</span>
               </>
             }
-            subtitle={
-              isLive
-                ? `${preview!.business.name} scores ${currentScore}/100 — profile strength and ranking outcome in one number. Pan the map above to see where you rank.`
-                : "Search your business above for your live score, or explore how profile strength and rankings blend into one metric."
-            }
+            subtitle={`${preview.business.name} scores ${currentScore}/100 — profile strength and ranking outcome in one number. Pan the map above to see where you rank.`}
           />
 
           <div className="mt-10 flex flex-wrap justify-center gap-3">
@@ -221,18 +224,8 @@ export default function ProofNarrative() {
 
           <div className="mt-8 rounded-2xl border border-[#ceead6] bg-[#e6f4ea] px-6 py-8 text-center">
             <p className="text-2xl font-semibold text-[#202124] sm:text-3xl">
-              {isLive ? (
-                <>
-                  Path to healthy: +{formatCurrency(totalAttributed)}
-                  <span className="text-lg font-normal text-[#5f6368]">/mo estimated</span>
-                </>
-              ) : (
-                <>
-                  Reputation Boost drove an estimated{" "}
-                  <span className="text-[#188038]">{formatCurrency(totalAttributed)}</span> this
-                  month
-                </>
-              )}
+              Path to healthy: +{formatCurrency(totalAttributed)}
+              <span className="text-lg font-normal text-[#5f6368]">/mo estimated</span>
             </p>
             <p className="mt-2 text-sm text-[#5f6368]">
               Based on attributed calls, directions, and profile views × your avg job value
@@ -253,7 +246,6 @@ export default function ProofNarrative() {
         </div>
       </section>
 
-      {/* ── How it works (compact) ── */}
       <section id="how-it-works" className="scroll-mt-28 bg-[#f8f9fa] py-16 lg:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <SectionHeader
@@ -264,7 +256,7 @@ export default function ProofNarrative() {
                 From score to <span className="gradient-text font-semibold">revenue</span>
               </>
             }
-            subtitle="Three steps — search above to start with your business."
+            subtitle="Three steps — your audit above is step one."
           />
 
           <div className="mt-10 grid gap-6 sm:grid-cols-3">
@@ -281,13 +273,6 @@ export default function ProofNarrative() {
               </div>
             ))}
           </div>
-
-          <p className="mt-8 text-center text-sm text-[#80868b]">
-            Your score improves daily through a measure → act → attribute → learn loop.{" "}
-            <a href="#platform-explorer" className="text-[#1a73e8] hover:underline">
-              Try the interactive platform
-            </a>
-          </p>
         </div>
       </section>
     </>
