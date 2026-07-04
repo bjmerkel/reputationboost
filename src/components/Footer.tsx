@@ -4,6 +4,7 @@ import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 const footerLinks = {
   Product: [
     { label: "Reputation Boost Score", href: "/#reputation-score" },
+    { label: "Score Flywheel", href: "/#score-flywheel" },
     { label: "Keyword Intelligence", href: "/#features" },
     { label: "Action Plan", href: "/#action-plan" },
     { label: "Results & Attribution", href: "/#results" },

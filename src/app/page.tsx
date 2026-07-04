@@ -3,6 +3,7 @@ import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import ValueChain from "@/components/ValueChain";
 import ReputationScore from "@/components/ReputationScore";
+import ScoreFlywheel from "@/components/ScoreFlywheel";
 import LocalPack from "@/components/LocalPack";
 import Features from "@/components/Features";
 import ActionPlan from "@/components/ActionPlan";
@@ -39,6 +40,7 @@ export default function Home() {
         <Hero />
         <ValueChain />
         <ReputationScore />
+        <ScoreFlywheel />
         <LocalPack />
         <Features />
         <ActionPlan />

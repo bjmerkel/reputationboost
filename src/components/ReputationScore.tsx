@@ -52,7 +52,7 @@ export default function ReputationScore() {
               <span className="gradient-text">sending you customers</span>
             </>
           }
-          subtitle="Most businesses guess. You'll know — and you'll know exactly what to do next."
+          subtitle="Most businesses guess. You'll know — and your score keeps improving every day through a recursive measure-act-learn loop."
         />
 
         <div className="mt-12 flex flex-wrap justify-center gap-4">

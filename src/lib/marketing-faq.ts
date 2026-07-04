@@ -1,5 +1,10 @@
 export const marketingFaqs = [
   {
+    question: "How does the score keep improving over time?",
+    answer:
+      "Reputation Boost runs a recursive loop: every night we ingest your latest rankings and GBP data, recalculate your Reputation Boost Score, and log what changed. When you complete plan actions, we attribute results in 14-day windows — rank movement, calls, directions, revenue. That observed impact calibrates future projections and reprioritizes your next actions. The loop repeats daily, so your score and plan get sharper over time — not just once at signup.",
+  },
+  {
     question: "What is the Reputation Boost Score?",
     answer:
       "Your Reputation Boost Score is a 0–100 health score for your Google Business Profile. It combines profile strength (reviews, photos, posts, completeness) with ranking outcome (where you actually rank for your keywords). A score of 70+ is healthy; below 40 needs urgent attention.",

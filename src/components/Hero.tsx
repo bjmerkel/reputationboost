@@ -32,8 +32,9 @@ export default function Hero() {
 
           <p className="animate-fade-up animate-delay-200 mt-6 max-w-2xl text-lg leading-relaxed text-[#5f6368]">
             Find your business on Google Maps. We audit your profile, AI-pick your
-            best Local 3-Pack keywords, calculate your Reputation Boost Score, and
-            build a step-by-step plan to increase rankings, calls, and revenue.
+            best keywords, and run a daily loop that measures, improves, and
+            recalculates your Reputation Boost Score — so rankings, calls, and
+            revenue keep climbing.
           </p>
 
           <div className="animate-fade-up animate-delay-300 mt-8 flex flex-col gap-3 sm:flex-row">
