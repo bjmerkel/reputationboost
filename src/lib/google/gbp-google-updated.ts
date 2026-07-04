@@ -11,6 +11,8 @@ const FIELD_LABELS: Record<string, string> = {
   specialHours: "Holiday hours",
 };
 
+export const ATTRIBUTE_SUGGESTION_PREFIX = "attribute:";
+
 function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
   const parts = path.split(".");
   let current: unknown = obj;
@@ -65,6 +67,34 @@ export function diffGoogleUpdatedLocation(
       label: FIELD_LABELS[field] ?? field,
       ownerValue: ownerValue || "(not set)",
       googleValue,
+    });
+  }
+
+  return suggestions;
+}
+
+export interface AttributeSuggestionInput {
+  name: string;
+  label: string;
+  ownerSummary: string;
+  googleSummary: string;
+}
+
+/** Compare owner vs Google-updated attribute snapshots. */
+export function diffGoogleUpdatedAttributes(
+  attributes: AttributeSuggestionInput[]
+): GbpGoogleSuggestion[] {
+  const suggestions: GbpGoogleSuggestion[] = [];
+
+  for (const attribute of attributes) {
+    if (!attribute.googleSummary) continue;
+    if (attribute.ownerSummary === attribute.googleSummary) continue;
+
+    suggestions.push({
+      field: `${ATTRIBUTE_SUGGESTION_PREFIX}${attribute.name}`,
+      label: attribute.label,
+      ownerValue: attribute.ownerSummary || "(not set)",
+      googleValue: attribute.googleSummary,
     });
   }
 

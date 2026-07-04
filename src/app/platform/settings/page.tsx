@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getBusinessRecord, getPrimaryBusiness } from "@/audit/businesses";
 import GbpPerformanceSetup from "@/components/GbpPerformanceSetup";
 import GbpDisconnect from "@/components/GbpDisconnect";
+import GbpLocationSwitcher from "@/components/GbpLocationSwitcher";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import RoiSettings from "@/components/RoiSettings";
 import { fetchPlaceDetails } from "@/lib/google/place-details";
@@ -111,6 +112,10 @@ export default async function SettingsPage() {
 
           {isConnected && business.businessId ? (
             <>
+              <GbpLocationSwitcher
+                businessId={business.businessId}
+                currentLocationId={record?.gbp_location_id ?? business.gbpConnection?.locationId}
+              />
               <GbpPerformanceSetup
                 businessId={business.businessId}
                 reconnectHref={`/api/google/gbp/connect?businessId=${business.businessId}`}

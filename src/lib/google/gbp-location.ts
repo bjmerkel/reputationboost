@@ -1,7 +1,7 @@
 import type { GbpConnection } from "@/audit/types";
 import type { GbpGoogleSuggestion } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
-import { diffGoogleUpdatedLocation } from "./gbp-google-updated";
+import { diffGoogleUpdatedLocation, diffGoogleUpdatedAttributes } from "./gbp-google-updated";
 import type { BusinessHours, SpecialHours } from "./gbp-hours";
 import {
   hasFullWeekCoverage,
@@ -395,6 +395,102 @@ export async function resolveGbpServiceTypeLabels(
   return labels;
 }
 
+export interface GbpServiceTypeRef {
+  serviceTypeId: string;
+  displayName: string;
+}
+
+/** List structured service types available for a primary category. */
+export async function listGbpServiceTypes(
+  connection: GbpConnection,
+  primaryCategoryName: string
+): Promise<GbpServiceTypeRef[]> {
+  const categories = await batchGetCategoriesRaw(connection.accessToken, [primaryCategoryName]);
+  const serviceTypes = categories[0]?.serviceTypes ?? [];
+
+  return serviceTypes
+    .filter((serviceType) => serviceType.serviceTypeId && serviceType.displayName)
+    .map((serviceType) => ({
+      serviceTypeId: serviceType.serviceTypeId!,
+      displayName: serviceType.displayName!,
+    }));
+}
+
+/** Resolve a human-readable service name to Google's structured serviceTypeId. */
+export async function lookupServiceTypeForDisplayName(
+  connection: GbpConnection,
+  primaryCategoryName: string,
+  displayName: string
+): Promise<GbpServiceTypeRef | null> {
+  const needle = displayName.trim().toLowerCase();
+  if (!needle) return null;
+
+  const serviceTypes = await listGbpServiceTypes(connection, primaryCategoryName);
+  const exact = serviceTypes.find((serviceType) => serviceType.displayName.toLowerCase() === needle);
+  if (exact) return exact;
+
+  const partial = serviceTypes.find(
+    (serviceType) =>
+      serviceType.displayName.toLowerCase().includes(needle) ||
+      needle.includes(serviceType.displayName.toLowerCase())
+  );
+  return partial ?? null;
+}
+
+function summarizeAttributeForDiff(
+  attr: GbpLocationAttribute,
+  metadataByKey: Map<string, GbpAttributeMetadata>
+): string {
+  const key = attributeKey(attr.name);
+  const meta = metadataByKey.get(key) ?? metadataByKey.get(attr.name);
+  const label = meta?.displayName ?? humanizeAttributeKey(key);
+
+  if (!isEnabledGbpAttribute(attr)) {
+    return `${label}: disabled`;
+  }
+
+  const formatted = formatGbpAttributeLabel(attr, metadataByKey);
+  return formatted ? `${label}: ${formatted}` : `${label}: enabled`;
+}
+
+function attributeApiToGbpLocationAttribute(attr: AttributeApi): GbpLocationAttribute | null {
+  if (!attr.name) return null;
+  const { details } = parseInlineAttributes([attr]);
+  return details[0] ?? null;
+}
+
+/** Convert a Google attribute payload into an update request. */
+export function attributeApiToUpdate(attr: AttributeApi): GbpAttributeUpdate | null {
+  if (!attr.name) return null;
+
+  if (attr.values?.length === 1 && typeof attr.values[0] === "boolean") {
+    return { name: attr.name, boolValue: attr.values[0] };
+  }
+
+  if (attr.repeatedEnumValue?.setValues?.length) {
+    return { name: attr.name, enumValues: attr.repeatedEnumValue.setValues };
+  }
+
+  if (attr.uriValues?.length) {
+    const uri = attr.uriValues[0]?.uri;
+    if (uri) return { name: attr.name, uri };
+  }
+
+  const parsed = attributeApiToGbpLocationAttribute(attr);
+  if (!parsed) return null;
+
+  if (parsed.valueType?.toUpperCase() === "BOOL" || parsed.valueType?.toUpperCase() === "BOOLEAN") {
+    const enabled = isEnabledGbpAttribute(parsed);
+    return { name: attr.name, boolValue: enabled };
+  }
+
+  if (parsed.values.length > 0) {
+    return { name: attr.name, enumValues: parsed.values };
+  }
+
+  return null;
+}
+
 /** Fill missing category display names and structured service labels. */
 export async function enrichGbpLocationProfile(
   connection: GbpConnection,
@@ -718,6 +814,67 @@ export async function fetchGoogleSuggestions(
   } catch {
     return [];
   }
+}
+
+/** locations.attributes.getGoogleUpdated — attribute-level Google suggestions. */
+export async function fetchGoogleAttributeSuggestions(
+  connection: GbpConnection,
+  profile: GbpLocationProfile
+): Promise<GbpGoogleSuggestion[]> {
+  if (!profile.hasGoogleUpdated && !profile.hasPendingEdits) return [];
+
+  try {
+    const [ownerAttributes, googleRaw, available] = await Promise.all([
+      getLocationAttributes(connection),
+      getGoogleUpdatedAttributes(connection),
+      listAvailableAttributes(connection).catch(() => [] as GbpAttributeMetadata[]),
+    ]);
+
+    const metadataByKey = new Map<string, GbpAttributeMetadata>();
+    for (const meta of available) {
+      metadataByKey.set(attributeKey(meta.name), meta);
+      metadataByKey.set(meta.name, meta);
+    }
+
+    const googleAttributes = (googleRaw.attributes as AttributeApi[] | undefined) ?? [];
+    const ownerByName = new Map(
+      ownerAttributes.map((attr) => [
+        attr.name,
+        summarizeAttributeForDiff(attr, metadataByKey),
+      ])
+    );
+
+    const inputs = googleAttributes
+      .map((attr) => attributeApiToGbpLocationAttribute(attr))
+      .filter((attr): attr is GbpLocationAttribute => Boolean(attr))
+      .map((attr) => {
+        const key = attributeKey(attr.name);
+        const meta = metadataByKey.get(key) ?? metadataByKey.get(attr.name);
+        return {
+          name: attr.name,
+          label: meta?.displayName ?? humanizeAttributeKey(key),
+          ownerSummary: ownerByName.get(attr.name) ?? "(not set)",
+          googleSummary: summarizeAttributeForDiff(attr, metadataByKey),
+        };
+      });
+
+    return diffGoogleUpdatedAttributes(inputs);
+  } catch {
+    return [];
+  }
+}
+
+/** Fetch both profile-level and attribute-level Google suggestions. */
+export async function fetchAllGoogleSuggestions(
+  connection: GbpConnection,
+  profile: GbpLocationProfile
+): Promise<GbpGoogleSuggestion[]> {
+  const [locationSuggestions, attributeSuggestions] = await Promise.all([
+    fetchGoogleSuggestions(connection, profile),
+    fetchGoogleAttributeSuggestions(connection, profile),
+  ]);
+
+  return [...locationSuggestions, ...attributeSuggestions];
 }
 
 /** googleLocations.search — find matching Google locations. */

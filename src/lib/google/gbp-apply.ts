@@ -8,15 +8,19 @@ import {
   mergeSpecialHours,
 } from "./gbp-hours";
 import {
+  attributeApiToUpdate,
   getGbpLocationProfile,
+  getGoogleUpdatedAttributes,
   getGoogleUpdatedLocation,
   getLocationAttributes,
   listAvailableAttributes,
+  lookupServiceTypeForDisplayName,
   resolveCategoryByDisplayName,
   updateLocationAttributes,
   type GbpAttributeUpdate,
   type GbpCategoryRef,
 } from "./gbp-location";
+import { ATTRIBUTE_SUGGESTION_PREFIX } from "./gbp-google-updated";
 import { patchGbpLocationValidated } from "./gbp-patch";
 import type { NapCanonical, NapDriftFieldName } from "./nap-drift";
 import {
@@ -212,6 +216,15 @@ export async function applyPhone(
   };
 }
 
+function buildStructuredServiceItem(serviceTypeId: string, description: string): Record<string, unknown> {
+  return {
+    structuredServiceItem: {
+      serviceTypeId,
+      description: description.slice(0, 300),
+    },
+  };
+}
+
 function buildFreeFormServiceItem(
   categoryName: string,
   name: string,
@@ -263,17 +276,27 @@ export async function applyServiceItem(
   }
 
   const categoryName = current.primaryCategory.name;
+  const structured = await lookupServiceTypeForDisplayName(connection, categoryName, name);
+  const newServiceItem = structured
+    ? buildStructuredServiceItem(structured.serviceTypeId, description)
+    : buildFreeFormServiceItem(categoryName, name, description);
+
   const serviceItems = [
     ...current.serviceItems.map((s) => serviceItemForPatch(s, categoryName)),
-    buildFreeFormServiceItem(categoryName, name, description),
+    newServiceItem,
   ];
 
   await patchGbpLocationValidated(connection, "serviceItems", { serviceItems });
 
   return {
     success: true,
-    message: `Added service "${name}" to your Google Business Profile.`,
-    applied: { serviceName: name },
+    message: structured
+      ? `Added structured service "${structured.displayName}" to your Google Business Profile.`
+      : `Added service "${name}" to your Google Business Profile.`,
+    applied: {
+      serviceName: structured?.displayName ?? name,
+      structured: Boolean(structured),
+    },
   };
 }
 
@@ -442,10 +465,43 @@ export async function applyHolidayHours(
   };
 }
 
+export async function applyGoogleAttributeSuggestion(
+  connection: GbpConnection,
+  attributeName: string
+): Promise<GbpApplyResult> {
+  const googleRaw = await getGoogleUpdatedAttributes(connection);
+  const googleAttributes = (googleRaw.attributes as Array<Record<string, unknown>> | undefined) ?? [];
+  const match = googleAttributes.find((attr) => attr.name === attributeName);
+
+  if (!match) {
+    throw new Error(`No Google suggestion found for attribute ${attributeName}.`);
+  }
+
+  const update = attributeApiToUpdate(match as Parameters<typeof attributeApiToUpdate>[0]);
+  if (!update) {
+    throw new Error(`Could not apply Google suggestion for attribute ${attributeName}.`);
+  }
+
+  await updateLocationAttributes(connection, [update]);
+
+  return {
+    success: true,
+    message: `Accepted Google's suggested attribute update.`,
+    applied: { attributeName },
+  };
+}
+
 export async function applyGoogleSuggestion(
   connection: GbpConnection,
   field: string
 ): Promise<GbpApplyResult> {
+  if (field.startsWith(ATTRIBUTE_SUGGESTION_PREFIX)) {
+    return applyGoogleAttributeSuggestion(
+      connection,
+      field.slice(ATTRIBUTE_SUGGESTION_PREFIX.length)
+    );
+  }
+
   const [profile, googleUpdated] = await Promise.all([
     getGbpLocationProfile(connection),
     getGoogleUpdatedLocation(connection),

@@ -6,7 +6,7 @@ import { isReviewResponded } from "@/lib/google/gbp-reviews";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
 import {
   enrichGbpLocationProfile,
-  fetchGoogleSuggestions,
+  fetchAllGoogleSuggestions,
   getGbpEnabledAttributeLabels,
   getGbpLocationProfile,
 } from "@/lib/google/gbp-location";
@@ -86,7 +86,7 @@ async function collectGbpFromApi(
   }).catch(() => ({ labels: [], details: [] }));
 
   const googleSuggestions = liveProfileResult
-    ? await fetchGoogleSuggestions(connection, liveProfileResult).catch(() => [])
+    ? await fetchAllGoogleSuggestions(connection, liveProfileResult).catch(() => [])
     : [];
 
   const liveProfile = liveProfileResult;
