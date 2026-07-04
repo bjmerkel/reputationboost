@@ -212,7 +212,8 @@ async function collectGbpFromApi(
   };
 }
 
-async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<GbpSnapshot> {
+/** Public GBP snapshot from Places API only — used for preview audits without OAuth. */
+export async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<GbpSnapshot> {
   const place = await fetchPlaceDetails(client.gbpPlaceId!);
   const now = new Date().toISOString();
   const description = place.description;

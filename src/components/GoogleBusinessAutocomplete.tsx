@@ -22,6 +22,8 @@ export interface BusinessPlaceSelection {
 interface GoogleBusinessAutocompleteProps {
   onSelect: (place: BusinessPlaceSelection) => void;
   onClear?: () => void;
+  theme?: "light" | "dark";
+  compact?: boolean;
 }
 
 function component(type: string, components: google.maps.GeocoderAddressComponent[]): string {
@@ -66,6 +68,8 @@ function parsePlace(place: google.maps.places.PlaceResult): BusinessPlaceSelecti
 export default function GoogleBusinessAutocomplete({
   onSelect,
   onClear,
+  theme = "dark",
+  compact = false,
 }: GoogleBusinessAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -132,40 +136,97 @@ export default function GoogleBusinessAutocomplete({
     onClear?.();
   }
 
+  const isLight = theme === "light";
+
   if (!isMapsAutocompleteAvailable()) {
     return (
-      <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-        Add <code className="text-amber-100">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> to Vercel.{" "}
-        {MAPS_SETUP_HELP}
+      <p
+        className={
+          isLight
+            ? "rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            : "rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"
+        }
+      >
+        Add{" "}
+        <code className={isLight ? "text-amber-900" : "text-amber-100"}>
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        </code>{" "}
+        to Vercel. {MAPS_SETUP_HELP}
       </p>
     );
   }
 
   return (
     <div className="space-y-3">
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-300">
-          Find your business on Google Maps
-        </label>
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder="Start typing your business name…"
-          autoComplete="off"
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:outline-none"
-        />
-        <p className="mt-1.5 text-xs text-slate-500">
-          {ready
-            ? "Powered by Google Places — select your listing from the dropdown."
-            : "Loading Google Autocomplete…"}
-        </p>
-      </div>
+      {!compact && (
+        <div>
+          <label
+            className={`mb-1.5 block text-sm font-medium ${
+              isLight ? "text-[#202124]" : "text-slate-300"
+            }`}
+          >
+            Find your business on Google Maps
+          </label>
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Start typing your business name…"
+            autoComplete="off"
+            className={
+              isLight
+                ? "w-full rounded-full border border-[#dadce0] bg-white px-5 py-3.5 text-sm text-[#202124] shadow-sm placeholder:text-[#80868b] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
+                : "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:outline-none"
+            }
+          />
+          <p className={`mt-1.5 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+            {ready
+              ? "Powered by Google Places — select your listing from the dropdown."
+              : "Loading Google Autocomplete…"}
+          </p>
+        </div>
+      )}
+
+      {compact && (
+        <div className="relative">
+          <svg
+            className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#5f6368]"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+            aria-hidden
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+            />
+          </svg>
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Search your business on Google Maps…"
+            autoComplete="off"
+            className="w-full rounded-full border border-[#dadce0] bg-white py-4 pr-5 pl-12 text-base text-[#202124] shadow-sm placeholder:text-[#80868b] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
+          />
+        </div>
+      )}
 
       {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-3 text-sm text-red-300">
+        <div
+          className={
+            isLight
+              ? "rounded-lg border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700"
+              : "rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-3 text-sm text-red-300"
+          }
+        >
           <p>{error}</p>
           {error.includes("not enabled") && (
-            <ol className="mt-2 list-inside list-decimal space-y-1 text-xs text-red-200/90">
+            <ol
+              className={`mt-2 list-inside list-decimal space-y-1 text-xs ${
+                isLight ? "text-red-600" : "text-red-200/90"
+              }`}
+            >
               <li>
                 Open{" "}
                 <a
@@ -191,8 +252,11 @@ export default function GoogleBusinessAutocomplete({
                 → Enable
               </li>
               <li>
-                Ensure <code className="text-red-100">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> in
-                Vercel matches that project (referrer-restricted to your domain)
+                Ensure{" "}
+                <code className={isLight ? "text-red-800" : "text-red-100"}>
+                  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+                </code>{" "}
+                in Vercel matches that project (referrer-restricted to your domain)
               </li>
             </ol>
           )}
@@ -200,19 +264,35 @@ export default function GoogleBusinessAutocomplete({
       )}
 
       {selected && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+        <div
+          className={
+            isLight
+              ? "rounded-xl border border-[#1a73e8]/30 bg-[#e8f0fe] p-4"
+              : "rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4"
+          }
+        >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="font-semibold text-white">{selected.name}</p>
-              <p className="mt-1 text-sm text-slate-400">{selected.formattedAddress}</p>
+              <p className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+                {selected.name}
+              </p>
+              <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                {selected.formattedAddress}
+              </p>
               {selected.industry && (
-                <p className="mt-1 text-xs text-emerald-400/80">{selected.industry}</p>
+                <p
+                  className={`mt-1 text-xs ${isLight ? "text-[#1a73e8]" : "text-emerald-400/80"}`}
+                >
+                  {selected.industry}
+                </p>
               )}
             </div>
             <button
               type="button"
               onClick={handleClear}
-              className="shrink-0 text-xs text-slate-400 hover:text-white"
+              className={`shrink-0 text-xs ${
+                isLight ? "text-[#5f6368] hover:text-[#202124]" : "text-slate-400 hover:text-white"
+              }`}
             >
               Change
             </button>
