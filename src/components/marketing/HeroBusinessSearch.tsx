@@ -5,6 +5,7 @@ import type { PreviewAuditResult } from "@/audit/preview-audit";
 import GoogleBusinessAutocomplete, {
   type BusinessPlaceSelection,
 } from "@/components/GoogleBusinessAutocomplete";
+import { usePreviewAudit } from "@/context/PreviewAuditContext";
 import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 
 function gradeColor(grade: string): string {
@@ -297,6 +298,7 @@ function LoadingDashboard() {
 }
 
 export default function HeroBusinessSearch() {
+  const { setPreviewResult, setLoading: setContextLoading } = usePreviewAudit();
   const [preview, setPreview] = useState<PreviewAuditResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -304,6 +306,7 @@ export default function HeroBusinessSearch() {
 
   const runPreview = useCallback(async (place: BusinessPlaceSelection) => {
     setLoading(true);
+    setContextLoading(true);
     setError(null);
     setPreview(null);
 
@@ -333,12 +336,20 @@ export default function HeroBusinessSearch() {
       }
 
       setPreview(data);
+      setPreviewResult(data);
+
+      document.getElementById("platform-explorer")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Preview audit failed");
+      setPreviewResult(null);
     } finally {
       setLoading(false);
+      setContextLoading(false);
     }
-  }, []);
+  }, [setPreviewResult, setContextLoading]);
 
   const handleSelect = useCallback(
     (place: BusinessPlaceSelection) => {
@@ -352,7 +363,8 @@ export default function HeroBusinessSearch() {
     setSelectedPlace(null);
     setPreview(null);
     setError(null);
-  }, []);
+    setPreviewResult(null);
+  }, [setPreviewResult]);
 
   return (
     <>

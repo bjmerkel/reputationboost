@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
+import MarketingHome from "@/components/marketing/MarketingHome";
+import PlatformExplorer from "@/components/marketing/PlatformExplorer";
 import ValueChain from "@/components/ValueChain";
 import ReputationScore from "@/components/ReputationScore";
 import ScoreFlywheel from "@/components/ScoreFlywheel";
@@ -33,12 +35,14 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="marketing-theme min-h-screen bg-[#f8f9fa]">
-      <FaqJsonLd />
-      <Navbar />
-      <main className="marketing-main">
-        <Hero />
-        <ValueChain />
+    <MarketingHome>
+      <div className="marketing-theme min-h-screen bg-[#f8f9fa]">
+        <FaqJsonLd />
+        <Navbar />
+        <main className="marketing-main">
+          <Hero />
+          <PlatformExplorer />
+          <ValueChain />
         <ReputationScore />
         <ScoreFlywheel />
         <LocalPack />
@@ -52,9 +56,10 @@ export default function Home() {
         <PricingPreview />
         <FAQ />
         <CTA />
-      </main>
-      <Footer />
-      <MobileStickyCTA />
-    </div>
+        </main>
+        <Footer />
+        <MobileStickyCTA />
+      </div>
+    </MarketingHome>
   );
 }

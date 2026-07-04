@@ -45,6 +45,8 @@ interface RankingMapProps {
   keywordRank?: KeywordRankSnapshot;
   competitors?: CompetitorProfile[];
   activeKeyword?: string;
+  /** Skip authenticated /api/places/grid fetches (marketing preview). */
+  disableGridFetch?: boolean;
 }
 
 export default function RankingMap({
@@ -55,6 +57,7 @@ export default function RankingMap({
   keywordRank,
   competitors = [],
   activeKeyword,
+  disableGridFetch = false,
 }: RankingMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -79,7 +82,7 @@ export default function RankingMap({
   }, [keywordRank?.geoGrid, keywordRank?.keyword]);
 
   useEffect(() => {
-    if (!layers.showHeatmap || !activeKeyword || !ready) return;
+    if (!layers.showHeatmap || !activeKeyword || !ready || disableGridFetch) return;
     if (gridPoints?.length) return;
 
     let cancelled = false;
@@ -105,7 +108,7 @@ export default function RankingMap({
     return () => {
       cancelled = true;
     };
-  }, [layers.showHeatmap, activeKeyword, ready, gridPoints?.length]);
+  }, [layers.showHeatmap, activeKeyword, ready, gridPoints?.length, disableGridFetch]);
 
   useEffect(() => {
     let cancelled = false;

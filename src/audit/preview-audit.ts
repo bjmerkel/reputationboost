@@ -1,23 +1,25 @@
 import type {
   ClientConfig,
   CompetitorSnapshot,
+  FullAuditPayload,
   KeywordRankSnapshot,
   OffGoogleSnapshot,
   Phase1AuditPayload,
   ReviewSnapshot,
 } from "./types";
 import { collectGbpFromPlaceDetails } from "./collectors/gbp";
+import { ensureStrategy } from "./ensure-strategy";
 import { computeHealthScores } from "./phase2/scoring";
 import { detectGaps } from "./phase2/gaps";
 import { suggestKeywords } from "@/lib/llm/keywords";
 import {
   extractCompetitors,
-  findBusinessRank,
   isOwnBusiness,
+  searchKeywordAtAllRadii,
   type BusinessMatchOptions,
 } from "@/lib/google/local-rankings";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
-import { milesToMeters, searchPlaces } from "@/lib/google/places";
+import { collectKeywordGeoGrid } from "@/lib/google/geo-grid";
 import { primaryCategoryFromTypes } from "@/lib/google/place-details";
 
 const PREVIEW_KEYWORD_COUNT = 3;
@@ -73,6 +75,12 @@ export interface PreviewAuditResult {
     estimatedRevenueGain: number | null;
     topActions: Array<{ title: string; scoreImpact: number }>;
   };
+  location: {
+    lat: number;
+    lng: number;
+    address: string;
+  };
+  platformAudit: FullAuditPayload;
 }
 
 function emptyReviewsSnapshot(): ReviewSnapshot {
@@ -140,32 +148,47 @@ async function collectPreviewRankings(
   const keywordSnapshots: KeywordRankSnapshot[] = [];
   const competitorSnapshots: CompetitorSnapshot[] = [];
 
-  for (const keyword of keywords) {
-    const results = await searchPlaces(keyword, location, milesToMeters(1), "nearby");
-    const rank = findBusinessRank(results, matchOptions);
-    const inLocalPack = rank !== null && rank <= 3;
-    const localPackPosition = inLocalPack ? (rank as 1 | 2 | 3) : "not_in_pack";
-    const leader = results[0];
-    const ownPlace = results.find((place) => isOwnBusiness(place, matchOptions));
+  for (let index = 0; index < keywords.length; index++) {
+    const keyword = keywords[index];
+    const { ranksByRadius, resultsByRadius } = await searchKeywordAtAllRadii(
+      keyword,
+      location,
+      matchOptions,
+      "nearby"
+    );
+
+    const rankAt1Mi = ranksByRadius[1];
+    const inLocalPack = rankAt1Mi !== null && rankAt1Mi <= 3;
+    const localPackPosition = inLocalPack ? (rankAt1Mi as 1 | 2 | 3) : "not_in_pack";
+    const resultsAt1Mi = resultsByRadius[1];
+    const leader = resultsAt1Mi[0];
+    const ownPlace = resultsAt1Mi.find((place) => isOwnBusiness(place, matchOptions));
+
+    const geoGrid =
+      index === 0
+        ? await collectKeywordGeoGrid(keyword, location, matchOptions).catch(() => undefined)
+        : undefined;
 
     keywordSnapshots.push({
       keyword,
       localPackPosition,
       inLocalPack,
-      geoRanks: [
-        {
-          distanceMiles: 1,
+      geoRanks: [1, 3, 5, 10].map((distanceMiles) => {
+        const rank = ranksByRadius[distanceMiles as 1 | 3 | 5 | 10];
+        return {
+          distanceMiles: distanceMiles as 1 | 3 | 5 | 10,
           rank,
-          inLocalPack,
-        },
-      ],
+          inLocalPack: rank !== null && rank <= 3,
+        };
+      }),
       packLeaderRating: leader?.rating ?? 0,
       packLeaderReviewCount: leader?.reviewCount ?? 0,
       clientRating: ownPlace?.rating ?? 0,
       clientReviewCount: ownPlace?.reviewCount ?? 0,
+      geoGrid,
     });
 
-    const competitorPlaces = extractCompetitors(results, matchOptions, 5);
+    const competitorPlaces = extractCompetitors(resultsAt1Mi, matchOptions, 5);
     competitorSnapshots.push({
       collectedAt: now,
       keyword,
@@ -317,6 +340,11 @@ export async function runPreviewAudit(input: PreviewAuditInput): Promise<Preview
       }
     : null;
 
+  const platformAudit = ensureStrategy({ ...audit } as FullAuditPayload);
+  const fullAddress =
+    gbp.identity.address ||
+    [input.address, input.city, input.state, input.zip].filter(Boolean).join(", ");
+
   return {
     business: {
       name: gbp.identity.name || input.name,
@@ -346,5 +374,11 @@ export async function runPreviewAudit(input: PreviewAuditInput): Promise<Preview
       estimatedRevenueGain,
       topActions,
     },
+    location: {
+      lat: input.lat,
+      lng: input.lng,
+      address: fullAddress,
+    },
+    platformAudit,
   };
 }
