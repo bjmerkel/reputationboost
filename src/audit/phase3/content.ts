@@ -81,6 +81,13 @@ export function mapActionToExecutionType(actionId: string): ExecutionType | null
   if (actionId === "low-photos") return "gbp_photo";
   if (actionId === "missing-video") return "gbp_video";
   if (actionId.startsWith("missing-media-")) return "gbp_photo";
+  if (
+    actionId === "low-media-engagement" ||
+    actionId === "customer-photos-dominate"
+  ) {
+    return "gbp_photo";
+  }
+  if (actionId === "zero-view-owner-photos") return "gbp_media_delete";
   if (actionId === "miscategorized-media" || actionId === "stale-media") {
     return "gbp_media_recategorize";
   }

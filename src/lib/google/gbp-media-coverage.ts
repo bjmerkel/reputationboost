@@ -15,6 +15,11 @@ export interface GbpMediaCoverage {
   missingCategories: string[];
   coverageScore: number;
   totalViews: number;
+  ownerTotalViews: number;
+  ownerAvgViews: number;
+  ownerZeroViewCount: number;
+  customerPhotoShare: number;
+  engagementScore: number;
   daysSinceLastUpload: number | null;
 }
 
@@ -94,6 +99,27 @@ export function analyzeGbpMediaCoverage(
   );
 
   const totalViews = items.reduce((sum, item) => sum + Number(item.viewCount || 0), 0);
+  const ownerTotalViews = ownerPhotos.reduce(
+    (sum, item) => sum + Number(item.viewCount || 0),
+    0
+  );
+  const ownerZeroViewCount = ownerPhotos.filter(
+    (item) => Number(item.viewCount || 0) === 0
+  ).length;
+  const ownerAvgViews =
+    ownerPhotos.length > 0 ? Math.round((ownerTotalViews / ownerPhotos.length) * 10) / 10 : 0;
+  const customerPhotoShare =
+    photos.length > 0 ? Math.round((customerPhotos.length / photos.length) * 100) : 0;
+
+  const avgViewScore = Math.min(100, (ownerAvgViews / 15) * 100);
+  const zeroViewRatio =
+    ownerPhotos.length > 0 ? ownerZeroViewCount / ownerPhotos.length : 0;
+  const zeroViewScore = Math.max(0, 100 - zeroViewRatio * 100);
+  const ownerShareScore =
+    customerPhotoShare <= 40 ? 100 : customerPhotoShare <= 60 ? 70 : 40;
+  const engagementScore = Math.round(
+    avgViewScore * 0.6 + zeroViewScore * 0.25 + ownerShareScore * 0.15
+  );
 
   return {
     totalCount: options?.totalCount ?? items.length,
@@ -110,6 +136,11 @@ export function analyzeGbpMediaCoverage(
     missingCategories: missingCategories.map(String),
     coverageScore,
     totalViews,
+    ownerTotalViews,
+    ownerAvgViews,
+    ownerZeroViewCount,
+    customerPhotoShare,
+    engagementScore,
     daysSinceLastUpload: recencyDays,
   };
 }

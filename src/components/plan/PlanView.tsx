@@ -126,6 +126,7 @@ export default function PlanView({
             gbpConnected={gbpConnected}
             actions={actions}
             attributionByTaskId={attributionByTaskId}
+            mediaCoverage={audit.gbp.content.mediaCoverage}
             defaultExpandedStep={defaultExpandedStep}
             variant={variant}
           />

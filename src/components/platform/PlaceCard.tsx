@@ -7,6 +7,10 @@ import ExternalImage from "@/components/ExternalImage";
 import ActionMetricsBar from "@/components/platform/ActionMetricsBar";
 import PlaceCardDetails from "@/components/platform/PlaceCardDetails";
 import PlaceCardTabNav from "@/components/platform/PlaceCardTabNav";
+import {
+  formatCustomerAttribution,
+  selectPreferredHeroPreview,
+} from "@/lib/google/gbp-media-display";
 
 interface PlaceCardProps {
   audit: FullAuditPayload;
@@ -30,7 +34,8 @@ export default function PlaceCard({
   children,
 }: PlaceCardProps) {
   const { gbp } = audit;
-  const heroPhoto = gbp.content.mediaPreviews?.[0]?.thumbnailUrl;
+  const heroPreview = selectPreferredHeroPreview(gbp.content.mediaPreviews);
+  const heroPhoto = heroPreview?.thumbnailUrl;
   const rating = gbp.engagement.averageRating;
   const reviewCount = gbp.engagement.reviewCount;
   const category = resolveDisplayCategory(audit, industry);
@@ -44,6 +49,11 @@ export default function PlaceCard({
             alt=""
             className="h-full w-full object-cover"
           />
+          {heroPreview?.isCustomerPhoto && (
+            <span className="absolute left-2 top-2 rounded bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white">
+              {formatCustomerAttribution(heroPreview.attributionName)} photo
+            </span>
+          )}
         </div>
       )}
 

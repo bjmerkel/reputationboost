@@ -77,6 +77,7 @@ export interface GbpMediaPreview {
   name?: string;
   viewCount?: number;
   isCustomerPhoto?: boolean;
+  attributionName?: string;
 }
 
 export interface GbpMediaInventoryItem {
@@ -87,6 +88,7 @@ export interface GbpMediaInventoryItem {
   googleUrl: string;
   viewCount: number;
   isCustomerPhoto: boolean;
+  attributionName?: string;
   createTime: string;
 }
 
@@ -105,6 +107,11 @@ export interface GbpMediaCoverage {
   missingCategories: string[];
   coverageScore: number;
   totalViews: number;
+  ownerTotalViews: number;
+  ownerAvgViews: number;
+  ownerZeroViewCount: number;
+  customerPhotoShare: number;
+  engagementScore: number;
   daysSinceLastUpload: number | null;
 }
 

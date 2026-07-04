@@ -237,6 +237,57 @@ export function detectGaps(
         )
       );
     }
+
+    if (
+      mediaCoverage.ownerPhotoCount >= 10 &&
+      mediaCoverage.engagementScore < 40
+    ) {
+      gaps.push(
+        gap(
+          "low-media-engagement",
+          "P2",
+          "gbp_profile",
+          "Low photo engagement",
+          `Your owner photos average ${mediaCoverage.ownerAvgViews} views each (${mediaCoverage.ownerTotalViews.toLocaleString()} total). Upload higher-quality, categorized photos that showcase your work.`,
+          4,
+          2
+        )
+      );
+    }
+
+    if (
+      mediaCoverage.customerPhotoShare >= 55 &&
+      mediaCoverage.ownerPhotoCount < 15
+    ) {
+      gaps.push(
+        gap(
+          "customer-photos-dominate",
+          "P2",
+          "gbp_profile",
+          "Customer photos outnumber yours",
+          `${mediaCoverage.customerPhotoCount} customer photos vs ${mediaCoverage.ownerPhotoCount} owner photos. Add branded project and team photos so you control the first impression.`,
+          4,
+          2
+        )
+      );
+    }
+
+    if (
+      mediaCoverage.ownerZeroViewCount >= 5 &&
+      mediaCoverage.ownerPhotoCount >= 10
+    ) {
+      gaps.push(
+        gap(
+          "zero-view-owner-photos",
+          "P3",
+          "gbp_profile",
+          "Many photos get zero views",
+          `${mediaCoverage.ownerZeroViewCount} owner photos have never been viewed. Replace low performers with fresh, categorized media.`,
+          3,
+          2
+        )
+      );
+    }
   }
 
   if (!audit.gbp.completeness.hasHolidayHours) {

@@ -48,6 +48,27 @@ describe("analyzeGbpMediaCoverage", () => {
 
     assert.equal(coverage.customerPhotoCount, 1);
     assert.equal(coverage.ownerPhotoCount, 1);
+    assert.equal(coverage.customerPhotoShare, 50);
+  });
+
+  it("computes engagement metrics from owner photo views", () => {
+    const coverage = analyzeGbpMediaCoverage([
+      mediaItem({ category: "EXTERIOR", viewCount: "30" }),
+      mediaItem({ category: "INTERIOR", viewCount: "10" }),
+      mediaItem({ category: "AT_WORK", viewCount: "0" }),
+      mediaItem({ category: "TEAMS", viewCount: "0" }),
+      mediaItem({
+        category: "ADDITIONAL",
+        viewCount: "100",
+        attribution: { profileName: "Customer" },
+      }),
+    ]);
+
+    assert.equal(coverage.ownerTotalViews, 40);
+    assert.equal(coverage.ownerAvgViews, 10);
+    assert.equal(coverage.ownerZeroViewCount, 2);
+    assert.equal(coverage.customerPhotoShare, 20);
+    assert.ok(coverage.engagementScore > 0 && coverage.engagementScore < 100);
   });
 });
 

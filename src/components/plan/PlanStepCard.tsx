@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PlanStep } from "@/audit/types";
+import type { PlanStep, GbpMediaCoverage } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import PlanStepDiff from "./PlanStepDiff";
@@ -23,6 +23,7 @@ export default function PlanStepCard({
   gbpConnected,
   actions,
   attributionByTaskId,
+  mediaCoverage,
   defaultExpanded = false,
   variant = "light",
 }: {
@@ -31,6 +32,7 @@ export default function PlanStepCard({
   gbpConnected: boolean;
   actions: PlanTaskActions;
   attributionByTaskId: Record<string, ActionAttribution>;
+  mediaCoverage?: GbpMediaCoverage;
   defaultExpanded?: boolean;
   variant?: "light" | "dark";
 }) {
@@ -143,6 +145,7 @@ export default function PlanStepCard({
               tasks={step.tasks}
               gbpConnected={gbpConnected}
               actions={actions}
+              mediaCoverage={mediaCoverage}
               variant={variant}
             />
           )}

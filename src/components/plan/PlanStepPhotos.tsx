@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ExecutionTask } from "@/audit/types";
+import type { ExecutionTask, GbpMediaCoverage } from "@/audit/types";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 
 function getImagePrompt(task: ExecutionTask): string | null {
@@ -17,11 +17,13 @@ export default function PlanStepPhotos({
   tasks,
   gbpConnected,
   actions,
+  mediaCoverage,
   variant = "light",
 }: {
   tasks: ExecutionTask[];
   gbpConnected: boolean;
   actions: PlanTaskActions;
+  mediaCoverage?: GbpMediaCoverage;
   variant?: "light" | "dark";
 }) {
   const isLight = variant === "light";
@@ -116,6 +118,25 @@ export default function PlanStepPhotos({
 
   return (
     <div className="mt-4 space-y-4">
+      {mediaCoverage && (
+        <div
+          className={`rounded-lg border px-3 py-2 text-xs ${
+            isLight ? "border-[#dadce0] bg-[#f8f9fa] text-[#5f6368]" : "border-white/8 bg-white/[0.02] text-slate-400"
+          }`}
+        >
+          <span className={isLight ? "font-medium text-[#202124]" : "font-medium text-slate-200"}>
+            Current media health:
+          </span>{" "}
+          {mediaCoverage.ownerPhotoCount} owner · {mediaCoverage.customerPhotoCount} customer
+          {mediaCoverage.customerPhotoShare > 0 ? ` (${mediaCoverage.customerPhotoShare}% customer)` : ""}
+          {" · "}
+          {mediaCoverage.totalViews.toLocaleString()} total views
+          {mediaCoverage.ownerAvgViews > 0 ? ` · ${mediaCoverage.ownerAvgViews} avg owner views` : ""}
+          {" · "}
+          engagement {mediaCoverage.engagementScore}%
+        </div>
+      )}
+
       {(generating || genProgress) && (
         <p className={`text-sm ${isLight ? "text-[#9334e6]" : "text-violet-300"}`}>
           {genProgress || "Creating AI photos…"}

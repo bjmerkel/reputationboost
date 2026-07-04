@@ -1,9 +1,13 @@
 "use client";
 
-import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
+import type { ExecutionTask, FullAuditPayload, GbpMediaPreview } from "@/audit/types";
 import { resolveDisplayCategory } from "@/lib/business/display-category";
 import ExternalImage from "@/components/ExternalImage";
 import { getOptimizedPreview } from "@/lib/execution/listing-preview";
+import {
+  formatCustomerAttribution,
+  selectPreferredHeroPreview,
+} from "@/lib/google/gbp-media-display";
 
 interface ViewAsCustomerModalProps {
   audit: FullAuditPayload;
@@ -24,7 +28,9 @@ export default function ViewAsCustomerModal({
 
   const { gbp } = audit;
   const preview = getOptimizedPreview(audit, tasks);
-  const heroPhoto = gbp.content.mediaPreviews?.[0]?.thumbnailUrl;
+  const heroPreview = selectPreferredHeroPreview(gbp.content.mediaPreviews);
+  const heroPhoto = heroPreview?.thumbnailUrl;
+  const mediaPreviews = gbp.content.mediaPreviews ?? [];
   const rating = gbp.engagement.averageRating;
   const reviewCount = gbp.engagement.reviewCount;
   const category = resolveDisplayCategory(audit, industry);
@@ -60,6 +66,8 @@ export default function ViewAsCustomerModal({
             label="Live on Google Maps"
             gbp={gbp}
             heroPhoto={heroPhoto}
+            heroPreview={heroPreview}
+            mediaPreviews={mediaPreviews}
             rating={rating}
             reviewCount={reviewCount}
             category={category}
@@ -83,6 +91,8 @@ export default function ViewAsCustomerModal({
             label={hasOptimizations ? "Optimized preview" : "Same as today"}
             gbp={gbp}
             heroPhoto={heroPhoto}
+            heroPreview={heroPreview}
+            mediaPreviews={mediaPreviews}
             rating={rating}
             reviewCount={reviewCount}
             category={category}
@@ -100,6 +110,8 @@ function CustomerPlaceCard({
   label,
   gbp,
   heroPhoto,
+  heroPreview,
+  mediaPreviews = [],
   rating,
   reviewCount,
   category,
@@ -110,6 +122,8 @@ function CustomerPlaceCard({
   label: string;
   gbp: FullAuditPayload["gbp"];
   heroPhoto?: string;
+  heroPreview?: GbpMediaPreview;
+  mediaPreviews?: GbpMediaPreview[];
   rating: number;
   reviewCount: number;
   category?: string;
@@ -117,11 +131,18 @@ function CustomerPlaceCard({
   recentPost?: string;
   optimized?: boolean;
 }) {
+  const photoStrip = mediaPreviews.filter((item) => item.mediaFormat === "PHOTO").slice(0, 6);
+
   return (
     <div className="flex-1 overflow-y-auto">
       {heroPhoto && (
-        <div className="h-32 overflow-hidden bg-[#e8eaed]">
+        <div className="relative h-32 overflow-hidden bg-[#e8eaed]">
           <ExternalImage src={heroPhoto} alt="" className="h-full w-full object-cover" />
+          {heroPreview?.isCustomerPhoto && (
+            <span className="absolute left-2 top-2 rounded bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white">
+              {formatCustomerAttribution(heroPreview.attributionName)} photo
+            </span>
+          )}
         </div>
       )}
       <div className="p-4">
@@ -173,6 +194,31 @@ function CustomerPlaceCard({
             <p className={`mt-1 text-sm ${optimized ? "text-[#137333]" : "text-[#3c4043]"}`}>
               {recentPost}
             </p>
+          </div>
+        )}
+
+        {photoStrip.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs font-medium text-[#5f6368]">Photos on profile</p>
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              {photoStrip.map((item, index) => (
+                <div
+                  key={`${item.googleUrl}-${index}`}
+                  className="relative aspect-square overflow-hidden rounded-md bg-[#e8eaed]"
+                >
+                  <ExternalImage
+                    src={item.thumbnailUrl}
+                    alt={item.description || "Profile photo"}
+                    className="h-full w-full object-cover"
+                  />
+                  {item.isCustomerPhoto && (
+                    <span className="absolute bottom-0 left-0 right-0 truncate bg-black/65 px-1 py-0.5 text-[9px] text-white">
+                      {formatCustomerAttribution(item.attributionName)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

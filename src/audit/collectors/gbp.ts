@@ -47,6 +47,7 @@ function mediaPreviewsFromEnrichment(
       name: item.name,
       viewCount: Number(item.viewCount || 0),
       isCustomerPhoto: Boolean(item.attribution?.profileName),
+      attributionName: item.attribution?.profileName || undefined,
     }));
 }
 
@@ -71,6 +72,7 @@ function mediaInventoryFromEnrichment(
     googleUrl: item.googleUrl || item.thumbnailUrl,
     viewCount: Number(item.viewCount || 0),
     isCustomerPhoto: Boolean(item.attribution?.profileName),
+    attributionName: item.attribution?.profileName || undefined,
     createTime: item.createTime,
   }));
 }

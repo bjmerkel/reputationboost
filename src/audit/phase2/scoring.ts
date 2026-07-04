@@ -239,7 +239,8 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
   const completeness = gbp.completeness.completenessScore;
   const photoCountScore = clamp((gbp.content.photoCount / 60) * 100);
   const coverageScore = gbp.content.mediaCoverage?.coverageScore ?? photoCountScore;
-  const photoScore = clamp(photoCountScore * 0.6 + coverageScore * 0.4);
+  const engagementScore = gbp.content.mediaCoverage?.engagementScore ?? 50;
+  const photoScore = clamp(photoCountScore * 0.5 + coverageScore * 0.35 + engagementScore * 0.15);
   const videoScore = clamp((gbp.content.videoCount / 2) * 100);
 
   const daysSincePost = daysSince(gbp.content.lastPostDate);

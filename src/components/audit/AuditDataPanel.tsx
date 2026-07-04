@@ -5,6 +5,7 @@ import type { FullAuditPayload, GbpMediaCoverage, GbpMediaPreview, ReviewRecord 
 import ExternalImage from "@/components/ExternalImage";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import TrendsPanel from "@/components/attribution/TrendsPanel";
+import { formatCustomerAttribution } from "@/lib/google/gbp-media-display";
 
 type DataTab = "profile" | "rankings" | "competitors" | "reviews" | "citations" | "trends";
 
@@ -78,6 +79,7 @@ export default function AuditDataPanel({
             name: item.name,
             viewCount: Number(item.insights?.viewCount ?? item.viewCount ?? 0),
             isCustomerPhoto: Boolean(item.attribution?.profileName),
+            attributionName: item.attribution?.profileName || undefined,
           }));
 
         if (!cancelled && previews.length > 0) {
@@ -613,9 +615,18 @@ function MediaGallery({
               <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-300">
                 Coverage {coverage.coverageScore}%
               </span>
+              <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-300">
+                Engagement {coverage.engagementScore}%
+              </span>
               <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-400">
                 {coverage.ownerPhotoCount} owner · {coverage.customerPhotoCount} customer
+                {coverage.customerPhotoShare > 0 ? ` (${coverage.customerPhotoShare}% customer)` : ""}
               </span>
+              {coverage.ownerAvgViews > 0 && (
+                <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-400">
+                  {coverage.ownerAvgViews} avg owner views
+                </span>
+              )}
               {coverage.totalViews > 0 && (
                 <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-400">
                   {coverage.totalViews.toLocaleString()} views
@@ -661,8 +672,16 @@ function MediaGallery({
                 </span>
               )}
               {item.isCustomerPhoto && (
-                <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                  Customer
+                <span
+                  className="absolute left-1 top-1 max-w-[90%] truncate rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white"
+                  title={item.attributionName ? `Uploaded by ${item.attributionName}` : "Customer photo"}
+                >
+                  {formatCustomerAttribution(item.attributionName)}
+                </span>
+              )}
+              {typeof item.viewCount === "number" && item.viewCount > 0 && (
+                <span className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                  {item.viewCount.toLocaleString()} views
                 </span>
               )}
               {item.category && (

@@ -572,6 +572,9 @@ export const SUPPLEMENTARY_GAP_IDS = new Set([
   "missing-video",
   "stale-media",
   "miscategorized-media",
+  "low-media-engagement",
+  "customer-photos-dominate",
+  "zero-view-owner-photos",
   "google-pending-edits",
   "google-suggested-edits",
   "nap-drift-title",
@@ -594,7 +597,9 @@ export function tasksFromMediaMaintenance(audit: FullAuditPayload): ExecutionTas
     createTime: item.createTime,
     description: "",
     viewCount: String(item.viewCount),
-    attribution: item.isCustomerPhoto ? { profileName: "customer" } : undefined,
+    attribution: item.isCustomerPhoto
+      ? { profileName: item.attributionName ?? "customer" }
+      : undefined,
   }));
 
   const actions = buildMediaMaintenanceActions(items, coverage);
