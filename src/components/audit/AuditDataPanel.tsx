@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { FullAuditPayload, GbpMediaPreview, ReviewRecord } from "@/audit/types";
+import type { FullAuditPayload, GbpMediaCoverage, GbpMediaPreview, ReviewRecord } from "@/audit/types";
 import ExternalImage from "@/components/ExternalImage";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import TrendsPanel from "@/components/attribution/TrendsPanel";
@@ -53,11 +53,15 @@ export default function AuditDataPanel({
         const res = await fetch("/api/google/gbp/media");
         const data = (await res.json()) as {
           items?: Array<{
+            name?: string;
             thumbnailUrl?: string;
             googleUrl?: string;
             mediaFormat?: string;
             category?: string | null;
             description?: string;
+            viewCount?: string;
+            insights?: { viewCount?: string };
+            attribution?: { profileName?: string };
           }>;
         };
         if (!res.ok || cancelled) return;
@@ -71,6 +75,9 @@ export default function AuditDataPanel({
             mediaFormat: item.mediaFormat === "VIDEO" ? "VIDEO" : "PHOTO",
             category: item.category ?? null,
             description: item.description || undefined,
+            name: item.name,
+            viewCount: Number(item.insights?.viewCount ?? item.viewCount ?? 0),
+            isCustomerPhoto: Boolean(item.attribution?.profileName),
           }));
 
         if (!cancelled && previews.length > 0) {
@@ -203,6 +210,7 @@ export default function AuditDataPanel({
               videoCount={audit.gbp.content.videoCount ?? 0}
               photosByType={audit.gbp.content.photosByType}
               previews={mediaPreviews}
+              coverage={audit.gbp.content.mediaCoverage}
             />
           )}
         </div>
@@ -573,15 +581,23 @@ function MediaGallery({
   videoCount,
   photosByType,
   previews,
+  coverage,
 }: {
   photoCount: number;
   videoCount: number;
   photosByType: Record<string, number>;
   previews: GbpMediaPreview[];
+  coverage?: GbpMediaCoverage;
 }) {
   const typeSummary = Object.entries(photosByType)
     .map(([type, count]) => `${type.replace(/_/g, " ").toLowerCase()}: ${count}`)
     .join(" · ");
+
+  const missingSummary = coverage?.missingCategories.length
+    ? coverage.missingCategories
+        .map((category) => category.replace(/_/g, " ").toLowerCase())
+        .join(", ")
+    : null;
 
   return (
     <div className="md:col-span-2 rounded-xl border border-white/8 bg-white/[0.02] p-4">
@@ -592,6 +608,31 @@ function MediaGallery({
             {photoCount} photos · {videoCount} videos
             {typeSummary ? ` · ${typeSummary}` : ""}
           </p>
+          {coverage && (
+            <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+              <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-300">
+                Coverage {coverage.coverageScore}%
+              </span>
+              <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-400">
+                {coverage.ownerPhotoCount} owner · {coverage.customerPhotoCount} customer
+              </span>
+              {coverage.totalViews > 0 && (
+                <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-400">
+                  {coverage.totalViews.toLocaleString()} views
+                </span>
+              )}
+              {coverage.daysSinceLastUpload !== null && (
+                <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-400">
+                  Last upload {coverage.daysSinceLastUpload}d ago
+                </span>
+              )}
+            </div>
+          )}
+          {missingSummary && (
+            <p className="mt-2 text-xs text-amber-300/90">
+              Missing categories: {missingSummary}
+            </p>
+          )}
         </div>
         {previews.length > 0 && (
           <p className="text-xs text-slate-500">Showing {previews.length} previews</p>
@@ -617,6 +658,16 @@ function MediaGallery({
               {item.mediaFormat === "VIDEO" && (
                 <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
                   Video
+                </span>
+              )}
+              {item.isCustomerPhoto && (
+                <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                  Customer
+                </span>
+              )}
+              {item.category && (
+                <span className="absolute bottom-1 left-1 max-w-[90%] truncate rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                  {item.category.replace(/_/g, " ").toLowerCase()}
                 </span>
               )}
             </a>

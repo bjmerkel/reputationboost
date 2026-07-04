@@ -5,6 +5,8 @@ const TASK_LABELS: Partial<Record<ExecutionType, string>> = {
   gbp_description: "Description updated",
   gbp_photo: "Photo uploaded",
   gbp_video: "Video uploaded",
+  gbp_media_recategorize: "Photo recategorized",
+  gbp_media_delete: "Photo removed",
   review_response: "Review reply posted",
   gbp_services: "Services updated",
   gbp_primary_category: "Category updated",

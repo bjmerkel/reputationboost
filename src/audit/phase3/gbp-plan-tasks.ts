@@ -8,6 +8,8 @@ import type {
 import type { AuditGeneratedContent } from "@/lib/llm/content";
 import { buildTemplatePhotoJobs, photoJobDraftContent } from "@/lib/llm/gbp-photos";
 import type { GbpMediaCategory } from "@/lib/google/gbp-media";
+import { buildMediaMaintenanceActions } from "@/lib/google/gbp-media-maintenance";
+import { mediaCategoryLabel } from "@/lib/google/gbp-media-coverage";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
@@ -42,6 +44,8 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_services",
     "gbp_photo",
     "gbp_video",
+    "gbp_media_recategorize",
+    "gbp_media_delete",
     "gbp_attributes",
     "gbp_website",
     "gbp_phone",
@@ -567,6 +571,7 @@ export const SUPPLEMENTARY_GAP_IDS = new Set([
   "low-photos",
   "missing-video",
   "stale-media",
+  "miscategorized-media",
   "google-pending-edits",
   "google-suggested-edits",
   "nap-drift-title",
@@ -574,6 +579,66 @@ export const SUPPLEMENTARY_GAP_IDS = new Set([
   "nap-drift-website",
   "nap-drift-address",
 ]);
+
+export function tasksFromMediaMaintenance(audit: FullAuditPayload): ExecutionTask[] {
+  const inventory = audit.gbp.content.mediaInventory ?? [];
+  const coverage = audit.gbp.content.mediaCoverage;
+  if (inventory.length === 0 || !coverage) return [];
+
+  const items = inventory.map((item) => ({
+    name: item.name,
+    mediaFormat: item.mediaFormat,
+    category: (item.category as GbpMediaCategory | null) ?? null,
+    googleUrl: item.googleUrl,
+    thumbnailUrl: item.thumbnailUrl,
+    createTime: item.createTime,
+    description: "",
+    viewCount: String(item.viewCount),
+    attribution: item.isCustomerPhoto ? { profileName: "customer" } : undefined,
+  }));
+
+  const actions = buildMediaMaintenanceActions(items, coverage);
+  if (actions.length === 0) return [];
+
+  const step: GbpPlanStep = {
+    stepNumber: 0,
+    title: "Media maintenance",
+    instruction: "Improve photo category coverage on your Google Business Profile.",
+    gbpAction: "upload_photo",
+  };
+
+  return actions.map((action, index) => {
+    const type = action.type === "recategorize" ? "gbp_media_recategorize" : "gbp_media_delete";
+    const title =
+      action.type === "recategorize"
+        ? `Recategorize photo to ${mediaCategoryLabel(action.targetCategory!)}`
+        : "Remove low-performing photo";
+
+    return buildGbpTask(
+      audit,
+      step,
+      type,
+      title,
+      [
+        action.reason,
+        "",
+        `Current category: ${action.currentCategory ?? "ADDITIONAL"}`,
+        action.targetCategory
+          ? `Target category: ${mediaCategoryLabel(action.targetCategory)}`
+          : "After deleting, upload a better categorized replacement.",
+        `Views: ${action.viewCount}`,
+      ].join("\n"),
+      {
+        mediaName: action.mediaName,
+        targetCategory: action.targetCategory,
+        currentCategory: action.currentCategory,
+        thumbnailUrl: action.thumbnailUrl,
+        maintenanceIndex: index + 1,
+        viewCount: action.viewCount,
+      }
+    );
+  });
+}
 
 export function tasksFromGoogleSuggestions(audit: FullAuditPayload): ExecutionTask[] {
   const suggestions = audit.gbp.googleSuggestions ?? [];

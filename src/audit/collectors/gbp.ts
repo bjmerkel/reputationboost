@@ -24,11 +24,14 @@ function reviewsSince(reviews: Array<{ createTime: string }>, days: number): num
 
 function mediaPreviewsFromEnrichment(
   items: Array<{
+    name: string;
     thumbnailUrl: string;
     googleUrl: string;
     mediaFormat: "PHOTO" | "VIDEO";
     category: string | null;
     description: string;
+    viewCount: string;
+    attribution?: { profileName?: string };
   }>,
   limit = 24
 ): GbpMediaPreview[] {
@@ -41,7 +44,35 @@ function mediaPreviewsFromEnrichment(
       mediaFormat: item.mediaFormat,
       category: item.category,
       description: item.description || undefined,
+      name: item.name,
+      viewCount: Number(item.viewCount || 0),
+      isCustomerPhoto: Boolean(item.attribution?.profileName),
     }));
+}
+
+function mediaInventoryFromEnrichment(
+  items: Array<{
+    name: string;
+    thumbnailUrl: string;
+    googleUrl: string;
+    mediaFormat: "PHOTO" | "VIDEO";
+    category: string | null;
+    description: string;
+    viewCount: string;
+    createTime: string;
+    attribution?: { profileName?: string };
+  }>
+) {
+  return items.map((item) => ({
+    name: item.name,
+    category: item.category,
+    mediaFormat: item.mediaFormat,
+    thumbnailUrl: item.thumbnailUrl || item.googleUrl,
+    googleUrl: item.googleUrl || item.thumbnailUrl,
+    viewCount: Number(item.viewCount || 0),
+    isCustomerPhoto: Boolean(item.attribution?.profileName),
+    createTime: item.createTime,
+  }));
 }
 
 /**
@@ -201,6 +232,7 @@ async function collectGbpFromApi(
       mediaPreviews: mediaPreviewsFromEnrichment(enrichment.media.items),
       mediaCoverage,
       totalMediaItemCount: enrichment.media.totalMediaItemCount,
+      mediaInventory: mediaInventoryFromEnrichment(enrichment.media.items),
       postCount: posts.length,
       lastPostDate: sortedPosts[0]?.createTime ?? null,
       qaCount: questions.length,

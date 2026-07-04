@@ -25,7 +25,9 @@ import { patchGbpLocationValidated } from "./gbp-patch";
 import type { NapCanonical, NapDriftFieldName } from "./nap-drift";
 import {
   createGbpMediaFromUrl,
+  deleteGbpMedia,
   extractPublicMediaUrl,
+  patchGbpMediaCategory,
   uploadGbpMediaFile,
   type GbpMediaCategory,
   type GbpMediaFormat,
@@ -692,6 +694,37 @@ export async function applyMediaFromDraft(
   });
 }
 
+export async function applyMediaRecategorize(
+  connection: GbpConnection,
+  mediaName: string,
+  category: GbpMediaCategory
+): Promise<GbpApplyResult> {
+  const item = await patchGbpMediaCategory(connection, mediaName, category);
+
+  return {
+    success: true,
+    message: `Photo recategorized to ${category} on your Google Business Profile.`,
+    applied: {
+      mediaName: item.name,
+      category: item.category,
+      googleUrl: item.googleUrl,
+    },
+  };
+}
+
+export async function applyMediaDelete(
+  connection: GbpConnection,
+  mediaName: string
+): Promise<GbpApplyResult> {
+  await deleteGbpMedia(connection, mediaName);
+
+  return {
+    success: true,
+    message: "Photo removed from your Google Business Profile.",
+    applied: { mediaName, deleted: true },
+  };
+}
+
 export async function applyReviewReply(
   connection: GbpConnection,
   reviewId: string,
@@ -749,6 +782,8 @@ export type GbpApplyAction =
   | "sync_nap_field"
   | "update_booking_attributes"
   | "upload_media"
+  | "recategorize_media"
+  | "delete_media"
   | "create_post"
   | "reply_review"
   | "delete_review_reply";
@@ -777,6 +812,7 @@ export async function applyGbpAction(
     napField?: NapDriftFieldName;
     napCanonical?: NapCanonical;
     bookingUri?: string;
+    mediaName?: string;
   }
 ): Promise<GbpApplyResult> {
   switch (action) {
@@ -831,6 +867,14 @@ export async function applyGbpAction(
         category: payload.category ?? "ADDITIONAL",
         description: payload.description,
       });
+    case "recategorize_media":
+      if (!payload.mediaName || !payload.category) {
+        throw new Error("mediaName and category are required");
+      }
+      return applyMediaRecategorize(connection, payload.mediaName, payload.category);
+    case "delete_media":
+      if (!payload.mediaName) throw new Error("mediaName is required");
+      return applyMediaDelete(connection, payload.mediaName);
     case "create_post":
       if (!payload.postSummary) throw new Error("postSummary is required");
       return applyGooglePost(connection, payload.postSummary);

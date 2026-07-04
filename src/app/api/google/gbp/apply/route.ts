@@ -22,6 +22,8 @@ const ACTIONS: GbpApplyAction[] = [
   "sync_nap_field",
   "update_booking_attributes",
   "upload_media",
+  "recategorize_media",
+  "delete_media",
   "create_post",
   "reply_review",
   "delete_review_reply",
@@ -77,6 +79,7 @@ export async function POST(request: Request) {
       reviewId?: string;
       reviewReply?: string;
       suggestionField?: string;
+      mediaName?: string;
     };
 
     if (!body.action || !ACTIONS.includes(body.action as GbpApplyAction)) {
@@ -110,6 +113,7 @@ export async function POST(request: Request) {
       reviewId: body.reviewId,
       reviewReply: body.reviewReply,
       suggestionField: body.suggestionField,
+      mediaName: body.mediaName,
     });
 
     return NextResponse.json(result);

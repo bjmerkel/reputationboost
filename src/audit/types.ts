@@ -74,6 +74,20 @@ export interface GbpMediaPreview {
   mediaFormat: "PHOTO" | "VIDEO";
   category: string | null;
   description?: string;
+  name?: string;
+  viewCount?: number;
+  isCustomerPhoto?: boolean;
+}
+
+export interface GbpMediaInventoryItem {
+  name: string;
+  category: string | null;
+  mediaFormat: "PHOTO" | "VIDEO";
+  thumbnailUrl: string;
+  googleUrl: string;
+  viewCount: number;
+  isCustomerPhoto: boolean;
+  createTime: string;
 }
 
 export interface GbpMediaCoverage {
@@ -102,6 +116,7 @@ export interface GbpContent {
   mediaPreviews?: GbpMediaPreview[];
   mediaCoverage?: GbpMediaCoverage;
   totalMediaItemCount?: number;
+  mediaInventory?: GbpMediaInventoryItem[];
   postCount: number;
   lastPostDate: string | null;
   qaCount: number;
@@ -759,6 +774,8 @@ export type ExecutionType =
   | "gbp_services"
   | "gbp_photo"
   | "gbp_video"
+  | "gbp_media_recategorize"
+  | "gbp_media_delete"
   | "gbp_attributes"
   | "gbp_website"
   | "gbp_phone"

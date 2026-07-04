@@ -46,6 +46,8 @@ export async function executeTask(
     gbp_services: "Added service to Google Business Profile.",
     gbp_photo: "Photo uploaded to Google Business Profile.",
     gbp_video: "Video uploaded to Google Business Profile.",
+    gbp_media_recategorize: "Photo recategorized on Google Business Profile.",
+    gbp_media_delete: "Photo removed from Google Business Profile.",
     gbp_attributes: "Updated business attributes on Google.",
     gbp_website: "Updated website URL on Google Business Profile.",
     gbp_phone: "Updated phone number on Google Business Profile.",
@@ -141,6 +143,19 @@ async function executeTaskLive(
           (task.payload.mediaFormat as GbpMediaFormat) ??
           (task.type === "gbp_video" ? "VIDEO" : "PHOTO"),
         category: (task.payload.category as GbpMediaCategory) ?? "ADDITIONAL",
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "gbp_media_recategorize": {
+      const result = await applyGbpAction(connection, "recategorize_media", {
+        mediaName: String(task.payload.mediaName ?? ""),
+        category: task.payload.targetCategory as GbpMediaCategory,
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "gbp_media_delete": {
+      const result = await applyGbpAction(connection, "delete_media", {
+        mediaName: String(task.payload.mediaName ?? ""),
       });
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }

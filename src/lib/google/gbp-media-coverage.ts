@@ -12,7 +12,7 @@ export interface GbpMediaCoverage {
   hasAtWork: boolean;
   hasVideo: boolean;
   categoryCount: number;
-  missingCategories: GbpMediaCategory[];
+  missingCategories: string[];
   coverageScore: number;
   totalViews: number;
   daysSinceLastUpload: number | null;
@@ -107,7 +107,7 @@ export function analyzeGbpMediaCoverage(
     hasAtWork: hasCategory("AT_WORK"),
     hasVideo: videos.length > 0,
     categoryCount: photosByCategory.size,
-    missingCategories,
+    missingCategories: missingCategories.map(String),
     coverageScore,
     totalViews,
     daysSinceLastUpload: recencyDays,

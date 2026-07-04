@@ -218,6 +218,25 @@ export function detectGaps(
         )
       );
     }
+
+    const additionalCount = audit.gbp.content.photosByType.ADDITIONAL ?? 0;
+    if (
+      additionalCount >= 6 &&
+      mediaCoverage.missingCategories.length > 0 &&
+      additionalCount / Math.max(audit.gbp.content.photoCount, 1) >= 0.4
+    ) {
+      gaps.push(
+        gap(
+          "miscategorized-media",
+          "P2",
+          "gbp_profile",
+          "Too many uncategorized photos",
+          `${additionalCount} photos are in Additional while key categories are missing. Recategorize or replace them.`,
+          4,
+          2
+        )
+      );
+    }
   }
 
   if (!audit.gbp.completeness.hasHolidayHours) {
