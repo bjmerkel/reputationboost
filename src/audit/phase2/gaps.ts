@@ -431,6 +431,38 @@ export function detectGaps(
     );
   }
 
+  const notifications = audit.gbp.notifications;
+  if (notifications && !notifications.configured) {
+    gaps.push(
+      gap(
+        "missing-pubsub-notifications",
+        "P2",
+        "technical",
+        "No real-time GBP alerts configured",
+        "Enable Pub/Sub notifications for new reviews, Google edits, customer media, and listing status changes.",
+        4,
+        2
+      )
+    );
+  } else if (
+    notifications?.configured &&
+    notifications.missingRecommendedTypes.length > 0
+  ) {
+    gaps.push(
+      gap(
+        "incomplete-notification-types",
+        "P3",
+        "technical",
+        "Incomplete GBP alert subscriptions",
+        `Missing alert types: ${notifications.missingRecommendedTypes
+          .map((t) => t.replace(/_/g, " ").toLowerCase())
+          .join(", ")}.`,
+        3,
+        1
+      )
+    );
+  }
+
   if (!audit.offGoogle.website.hasLocalBusinessSchema) {
     gaps.push(
       gap(

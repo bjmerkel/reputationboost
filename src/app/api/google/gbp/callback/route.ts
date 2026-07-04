@@ -8,6 +8,8 @@ import {
   bestAutoConnectLocation,
   rankGbpLocationsForBusiness,
 } from "@/lib/google/gbp-onboarding-match";
+import { ensureGbpNotificationSetting } from "@/lib/google/gbp-notifications";
+import type { GbpConnection } from "@/audit/types";
 
 interface OAuthStateCookie {
   state: string;
@@ -99,6 +101,23 @@ export async function GET(request: Request) {
         website: auto.website,
         industry: auto.primaryCategory,
       });
+
+      try {
+        const connection: GbpConnection = {
+          businessId: parsed.businessId,
+          accountId: auto.accountId,
+          locationId: auto.locationId,
+          placeId: auto.placeId ?? business?.gbp_place_id ?? undefined,
+          googleEmail,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          expiresAt: tokens.expiresAt,
+        };
+        await ensureGbpNotificationSetting(connection);
+      } catch (notifyError) {
+        console.warn("[gbp-oauth] notification auto-config skipped:", notifyError);
+      }
+
       return NextResponse.redirect(`${siteUrl}/platform/audit?onboarded=1`);
     }
 

@@ -88,6 +88,12 @@ export function mapActionToExecutionType(actionId: string): ExecutionType | null
     return "gbp_photo";
   }
   if (actionId === "zero-view-owner-photos") return "gbp_media_delete";
+  if (
+    actionId === "missing-pubsub-notifications" ||
+    actionId === "incomplete-notification-types"
+  ) {
+    return "gbp_notifications";
+  }
   if (actionId === "miscategorized-media" || actionId === "stale-media") {
     return "gbp_media_recategorize";
   }

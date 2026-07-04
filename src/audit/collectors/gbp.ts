@@ -5,6 +5,8 @@ import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
 import { isReviewResponded } from "@/lib/google/gbp-reviews";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
 import { analyzeGbpMediaCoverage } from "@/lib/google/gbp-media-coverage";
+import { getGbpNotificationSetting } from "@/lib/google/gbp-notifications";
+import { analyzeGbpNotificationCoverage } from "@/lib/google/gbp-notifications-coverage";
 import {
   enrichGbpLocationProfile,
   fetchAllGoogleSuggestions,
@@ -105,7 +107,7 @@ async function collectGbpFromApi(
 ): Promise<GbpSnapshot> {
   const now = new Date().toISOString();
 
-  const [enrichment, liveProfileResult, place] = await Promise.all([
+  const [enrichment, liveProfileResult, place, notificationSetting] = await Promise.all([
     fetchGbpEnrichment(connection, { userEmail: options?.userEmail }),
     getGbpLocationProfile(connection)
       .then((profile) => enrichGbpLocationProfile(connection, profile))
@@ -113,7 +115,9 @@ async function collectGbpFromApi(
     (connection.placeId ?? client.gbpPlaceId)
       ? fetchPlaceDetails(connection.placeId ?? client.gbpPlaceId!).catch(() => null)
       : Promise.resolve(null),
+    getGbpNotificationSetting(connection).catch(() => null),
   ]);
+  const notifications = analyzeGbpNotificationCoverage(notificationSetting);
 
   const attributeSummary = await getGbpEnabledAttributeLabels(connection, {
     profile: liveProfileResult,
@@ -291,6 +295,7 @@ async function collectGbpFromApi(
     })),
     googleSuggestions,
     hasGoogleUpdated: liveProfile?.hasGoogleUpdated ?? false,
+    notifications,
     napDrift,
   };
 }

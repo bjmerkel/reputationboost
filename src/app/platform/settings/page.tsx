@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getBusinessRecord, getPrimaryBusiness } from "@/audit/businesses";
 import GbpPerformanceSetup from "@/components/GbpPerformanceSetup";
+import GbpNotificationsSetup from "@/components/GbpNotificationsSetup";
 import GbpDisconnect from "@/components/GbpDisconnect";
 import GbpLocationSwitcher from "@/components/GbpLocationSwitcher";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
@@ -123,6 +124,7 @@ export default async function SettingsPage() {
                 storedGoogleEmail={record?.gbp_google_email ?? business.gbpConnection?.googleEmail}
                 variant="light"
               />
+              <GbpNotificationsSetup variant="light" />
               <GbpDisconnect
                 businessId={business.businessId}
                 businessName={business.name}

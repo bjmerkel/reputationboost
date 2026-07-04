@@ -3,6 +3,7 @@ import { applyGbpAction, applyMediaFromBytes, applyMediaFromDraft } from "@/lib/
 import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
 import type { NapDriftFieldName } from "@/lib/google/nap-drift";
 import type { GbpMediaCategory, GbpMediaFormat } from "@/lib/google/gbp-media";
+import { syncRecommendedGbpNotifications } from "@/lib/google/gbp-notifications";
 import { generateGbpPhotoImage } from "@/lib/llm/gbp-photos";
 
 function dataUrlToBytes(dataUrl: string): { bytes: ArrayBuffer; contentType: string } {
@@ -48,6 +49,7 @@ export async function executeTask(
     gbp_video: "Video uploaded to Google Business Profile.",
     gbp_media_recategorize: "Photo recategorized on Google Business Profile.",
     gbp_media_delete: "Photo removed from Google Business Profile.",
+    gbp_notifications: "Real-time GBP Pub/Sub alerts enabled.",
     gbp_attributes: "Updated business attributes on Google.",
     gbp_website: "Updated website URL on Google Business Profile.",
     gbp_phone: "Updated phone number on Google Business Profile.",
@@ -158,6 +160,15 @@ async function executeTaskLive(
         mediaName: String(task.payload.mediaName ?? ""),
       });
       return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "gbp_notifications": {
+      const setting = await syncRecommendedGbpNotifications(connection);
+      return {
+        ...task,
+        status: "completed",
+        completedAt: now,
+        result: `Enabled ${setting.notificationTypes.length} real-time GBP alert types.`,
+      };
     }
     case "gbp_attributes": {
       const result = task.payload.bookingOnly

@@ -9,6 +9,7 @@ import type { AuditGeneratedContent } from "@/lib/llm/content";
 import { buildTemplatePhotoJobs, photoJobDraftContent } from "@/lib/llm/gbp-photos";
 import { buildTemplateVideoJobs, videoJobDraftContent } from "@/lib/llm/gbp-videos";
 import { buildCategoryBatchUploadJobs } from "@/lib/google/gbp-media-batch";
+import { getGbpPubsubTopic, notificationTypeLabel, type GbpNotificationType } from "@/lib/google/gbp-notifications";
 import type { GbpMediaCategory } from "@/lib/google/gbp-media";
 import { buildMediaMaintenanceActions } from "@/lib/google/gbp-media-maintenance";
 import { mediaCategoryLabel } from "@/lib/google/gbp-media-coverage";
@@ -48,6 +49,7 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_video",
     "gbp_media_recategorize",
     "gbp_media_delete",
+    "gbp_notifications",
     "gbp_attributes",
     "gbp_website",
     "gbp_phone",
@@ -593,6 +595,8 @@ export const SUPPLEMENTARY_GAP_IDS = new Set([
   "low-media-engagement",
   "customer-photos-dominate",
   "zero-view-owner-photos",
+  "missing-pubsub-notifications",
+  "incomplete-notification-types",
   "google-pending-edits",
   "google-suggested-edits",
   "nap-drift-title",
@@ -663,42 +667,6 @@ export function tasksFromMediaMaintenance(audit: FullAuditPayload): ExecutionTas
   });
 }
 
-export function tasksFromCategoryBatch(audit: FullAuditPayload): ExecutionTask[] {
-  const jobs = buildCategoryBatchUploadJobs(audit);
-  if (jobs.length === 0) return [];
-
-  const step: GbpPlanStep = {
-    stepNumber: 0,
-    title: "Category photo batch",
-    instruction: "Upload photos into the Google categories your profile is missing.",
-    gbpAction: "upload_photo",
-  };
-
-  return jobs.map((job, index) =>
-    buildGbpTask(
-      audit,
-      step,
-      "gbp_photo",
-      job.title,
-      [
-        job.hint,
-        "",
-        `Category: ${job.category}`,
-        `Why: ${job.reason}`,
-      ].join("\n"),
-      {
-        mediaFormat: "PHOTO",
-        category: job.category,
-        batchIndex: index + 1,
-        batchTotal: jobs.length,
-        categoryBatch: true,
-        hint: job.hint,
-        aiGenerated: job.category === "AT_WORK",
-      }
-    )
-  );
-}
-
 export function tasksFromVideoGaps(audit: FullAuditPayload): ExecutionTask[] {
   const coverage = audit.gbp.content.mediaCoverage;
   if (coverage?.hasVideo || audit.gbp.content.videoCount > 0) return [];
@@ -723,6 +691,45 @@ export function tasksFromVideoGaps(audit: FullAuditPayload): ExecutionTask[] {
       durationHint: job.durationHint,
     })
   );
+}
+
+export function tasksFromNotificationGaps(audit: FullAuditPayload): ExecutionTask[] {
+  const coverage = audit.gbp.notifications;
+  if (!coverage || coverage.configured && coverage.coverageScore >= 100) return [];
+  if (!getGbpPubsubTopic()) return [];
+
+  const step: GbpPlanStep = {
+    stepNumber: 0,
+    title: "Real-time GBP alerts",
+    instruction: "Enable Pub/Sub notifications for time-sensitive listing events.",
+    gbpAction: "manual",
+  };
+
+  const missingLabels = coverage.missingRecommendedTypes.map((type) =>
+    notificationTypeLabel(type as GbpNotificationType)
+  );
+
+  return [
+    buildGbpTask(
+      audit,
+      step,
+      "gbp_notifications",
+      "Enable recommended GBP alerts",
+      [
+        "Approve to subscribe your Google account to real-time Pub/Sub notifications.",
+        "",
+        coverage.configured
+          ? `Missing alert types: ${missingLabels.join(", ") || "none"}`
+          : "No Pub/Sub topic is configured on your GBP account yet.",
+        "",
+        "Alerts cover new reviews, Google edits, customer media, and Voice of Merchant status.",
+      ].join("\n"),
+      {
+        syncNotifications: true,
+        missingTypes: coverage.missingRecommendedTypes,
+      }
+    ),
+  ];
 }
 
 export function tasksFromGoogleSuggestions(audit: FullAuditPayload): ExecutionTask[] {

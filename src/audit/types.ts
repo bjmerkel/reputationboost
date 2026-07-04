@@ -193,6 +193,19 @@ export interface GbpLiveProfile {
   source: "oauth" | "places";
 }
 
+export interface GbpNotificationCoverage {
+  configured: boolean;
+  pubsubTopic: string | null;
+  enabledTypes: string[];
+  missingRecommendedTypes: string[];
+  deprecatedTypesEnabled: string[];
+  coverageScore: number;
+  hasReviewAlerts: boolean;
+  hasGoogleUpdateAlerts: boolean;
+  hasCustomerMediaAlerts: boolean;
+  hasVoiceOfMerchantAlerts: boolean;
+}
+
 export interface GbpSnapshot {
   collectedAt: string;
   identity: GbpIdentity;
@@ -206,6 +219,7 @@ export interface GbpSnapshot {
   qaItems?: GbpQaItem[];
   googleSuggestions?: GbpGoogleSuggestion[];
   hasGoogleUpdated?: boolean;
+  notifications?: GbpNotificationCoverage;
   napDrift?: Array<{
     field: string;
     label: string;
@@ -783,6 +797,7 @@ export type ExecutionType =
   | "gbp_video"
   | "gbp_media_recategorize"
   | "gbp_media_delete"
+  | "gbp_notifications"
   | "gbp_attributes"
   | "gbp_website"
   | "gbp_phone"

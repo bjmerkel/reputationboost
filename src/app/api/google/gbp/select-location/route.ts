@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getBusinessRecord, saveGbpLocation } from "@/audit/businesses";
 import { validateGbpLocationSelection } from "@/lib/google/gbp-onboarding-match";
 import { fetchPlaceDetails } from "@/lib/google/place-details";
-import { getGbpAccessTokenForRecord } from "@/lib/google/token-store";
+import { getGbpAccessTokenForRecord, getValidGbpConnectionForRecord } from "@/lib/google/token-store";
+import { ensureGbpNotificationSetting } from "@/lib/google/gbp-notifications";
 import { getUser } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -104,6 +105,18 @@ export async function POST(request: Request) {
       website: body.website,
       industry: body.industry,
     });
+
+    const updated = await getBusinessRecord(user.id, body.businessId);
+    if (updated) {
+      try {
+        const connection = await getValidGbpConnectionForRecord(updated);
+        if (connection) {
+          await ensureGbpNotificationSetting(connection);
+        }
+      } catch (notifyError) {
+        console.warn("[gbp-select-location] notification auto-config skipped:", notifyError);
+      }
+    }
 
     return NextResponse.json({
       success: true,

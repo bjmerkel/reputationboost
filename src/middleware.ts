@@ -19,6 +19,7 @@ export const config = {
     "/api/google/gbp/media",
     "/api/google/gbp/media/batch",
     "/api/google/gbp/media/generate",
+    "/api/google/gbp/notifications",
     "/api/google/gbp/performance",
     "/api/google/gbp/select-location",
     "/login",

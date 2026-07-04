@@ -9,7 +9,7 @@ import type { AuditGeneratedContent } from "@/lib/llm/content";
 import { buildTemplateContent } from "@/lib/llm/content";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { mapActionToExecutionType } from "./content";
-import { SUPPLEMENTARY_GAP_IDS, tasksFromGbpPlan, tasksFromGoogleSuggestions, tasksFromMediaMaintenance, tasksFromNapDrift, tasksFromVideoGaps } from "./gbp-plan-tasks";
+import { SUPPLEMENTARY_GAP_IDS, tasksFromGbpPlan, tasksFromGoogleSuggestions, tasksFromMediaMaintenance, tasksFromNapDrift, tasksFromNotificationGaps, tasksFromVideoGaps } from "./gbp-plan-tasks";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
 
 function requiresApproval(type: ExecutionTask["type"]): boolean {
@@ -264,6 +264,7 @@ function createTaskForAction(
       ];
     case "gbp_media_recategorize":
     case "gbp_media_delete":
+    case "gbp_notifications":
       return [];
     case "gbp_attributes":
       return [
@@ -314,6 +315,7 @@ export function generateExecutionQueue(
     ...tasksFromGoogleSuggestions(audit),
     ...tasksFromMediaMaintenance(audit),
     ...tasksFromVideoGaps(audit),
+    ...tasksFromNotificationGaps(audit),
     ...tasksFromNapDrift(audit),
   ]);
 

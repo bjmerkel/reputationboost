@@ -164,6 +164,36 @@ export default function AuditDataPanel({
               ["Completeness", `${audit.gbp.completeness.completenessScore}%`],
             ]}
           />
+          {audit.gbp.notifications && (
+            <DataBlock
+              title="Real-time alerts"
+              rows={[
+                [
+                  "Pub/Sub",
+                  audit.gbp.notifications.configured ? "Configured" : "Not configured",
+                ],
+                ["Coverage", `${audit.gbp.notifications.coverageScore}%`],
+                [
+                  "Review alerts",
+                  audit.gbp.notifications.hasReviewAlerts ? "On" : "Off",
+                ],
+                [
+                  "Google edit alerts",
+                  audit.gbp.notifications.hasGoogleUpdateAlerts ? "On" : "Off",
+                ],
+                [
+                  "Customer media alerts",
+                  audit.gbp.notifications.hasCustomerMediaAlerts ? "On" : "Off",
+                ],
+                [
+                  "Subscribed types",
+                  audit.gbp.notifications.enabledTypes.length > 0
+                    ? String(audit.gbp.notifications.enabledTypes.length)
+                    : "0",
+                ],
+              ]}
+            />
+          )}
           <DataBlock
             title="Engagement"
             rows={[
