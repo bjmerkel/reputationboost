@@ -50,13 +50,22 @@ export interface GbpIdentity {
 
 export interface GbpCompleteness {
   hasHours: boolean;
+  hasFullWeekHours: boolean;
   hasHolidayHours: boolean;
   hasDescription: boolean;
   descriptionLength: number;
   hasServices: boolean;
   serviceCount: number;
   attributeCount: number;
+  noPendingEdits: boolean;
   completenessScore: number;
+}
+
+export interface GbpGoogleSuggestion {
+  field: string;
+  label: string;
+  ownerValue: string;
+  googleValue: string;
 }
 
 export interface GbpMediaPreview {
@@ -153,6 +162,8 @@ export interface GbpSnapshot {
   liveProfile?: GbpLiveProfile;
   recentPosts?: GbpPostItem[];
   qaItems?: GbpQaItem[];
+  googleSuggestions?: GbpGoogleSuggestion[];
+  hasGoogleUpdated?: boolean;
 }
 
 export interface GeoRankPoint {
@@ -314,6 +325,8 @@ export interface KeywordRelevanceFeatures {
   score: number;
   /** Primary/secondary category alignment with keyword intent (0–100) */
   categoryFit: number;
+  /** Enabled GBP attributes aligned with keyword intent (0–100) */
+  attributeFit?: number;
   servicesCoverage: boolean;
   descriptionCoverage: boolean;
   /** Reviews in corpus mentioning this keyword or its core terms */
@@ -533,6 +546,8 @@ export type GbpPlanActionType =
   | "upload_video"
   | "update_attributes"
   | "update_website"
+  | "update_hours"
+  | "accept_google_suggestion"
   | "create_post"
   | "manual";
 
@@ -719,6 +734,8 @@ export type ExecutionType =
   | "gbp_attributes"
   | "gbp_website"
   | "gbp_phone"
+  | "gbp_hours"
+  | "gbp_accept_suggestion"
   | "gbp_checklist"
   | "review_response"
   | "review_delete_reply"

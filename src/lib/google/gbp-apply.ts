@@ -1,11 +1,17 @@
 import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
+import { recommendAttributeUpdates } from "./gbp-attribute-recommendations";
+import type { BusinessHours } from "./gbp-hours";
+import {
+  defaultUsHolidayHours,
+  defaultWeekdayHours,
+  mergeSpecialHours,
+} from "./gbp-hours";
 import {
   getGbpLocationProfile,
+  getGoogleUpdatedLocation,
   getLocationAttributes,
-  isEnabledGbpAttribute,
   listAvailableAttributes,
-  attributeKey,
   patchGbpLocation,
   resolveCategoryByDisplayName,
   updateLocationAttributes,
@@ -283,30 +289,23 @@ export async function applyAttributes(
 /** Enable BOOL attributes that are available but not yet set on the profile. */
 export async function applyRecommendedAttributes(
   connection: GbpConnection,
-  limit = 8
+  limit = 12
 ): Promise<GbpApplyResult> {
-  const [available, current] = await Promise.all([
+  const [available, current, profile] = await Promise.all([
     listAvailableAttributes(connection),
     getLocationAttributes(connection),
+    getGbpLocationProfile(connection),
   ]);
 
-  const currentEnabled = new Set(
-    current.filter(isEnabledGbpAttribute).map((a) => attributeKey(a.name))
-  );
-  const updates: GbpAttributeUpdate[] = [];
-
-  for (const meta of available) {
-    if (updates.length >= limit) break;
-    if (meta.deprecated || meta.valueType !== "BOOL") continue;
-    if (currentEnabled.has(attributeKey(meta.name))) continue;
-
-    updates.push({ name: meta.name, boolValue: true });
-  }
+  const updates = recommendAttributeUpdates(available, current, {
+    websiteUri: profile.website,
+    limit,
+  });
 
   if (updates.length === 0) {
     return {
       success: true,
-      message: "No additional BOOL attributes were available to enable.",
+      message: "No additional attributes were available to enable.",
       applied: { count: 0 },
     };
   }
@@ -320,6 +319,104 @@ export async function applyRecommendedAttributes(
       count: updates.length,
       attributes: updates.map((u) => u.name),
     },
+  };
+}
+
+export async function applyRegularHours(
+  connection: GbpConnection,
+  regularHours?: BusinessHours
+): Promise<GbpApplyResult> {
+  const hours = regularHours ?? defaultWeekdayHours();
+
+  await patchGbpLocation(connection, "regularHours", { regularHours: hours });
+
+  return {
+    success: true,
+    message: "Regular business hours updated on Google Business Profile.",
+    applied: { periodCount: hours.periods?.length ?? 0 },
+  };
+}
+
+export async function applyHolidayHours(
+  connection: GbpConnection
+): Promise<GbpApplyResult> {
+  const current = await getGbpLocationProfile(connection);
+
+  if (!current.hasRegularHours && !current.regularHours?.periods?.length) {
+    await applyRegularHours(connection, defaultWeekdayHours());
+  }
+
+  const refreshed = await getGbpLocationProfile(connection);
+  const holidays = mergeSpecialHours(
+    refreshed.specialHours,
+    defaultUsHolidayHours()
+  );
+
+  await patchGbpLocation(connection, "specialHours", { specialHours: holidays });
+
+  return {
+    success: true,
+    message: "Holiday and special hours added to your Google Business Profile.",
+    applied: { periodCount: holidays.specialHourPeriods?.length ?? 0 },
+  };
+}
+
+export async function applyGoogleSuggestion(
+  connection: GbpConnection,
+  field: string
+): Promise<GbpApplyResult> {
+  const [profile, googleUpdated] = await Promise.all([
+    getGbpLocationProfile(connection),
+    getGoogleUpdatedLocation(connection),
+  ]);
+
+  const googleLocation = googleUpdated as Record<string, unknown>;
+
+  switch (field) {
+    case "title":
+      await patchGbpLocation(connection, "title", { title: googleLocation.title });
+      break;
+    case "profile.description": {
+      const desc = (googleLocation.profile as { description?: string } | undefined)?.description;
+      if (!desc) throw new Error("No Google suggestion for description.");
+      await patchGbpLocation(connection, "profile.description", { profile: { description: desc } });
+      break;
+    }
+    case "phoneNumbers.primaryPhone": {
+      const phone = (googleLocation.phoneNumbers as { primaryPhone?: string } | undefined)
+        ?.primaryPhone;
+      if (!phone) throw new Error("No Google suggestion for phone.");
+      await patchGbpLocation(connection, "phoneNumbers", {
+        phoneNumbers: { primaryPhone: phone, additionalPhones: profile.additionalPhones },
+      });
+      break;
+    }
+    case "websiteUri":
+      if (!googleLocation.websiteUri) throw new Error("No Google suggestion for website.");
+      await patchGbpLocation(connection, "websiteUri", {
+        websiteUri: googleLocation.websiteUri,
+      });
+      break;
+    case "regularHours":
+      if (!googleLocation.regularHours) throw new Error("No Google suggestion for hours.");
+      await patchGbpLocation(connection, "regularHours", {
+        regularHours: googleLocation.regularHours,
+      });
+      break;
+    case "specialHours":
+      if (!googleLocation.specialHours) throw new Error("No Google suggestion for holiday hours.");
+      await patchGbpLocation(connection, "specialHours", {
+        specialHours: googleLocation.specialHours,
+      });
+      break;
+    default:
+      throw new Error(`Unsupported Google suggestion field: ${field}`);
+  }
+
+  return {
+    success: true,
+    message: `Accepted Google's suggested update for ${field}.`,
+    applied: { field },
   };
 }
 
@@ -501,6 +598,9 @@ export type GbpApplyAction =
   | "add_service_item"
   | "update_attributes"
   | "enable_recommended_attributes"
+  | "update_regular_hours"
+  | "update_holiday_hours"
+  | "accept_google_suggestion"
   | "upload_media"
   | "create_post"
   | "reply_review"
@@ -525,6 +625,8 @@ export async function applyGbpAction(
     postSummary?: string;
     reviewId?: string;
     reviewReply?: string;
+    suggestionField?: string;
+    regularHours?: BusinessHours;
   }
 ): Promise<GbpApplyResult> {
   switch (action) {
@@ -557,6 +659,13 @@ export async function applyGbpAction(
       return applyAttributes(connection, payload.attributes);
     case "enable_recommended_attributes":
       return applyRecommendedAttributes(connection);
+    case "update_regular_hours":
+      return applyRegularHours(connection, payload.regularHours);
+    case "update_holiday_hours":
+      return applyHolidayHours(connection);
+    case "accept_google_suggestion":
+      if (!payload.suggestionField) throw new Error("suggestionField is required");
+      return applyGoogleSuggestion(connection, payload.suggestionField);
     case "upload_media":
       if (!payload.sourceUrl) throw new Error("sourceUrl is required");
       return applyMediaUpload(connection, {

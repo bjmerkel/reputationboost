@@ -1,4 +1,5 @@
 import type { FullAuditPayload, Phase1AuditPayload } from "../types";
+import { computeGbpCompletenessScore } from "../completeness";
 import { buildTemplateGbpPlan } from "../phase2/gbp-plan";
 import { buildStrategy } from "../phase2/strategy";
 import { generateExecutionQueue } from "./planner";
@@ -24,13 +25,27 @@ function minimalPhase1(): Phase1AuditPayload {
       },
       completeness: {
         hasHours: true,
+        hasFullWeekHours: true,
         hasHolidayHours: false,
         hasDescription: true,
         descriptionLength: 120,
         hasServices: true,
         serviceCount: 2,
         attributeCount: 3,
-        completenessScore: 62,
+        noPendingEdits: true,
+        completenessScore: computeGbpCompletenessScore({
+          hasHours: true,
+          hasFullWeekHours: true,
+          hasHolidayHours: false,
+          hasDescription: true,
+          descriptionLength: 120,
+          hasServices: true,
+          serviceCount: 2,
+          attributeCount: 3,
+          hasPhotos: true,
+          hasWebsite: true,
+          noPendingEdits: true,
+        }),
       },
       content: {
         photoCount: 24,

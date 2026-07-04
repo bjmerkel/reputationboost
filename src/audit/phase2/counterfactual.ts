@@ -1,4 +1,5 @@
 import type { FullAuditPayload, GapFlag, KeywordRankSnapshot, Phase1AuditPayload } from "../types";
+import { computeGbpCompletenessScore } from "../completeness";
 import {
   inferRecommendedSecondaryCategories,
   missingKeywordsForServices,
@@ -62,11 +63,21 @@ function buildOptimizedDescription(audit: Phase1AuditPayload): string {
   return `${audit.clientName} provides professional ${category} throughout ${city} and surrounding areas. We specialize in ${kwList}. With ${reviews}+ Google reviews (${rating}★), ${audit.clientName} delivers reliable service, clean vehicles, punctual arrivals, and professional staff. Call ${audit.gbp.identity.phone} for 24/7 availability.`;
 }
 
-function bumpCompleteness(audit: Phase1AuditPayload, delta: number): void {
-  audit.gbp.completeness.completenessScore = Math.min(
-    100,
-    audit.gbp.completeness.completenessScore + delta
-  );
+function bumpCompleteness(audit: Phase1AuditPayload): void {
+  const { gbp } = audit;
+  gbp.completeness.completenessScore = computeGbpCompletenessScore({
+    hasHours: gbp.completeness.hasHours,
+    hasFullWeekHours: gbp.completeness.hasFullWeekHours,
+    hasHolidayHours: gbp.completeness.hasHolidayHours,
+    hasDescription: gbp.completeness.hasDescription,
+    descriptionLength: gbp.completeness.descriptionLength,
+    hasServices: gbp.completeness.hasServices,
+    serviceCount: gbp.completeness.serviceCount,
+    attributeCount: gbp.completeness.attributeCount,
+    hasPhotos: gbp.content.photoCount > 0,
+    hasWebsite: Boolean(gbp.identity.website),
+    noPendingEdits: gbp.completeness.noPendingEdits,
+  });
 }
 
 function clearRelevanceCache(audit: Phase1AuditPayload): void {
@@ -129,7 +140,11 @@ export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): 
         gbp.engagement.responseRate >= RESPONSE_RATE_TARGET
       );
     case 12:
-      return gbp.completeness.hasHours && gbp.completeness.hasHolidayHours;
+      return (
+        gbp.completeness.hasHours &&
+        gbp.completeness.hasFullWeekHours &&
+        gbp.completeness.hasHolidayHours
+      );
     case 13:
       return gbp.completeness.attributeCount >= 5;
     case 14:
@@ -179,7 +194,7 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
           existing.add(category.toLowerCase());
         }
       }
-      bumpCompleteness(audit, 3);
+      bumpCompleteness(audit);
       break;
     }
     case 3: {
@@ -187,7 +202,7 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
       audit.gbp.liveProfile!.description = buildOptimizedDescription(audit);
       audit.gbp.completeness.descriptionLength = audit.gbp.liveProfile!.description.length;
       audit.gbp.completeness.hasDescription = true;
-      bumpCompleteness(audit, 5);
+      bumpCompleteness(audit);
       break;
     }
     case 4: {
@@ -203,7 +218,7 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
       }
       audit.gbp.completeness.serviceCount = audit.gbp.liveProfile!.services.length;
       audit.gbp.completeness.hasServices = true;
-      bumpCompleteness(audit, 5);
+      bumpCompleteness(audit);
       break;
     }
     case 5:
@@ -214,6 +229,7 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
         audit.gbp.content.photoCount,
         Math.max(200, audit.gbp.content.photoCount + 80)
       );
+      bumpCompleteness(audit);
       break;
     case 7:
       audit.gbp.content.videoCount = Math.max(2, audit.gbp.content.videoCount);
@@ -243,15 +259,20 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
     case 12:
       audit.gbp.completeness.hasHolidayHours = true;
       audit.gbp.completeness.hasHours = true;
-      bumpCompleteness(audit, 4);
+      audit.gbp.completeness.hasFullWeekHours = true;
+      bumpCompleteness(audit);
       break;
     case 13:
       audit.gbp.completeness.attributeCount = Math.max(5, audit.gbp.completeness.attributeCount);
       ensureLiveProfile(audit);
-      if (audit.gbp.liveProfile!.attributes.length < 3) {
-        audit.gbp.liveProfile!.attributes.push("Online appointments");
+      if (audit.gbp.liveProfile!.attributes.length < 5) {
+        audit.gbp.liveProfile!.attributes.push(
+          "Online appointments",
+          "Wheelchair accessible",
+          "Accepts credit cards"
+        );
       }
-      bumpCompleteness(audit, 3);
+      bumpCompleteness(audit);
       break;
     case 14:
     case 15:
@@ -310,7 +331,26 @@ export function applyGapMutation(audit: Phase1AuditPayload, gap: GapFlag): void 
       break;
     case "missing-holiday-hours":
       audit.gbp.completeness.hasHolidayHours = true;
-      bumpCompleteness(audit, 4);
+      bumpCompleteness(audit);
+      break;
+    case "missing-hours":
+      audit.gbp.completeness.hasHours = true;
+      audit.gbp.completeness.hasFullWeekHours = true;
+      bumpCompleteness(audit);
+      break;
+    case "incomplete-week-hours":
+      audit.gbp.completeness.hasFullWeekHours = true;
+      bumpCompleteness(audit);
+      break;
+    case "low-attributes":
+      audit.gbp.completeness.attributeCount = Math.max(5, audit.gbp.completeness.attributeCount);
+      bumpCompleteness(audit);
+      break;
+    case "google-pending-edits":
+    case "google-suggested-edits":
+      audit.gbp.completeness.noPendingEdits = true;
+      audit.gbp.googleSuggestions = [];
+      bumpCompleteness(audit);
       break;
     case "unresponded-negative":
       audit.reviews.unrespondedNegative = 0;

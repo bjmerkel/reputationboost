@@ -16,6 +16,9 @@ const ACTIONS: GbpApplyAction[] = [
   "add_service_item",
   "update_attributes",
   "enable_recommended_attributes",
+  "update_regular_hours",
+  "update_holiday_hours",
+  "accept_google_suggestion",
   "upload_media",
   "create_post",
   "reply_review",
@@ -71,6 +74,7 @@ export async function POST(request: Request) {
       postSummary?: string;
       reviewId?: string;
       reviewReply?: string;
+      suggestionField?: string;
     };
 
     if (!body.action || !ACTIONS.includes(body.action as GbpApplyAction)) {
@@ -103,6 +107,7 @@ export async function POST(request: Request) {
       postSummary: body.postSummary,
       reviewId: body.reviewId,
       reviewReply: body.reviewReply,
+      suggestionField: body.suggestionField,
     });
 
     return NextResponse.json(result);

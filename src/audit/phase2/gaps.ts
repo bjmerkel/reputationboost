@@ -174,11 +174,82 @@ export function detectGaps(
     gaps.push(
       gap(
         "missing-holiday-hours",
-        "P3",
+        "P2",
         "gbp_profile",
         "Missing holiday hours",
         "Add holiday hours to avoid customer frustration and improve trust signals.",
-        3,
+        5,
+        2
+      )
+    );
+  }
+
+  if (!audit.gbp.completeness.hasFullWeekHours && audit.gbp.completeness.hasHours) {
+    gaps.push(
+      gap(
+        "incomplete-week-hours",
+        "P2",
+        "gbp_profile",
+        "Incomplete weekly hours",
+        "Your profile is missing open days in regular business hours. Full weekly coverage improves completeness and trust.",
+        5,
+        2
+      )
+    );
+  }
+
+  if (!audit.gbp.completeness.noPendingEdits) {
+    gaps.push(
+      gap(
+        "google-pending-edits",
+        "P1",
+        "gbp_profile",
+        "Google has pending edits on your profile",
+        "Review and accept or reject Google's suggested changes before they affect how customers see your business.",
+        8,
+        2
+      )
+    );
+  }
+
+  if ((audit.gbp.googleSuggestions?.length ?? 0) > 0) {
+    const fields = audit.gbp.googleSuggestions!.map((s) => s.label).join(", ");
+    gaps.push(
+      gap(
+        "google-suggested-edits",
+        "P1",
+        "gbp_profile",
+        "Google suggested profile changes",
+        `Google recommends updates to: ${fields}. Review each suggestion in Take Action.`,
+        7,
+        2
+      )
+    );
+  }
+
+  if (audit.gbp.completeness.attributeCount < 5) {
+    gaps.push(
+      gap(
+        "low-attributes",
+        "P2",
+        "gbp_profile",
+        "Few business attributes enabled",
+        `Only ${audit.gbp.completeness.attributeCount} attributes on your profile. Enable at least 5 to strengthen relevance and completeness.`,
+        6,
+        2
+      )
+    );
+  }
+
+  if (!audit.gbp.completeness.hasHours) {
+    gaps.push(
+      gap(
+        "missing-hours",
+        "P1",
+        "gbp_profile",
+        "Missing business hours",
+        "Add regular business hours so customers know when you're open.",
+        7,
         2
       )
     );

@@ -238,16 +238,22 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       instruction: "Inconsistent hours hurt rankings and customer trust.",
       current: audit.gbp.completeness.hasHours
         ? audit.gbp.completeness.hasHolidayHours
-          ? "Regular + holiday hours configured"
+          ? audit.gbp.completeness.hasFullWeekHours
+            ? "Regular + holiday hours configured"
+            : "Regular hours set · full week coverage missing"
           : "Regular hours set · holiday hours missing"
         : "Hours not detected on profile",
       recommended: "Accurate regular hours + holiday/special hours",
       bullets: [
         "Keep regular hours accurate — update for holidays",
+        audit.gbp.completeness.hasFullWeekHours
+          ? "Weekly hours: full coverage ✓"
+          : "Add open days for Mon–Sat (or your operating days)",
         audit.gbp.completeness.hasHolidayHours
           ? "Holiday hours: configured ✓"
           : "Add holiday hours — currently missing",
       ],
+      gbpAction: "update_hours",
     },
     {
       stepNumber: 13,

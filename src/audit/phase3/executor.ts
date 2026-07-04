@@ -48,6 +48,8 @@ export async function executeTask(
     gbp_attributes: "Updated business attributes on Google.",
     gbp_website: "Updated website URL on Google Business Profile.",
     gbp_phone: "Updated phone number on Google Business Profile.",
+    gbp_hours: "Updated business hours on Google Business Profile.",
+    gbp_accept_suggestion: "Accepted Google's suggested profile change.",
     gbp_checklist: `Completed: ${task.title}`,
     review_response: `Posted review response for review ${task.payload.reviewId ?? "unknown"}.`,
     review_delete_reply: `Removed review reply for review ${task.payload.reviewId ?? "unknown"}.`,
@@ -156,6 +158,20 @@ async function executeTaskLive(
     case "gbp_phone": {
       const result = await applyGbpAction(connection, "update_phone", {
         primaryPhone: String(task.payload.primaryPhone ?? task.draftContent),
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "gbp_hours": {
+      const hoursAction = String(task.payload.hoursAction ?? "update_holiday_hours");
+      const result =
+        hoursAction === "update_regular_hours"
+          ? await applyGbpAction(connection, "update_regular_hours", {})
+          : await applyGbpAction(connection, "update_holiday_hours", {});
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "gbp_accept_suggestion": {
+      const result = await applyGbpAction(connection, "accept_google_suggestion", {
+        suggestionField: String(task.payload.suggestionField ?? ""),
       });
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }

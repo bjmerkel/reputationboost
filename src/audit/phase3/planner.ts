@@ -9,7 +9,7 @@ import type { AuditGeneratedContent } from "@/lib/llm/content";
 import { buildTemplateContent } from "@/lib/llm/content";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { mapActionToExecutionType } from "./content";
-import { SUPPLEMENTARY_GAP_IDS, tasksFromGbpPlan } from "./gbp-plan-tasks";
+import { SUPPLEMENTARY_GAP_IDS, tasksFromGbpPlan, tasksFromGoogleSuggestions } from "./gbp-plan-tasks";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
 
 function requiresApproval(type: ExecutionTask["type"]): boolean {
@@ -26,6 +26,8 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_attributes",
     "gbp_website",
     "gbp_phone",
+    "gbp_hours",
+    "gbp_accept_suggestion",
   ].includes(type);
 }
 
@@ -234,6 +236,36 @@ function createTaskForAction(
           ),
         }),
       ];
+    case "gbp_hours":
+      return [
+        buildTask(
+          audit,
+          action,
+          "gbp_hours",
+          action.draftCopy ?? action.description,
+          {
+            hoursAction: action.id.includes("holiday")
+              ? "update_holiday_hours"
+              : "update_regular_hours",
+          }
+        ),
+      ];
+    case "gbp_accept_suggestion":
+      return [
+        buildTask(
+          audit,
+          action,
+          "gbp_accept_suggestion",
+          action.draftCopy ?? action.description,
+          {}
+        ),
+      ];
+    case "gbp_attributes":
+      return [
+        buildTask(audit, action, "gbp_attributes", action.draftCopy ?? action.description, {
+          enableRecommended: true,
+        }),
+      ];
     default:
       return [
         buildTask(audit, action, type, action.draftCopy ?? action.description, {}),
@@ -246,7 +278,10 @@ export function generateExecutionQueue(
   content?: AuditGeneratedContent
 ): Phase3ExecutionReport {
   const resolvedContent = content ?? buildTemplateContent(audit);
-  const tasks: ExecutionTask[] = tasksFromGbpPlan(audit, resolvedContent);
+  const tasks: ExecutionTask[] = [
+    ...tasksFromGbpPlan(audit, resolvedContent),
+    ...tasksFromGoogleSuggestions(audit),
+  ];
 
   for (const action of audit.strategy.actionPlan) {
     const index = audit.strategy.actionPlan.indexOf(action);

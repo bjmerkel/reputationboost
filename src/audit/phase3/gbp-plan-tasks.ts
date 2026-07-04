@@ -45,6 +45,8 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_attributes",
     "gbp_website",
     "gbp_phone",
+    "gbp_hours",
+    "gbp_accept_suggestion",
   ].includes(type);
 }
 
@@ -252,6 +254,50 @@ export function tasksFromGbpPlanStep(
           { enableRecommended: true }
         ),
       ];
+    case "update_hours": {
+      const needsRegular = !audit.gbp.completeness.hasHours;
+      const needsHoliday = !audit.gbp.completeness.hasHolidayHours;
+      const tasks: ExecutionTask[] = [];
+
+      if (needsRegular || !audit.gbp.completeness.hasFullWeekHours) {
+        tasks.push(
+          buildGbpTask(
+            audit,
+            step,
+            "gbp_hours",
+            "Set regular business hours",
+            [
+              "Approve to set Mon–Fri 9:00 AM – 5:00 PM on your Google Business Profile.",
+              "Adjust in Google Business Profile after publishing if your schedule differs.",
+            ].join("\n"),
+            { hoursAction: "update_regular_hours" }
+          )
+        );
+      }
+
+      if (needsHoliday) {
+        tasks.push(
+          buildGbpTask(
+            audit,
+            step,
+            "gbp_hours",
+            "Add holiday hours",
+            [
+              "Approve to add US holiday closures and modified hours (July 4, Thanksgiving, Christmas, etc.).",
+            ].join("\n"),
+            { hoursAction: "update_holiday_hours" }
+          )
+        );
+      }
+
+      if (tasks.length > 0) return tasks;
+
+      return [
+        buildGbpTask(audit, step, "gbp_checklist", step.title, checklistContent(step), {
+          manual: true,
+        }),
+      ];
+    }
     case "update_website": {
       const website = data.websiteUri ?? audit.gbp.identity.website ?? "";
       if (!website) {
@@ -442,4 +488,42 @@ export const SUPPLEMENTARY_GAP_IDS = new Set([
   "missing-schema",
   "citation-mismatch",
   "low-social",
+  "missing-holiday-hours",
+  "missing-hours",
+  "incomplete-week-hours",
+  "low-attributes",
+  "google-pending-edits",
+  "google-suggested-edits",
 ]);
+
+export function tasksFromGoogleSuggestions(audit: FullAuditPayload): ExecutionTask[] {
+  const suggestions = audit.gbp.googleSuggestions ?? [];
+  if (suggestions.length === 0) return [];
+
+  return suggestions.map((suggestion, index) =>
+    buildGbpTask(
+      audit,
+      {
+        stepNumber: 0,
+        title: "Review Google suggestion",
+        instruction: `Google suggests changing ${suggestion.label}.`,
+      },
+      "gbp_accept_suggestion",
+      `Accept Google change: ${suggestion.label}`,
+      [
+        `Google suggests updating ${suggestion.label}.`,
+        "",
+        `Current: ${suggestion.ownerValue}`,
+        `Google suggests: ${suggestion.googleValue}`,
+        "",
+        "Approve to accept Google's version on your profile.",
+      ].join("\n"),
+      {
+        suggestionField: suggestion.field,
+        suggestionIndex: index + 1,
+        ownerValue: suggestion.ownerValue,
+        googleValue: suggestion.googleValue,
+      }
+    )
+  );
+}

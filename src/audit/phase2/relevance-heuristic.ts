@@ -19,6 +19,22 @@ function textContainsKeyword(text: string, keyword: string): boolean {
   return tokens.some((t) => lower.includes(t));
 }
 
+function attributeFitScore(audit: Phase1AuditPayload, keyword: string): number {
+  const attrs = (audit.gbp.liveProfile?.attributes ?? []).join(" ").toLowerCase();
+  if (!attrs) return 40;
+
+  const tokens = significantTokens(keyword);
+  if (tokens.length === 0) return attrs.includes(keyword.toLowerCase()) ? 100 : 40;
+
+  const matched = tokens.filter((t) => attrs.includes(t)).length;
+  const ratio = matched / tokens.length;
+
+  if (ratio >= 0.75) return 100;
+  if (ratio >= 0.5) return 75;
+  if (ratio > 0) return 55;
+  return audit.gbp.completeness.attributeCount >= 5 ? 50 : 30;
+}
+
 function categoryFitScore(audit: Phase1AuditPayload, keyword: string): number {
   const live = audit.gbp.liveProfile;
   const categories = [
@@ -111,7 +127,8 @@ function buildCompetitorGaps(
 
 function buildRecommendation(
   keyword: string,
-  features: Omit<KeywordRelevanceFeatures, "recommendation" | "source" | "keyword">
+  features: Omit<KeywordRelevanceFeatures, "recommendation" | "source" | "keyword">,
+  attributeCount: number
 ): string | null {
   const actions: string[] = [];
 
@@ -130,6 +147,9 @@ function buildRecommendation(
   if (!features.postCoverage) {
     actions.push(`publish a Google Post targeting "${keyword}"`);
   }
+  if (attributeCount < 5) {
+    actions.push("enable more GBP business attributes");
+  }
 
   if (actions.length === 0) return null;
   return actions.slice(0, 2).join("; ");
@@ -137,6 +157,7 @@ function buildRecommendation(
 
 function blendRelevanceScore(parts: {
   categoryFit: number;
+  attributeFit: number;
   servicesCoverage: boolean;
   descriptionCoverage: boolean;
   reviewMentions: number;
@@ -144,11 +165,12 @@ function blendRelevanceScore(parts: {
 }): number {
   const reviewScore = Math.min(100, parts.reviewMentions * 25);
   return Math.round(
-    parts.categoryFit * 0.25 +
+    parts.categoryFit * 0.22 +
+      parts.attributeFit * 0.08 +
       (parts.descriptionCoverage ? 100 : 0) * 0.2 +
       (parts.servicesCoverage ? 100 : 0) * 0.25 +
       reviewScore * 0.2 +
-      (parts.postCoverage ? 100 : 0) * 0.1
+      (parts.postCoverage ? 100 : 0) * 0.05
   );
 }
 
@@ -165,6 +187,7 @@ export function extractKeywordRelevanceHeuristic(
   return audit.rankings.keywords.map((kw) => {
     const keyword = kw.keyword;
     const categoryFit = categoryFitScore(audit, keyword);
+    const attributeFit = attributeFitScore(audit, keyword);
     const descriptionCoverage = textContainsKeyword(description, keyword);
     const servicesCoverage =
       textContainsKeyword(services, keyword) ||
@@ -176,6 +199,7 @@ export function extractKeywordRelevanceHeuristic(
     const partial = {
       score: 0,
       categoryFit,
+      attributeFit,
       servicesCoverage,
       descriptionCoverage,
       reviewMentions,
@@ -187,7 +211,7 @@ export function extractKeywordRelevanceHeuristic(
     return {
       keyword,
       ...partial,
-      recommendation: buildRecommendation(keyword, partial),
+      recommendation: buildRecommendation(keyword, partial, audit.gbp.completeness.attributeCount),
       source: "heuristic",
     };
   });

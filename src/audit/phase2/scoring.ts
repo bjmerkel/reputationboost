@@ -238,6 +238,7 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
 
   const completeness = gbp.completeness.completenessScore;
   const photoScore = clamp((gbp.content.photoCount / 60) * 100);
+  const videoScore = clamp((gbp.content.videoCount / 2) * 100);
 
   const daysSincePost = daysSince(gbp.content.lastPostDate);
   const postScore =
@@ -250,8 +251,9 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
   let profileTrust =
     reviewStrength * 0.35 +
     completeness * 0.2 +
-    photoScore * 0.15 +
-    postScore * 0.15 +
+    photoScore * 0.13 +
+    videoScore * 0.05 +
+    postScore * 0.12 +
     responseScore * 0.1 +
     qaScore * 0.05;
 

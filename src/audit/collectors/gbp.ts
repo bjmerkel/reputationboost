@@ -1,18 +1,18 @@
 import type { ClientConfig, GbpConnection, GbpSnapshot, GbpMediaPreview } from "../types";
+import { computeGbpCompletenessScore } from "../completeness";
 import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
 import { isReviewResponded } from "@/lib/google/gbp-reviews";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
-import { getGbpEnabledAttributeLabels, getGbpLocationProfile } from "@/lib/google/gbp-location";
+import {
+  fetchGoogleSuggestions,
+  getGbpEnabledAttributeLabels,
+  getGbpLocationProfile,
+} from "@/lib/google/gbp-location";
 import {
   fetchPlaceDetails,
   primaryCategoryFromTypes,
   secondaryCategoriesFromTypes,
 } from "@/lib/google/place-details";
-
-function completenessScore(fields: boolean[]): number {
-  const filled = fields.filter(Boolean).length;
-  return Math.round((filled / fields.length) * 100);
-}
 
 function reviewsSince(reviews: Array<{ createTime: string }>, days: number): number {
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
@@ -81,6 +81,10 @@ async function collectGbpFromApi(
     profile: liveProfileResult,
   }).catch(() => ({ labels: [], details: [] }));
 
+  const googleSuggestions = liveProfileResult
+    ? await fetchGoogleSuggestions(connection, liveProfileResult).catch(() => [])
+    : [];
+
   const liveProfile = liveProfileResult;
   const description =
     liveProfile?.description || place?.description || "";
@@ -110,7 +114,11 @@ async function collectGbpFromApi(
       ? attributeSummary.labels
       : (liveProfile?.attributes ?? []);
   const hasHours = liveProfile?.hasRegularHours ?? place?.hasHours ?? false;
-  const hasHolidayHours = liveProfile?.hasMoreHours ?? place?.hasHolidayHours ?? false;
+  const hasFullWeekHours = liveProfile?.hasFullWeekHours ?? false;
+  const hasHolidayHours =
+    liveProfile?.hasSpecialHours ?? liveProfile?.hasMoreHours ?? place?.hasHolidayHours ?? false;
+  const noPendingEdits = liveProfile ? !liveProfile.hasPendingEdits : true;
+  const photoCount = enrichment.media.photoCount || place?.photoCount || 0;
 
   const name = liveProfile?.title || place?.name || client.name;
   const address = place?.address || formatAddress(client);
@@ -133,23 +141,30 @@ async function collectGbpFromApi(
     },
     completeness: {
       hasHours,
+      hasFullWeekHours,
       hasHolidayHours,
       hasDescription,
       descriptionLength: description.length,
       hasServices: serviceItems.length > 0,
       serviceCount: serviceItems.length,
       attributeCount: attributes.length,
-      completenessScore: completenessScore([
+      noPendingEdits,
+      completenessScore: computeGbpCompletenessScore({
         hasHours,
+        hasFullWeekHours,
         hasHolidayHours,
         hasDescription,
-        serviceItems.length > 0,
-        enrichment.media.photoCount > 0,
-        Boolean(website),
-      ]),
+        descriptionLength: description.length,
+        hasServices: serviceItems.length > 0,
+        serviceCount: serviceItems.length,
+        attributeCount: attributes.length,
+        hasPhotos: photoCount > 0,
+        hasWebsite: Boolean(website),
+        noPendingEdits,
+      }),
     },
     content: {
-      photoCount: enrichment.media.photoCount || place?.photoCount || 0,
+      photoCount,
       videoCount: enrichment.media.videoCount,
       photosByType:
         Object.keys(enrichment.media.photosByType).length > 0
@@ -209,6 +224,8 @@ async function collectGbpFromApi(
       answerCount: q.answerCount,
       topAnswer: q.topAnswer,
     })),
+    googleSuggestions,
+    hasGoogleUpdated: liveProfile?.hasGoogleUpdated ?? false,
   };
 }
 
@@ -232,20 +249,27 @@ export async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<
     },
     completeness: {
       hasHours: place.hasHours,
+      hasFullWeekHours: false,
       hasHolidayHours: place.hasHolidayHours,
       hasDescription: description.length > 0,
       descriptionLength: description.length,
       hasServices: false,
       serviceCount: 0,
       attributeCount: 0,
-      completenessScore: completenessScore([
-        place.hasHours,
-        place.hasHolidayHours,
-        description.length > 0,
-        false,
-        place.photoCount > 0,
-        Boolean(place.website),
-      ]),
+      noPendingEdits: true,
+      completenessScore: computeGbpCompletenessScore({
+        hasHours: place.hasHours,
+        hasFullWeekHours: false,
+        hasHolidayHours: place.hasHolidayHours,
+        hasDescription: description.length > 0,
+        descriptionLength: description.length,
+        hasServices: false,
+        serviceCount: 0,
+        attributeCount: 0,
+        hasPhotos: place.photoCount > 0,
+        hasWebsite: Boolean(place.website),
+        noPendingEdits: true,
+      }),
     },
     content: {
       photoCount: place.photoCount,
@@ -293,6 +317,8 @@ export async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<
     },
     recentPosts: [],
     qaItems: [],
+    googleSuggestions: [],
+    hasGoogleUpdated: false,
   };
 }
 

@@ -1,5 +1,12 @@
 import type { GbpConnection } from "@/audit/types";
+import type { GbpGoogleSuggestion } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
+import { diffGoogleUpdatedLocation } from "./gbp-google-updated";
+import type { BusinessHours, SpecialHours } from "./gbp-hours";
+import {
+  hasFullWeekCoverage,
+  hasSpecialHourPeriods,
+} from "./gbp-hours";
 
 const BI_BASE = "https://mybusinessbusinessinformation.googleapis.com/v1";
 
@@ -31,10 +38,14 @@ export interface GbpLocationProfile {
   attributes: string[];
   attributeDetails: GbpLocationAttribute[];
   hasRegularHours: boolean;
+  hasFullWeekHours: boolean;
   hasMoreHours: boolean;
+  hasSpecialHours: boolean;
   hasGoogleUpdated: boolean;
   hasPendingEdits: boolean;
   canModifyServiceList: boolean;
+  regularHours: BusinessHours | null;
+  specialHours: SpecialHours | null;
 }
 
 export interface GbpAttributeMetadata {
@@ -90,7 +101,8 @@ interface LocationApi {
     };
   }>;
   attributes?: AttributeApi[];
-  regularHours?: { periods?: unknown[] };
+  regularHours?: BusinessHours;
+  specialHours?: SpecialHours;
   moreHours?: unknown[];
   metadata?: {
     placeId?: string;
@@ -362,6 +374,7 @@ export async function getGbpLocationProfile(
       "serviceItems",
       "attributes",
       "regularHours",
+      "specialHours",
       "moreHours",
       "metadata",
     ].join(",")
@@ -399,10 +412,14 @@ export async function getGbpLocationProfile(
     attributes: labels,
     attributeDetails: details,
     hasRegularHours: Boolean(data.regularHours?.periods?.length),
+    hasFullWeekHours: hasFullWeekCoverage(data.regularHours),
     hasMoreHours: Boolean(data.moreHours?.length),
+    hasSpecialHours: hasSpecialHourPeriods(data.specialHours),
     hasGoogleUpdated: Boolean(data.metadata?.hasGoogleUpdated),
     hasPendingEdits: Boolean(data.metadata?.hasPendingEdits),
     canModifyServiceList: data.metadata?.canModifyServiceList !== false,
+    regularHours: data.regularHours ?? null,
+    specialHours: data.specialHours ?? null,
   };
 }
 
@@ -520,7 +537,7 @@ export async function getGoogleUpdatedLocation(
   const params = new URLSearchParams();
   params.set(
     "readMask",
-    "name,title,profile,phoneNumbers,websiteUri,storefrontAddress,categories,serviceItems"
+    "name,title,profile,phoneNumbers,websiteUri,storefrontAddress,categories,serviceItems,regularHours,specialHours"
   );
 
   const data = await biFetch<{ location?: Record<string, unknown> }>(
@@ -529,6 +546,51 @@ export async function getGoogleUpdatedLocation(
   );
 
   return data.location ?? data;
+}
+
+/** locations.attributes.getGoogleUpdated — Google's suggested attribute changes. */
+export async function getGoogleUpdatedAttributes(
+  connection: GbpConnection
+): Promise<Record<string, unknown>> {
+  const resource = locationAttributesResourceName(connection.locationId);
+  const data = await biFetch<Record<string, unknown>>(
+    connection,
+    `${resource}:getGoogleUpdated`
+  );
+  return data;
+}
+
+/** Build owner location object for diffing against Google suggestions. */
+export function ownerLocationForDiff(profile: GbpLocationProfile): Record<string, unknown> {
+  return {
+    title: profile.title,
+    profile: { description: profile.description },
+    phoneNumbers: { primaryPhone: profile.phone },
+    websiteUri: profile.website,
+    categories: {
+      primaryCategory: profile.primaryCategory
+        ? { displayName: profile.primaryCategory.displayName, name: profile.primaryCategory.name }
+        : undefined,
+    },
+    storefrontAddress: profile.address ? { addressLines: [profile.address] } : undefined,
+    regularHours: profile.regularHours,
+    specialHours: profile.specialHours,
+  };
+}
+
+/** Fetch Google-suggested location edits when metadata indicates changes. */
+export async function fetchGoogleSuggestions(
+  connection: GbpConnection,
+  profile: GbpLocationProfile
+): Promise<GbpGoogleSuggestion[]> {
+  if (!profile.hasGoogleUpdated && !profile.hasPendingEdits) return [];
+
+  try {
+    const googleUpdated = await getGoogleUpdatedLocation(connection);
+    return diffGoogleUpdatedLocation(ownerLocationForDiff(profile), googleUpdated);
+  } catch {
+    return [];
+  }
 }
 
 /** googleLocations.search — find matching Google locations. */

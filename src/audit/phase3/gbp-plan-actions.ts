@@ -9,6 +9,8 @@ const AUTOMATED_ACTIONS = new Set<GbpPlanActionType>([
   "upload_video",
   "update_attributes",
   "update_website",
+  "update_hours",
+  "accept_google_suggestion",
   "create_post",
 ]);
 
@@ -20,6 +22,7 @@ const ACTION_BY_STEP: Partial<Record<number, GbpPlanActionType>> = {
   6: "upload_photo",
   7: "upload_video",
   8: "create_post",
+  12: "update_hours",
   13: "update_attributes",
   15: "update_website",
 };
