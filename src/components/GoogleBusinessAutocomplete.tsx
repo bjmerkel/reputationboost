@@ -24,6 +24,8 @@ interface GoogleBusinessAutocompleteProps {
   onClear?: () => void;
   theme?: "light" | "dark";
   compact?: boolean;
+  /** Large hero search — primary homepage CTA */
+  hero?: boolean;
 }
 
 function component(type: string, components: google.maps.GeocoderAddressComponent[]): string {
@@ -70,6 +72,7 @@ export default function GoogleBusinessAutocomplete({
   onClear,
   theme = "dark",
   compact = false,
+  hero = false,
 }: GoogleBusinessAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -158,7 +161,7 @@ export default function GoogleBusinessAutocomplete({
 
   return (
     <div className="space-y-3">
-      {!compact && (
+      {!compact && !hero && (
         <div>
           <label
             className={`mb-1.5 block text-sm font-medium ${
@@ -186,10 +189,12 @@ export default function GoogleBusinessAutocomplete({
         </div>
       )}
 
-      {compact && (
+      {(compact || hero) && (
         <div className="relative">
           <svg
-            className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#5f6368]"
+            className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-[#5f6368] ${
+              hero ? "left-5 h-6 w-6" : "left-4 h-5 w-5"
+            }`}
             fill="none"
             viewBox="0 0 24 24"
             strokeWidth={2}
@@ -205,9 +210,17 @@ export default function GoogleBusinessAutocomplete({
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search your business on Google Maps…"
+            placeholder={
+              hero
+                ? "Search your business on Google Maps"
+                : "Search your business on Google Maps…"
+            }
             autoComplete="off"
-            className="w-full rounded-full border border-[#dadce0] bg-white py-4 pr-5 pl-12 text-base text-[#202124] shadow-sm placeholder:text-[#80868b] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
+            className={
+              hero
+                ? "w-full rounded-full border border-[#dadce0] bg-white py-5 pr-6 pl-14 text-lg text-[#202124] shadow-[0_2px_8px_rgba(60,64,67,0.15),0_1px_3px_rgba(60,64,67,0.1)] placeholder:text-[#80868b] focus:border-[#1a73e8] focus:outline-none focus:ring-4 focus:ring-[#1a73e8]/15 sm:py-6 sm:pl-16 sm:text-xl"
+                : "w-full rounded-full border border-[#dadce0] bg-white py-4 pr-5 pl-12 text-base text-[#202124] shadow-sm placeholder:text-[#80868b] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
+            }
           />
         </div>
       )}

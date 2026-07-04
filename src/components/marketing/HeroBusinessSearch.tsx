@@ -6,7 +6,6 @@ import GoogleBusinessAutocomplete, {
   type BusinessPlaceSelection,
 } from "@/components/GoogleBusinessAutocomplete";
 import { usePreviewAudit } from "@/context/PreviewAuditContext";
-import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 
 export default function HeroBusinessSearch() {
   const { setPreviewResult, setLoading: setContextLoading, setPendingSearch } =
@@ -84,46 +83,30 @@ export default function HeroBusinessSearch() {
   }, [setPreviewResult, setPendingSearch]);
 
   return (
-    <>
-      <div id="hero-search" className="animate-fade-up animate-delay-300 mt-8 w-full max-w-2xl scroll-mt-24">
-        <GoogleBusinessAutocomplete
-          theme="light"
-          compact
-          onSelect={handleSelect}
-          onClear={handleClear}
-        />
-        <p className="mt-3 text-sm text-[#80868b]">
-          Your full audit loads below — score, map rankings, plan, and reviews.
-        </p>
-      </div>
+    <div
+      id="hero-search"
+      className="animate-fade-up animate-delay-150 mt-8 w-full max-w-3xl scroll-mt-24 sm:mt-10"
+    >
+      <p className="mb-4 text-sm font-semibold text-[#1a73e8]">
+        Get your Reputation Boost Score — free
+      </p>
 
-      <div className="animate-fade-up animate-delay-300 mt-6 flex flex-col items-center gap-3 sm:flex-row">
-        <a
-          href={SIGNUP_URL}
-          className="btn-primary inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-medium text-white"
-        >
-          {SIGNUP_CTA_LABEL}
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-        </a>
-        <a
-          href="#nightly-score"
-          className="btn-secondary inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-medium"
-        >
-          See How It Works
-        </a>
-      </div>
+      <GoogleBusinessAutocomplete
+        theme="light"
+        hero
+        onSelect={handleSelect}
+        onClear={handleClear}
+      />
 
       {error && (
-        <div className="mt-4 w-full max-w-2xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-700">
           {error}
         </div>
       )}
 
-      <p className="animate-fade-up animate-delay-300 mt-4 text-sm text-[#80868b]">
-        No credit card · 3-minute setup · Real Google listing data
+      <p className="mt-4 text-sm text-[#80868b]">
+        No credit card · Takes about 3 minutes · Real Google listing data
       </p>
-    </>
+    </div>
   );
 }
