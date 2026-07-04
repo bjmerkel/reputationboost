@@ -109,6 +109,30 @@ export async function getValidGbpConnection(
   };
 }
 
+export async function getGbpAccessTokenForRecord(
+  row: BusinessRecord
+): Promise<string | null> {
+  if (!row.gbp_refresh_token) return null;
+
+  const expiresAt = row.gbp_token_expires_at
+    ? new Date(row.gbp_token_expires_at).getTime()
+    : 0;
+
+  if (row.gbp_access_token && expiresAt - Date.now() > EXPIRY_BUFFER_MS) {
+    return row.gbp_access_token;
+  }
+
+  const refreshed = await refreshAccessToken(row.gbp_refresh_token);
+  await saveGbpTokens(row.user_id, row.id, {
+    accessToken: refreshed.accessToken,
+    refreshToken: refreshed.refreshToken ?? row.gbp_refresh_token,
+    expiresAt: refreshed.expiresAt,
+    googleEmail: row.gbp_google_email ?? undefined,
+  });
+
+  return refreshed.accessToken;
+}
+
 /** Refresh GBP connection for cron/backfill using a business row (no user session). */
 export async function getValidGbpConnectionForRecord(
   row: BusinessRecord

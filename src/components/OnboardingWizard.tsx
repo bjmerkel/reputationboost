@@ -160,6 +160,9 @@ export default function OnboardingWizard({
           phone: loc.phone,
           website: loc.website,
           industry: loc.primaryCategory,
+          address: loc.address,
+          parentChainId: loc.parentChainId,
+          chainDisplayName: loc.chainDisplayName,
         }),
       });
       const data = await res.json();
@@ -428,6 +431,7 @@ export default function OnboardingWizard({
               </p>
               <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
                 {loc.primaryCategory}
+                {loc.chainDisplayName ? ` · ${loc.chainDisplayName} chain` : ""}
                 {loc.matchReason ? ` · ${loc.matchReason}` : ""}
               </p>
             </button>

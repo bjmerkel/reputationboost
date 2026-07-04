@@ -66,6 +66,7 @@ export interface GbpAttributeUpdate {
 interface CategoryApi {
   name?: string;
   displayName?: string;
+  serviceTypes?: Array<{ serviceTypeId?: string; displayName?: string }>;
 }
 
 interface AttributeApi {
@@ -316,12 +317,11 @@ export async function searchGbpCategories(
   }));
 }
 
-/** categories.batchGet — resolve category IDs to display names. */
-export async function batchGetGbpCategories(
-  connection: GbpConnection,
+async function batchGetCategoriesRaw(
+  accessToken: string,
   categoryNames: string[],
   regionCode = "US"
-): Promise<GbpCategoryRef[]> {
+): Promise<CategoryApi[]> {
   if (categoryNames.length === 0) return [];
 
   const params = new URLSearchParams();
@@ -332,15 +332,135 @@ export async function batchGetGbpCategories(
     params.append("names", normalizeCategoryName(name));
   }
 
-  const data = await biFetch<{ categories?: CategoryApi[] }>(
-    connection,
-    `categories:batchGet?${params.toString()}`
-  );
+  const res = await fetch(`${BI_BASE}/categories:batchGet?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 
-  return (data.categories ?? []).map((c) => ({
+  const data = (await res.json()) as {
+    categories?: CategoryApi[];
+    error?: { message?: string };
+  };
+
+  if (!res.ok) {
+    throw new Error(data.error?.message ?? `Category batchGet failed (${res.status})`);
+  }
+
+  return data.categories ?? [];
+}
+
+/** categories.batchGet — resolve category IDs to display names (access token). */
+export async function batchGetGbpCategoriesWithToken(
+  accessToken: string,
+  categoryNames: string[],
+  regionCode = "US"
+): Promise<GbpCategoryRef[]> {
+  const categories = await batchGetCategoriesRaw(accessToken, categoryNames, regionCode);
+  return categories.map((c) => ({
     name: normalizeCategoryName(c.name ?? ""),
     displayName: c.displayName ?? c.name ?? "",
   }));
+}
+
+/** categories.batchGet — resolve category IDs to display names. */
+export async function batchGetGbpCategories(
+  connection: GbpConnection,
+  categoryNames: string[],
+  regionCode = "US"
+): Promise<GbpCategoryRef[]> {
+  return batchGetGbpCategoriesWithToken(connection.accessToken, categoryNames, regionCode);
+}
+
+/** Resolve structured serviceTypeId values via categories.batchGet service types. */
+export async function resolveGbpServiceTypeLabels(
+  connection: GbpConnection,
+  primaryCategoryName: string | null | undefined,
+  serviceTypeIds: string[]
+): Promise<Map<string, string>> {
+  const labels = new Map<string, string>();
+  if (!primaryCategoryName || serviceTypeIds.length === 0) return labels;
+
+  const categories = await batchGetCategoriesRaw(
+    connection.accessToken,
+    [primaryCategoryName]
+  );
+
+  for (const category of categories) {
+    for (const serviceType of category.serviceTypes ?? []) {
+      if (serviceType.serviceTypeId && serviceType.displayName) {
+        labels.set(serviceType.serviceTypeId, serviceType.displayName);
+      }
+    }
+  }
+
+  return labels;
+}
+
+/** Fill missing category display names and structured service labels. */
+export async function enrichGbpLocationProfile(
+  connection: GbpConnection,
+  profile: GbpLocationProfile
+): Promise<GbpLocationProfile> {
+  const categoryNames = [
+    profile.primaryCategory?.name,
+    ...profile.additionalCategories.map((c) => c.name),
+  ].filter((name): name is string => Boolean(name));
+
+  const needsCategoryLabels =
+    !profile.primaryCategory?.displayName ||
+    profile.additionalCategories.some((c) => !c.displayName);
+
+  const serviceTypeIds = profile.serviceItems
+    .map((item) => item.raw?.structuredServiceItem as { serviceTypeId?: string } | undefined)
+    .map((structured) => structured?.serviceTypeId)
+    .filter((id): id is string => Boolean(id));
+
+  const [categoryRefs, serviceLabels] = await Promise.all([
+    needsCategoryLabels && categoryNames.length > 0
+      ? batchGetGbpCategories(connection, categoryNames).catch(() => [])
+      : Promise.resolve([]),
+    serviceTypeIds.length > 0
+      ? resolveGbpServiceTypeLabels(connection, profile.primaryCategory?.name, serviceTypeIds)
+      : Promise.resolve(new Map<string, string>()),
+  ]);
+
+  const categoryByName = new Map(categoryRefs.map((c) => [c.name, c.displayName]));
+
+  const primaryCategory = profile.primaryCategory
+    ? {
+        ...profile.primaryCategory,
+        displayName:
+          profile.primaryCategory.displayName ||
+          categoryByName.get(profile.primaryCategory.name) ||
+          profile.primaryCategory.name,
+      }
+    : null;
+
+  const additionalCategories = profile.additionalCategories.map((category) => ({
+    ...category,
+    displayName:
+      category.displayName || categoryByName.get(category.name) || category.name,
+  }));
+
+  const serviceItems = profile.serviceItems.map((item) => {
+    const structured = item.raw?.structuredServiceItem as
+      | { serviceTypeId?: string; description?: string }
+      | undefined;
+    const serviceTypeId = structured?.serviceTypeId;
+    if (!serviceTypeId) return item;
+
+    const label = serviceLabels.get(serviceTypeId) ?? serviceTypeId;
+    return {
+      ...item,
+      name: item.name === serviceTypeId ? label : item.name,
+    };
+  });
+
+  return {
+    ...profile,
+    primaryCategory,
+    additionalCategories,
+    serviceItems,
+  };
 }
 
 export async function resolveCategoryByDisplayName(
@@ -693,7 +813,10 @@ export async function getGbpLocationFull(connection: GbpConnection): Promise<{
   availableAttributes: GbpAttributeMetadata[];
   googleUpdated: Record<string, unknown> | null;
 }> {
-  const profile = await getGbpLocationProfile(connection);
+  const profile = await enrichGbpLocationProfile(
+    connection,
+    await getGbpLocationProfile(connection)
+  );
 
   const [attributeSummary, availableAttributes, googleUpdated] = await Promise.all([
     getGbpEnabledAttributeLabels(connection).catch(() => ({

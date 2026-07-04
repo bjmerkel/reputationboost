@@ -5,6 +5,7 @@ import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
 import { isReviewResponded } from "@/lib/google/gbp-reviews";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
 import {
+  enrichGbpLocationProfile,
   fetchGoogleSuggestions,
   getGbpEnabledAttributeLabels,
   getGbpLocationProfile,
@@ -72,7 +73,9 @@ async function collectGbpFromApi(
 
   const [enrichment, liveProfileResult, place] = await Promise.all([
     fetchGbpEnrichment(connection, { userEmail: options?.userEmail }),
-    getGbpLocationProfile(connection).catch(() => null),
+    getGbpLocationProfile(connection)
+      .then((profile) => enrichGbpLocationProfile(connection, profile))
+      .catch(() => null),
     (connection.placeId ?? client.gbpPlaceId)
       ? fetchPlaceDetails(connection.placeId ?? client.gbpPlaceId!).catch(() => null)
       : Promise.resolve(null),
