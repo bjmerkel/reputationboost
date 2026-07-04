@@ -58,15 +58,31 @@ export default function Hero() {
             No credit card · 3-minute setup · Real GBP data
           </p>
 
-          <div className="animate-fade-up animate-delay-400 mt-12 grid w-full max-w-3xl grid-cols-3 gap-6 border-t border-[#dadce0] pt-10">
+          <div className="animate-fade-up animate-delay-400 mt-12 grid w-full max-w-4xl gap-4 sm:grid-cols-3">
             {[
-              { value: "16-step", label: "GBP Action Plan" },
-              { value: "4 radii", label: "Geo-Grid Tracking" },
-              { value: "$4,200", label: "Avg. Monthly Gain" },
+              {
+                value: "70–75%",
+                label: "of map clicks go to the top 3",
+                sub: "Miss the pack, miss the customers",
+              },
+              {
+                value: "+93%",
+                label: "more calls & directions",
+                sub: "When you break into the Local 3-Pack",
+              },
+              {
+                value: "+$4,200",
+                label: "avg. monthly revenue gain",
+                sub: "After completing your action plan",
+              },
             ].map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-2xl font-medium text-[#202124] sm:text-3xl">{stat.value}</div>
-                <div className="mt-1 text-sm text-[#5f6368]">{stat.label}</div>
+              <div
+                key={stat.label}
+                className="rounded-xl border border-[#dadce0] bg-[#f8f9fa] px-4 py-5 text-center"
+              >
+                <div className="text-3xl font-medium text-[#1a73e8] sm:text-4xl">{stat.value}</div>
+                <div className="mt-2 text-sm font-medium text-[#202124]">{stat.label}</div>
+                <div className="mt-1 text-xs text-[#80868b]">{stat.sub}</div>
               </div>
             ))}
           </div>
