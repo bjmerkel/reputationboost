@@ -11,7 +11,7 @@ const footerLinks = {
   ],
   Company: [
     { label: "How It Works", href: "/#nightly-score" },
-    { label: "Testimonials", href: "/#testimonials" },
+    { label: "What We Track", href: "/#what-we-track" },
     { label: "FAQ", href: "/#faq" },
     { label: "Contact", href: `mailto:${SUPPORT_EMAIL}` },
   ],

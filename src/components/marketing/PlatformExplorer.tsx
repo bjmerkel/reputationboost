@@ -2,6 +2,7 @@
 
 import PlatformDemo from "@/components/marketing/PlatformDemo";
 import PlatformLoading from "@/components/marketing/PlatformLoading";
+import ScoreContextPanel from "@/components/marketing/ScoreContextPanel";
 import { usePreviewAudit } from "@/context/PreviewAuditContext";
 import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 
@@ -27,6 +28,7 @@ export default function PlatformExplorer() {
 
       {!loading && isLive && preview && (
         <>
+          <ScoreContextPanel />
           <PlatformDemo
             audit={platformAudit}
             businessName={businessName}
@@ -37,11 +39,17 @@ export default function PlatformExplorer() {
           <div className="border-t border-[#dadce0] bg-white px-4 py-4">
             <div className="mx-auto flex max-w-4xl flex-col items-center justify-between gap-3 sm:flex-row">
               <p className="text-center text-sm text-[#5f6368] sm:text-left">
-                Score <span className="font-semibold text-[#202124]">{preview.score.overall}/100</span>
-                {" · "}
-                {preview.keywords.length} keywords tracked
-                {" · "}
-                {preview.pathToHealthy.topActions.length} actions ready
+                {preview.keywords.length} keywords tracked ·{" "}
+                {preview.pathToHealthy.topActions.length} fixes ready ·{" "}
+                {preview.pathToHealthy.estimatedRevenueGain != null && (
+                  <>
+                    up to{" "}
+                    <span className="font-semibold text-[#188038]">
+                      ${preview.pathToHealthy.estimatedRevenueGain.toLocaleString()}/mo
+                    </span>{" "}
+                    opportunity
+                  </>
+                )}
               </p>
               <a
                 href={SIGNUP_URL}

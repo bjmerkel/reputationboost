@@ -10,18 +10,12 @@ export default function Hero() {
             <span className="font-semibold text-[#1a73e8]">Google Maps Customers</span>
           </h1>
 
-          <p className="animate-fade-up animate-delay-100 mt-4 max-w-xl text-lg font-medium leading-snug text-[#3c4043] sm:text-xl">
-            Your competitor is getting the calls meant for you. Find out why.
+          <p className="animate-fade-up animate-delay-100 mt-4 max-w-2xl text-lg font-medium leading-snug text-[#3c4043] sm:text-xl">
+            Every day you&apos;re outside Google&apos;s Local 3-Pack, competitors are getting the
+            calls that could have been yours.
           </p>
 
           <HeroBusinessSearch />
-
-          <p className="animate-fade-up animate-delay-200 mt-8 max-w-2xl text-base leading-relaxed text-[#5f6368]">
-            Search your business. We&apos;ll analyze your Google Business Profile, identify your
-            highest-value keywords, calculate your{" "}
-            <span className="font-medium text-[#202124]">Reputation Boost Score</span>, and monitor
-            it every night so you always know what to improve next.
-          </p>
         </div>
       </div>
     </section>

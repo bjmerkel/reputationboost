@@ -2,7 +2,7 @@ export const marketingFaqs = [
   {
     question: "How does the score keep improving over time?",
     answer:
-      "We check and improve your score every single night. While you sleep, we pull your latest rankings and Google Business Profile data, update your Reputation Boost Score, and note what changed. When you complete a step on your plan, we measure results in 14-day before/after windows — rank movement, calls, directions, and estimated revenue. The more you use it, the smarter your plan gets: what works for your business moves to the top of the list. Not just once at signup — every day.",
+      "We analyze your Google Business Profile every night, update your Reputation Boost Score, and recommend the next improvements that can move it higher. When you complete a step on your plan, we measure results in 14-day before/after windows — rank movement, calls, directions, and estimated revenue. The more you use it, the smarter your plan gets: what works for your business moves to the top of the list. Not just once at signup — every day.",
   },
   {
     question: "What is the Reputation Boost Score?",

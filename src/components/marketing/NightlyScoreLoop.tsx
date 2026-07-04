@@ -2,7 +2,7 @@ import SectionHeader from "@/components/marketing/SectionHeader";
 
 const loopSteps = [
   {
-    title: "We check every night",
+    title: "We analyze every night",
     description:
       "While you sleep, we pull your latest Google Business Profile data, check where you rank across your service area, and update your Reputation Boost Score.",
   },
@@ -31,7 +31,7 @@ export default function NightlyScoreLoop() {
               <span className="gradient-text font-semibold">every night</span>
             </>
           }
-          subtitle="Most tools audit your Google listing once and email a PDF. We check and improve your score every single night — it works while you sleep."
+          subtitle="Most tools audit your Google listing once and email a PDF. We analyze your Google Business Profile every night, update your Reputation Boost Score, and recommend the next improvements that can move it higher."
         />
 
         <div className="mt-10 grid gap-6 md:grid-cols-3">
