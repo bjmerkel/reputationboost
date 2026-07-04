@@ -6,6 +6,7 @@ import {
   SCORE_BANDS,
   scoreBandFor,
 } from "@/lib/marketing/score-grades";
+import { REPUTATION_BOOST_SCORE_EXPLANATION } from "@/lib/marketing/score-copy";
 
 function Stars({ count, active }: { count: number; active: boolean }) {
   return (
@@ -50,6 +51,9 @@ export default function ScoreContextPanel() {
             </div>
             <p className="mt-2 text-sm font-medium" style={{ color: band.color }}>
               {band.label} · {band.range}
+            </p>
+            <p className="mt-4 max-w-md text-sm leading-relaxed text-[#5f6368]">
+              {REPUTATION_BOOST_SCORE_EXPLANATION}
             </p>
 
             <div className="mt-6 rounded-xl border border-[#dadce0] bg-[#f8f9fa] px-4 py-4">

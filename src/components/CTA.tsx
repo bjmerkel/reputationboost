@@ -14,23 +14,28 @@ export default function CTA() {
 
             <div className="relative">
               <h2 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-                What&apos;s your Reputation Boost Score?
+                Ready to see what&apos;s costing you Google Maps customers?
               </h2>
               <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-400">
                 Free audit. Personalized plan. No credit card required.
-                Every day outside the Local 3-Pack, competitors capture the
-                calls meant for you.
+                Find out what&apos;s holding your Google listing back.
               </p>
 
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <a
-                  href={SIGNUP_URL}
+                  href="#hero-search"
                   className="btn-primary inline-flex items-center justify-center gap-2 rounded-full px-10 py-4 text-base font-semibold text-white"
                 >
-                  {SIGNUP_CTA_LABEL}
+                  Search your business
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
+                </a>
+                <a
+                  href={SIGNUP_URL}
+                  className="btn-secondary inline-flex items-center justify-center gap-2 rounded-full px-10 py-4 text-base font-semibold text-white"
+                >
+                  {SIGNUP_CTA_LABEL}
                 </a>
                 <a
                   href="mailto:info@reputationboost.com"
