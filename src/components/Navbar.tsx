@@ -7,9 +7,7 @@ import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 const navLinks = [
   { label: "Platform", href: "/#platform-explorer" },
   { label: "Score", href: "/#your-score" },
-  { label: "Map", href: "/#your-map" },
   { label: "Money", href: "/#your-money" },
-  { label: "Plan", href: "/#action-plan" },
   { label: "Pricing", href: "/#pricing" },
 ];
 

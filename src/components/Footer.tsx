@@ -3,11 +3,9 @@ import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 
 const footerLinks = {
   Product: [
-    { label: "Explore Platform", href: "/#platform-explorer" },
+    { label: "Platform", href: "/#platform-explorer" },
     { label: "Your Score", href: "/#your-score" },
-    { label: "Your Map", href: "/#your-map" },
     { label: "Your Money", href: "/#your-money" },
-    { label: "Action Plan", href: "/#action-plan" },
     { label: "Revenue Calculator", href: "/#roi-calculator" },
     { label: "Pricing", href: "/#pricing" },
     { label: SIGNUP_CTA_LABEL, href: SIGNUP_URL },

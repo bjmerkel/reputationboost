@@ -205,13 +205,14 @@ export default function PlatformDemo({
   return (
     <div className="platform-theme google-maps-frame overflow-hidden bg-white">
       {isLive && (
-        <div className="border-b border-[#d2e3fc] bg-[#e8f0fe] px-4 py-2.5 text-center text-sm text-[#1a73e8]">
-          Live preview for <span className="font-semibold">{businessName}</span> — explore the
-          platform your score runs on
+        <div className="border-b border-[#d2e3fc] bg-[#e8f0fe] px-4 py-2 text-center text-sm text-[#1a73e8]">
+          Live audit for <span className="font-semibold">{businessName}</span>
+          {" — "}
+          pan the map, switch keywords, open Plan &amp; Reviews
         </div>
       )}
 
-      <div className="h-[min(760px,85vh)]">
+      <div className="h-[min(88vh,900px)] min-h-[520px]">
         <PlatformShell
           searchBar={
             <MapsSearchBar

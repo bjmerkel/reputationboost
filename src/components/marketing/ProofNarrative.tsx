@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePreviewAudit } from "@/context/PreviewAuditContext";
 import ScoreImpactSlider from "@/components/marketing/ScoreImpactSlider";
 import SectionHeader from "@/components/marketing/SectionHeader";
@@ -10,12 +9,6 @@ const grades = [
   { label: "Healthy", range: "70–100", className: "border-[#ceead6] bg-[#e6f4ea] text-[#188038]" },
   { label: "At Risk", range: "40–69", className: "border-[#fdd663] bg-[#fef7e0] text-[#e37400]" },
   { label: "Urgent", range: "0–39", className: "border-[#f6aea9] bg-[#fce8e6] text-[#d93025]" },
-];
-
-const localPackStats = [
-  { value: "70–75%", label: "of map clicks go to the top 3" },
-  { value: "44%", label: "of total SERP clicks" },
-  { value: "3×", label: "more engagement in the pack" },
 ];
 
 const howItWorks = [
@@ -62,16 +55,6 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-function formatRank(
-  inLocalPack: boolean,
-  position: number | "not_in_pack",
-  rank: number | null
-): string {
-  if (inLocalPack && typeof position === "number") return `#${position} in pack`;
-  if (rank != null) return `#${rank} — not in pack`;
-  return "Not in pack";
-}
-
 export default function ProofNarrative() {
   const { preview, isLive, platformAudit } = usePreviewAudit();
 
@@ -93,15 +76,6 @@ export default function ProofNarrative() {
     preview?.keywords.find((k) => !k.inLocalPack)?.keyword != null
       ? `Outside the Local 3-Pack on "${preview.keywords.find((k) => !k.inLocalPack)?.keyword}"`
       : "In pack for only part of your service area";
-
-  const keywords = preview?.keywords ?? platformAudit.rankings.keywords.map((kw) => ({
-    keyword: kw.keyword,
-    rank: typeof kw.localPackPosition === "number" ? kw.localPackPosition : kw.geoRanks[0]?.rank ?? null,
-    inLocalPack: kw.inLocalPack,
-    localPackPosition: kw.localPackPosition,
-    packLeaderReviewCount: kw.packLeaderReviewCount,
-    clientReviewCount: kw.clientReviewCount,
-  }));
 
   const attributionItems =
     preview?.pathToHealthy.topActions.length
@@ -136,7 +110,7 @@ export default function ProofNarrative() {
             }
             subtitle={
               isLive
-                ? `${preview!.business.name} scores ${currentScore}/100 — profile strength and ranking outcome in one number.`
+                ? `${preview!.business.name} scores ${currentScore}/100 — profile strength and ranking outcome in one number. Pan the map above to see where you rank.`
                 : "Search your business above for your live score, or explore how profile strength and rankings blend into one metric."
             }
           />
@@ -203,74 +177,6 @@ export default function ProofNarrative() {
                 maxRevenueGain={revenueGain}
               />
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Your Map ── */}
-      <section
-        id="your-map"
-        className="scroll-mt-28 border-b border-[#dadce0] bg-[#f8f9fa] py-20 lg:py-28"
-      >
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <SectionHeader
-            label="Your Map"
-            labelColor="cyan"
-            title={
-              <>
-                Where you rank — and where{" "}
-                <span className="gradient-text font-semibold">competitors win</span>
-              </>
-            }
-            subtitle="70–75% of map clicks go to the top 3. Every keyword outside the Local 3-Pack sends customers to someone else."
-          />
-
-          <div className="mt-10 grid gap-4 sm:grid-cols-3">
-            {localPackStats.map((stat) => (
-              <div
-                key={stat.label}
-                className="rounded-xl border border-[#dadce0] bg-white px-4 py-5 text-center"
-              >
-                <p className="text-2xl font-semibold text-[#1a73e8]">{stat.value}</p>
-                <p className="mt-1 text-sm text-[#5f6368]">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-10 space-y-3">
-            {keywords.slice(0, 3).map((kw) => (
-              <div
-                key={kw.keyword}
-                className="flex flex-col gap-2 rounded-xl border border-[#dadce0] bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <p className="font-medium text-[#202124]">{kw.keyword}</p>
-                  {!kw.inLocalPack && kw.packLeaderReviewCount > 0 && (
-                    <p className="mt-0.5 text-xs text-[#80868b]">
-                      Pack leader has {kw.packLeaderReviewCount} reviews
-                    </p>
-                  )}
-                </div>
-                <span
-                  className="shrink-0 self-start rounded-full px-3 py-1 text-xs font-semibold sm:self-center"
-                  style={{
-                    backgroundColor: kw.inLocalPack ? "#e6f4ea" : "#fce8e6",
-                    color: kw.inLocalPack ? "#188038" : "#d93025",
-                  }}
-                >
-                  {formatRank(kw.inLocalPack, kw.localPackPosition, kw.rank)}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 text-center">
-            <a
-              href="#platform-explorer"
-              className="btn-secondary inline-flex items-center justify-center rounded-full px-6 py-2.5 text-sm font-medium"
-            >
-              Explore the interactive map ↑
-            </a>
           </div>
         </div>
       </section>
@@ -378,9 +284,9 @@ export default function ProofNarrative() {
 
           <p className="mt-8 text-center text-sm text-[#80868b]">
             Your score improves daily through a measure → act → attribute → learn loop.{" "}
-            <Link href="#platform-explorer" className="text-[#1a73e8] hover:underline">
-              See it in the platform explorer
-            </Link>
+            <a href="#platform-explorer" className="text-[#1a73e8] hover:underline">
+              Try the interactive platform
+            </a>
           </p>
         </div>
       </section>

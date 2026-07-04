@@ -2,7 +2,7 @@ import HeroBusinessSearch from "@/components/marketing/HeroBusinessSearch";
 
 export default function Hero() {
   return (
-    <section className="border-b border-[#dadce0] bg-white pt-12 pb-16 lg:pt-16 lg:pb-20">
+    <section className="border-b border-[#dadce0] bg-white pt-12 pb-8 lg:pt-16 lg:pb-10">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex flex-col items-center text-center">
           <div className="animate-fade-up mb-6 inline-flex items-center gap-2 rounded-full border border-[#d2e3fc] bg-[#e8f0fe] px-4 py-1.5 text-sm font-medium text-[#1a73e8]">

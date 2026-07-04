@@ -4,8 +4,6 @@ import Hero from "@/components/Hero";
 import MarketingHome from "@/components/marketing/MarketingHome";
 import PlatformExplorer from "@/components/marketing/PlatformExplorer";
 import ProofNarrative from "@/components/marketing/ProofNarrative";
-import ActionPlan from "@/components/ActionPlan";
-import ExecutionAutomation from "@/components/ExecutionAutomation";
 import Testimonial from "@/components/Testimonial";
 import RoiCalculator from "@/components/marketing/RoiCalculator";
 import PricingPreview from "@/components/PricingPreview";
@@ -37,8 +35,6 @@ export default function Home() {
           <Hero />
           <PlatformExplorer />
           <ProofNarrative />
-          <ActionPlan />
-          <ExecutionAutomation />
           <Testimonial />
           <RoiCalculator />
           <PricingPreview />

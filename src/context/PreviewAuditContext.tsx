@@ -18,6 +18,11 @@ interface PreviewAuditContextValue {
   loading: boolean;
   setPreviewResult: (result: PreviewAuditResult | null) => void;
   setLoading: (loading: boolean) => void;
+  setPendingSearch: (place: {
+    name: string;
+    industry: string;
+    location: { lat: number; lng: number; address: string };
+  } | null) => void;
   clearPreview: () => void;
 }
 
@@ -26,15 +31,22 @@ const PreviewAuditContext = createContext<PreviewAuditContextValue | null>(null)
 export function PreviewAuditProvider({ children }: { children: React.ReactNode }) {
   const [preview, setPreview] = useState<PreviewAuditResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pendingSearch, setPendingSearch] = useState<{
+    name: string;
+    industry: string;
+    location: { lat: number; lng: number; address: string };
+  } | null>(null);
   const demoAudit = useMemo(() => createMarketingDemoAudit(), []);
 
   const setPreviewResult = useCallback((result: PreviewAuditResult | null) => {
     setPreview(result);
+    if (result) setPendingSearch(null);
   }, []);
 
   const clearPreview = useCallback(() => {
     setPreview(null);
     setLoading(false);
+    setPendingSearch(null);
   }, []);
 
   const value = useMemo<PreviewAuditContextValue>(() => {
@@ -49,6 +61,23 @@ export function PreviewAuditProvider({ children }: { children: React.ReactNode }
         loading,
         setPreviewResult,
         setLoading,
+        setPendingSearch,
+        clearPreview,
+      };
+    }
+
+    if (pendingSearch) {
+      return {
+        preview: null,
+        platformAudit: demoAudit,
+        businessName: pendingSearch.name,
+        industry: pendingSearch.industry,
+        location: pendingSearch.location,
+        isLive: false,
+        loading,
+        setPreviewResult,
+        setLoading,
+        setPendingSearch,
         clearPreview,
       };
     }
@@ -63,9 +92,10 @@ export function PreviewAuditProvider({ children }: { children: React.ReactNode }
       loading,
       setPreviewResult,
       setLoading,
+      setPendingSearch,
       clearPreview,
     };
-  }, [preview, demoAudit, loading, setPreviewResult, clearPreview]);
+  }, [preview, pendingSearch, demoAudit, loading, setPreviewResult, clearPreview]);
 
   return (
     <PreviewAuditContext.Provider value={value}>{children}</PreviewAuditContext.Provider>
