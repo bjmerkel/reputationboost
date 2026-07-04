@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import GbpAccountSummary from "@/components/GbpAccountSummary";
+import type { GbpPerformanceCoverage } from "@/audit/types";
 import type { GbpLocationAccessCheck } from "@/lib/google/gbp-access";
+
+type PerformanceEndpointStatus = "ok" | "failed" | "denied" | "skipped";
 
 interface PerformanceProbe {
   ok: boolean;
@@ -18,7 +21,32 @@ interface PerformanceProbe {
     websiteClicks: number;
     profileViews: number;
   };
+  endpoints?: {
+    coreMetrics: PerformanceEndpointStatus;
+    impressions: PerformanceEndpointStatus;
+    searchKeywords: PerformanceEndpointStatus;
+  };
+  coverage?: GbpPerformanceCoverage;
   accessCheck?: GbpLocationAccessCheck;
+}
+
+const ENDPOINT_LABELS: Record<keyof NonNullable<PerformanceProbe["endpoints"]>, string> = {
+  coreMetrics: "Action metrics",
+  impressions: "Profile views",
+  searchKeywords: "Search keywords",
+};
+
+function endpointBadgeClass(status: PerformanceEndpointStatus, isLight: boolean): string {
+  if (status === "ok") {
+    return isLight ? "bg-[#e6f4ea] text-[#137333]" : "bg-emerald-500/15 text-emerald-300";
+  }
+  if (status === "denied") {
+    return isLight ? "bg-[#fce8e6] text-[#c5221f]" : "bg-red-500/15 text-red-300";
+  }
+  if (status === "failed") {
+    return isLight ? "bg-[#fef7e0] text-[#e37400]" : "bg-amber-500/15 text-amber-300";
+  }
+  return isLight ? "bg-[#f1f3f4] text-[#5f6368]" : "bg-white/10 text-slate-400";
 }
 
 export default function GbpPerformanceSetup({
@@ -84,6 +112,7 @@ export default function GbpPerformanceSetup({
     accessCheck?.detail ??
     "Call clicks and profile views aren't loading for this location. Your profile, reviews, and rankings still work.";
   const suggestion = accessCheck?.suggestion;
+  const coverage = probe?.coverage;
 
   const accountSummary = (
     <GbpAccountSummary
@@ -128,23 +157,66 @@ export default function GbpPerformanceSetup({
                 : "border-emerald-500/25 bg-emerald-500/10"
           }`}
         >
-          <h2 className={`text-lg font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
-            Profile insights
-          </h2>
-          <p
-            className={`mt-2 text-sm ${
-              probe.partial
-                ? isLight
-                  ? "text-[#b06000]"
-                  : "text-amber-200"
-                : isLight
-                  ? "text-[#137333]"
-                  : "text-emerald-200"
-            }`}
-          >
-            Last 7 days: {metrics?.profileViews ?? 0} profile views, {metrics?.calls ?? 0} calls,{" "}
-            {metrics?.directionRequests ?? 0} direction requests.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className={`text-lg font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
+                Profile insights
+              </h2>
+              <p
+                className={`mt-2 text-sm ${
+                  probe.partial
+                    ? isLight
+                      ? "text-[#b06000]"
+                      : "text-amber-200"
+                    : isLight
+                      ? "text-[#137333]"
+                      : "text-emerald-200"
+                }`}
+              >
+                Last 7 days: {metrics?.profileViews ?? 0} profile views, {metrics?.calls ?? 0} calls,{" "}
+                {metrics?.directionRequests ?? 0} direction requests.
+              </p>
+            </div>
+            {coverage && (
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  isLight ? "bg-white text-[#137333]" : "bg-white/10 text-emerald-200"
+                }`}
+              >
+                {coverage.coverageScore}% coverage
+              </span>
+            )}
+          </div>
+
+          {probe.endpoints && (
+            <dl className={`mt-4 space-y-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
+              {(Object.keys(ENDPOINT_LABELS) as Array<keyof typeof ENDPOINT_LABELS>).map((key) => (
+                <div key={key} className="flex items-center justify-between gap-4">
+                  <dt className={isLight ? "text-[#80868b]" : "text-slate-500"}>
+                    {ENDPOINT_LABELS[key]}
+                  </dt>
+                  <dd>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${endpointBadgeClass(
+                        probe.endpoints![key],
+                        isLight
+                      )}`}
+                    >
+                      {probe.endpoints![key]}
+                    </span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
+          {coverage?.recommendations.length ? (
+            <ul className={`mt-4 space-y-1.5 text-sm ${isLight ? "text-[#b06000]" : "text-amber-200"}`}>
+              {coverage.recommendations.map((item) => (
+                <li key={item}>• {item}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       </div>
     );
@@ -176,6 +248,28 @@ export default function GbpPerformanceSetup({
           <p className={`mt-3 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
             {suggestion}
           </p>
+        )}
+
+        {probe?.endpoints && (
+          <dl className={`mt-4 space-y-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
+            {(Object.keys(ENDPOINT_LABELS) as Array<keyof typeof ENDPOINT_LABELS>).map((key) => (
+              <div key={key} className="flex items-center justify-between gap-4">
+                <dt className={isLight ? "text-[#80868b]" : "text-slate-500"}>
+                  {ENDPOINT_LABELS[key]}
+                </dt>
+                <dd>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${endpointBadgeClass(
+                      probe.endpoints![key],
+                      isLight
+                    )}`}
+                  >
+                    {probe.endpoints![key]}
+                  </span>
+                </dd>
+              </div>
+            ))}
+          </dl>
         )}
 
         {severity === "warning" && !gbpAccessVerified && (

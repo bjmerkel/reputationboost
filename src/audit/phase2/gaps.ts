@@ -463,6 +463,72 @@ export function detectGaps(
     );
   }
 
+  const perfCoverage = audit.gbp.performance.coverage;
+  if (perfCoverage && !perfCoverage.apiAvailable) {
+    gaps.push(
+      gap(
+        "performance-api-unavailable",
+        "P1",
+        "technical",
+        "Performance API unavailable",
+        audit.gbp.performance.error ??
+          "Google Performance API metrics aren't loading. Reconnect with a manager account.",
+        6,
+        2
+      )
+    );
+  } else if (perfCoverage?.partialApi) {
+    gaps.push(
+      gap(
+        "partial-performance-api",
+        "P2",
+        "technical",
+        "Partial Performance API data",
+        (audit.gbp.performance.warnings ?? []).join(" ") ||
+          "Some performance endpoints returned partial data.",
+        4,
+        2
+      )
+    );
+  }
+
+  if (
+    perfCoverage?.apiAvailable &&
+    !perfCoverage.hasSearchKeywords &&
+    audit.rankings.keywords.length > 0
+  ) {
+    gaps.push(
+      gap(
+        "no-search-keyword-data",
+        "P2",
+        "visibility",
+        "No search keyword impressions",
+        "Google isn't reporting search terms for your listing. Strengthen categories, posts, and relevance signals.",
+        4,
+        2
+      )
+    );
+  }
+
+  if (
+    perfCoverage?.apiAvailable &&
+    perfCoverage.hasImpressionMetrics &&
+    perfCoverage.totalActions === 0 &&
+    audit.gbp.performance.profileViews >= 100
+  ) {
+    gaps.push(
+      gap(
+        "low-profile-conversions",
+        "P2",
+        "visibility",
+        "Views without actions",
+        `${audit.gbp.performance.profileViews} profile views but no calls, directions, or website clicks in ${audit.gbp.performance.periodDays} days.`,
+        5,
+        2
+      )
+    );
+  }
+
   if (!audit.offGoogle.website.hasLocalBusinessSchema) {
     gaps.push(
       gap(

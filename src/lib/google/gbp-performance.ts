@@ -3,6 +3,8 @@ import type { DailyMetricPoint, PerformanceDailyMetric } from "@/audit/types/tim
 import { checkGbpLocationAccess, type GbpLocationAccessCheck, resolveGoogleAccountEmail } from "./gbp-access";
 import { authHeadersForConnection } from "./auth-headers";
 import { getGbpLocationProfile } from "./gbp-location";
+import type { GbpPerformanceCoverage } from "./gbp-performance-coverage";
+import { analyzeGbpPerformanceCoverage } from "./gbp-performance-coverage";
 import {
   formatPerformanceError,
   isPerformancePermissionError,
@@ -50,6 +52,7 @@ export interface GbpPerformanceData {
   error?: string;
   warnings?: string[];
   accessCheck?: GbpLocationAccessCheck;
+  coverage?: GbpPerformanceCoverage;
 }
 
 export type PerformanceEndpointStatus = "ok" | "failed" | "denied" | "skipped";
@@ -396,6 +399,67 @@ export async function fetchGbpPerformanceDailySeries(
 /** Metric names ingested into performance_daily during daily cron. */
 export const DAILY_PERFORMANCE_METRICS = DAILY_INGEST_METRICS;
 
+/** All daily metrics supported by fetchMultiDailyMetricsTimeSeries. */
+export const GBP_DAILY_METRICS = DAILY_INGEST_METRICS;
+
+/** locations.getDailyMetricsTimeSeries — single metric daily series. */
+export async function getDailyMetricsTimeSeries(
+  connection: GbpConnection,
+  metric: string,
+  startDate: Date,
+  endDate: Date
+): Promise<DailyMetricPoint[]> {
+  const resolved = await resolvePerformanceConnection(connection);
+  const formats: DateRangeFormat[] = ["snake", "camel"];
+
+  for (const format of formats) {
+    try {
+      const end = endDate;
+      const start = startDate;
+      const locationId = normalizeLocationId(resolved.locationId);
+      const url = new URL(
+        `${PERFORMANCE_BASE}/locations/${locationId}:getDailyMetricsTimeSeries`
+      );
+      url.searchParams.set("dailyMetric", metric);
+      appendDailyRange(url, start, end, format);
+
+      const res = await fetch(url.toString(), { headers: performanceHeaders(resolved) });
+      const data = (await res.json()) as TimeSeriesResponse;
+
+      if (!res.ok) {
+        const err = new Error(data.error?.message ?? `Performance API failed (${res.status})`);
+        (err as Error & { httpStatus?: number }).httpStatus = res.status;
+        throw err;
+      }
+
+      const mapped = API_METRIC_TO_DAILY[metric];
+      if (!mapped) return [];
+
+      return (data.timeSeries?.datedValues ?? [])
+        .map((dv) => {
+          const date = formatDatedValueDate(dv.date);
+          if (!date) return null;
+          return { date, metric: mapped, value: Number(dv.value ?? 0) };
+        })
+        .filter((point): point is DailyMetricPoint => point !== null);
+    } catch {
+      // Try alternate date param format.
+    }
+  }
+
+  return await fetchMetricsDailyWithFallback(resolved, [metric], startDate, endDate);
+}
+
+/** locations.fetchMultiDailyMetricsTimeSeries — batch daily metrics. */
+export async function fetchMultiDailyMetricsTimeSeries(
+  connection: GbpConnection,
+  metrics: readonly string[],
+  startDate: Date,
+  endDate: Date
+): Promise<DailyMetricPoint[]> {
+  return fetchMetricsDailyWithFallback(connection, metrics, startDate, endDate);
+}
+
 async function fetchSingleMetric(
   connection: GbpConnection,
   metric: string,
@@ -506,14 +570,12 @@ async function fetchDailyMetrics(
   return { totals, warnings };
 }
 
-async function fetchSearchKeywordImpressions(
+async function fetchSearchKeywordImpressionsPage(
   connection: GbpConnection,
-  monthsBack = 3
+  start: Date,
+  end: Date,
+  format: "snake" | "camel"
 ): Promise<GbpSearchKeywordImpression[]> {
-  const end = new Date();
-  const start = new Date();
-  start.setMonth(start.getMonth() - monthsBack);
-
   const locationId = normalizeLocationId(connection.locationId);
   const keywords: GbpSearchKeywordImpression[] = [];
   let pageToken: string | undefined;
@@ -522,10 +584,19 @@ async function fetchSearchKeywordImpressions(
     const pageUrl = new URL(
       `${PERFORMANCE_BASE}/locations/${locationId}/searchkeywords/impressions/monthly`
     );
-    pageUrl.searchParams.set("monthlyRange.start_month.year", String(start.getFullYear()));
-    pageUrl.searchParams.set("monthlyRange.start_month.month", String(start.getMonth() + 1));
-    pageUrl.searchParams.set("monthlyRange.end_month.year", String(end.getFullYear()));
-    pageUrl.searchParams.set("monthlyRange.end_month.month", String(end.getMonth() + 1));
+
+    if (format === "snake") {
+      pageUrl.searchParams.set("monthlyRange.start_month.year", String(start.getFullYear()));
+      pageUrl.searchParams.set("monthlyRange.start_month.month", String(start.getMonth() + 1));
+      pageUrl.searchParams.set("monthlyRange.end_month.year", String(end.getFullYear()));
+      pageUrl.searchParams.set("monthlyRange.end_month.month", String(end.getMonth() + 1));
+    } else {
+      pageUrl.searchParams.set("monthlyRange.startMonth.year", String(start.getFullYear()));
+      pageUrl.searchParams.set("monthlyRange.startMonth.month", String(start.getMonth() + 1));
+      pageUrl.searchParams.set("monthlyRange.endMonth.year", String(end.getFullYear()));
+      pageUrl.searchParams.set("monthlyRange.endMonth.month", String(end.getMonth() + 1));
+    }
+
     pageUrl.searchParams.set("pageSize", "100");
     if (pageToken) pageUrl.searchParams.set("pageToken", pageToken);
 
@@ -558,6 +629,35 @@ async function fetchSearchKeywordImpressions(
   } while (pageToken && keywords.length < 200);
 
   return keywords;
+}
+
+/** locations.searchkeywords.impressions.monthly.list */
+export async function listSearchKeywordImpressionsMonthly(
+  connection: GbpConnection,
+  monthsBack = 3
+): Promise<GbpSearchKeywordImpression[]> {
+  const resolved = await resolvePerformanceConnection(connection);
+  return fetchSearchKeywordImpressions(resolved, monthsBack);
+}
+
+async function fetchSearchKeywordImpressions(
+  connection: GbpConnection,
+  monthsBack = 3
+): Promise<GbpSearchKeywordImpression[]> {
+  const end = new Date();
+  const start = new Date();
+  start.setMonth(start.getMonth() - monthsBack);
+
+  for (const format of ["snake", "camel"] as const) {
+    try {
+      const keywords = await fetchSearchKeywordImpressionsPage(connection, start, end, format);
+      if (keywords.length > 0) return keywords;
+    } catch {
+      // Try alternate monthly range param format.
+    }
+  }
+
+  return [];
 }
 
 function buildPerformanceFromTotals(
@@ -729,7 +829,11 @@ export async function fetchGbpPerformanceData(
       }
     }
 
-    return buildPerformanceFromTotals(totals, searchKeywords, periodDays, warnings);
+    const result = buildPerformanceFromTotals(totals, searchKeywords, periodDays, warnings);
+    return {
+      ...result,
+      coverage: analyzeGbpPerformanceCoverage(result),
+    };
   } catch (error) {
     const httpStatus = (error as Error & { httpStatus?: number }).httpStatus;
     const message = formatPerformanceError(error, httpStatus);
@@ -752,6 +856,11 @@ export async function fetchGbpPerformanceData(
       console.error("[gbp-performance] fetch failed:", message);
     }
 
-    return emptyPerformanceData(periodDays, accessCheck.detail, accessCheck);
+    return {
+      ...emptyPerformanceData(periodDays, accessCheck.detail, accessCheck),
+      coverage: analyzeGbpPerformanceCoverage(
+        emptyPerformanceData(periodDays, accessCheck.detail, accessCheck)
+      ),
+    };
   }
 }

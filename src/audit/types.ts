@@ -158,6 +158,28 @@ export interface GbpPerformance {
   error?: string;
   warnings?: string[];
   accessCheck?: import("@/lib/google/gbp-access").GbpLocationAccessCheck;
+  coverage?: GbpPerformanceCoverage;
+}
+
+export interface GbpPerformanceCoverage {
+  apiAvailable: boolean;
+  partialApi: boolean;
+  coverageScore: number;
+  hasCoreMetrics: boolean;
+  hasImpressionMetrics: boolean;
+  hasSearchKeywords: boolean;
+  hasConversations: boolean;
+  hasBookings: boolean;
+  keywordCount: number;
+  trackedKeywordCount: number;
+  totalActions: number;
+  actionRate: number;
+  endpoints: {
+    coreMetrics: string;
+    impressions: string;
+    searchKeywords: string;
+  };
+  recommendations: string[];
 }
 
 export interface GbpIssues {

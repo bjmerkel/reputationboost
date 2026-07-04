@@ -1,12 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { FullAuditPayload, GbpMediaCoverage, GbpMediaPreview, ReviewRecord } from "@/audit/types";
+import type {
+  FullAuditPayload,
+  GbpMediaCoverage,
+  GbpMediaPreview,
+  GbpPerformanceCoverage,
+  ReviewRecord,
+} from "@/audit/types";
 import ExternalImage from "@/components/ExternalImage";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import TrendsPanel from "@/components/attribution/TrendsPanel";
 import { formatCustomerAttribution } from "@/lib/google/gbp-media-display";
 import { buildMediaHealthReport } from "@/lib/google/gbp-media-health";
+import { buildPerformanceHealthReport } from "@/lib/google/gbp-performance-health";
 
 type DataTab = "profile" | "rankings" | "competitors" | "reviews" | "citations" | "trends";
 
@@ -235,6 +242,10 @@ export default function AuditDataPanel({
                   : String(kw.impressions ?? 0) + " impressions",
               ])}
             />
+          )}
+
+          {audit.gbp.performance.coverage && (
+            <PerformanceHealthPanel coverage={audit.gbp.performance.coverage} />
           )}
 
           {(audit.gbp.content.photoCount > 0 || mediaPreviews.length > 0) && (
@@ -616,6 +627,84 @@ function formatViolation(code: string): string {
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function PerformanceHealthPanel({ coverage }: { coverage: GbpPerformanceCoverage }) {
+  const report = buildPerformanceHealthReport(coverage);
+
+  return (
+    <div className="md:col-span-2 rounded-xl border border-white/8 bg-white/[0.02] p-4">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-slate-300">Performance health</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Google Performance API coverage for actions, views, and search keywords
+          </p>
+        </div>
+        <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white">
+          {report.overallScore}%
+        </span>
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {report.endpointStatus.map((endpoint) => (
+          <div
+            key={endpoint.key}
+            className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
+              endpoint.ok ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"
+            }`}
+          >
+            <span>{endpoint.label}</span>
+            <span className="uppercase">{endpoint.status}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { label: "Actions", value: report.totalActions },
+          { label: "Action rate", value: `${report.actionRate}%` },
+          { label: "Keywords", value: report.keywordCount },
+          { label: "Tracked terms", value: report.trackedKeywordCount },
+        ].map((metric) => (
+          <div key={metric.label} className="rounded-lg bg-white/5 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-slate-500">{metric.label}</p>
+            <p className="text-lg font-semibold text-slate-200">{metric.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
+        <span>{report.apiAvailable ? "API connected" : "API unavailable"}</span>
+        {report.partialApi && (
+          <>
+            <span>·</span>
+            <span>partial data</span>
+          </>
+        )}
+        {report.hasConversations && (
+          <>
+            <span>·</span>
+            <span>messages tracked</span>
+          </>
+        )}
+        {report.hasBookings && (
+          <>
+            <span>·</span>
+            <span>bookings tracked</span>
+          </>
+        )}
+      </div>
+
+      {report.recommendations.length > 0 && (
+        <ul className="mt-3 space-y-1.5 text-xs text-amber-300/90">
+          {report.recommendations.map((item) => (
+            <li key={item}>• {item}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 function MediaHealthPanel({

@@ -267,6 +267,7 @@ async function collectGbpFromApi(
       error: performance.error,
       warnings: performance.warnings,
       accessCheck: performance.accessCheck,
+      coverage: performance.coverage,
     },
     issues: {
       isSuspended: place?.businessStatus === "CLOSED_PERMANENTLY",
