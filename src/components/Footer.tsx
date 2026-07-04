@@ -3,11 +3,11 @@ import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 
 const footerLinks = {
   Product: [
-    { label: "Reputation Boost Score", href: "/#reputation-score" },
-    { label: "Score Flywheel", href: "/#score-flywheel" },
-    { label: "Keyword Intelligence", href: "/#features" },
+    { label: "Explore Platform", href: "/#platform-explorer" },
+    { label: "Your Score", href: "/#your-score" },
+    { label: "Your Map", href: "/#your-map" },
+    { label: "Your Money", href: "/#your-money" },
     { label: "Action Plan", href: "/#action-plan" },
-    { label: "Results & Attribution", href: "/#results" },
     { label: "Revenue Calculator", href: "/#roi-calculator" },
     { label: "Pricing", href: "/#pricing" },
     { label: SIGNUP_CTA_LABEL, href: SIGNUP_URL },
@@ -17,7 +17,6 @@ const footerLinks = {
     { label: "Testimonials", href: "/#testimonials" },
     { label: "FAQ", href: "/#faq" },
     { label: "Contact", href: "mailto:info@reputationboost.com" },
-    { label: "Local 3-Pack", href: "/#local-pack" },
   ],
   Legal: [
     { label: "Privacy Policy", href: "/privacy" },

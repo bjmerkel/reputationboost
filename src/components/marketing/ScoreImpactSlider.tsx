@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-const START_SCORE = 47;
-const END_SCORE = 72;
-const MAX_REVENUE_GAIN = 4200;
+const DEFAULT_START = 47;
+const DEFAULT_END = 72;
+const DEFAULT_MAX_REVENUE = 4200;
 
 function scoreColor(score: number): string {
   if (score >= 70) return "text-emerald-400";
@@ -24,11 +24,21 @@ function scoreGrade(score: number): string {
   return "Urgent";
 }
 
-export default function ScoreImpactSlider() {
+interface ScoreImpactSliderProps {
+  startScore?: number;
+  endScore?: number;
+  maxRevenueGain?: number;
+}
+
+export default function ScoreImpactSlider({
+  startScore = DEFAULT_START,
+  endScore = DEFAULT_END,
+  maxRevenueGain = DEFAULT_MAX_REVENUE,
+}: ScoreImpactSliderProps) {
   const [progress, setProgress] = useState(0);
 
-  const score = Math.round(START_SCORE + ((END_SCORE - START_SCORE) * progress) / 100);
-  const revenueGain = Math.round((MAX_REVENUE_GAIN * progress) / 100);
+  const score = Math.round(startScore + ((endScore - startScore) * progress) / 100);
+  const revenueGain = Math.round((maxRevenueGain * progress) / 100);
   const fillPct = score;
 
   return (
@@ -65,8 +75,8 @@ export default function ScoreImpactSlider() {
           aria-label="Plan completion progress"
         />
         <div className="mt-1 flex justify-between text-xs text-slate-600">
-          <span>Current ({START_SCORE})</span>
-          <span>Target ({END_SCORE})</span>
+          <span>Current ({startScore})</span>
+          <span>Target ({endScore})</span>
         </div>
       </div>
 

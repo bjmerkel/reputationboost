@@ -3,15 +3,9 @@ import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import MarketingHome from "@/components/marketing/MarketingHome";
 import PlatformExplorer from "@/components/marketing/PlatformExplorer";
-import ValueChain from "@/components/ValueChain";
-import ReputationScore from "@/components/ReputationScore";
-import ScoreFlywheel from "@/components/ScoreFlywheel";
-import LocalPack from "@/components/LocalPack";
-import Features from "@/components/Features";
+import ProofNarrative from "@/components/marketing/ProofNarrative";
 import ActionPlan from "@/components/ActionPlan";
 import ExecutionAutomation from "@/components/ExecutionAutomation";
-import ResultsAttribution from "@/components/ResultsAttribution";
-import HowItWorks from "@/components/HowItWorks";
 import Testimonial from "@/components/Testimonial";
 import RoiCalculator from "@/components/marketing/RoiCalculator";
 import PricingPreview from "@/components/PricingPreview";
@@ -42,20 +36,14 @@ export default function Home() {
         <main className="marketing-main">
           <Hero />
           <PlatformExplorer />
-          <ValueChain />
-        <ReputationScore />
-        <ScoreFlywheel />
-        <LocalPack />
-        <Features />
-        <ActionPlan />
-        <ExecutionAutomation />
-        <ResultsAttribution />
-        <HowItWorks />
-        <Testimonial />
-        <RoiCalculator />
-        <PricingPreview />
-        <FAQ />
-        <CTA />
+          <ProofNarrative />
+          <ActionPlan />
+          <ExecutionAutomation />
+          <Testimonial />
+          <RoiCalculator />
+          <PricingPreview />
+          <FAQ />
+          <CTA />
         </main>
         <Footer />
         <MobileStickyCTA />
