@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Reputation Boost | Rank Higher on Google Maps",
     description:
-      "AI-powered Google Business Profile optimization to break into the Local 3-Pack and drive more customer engagement.",
+      "We help you rank higher on Google Maps — more visibility, calls, and direction requests from your Google Business Profile.",
     url: "https://reputationboost.com",
     siteName: "Reputation Boost",
     type: "website",

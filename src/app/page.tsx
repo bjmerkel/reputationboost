@@ -15,13 +15,13 @@ import MobileStickyCTA from "@/components/marketing/MobileStickyCTA";
 import FaqJsonLd from "@/components/marketing/FaqJsonLd";
 
 export const metadata: Metadata = {
-  title: "Reputation Boost Score | Free Google Maps GBP Audit",
+  title: "Reputation Boost Score | Free Google Business Profile Audit",
   description:
-    "Get your free Reputation Boost Score. Find your business on Google Maps — we audit your profile, AI-pick your keywords, build your action plan, and prove the revenue from calls, directions, and profile views.",
+    "Get your free Reputation Boost Score. Find your business on Google Maps — we audit your Google listing, pick your keywords, build your action plan, and show the revenue from calls, directions, and profile views.",
   openGraph: {
-    title: "Reputation Boost Score | Free Google Maps GBP Audit",
+    title: "Reputation Boost Score | Free Google Business Profile Audit",
     description:
-      "Get your free Reputation Boost Score. Find your business on Google Maps — we audit your profile, AI-pick your keywords, and build a plan to increase calls and revenue.",
+      "Get your free Reputation Boost Score. Find your business on Google Maps — we audit your Google listing, pick your keywords, and build a plan to increase calls and revenue.",
     type: "website",
   },
 };

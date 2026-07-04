@@ -122,7 +122,7 @@ export default function HeroBusinessSearch() {
       )}
 
       <p className="animate-fade-up animate-delay-300 mt-4 text-sm text-[#80868b]">
-        No credit card · 3-minute setup · Real GBP data
+        No credit card · 3-minute setup · Real Google listing data
       </p>
     </>
   );

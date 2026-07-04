@@ -33,10 +33,10 @@ export const pricingPlans: PricingPlan[] = [
     description:
       "Everything you need to optimize your Google Business Profile and climb Google Maps rankings.",
     highlights: [
-      "Reputation Boost Score audit & nightly recalc",
-      "AI-prioritized GBP action plan",
-      "Geo-grid keyword rank tracking",
-      "GBP optimization & posting tools",
+      "Score audit — updated every night",
+      "AI-built action plan for your Google listing",
+      "Track where you rank across your whole service area",
+      "Google listing tools — posts, reviews, photos",
       "Dedicated account manager",
     ],
     extras: [],
@@ -47,13 +47,13 @@ export const pricingPlans: PricingPlan[] = [
     name: "Omni Plan",
     price: 199,
     description:
-      "Full GBP optimization plus social media content to grow visibility across channels.",
+      "Full Google Business Profile optimization plus social media content to grow visibility across channels.",
     popular: true,
     highlights: [
-      "Reputation Boost Score audit & nightly recalc",
-      "AI-prioritized GBP action plan",
-      "Geo-grid keyword rank tracking",
-      "GBP optimization & posting tools",
+      "Score audit — updated every night",
+      "AI-built action plan for your Google listing",
+      "Track where you rank across your whole service area",
+      "Google listing tools — posts, reviews, photos",
       "Dedicated account manager",
     ],
     extras: [
@@ -69,10 +69,10 @@ export const pricingPlans: PricingPlan[] = [
     description:
       "Our most comprehensive plan with aggressive social posting and review protection.",
     highlights: [
-      "Reputation Boost Score audit & nightly recalc",
-      "AI-prioritized GBP action plan",
-      "Geo-grid keyword rank tracking",
-      "GBP optimization & posting tools",
+      "Score audit — updated every night",
+      "AI-built action plan for your Google listing",
+      "Track where you rank across your whole service area",
+      "Google listing tools — posts, reviews, photos",
       "Dedicated account manager",
     ],
     extras: [

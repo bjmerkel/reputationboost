@@ -119,8 +119,8 @@ export default function RoiCalculator() {
             <p className="mt-4 text-xs leading-relaxed text-[#80868b]">
               {isLive ? (
                 <>
-                  Methodology: Uses your audit&apos;s path-to-healthy projection, scaled by job
-                  value. Assumes Maps-driven lead volume improves as you move into the Local 3-Pack.
+                  Methodology: Uses your audit&apos;s revenue estimate, scaled by job
+                  value. Assumes more Maps-driven leads as you move into the Local 3-Pack.
                 </>
               ) : (
                 <>

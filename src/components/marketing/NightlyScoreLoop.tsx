@@ -2,19 +2,19 @@ import SectionHeader from "@/components/marketing/SectionHeader";
 
 const loopSteps = [
   {
-    title: "Measure nightly",
+    title: "We check every night",
     description:
-      "We ingest your latest GBP data and geo-grid rankings every night and recalculate your Reputation Boost Score.",
+      "While you sleep, we pull your latest Google Business Profile data, check where you rank across your service area, and update your Reputation Boost Score.",
   },
   {
-    title: "Attribute in 14-day windows",
+    title: "We show you what worked",
     description:
-      "When you complete plan actions, we measure rank movement, calls, directions, and estimated revenue in before/after windows.",
+      "When you fix something, we measure results in 14-day before/after windows — higher rank, more calls, more direction requests, real dollars.",
   },
   {
-    title: "Learn & reprioritize",
+    title: "Your plan gets smarter",
     description:
-      "Observed impact calibrates future projections and reshuffles your next actions — so the plan gets sharper, not stale.",
+      "The more you use it, the better we know what works for your business — and we put those actions at the top of your list.",
   },
 ];
 
@@ -31,7 +31,7 @@ export default function NightlyScoreLoop() {
               <span className="gradient-text font-semibold">every night</span>
             </>
           }
-          subtitle="Most GBP tools audit once and send a PDF. Reputation Boost runs a recursive loop — measure, act, attribute, learn — so your score and plan improve daily."
+          subtitle="Most tools audit your Google listing once and email a PDF. We check and improve your score every single night — it works while you sleep."
         />
 
         <div className="mt-10 grid gap-6 md:grid-cols-3">
@@ -50,8 +50,8 @@ export default function NightlyScoreLoop() {
         </div>
 
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-[#80868b]">
-          This closed loop is what separates us from one-time audits — and it&apos;s why projections
-          get more accurate the longer you use the platform.
+          That&apos;s why your estimates get more accurate the longer you stick with it — not a
+          one-time report you forget about.
         </p>
       </div>
     </section>

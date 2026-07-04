@@ -24,7 +24,7 @@ export default function PricingPreview() {
               <span className="gradient-text font-semibold">Reputation Boost Score</span>
             </>
           }
-          subtitle="Every plan includes your score audit, AI action plan, GBP optimization tools, and a dedicated account manager."
+          subtitle="Every plan includes your score audit, action plan, Google listing tools, and a dedicated account manager."
         />
 
         <div className="mt-12 grid gap-6 lg:grid-cols-3">

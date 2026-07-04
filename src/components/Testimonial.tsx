@@ -6,20 +6,20 @@ const illustrativeExamples = [
   {
     vertical: "Home Services",
     pattern:
-      "Businesses outside the Local 3-Pack often have profile gaps (photos, categories, review responses) suppressing map visibility.",
+      "Businesses outside the Local 3-Pack often have listing gaps — photos, categories, review responses — that keep them off the map.",
     focus: "Keyword relevance & profile completeness",
   },
   {
     vertical: "Healthcare",
     pattern:
-      "Practices with strong star ratings can still lose map clicks when competitors have richer GBP content and broader service-area coverage.",
+      "Practices with strong star ratings can still lose map clicks when competitors have richer Google listings and broader service-area coverage.",
     focus: "Content depth & service area",
   },
   {
     vertical: "Legal",
     pattern:
       "High-competition keywords reward consistent posts, Q&A, and review velocity — not just a complete listing at signup.",
-    focus: "Ongoing GBP activity",
+    focus: "Ongoing Google listing activity",
   },
 ];
 

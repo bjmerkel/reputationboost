@@ -15,17 +15,20 @@ const howItWorks = [
   {
     step: "01",
     title: "Audit & Score",
-    description: "Connect GBP, AI-pick keywords, get your Reputation Boost Score.",
+    description:
+      "Connect your Google Business Profile, we pick your keywords, you get your Reputation Boost Score.",
   },
   {
     step: "02",
     title: "Get Your Plan",
-    description: "Prioritized actions with projected score and revenue impact.",
+    description:
+      "A clear list of what to fix first — with estimated score and revenue impact for each step.",
   },
   {
     step: "03",
     title: "Execute & Prove",
-    description: "Approve changes, we publish. Track attributed revenue daily.",
+    description:
+      "You approve changes, we publish them. Track calls, rankings, and dollars every day.",
   },
 ];
 
@@ -115,7 +118,7 @@ export default function ProofNarrative() {
                 <span className="gradient-text font-semibold">sending you customers</span>
               </>
             }
-            subtitle={`${preview.business.name} scores ${currentScore}/100 — profile strength and ranking outcome in one number. Pan the map above to see where you rank.`}
+            subtitle={`${preview.business.name} scores ${currentScore}/100 — how strong your listing looks and where you rank, in one number. Pan the map above to see where you show up.`}
           />
 
           <div className="mt-10 flex flex-wrap justify-center gap-3">
@@ -132,13 +135,13 @@ export default function ProofNarrative() {
           <div className="mt-12 grid gap-6 lg:grid-cols-2">
             <article className="rounded-2xl border border-[#dadce0] bg-[#f8f9fa] p-6">
               <div className="flex items-baseline justify-between gap-4">
-                <h3 className="text-lg font-semibold text-[#202124]">Profile Strength</h3>
+                <h3 className="text-lg font-semibold text-[#202124]">How Your Listing Looks</h3>
                 <span className="rounded-full bg-[#e8f0fe] px-3 py-1 text-xs font-semibold text-[#1a73e8]">
                   70% of score
                 </span>
               </div>
               <p className="mt-2 text-sm text-[#5f6368]">
-                How complete and trustworthy your GBP looks to Google and customers.
+                How complete and trustworthy your Google listing looks to Google and customers.
               </p>
               <p className="mt-4 text-3xl font-semibold text-[#202124]">{driverScore}</p>
               <p className="mt-3 rounded-lg border border-[#fce8e6] bg-[#fef7f6] px-3 py-2 text-sm text-[#3c4043]">
@@ -148,7 +151,7 @@ export default function ProofNarrative() {
 
             <article className="rounded-2xl border border-[#dadce0] bg-[#f8f9fa] p-6">
               <div className="flex items-baseline justify-between gap-4">
-                <h3 className="text-lg font-semibold text-[#202124]">Ranking Outcome</h3>
+                <h3 className="text-lg font-semibold text-[#202124]">Where You Rank</h3>
                 <span className="rounded-full bg-[#e8f0fe] px-3 py-1 text-xs font-semibold text-[#1a73e8]">
                   30% of score
                 </span>
@@ -228,7 +231,7 @@ export default function ProofNarrative() {
               <span className="text-lg font-normal text-[#5f6368]">/mo estimated</span>
             </p>
             <p className="mt-2 text-sm text-[#5f6368]">
-              Based on attributed calls, directions, and profile views × your avg job value
+              Based on tracked calls, directions, and profile views × your average job value
             </p>
           </div>
 
