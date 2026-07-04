@@ -35,7 +35,7 @@ export default function PlaceCardTabNav({
             onClick={() => onViewChange(tab.id)}
             className={`relative shrink-0 snap-start px-2.5 py-2.5 text-xs font-medium transition sm:px-4 sm:py-3 sm:text-sm ${
               isActive
-                ? "text-[#007b83] after:absolute after:bottom-0 after:left-1 after:right-1 after:h-0.5 after:rounded-full after:bg-[#007b83] sm:after:left-2 sm:after:right-2"
+                ? "text-[#1a73e8] after:absolute after:bottom-0 after:left-1 after:right-1 after:h-0.5 after:rounded-full after:bg-[#1a73e8] sm:after:left-2 sm:after:right-2"
                 : "text-[#5f6368] hover:text-[#3c4043]"
             }`}
           >

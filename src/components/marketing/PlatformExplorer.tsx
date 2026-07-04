@@ -17,8 +17,8 @@ export default function PlatformExplorer() {
   } = usePreviewAudit();
 
   return (
-    <section id="platform-explorer" className="border-b border-[#dadce0] bg-white py-20 lg:py-28">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+    <section id="platform-explorer" className="border-b border-[#dadce0] bg-[#f8f9fa] py-20 lg:py-28">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <SectionHeader
           label="Explore the Platform"
           labelColor="cyan"
@@ -48,7 +48,7 @@ export default function PlatformExplorer() {
           </p>
         )}
 
-        <div className="mt-10">
+        <div className="mt-10 lg:mt-12">
           <PlatformDemo
             audit={platformAudit}
             businessName={businessName}

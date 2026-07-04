@@ -74,7 +74,7 @@ function DemoDashboard({ dimmed = true }: { dimmed?: boolean }) {
             </p>
             <p className="mt-1 text-xs font-medium text-[#188038]">+$4,200/mo estimated revenue</p>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e8eaed]">
-              <div className="h-full w-[65%] rounded-full bg-[#007b83]" />
+              <div className="h-full w-[65%] rounded-full bg-[#1a73e8]" />
             </div>
           </div>
         </div>

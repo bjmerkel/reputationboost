@@ -36,7 +36,7 @@ export default function PlaceCard({
   const category = resolveDisplayCategory(audit, industry);
 
   return (
-    <aside className="flex h-full min-h-0 w-full flex-[1_1_60%] flex-col overflow-hidden border-[#dadce0] bg-white lg:flex-[0_0_40%] lg:border-r">
+    <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
       {heroPhoto && (
         <div className="relative h-36 w-full shrink-0 overflow-hidden bg-[#e8eaed]">
           <ExternalImage

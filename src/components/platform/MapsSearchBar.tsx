@@ -34,7 +34,7 @@ export default function MapsSearchBar({
 
   return (
     <div ref={rootRef} className="relative flex-1">
-      <div className="flex items-center gap-3 rounded-full bg-white px-4 py-2.5 shadow-[var(--platform-shadow)]">
+      <div className="flex min-h-[48px] items-center gap-3 rounded-full border border-[#dadce0]/60 bg-white px-4 py-2 shadow-[0_2px_6px_rgba(60,64,67,0.15),0_1px_2px_rgba(60,64,67,0.3)]">
         <svg
           className="h-5 w-5 shrink-0 text-[#5f6368]"
           fill="none"

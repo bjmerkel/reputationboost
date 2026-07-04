@@ -8,6 +8,11 @@ import MapLayerControls, {
 } from "@/components/platform/MapLayerControls";
 import { getPlaceGeometry } from "@/lib/google/place-geometry";
 import { loadGoogleMaps } from "@/lib/google/maps-loader";
+import {
+  createBusinessPinIcon,
+  createCompetitorMarkerIcon,
+  createGoogleMapOptions,
+} from "@/lib/google/map-marker-icons";
 
 function milesToMeters(miles: number): number {
   return Math.round(miles * 1609.34);
@@ -155,28 +160,13 @@ export default function RankingMap({
         centerRef.current = center;
 
         if (!mapInstance.current) {
-          mapInstance.current = new google.maps.Map(mapDiv, {
-            center,
-            zoom: DEFAULT_MAP_ZOOM,
-            mapTypeControl: false,
-            streetViewControl: true,
-            fullscreenControl: true,
-            zoomControl: true,
-            gestureHandling: "greedy",
-          });
+          mapInstance.current = new google.maps.Map(mapDiv, createGoogleMapOptions(google, center));
 
           businessMarkerRef.current = new google.maps.Marker({
             position: center,
             map: mapInstance.current,
             title: businessName,
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 10,
-              fillColor: "#ea4335",
-              fillOpacity: 1,
-              strokeColor: "#ffffff",
-              strokeWeight: 2,
-            },
+            icon: createBusinessPinIcon(google),
             zIndex: 1000,
           });
 
@@ -239,10 +229,10 @@ export default function RankingMap({
         center: centerRef.current,
         radius: milesToMeters(point.distanceMiles),
         fillColor: color,
-        fillOpacity: 0.12,
+        fillOpacity: 0.06,
         strokeColor: color,
-        strokeOpacity: 0.7,
-        strokeWeight: 2,
+        strokeOpacity: 0.45,
+        strokeWeight: 1.5,
       });
       circlesRef.current.push(circle);
     }
@@ -318,14 +308,7 @@ export default function RankingMap({
             fontWeight: "bold",
             fontSize: "11px",
           },
-          icon: {
-            path: g.maps.SymbolPath.CIRCLE,
-            scale: 14,
-            fillColor: "#1a73e8",
-            fillOpacity: 1,
-            strokeColor: "#ffffff",
-            strokeWeight: 2,
-          },
+          icon: createCompetitorMarkerIcon(g),
           zIndex: 500 + i,
         });
         competitorMarkersRef.current.push(marker);
@@ -359,7 +342,7 @@ export default function RankingMap({
       <MapLayerControls layers={layers} onChange={setLayers} />
       <div ref={mapRef} className="absolute inset-0" />
       {keywordRank && (
-        <div className="absolute bottom-4 left-4 max-w-[240px] rounded-lg bg-white/95 px-3 py-2 text-xs shadow-md">
+        <div className="absolute bottom-4 right-4 max-w-[220px] rounded-lg border border-[#dadce0]/80 bg-white px-3 py-2.5 text-xs shadow-[0_2px_6px_rgba(60,64,67,0.15)]">
           <p className="font-medium text-[#202124]">{keywordRank.keyword}</p>
           <p className="mt-0.5 text-[#5f6368]">
             {keywordRank.inLocalPack

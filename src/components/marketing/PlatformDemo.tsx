@@ -203,7 +203,7 @@ export default function PlatformDemo({
   }, [audit.competitors, activeKeyword]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#dadce0] bg-white shadow-sm">
+    <div className="platform-theme google-maps-frame overflow-hidden bg-white">
       {isLive && (
         <div className="border-b border-[#d2e3fc] bg-[#e8f0fe] px-4 py-2.5 text-center text-sm text-[#1a73e8]">
           Live preview for <span className="font-semibold">{businessName}</span> — explore the
@@ -211,7 +211,7 @@ export default function PlatformDemo({
         </div>
       )}
 
-      <div className="h-[min(720px,82vh)]">
+      <div className="h-[min(760px,85vh)]">
         <PlatformShell
           searchBar={
             <MapsSearchBar
@@ -268,7 +268,7 @@ export default function PlatformDemo({
             )}
           </PlaceCard>
 
-          <div className="relative flex h-full min-h-[240px] w-full flex-[0_0_40%] flex-col overflow-hidden lg:flex-[0_0_60%]">
+          <div className="h-full w-full">
             <RankingMap
               lat={location.lat}
               lng={location.lng}
