@@ -1,5 +1,6 @@
 import type { ClientConfig, GbpConnection, GbpSnapshot, GbpMediaPreview } from "../types";
 import { computeGbpCompletenessScore } from "../completeness";
+import { compareNap } from "@/lib/google/nap-drift";
 import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
 import { isReviewResponded } from "@/lib/google/gbp-reviews";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
@@ -127,6 +128,25 @@ async function collectGbpFromApi(
   const placeId = connection.placeId ?? client.gbpPlaceId ?? place?.placeId;
   const mapsUrl = place?.mapsUrl || client.gbpMapsUrl;
 
+  const canonicalAddress = formatAddress(client);
+  const napDrift =
+    liveProfile && client.name
+      ? compareNap(
+          {
+            name: client.name,
+            phone: client.phone || phone,
+            website: client.website || website,
+            address: canonicalAddress,
+          },
+          {
+            title: liveProfile.title,
+            phone: liveProfile.phone,
+            website: liveProfile.website,
+            address: liveProfile.address,
+          }
+        )
+      : [];
+
   return {
     collectedAt: now,
     identity: {
@@ -205,7 +225,9 @@ async function collectGbpFromApi(
       isSuspended: place?.businessStatus === "CLOSED_PERMANENTLY",
       isVerified: place?.isOperational ?? true,
       hasDuplicateListings: false,
-      napInconsistencies: [],
+      napInconsistencies: napDrift.map(
+        (d) => `${d.label}: onboarding "${d.canonical}" vs GBP "${d.live}"`
+      ),
     },
     liveProfile: {
       primaryCategory,
@@ -226,6 +248,7 @@ async function collectGbpFromApi(
     })),
     googleSuggestions,
     hasGoogleUpdated: liveProfile?.hasGoogleUpdated ?? false,
+    napDrift,
   };
 }
 

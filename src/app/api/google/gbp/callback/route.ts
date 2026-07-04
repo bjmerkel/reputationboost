@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { saveGbpLocation, saveGbpTokens } from "@/audit/businesses";
+import { getBusinessRecord, saveGbpLocation, saveGbpTokens } from "@/audit/businesses";
 import { exchangeCodeForTokens } from "@/lib/google/oauth";
 import { getGoogleTokenEmail } from "@/lib/google/gbp-access";
 import { listAllGbpLocations } from "@/lib/google/gbp-accounts";
+import {
+  bestAutoConnectLocation,
+  rankGbpLocationsForBusiness,
+} from "@/lib/google/gbp-onboarding-match";
 
 interface OAuthStateCookie {
   state: string;
@@ -66,22 +70,39 @@ export async function GET(request: Request) {
     });
 
     const locations = await listAllGbpLocations(tokens.accessToken);
+    const business = await getBusinessRecord(parsed.userId, parsed.businessId);
+    const address = business?.location
+      ? [
+          business.location.address,
+          business.location.city,
+          business.location.state,
+          business.location.zip,
+        ]
+          .filter(Boolean)
+          .join(", ")
+      : undefined;
 
-    if (locations.length === 1) {
-      const loc = locations[0];
+    const ranked = await rankGbpLocationsForBusiness(tokens.accessToken, locations, {
+      name: business?.name ?? "",
+      placeId: business?.gbp_place_id,
+      address,
+    });
+
+    const auto = bestAutoConnectLocation(ranked);
+    if (auto) {
       await saveGbpLocation(parsed.userId, parsed.businessId, {
-        accountId: loc.accountId,
-        locationId: loc.locationId,
-        placeId: loc.placeId,
-        name: loc.title,
-        phone: loc.phone,
-        website: loc.website,
-        industry: loc.primaryCategory,
+        accountId: auto.accountId,
+        locationId: auto.locationId,
+        placeId: auto.placeId ?? business?.gbp_place_id ?? undefined,
+        name: auto.title,
+        phone: auto.phone,
+        website: auto.website,
+        industry: auto.primaryCategory,
       });
       return NextResponse.redirect(`${siteUrl}/platform/audit?onboarded=1`);
     }
 
-    const locationPayload = Buffer.from(JSON.stringify(locations)).toString("base64url");
+    const locationPayload = Buffer.from(JSON.stringify(ranked)).toString("base64url");
     return NextResponse.redirect(
       `${siteUrl}/platform/onboard?step=location&businessId=${parsed.businessId}&locations=${locationPayload}`
     );

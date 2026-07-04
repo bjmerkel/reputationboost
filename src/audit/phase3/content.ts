@@ -93,5 +93,9 @@ export function mapActionToExecutionType(actionId: string): ExecutionType | null
   if (actionId === "google-pending-edits" || actionId === "google-suggested-edits") {
     return "gbp_accept_suggestion";
   }
+  if (actionId.startsWith("nap-drift-title")) return "gbp_title";
+  if (actionId.startsWith("nap-drift-phone")) return "gbp_phone";
+  if (actionId.startsWith("nap-drift-website")) return "gbp_website";
+  if (actionId.startsWith("nap-drift-address")) return "gbp_address";
   return null;
 }

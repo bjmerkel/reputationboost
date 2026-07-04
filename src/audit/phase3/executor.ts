@@ -1,6 +1,7 @@
 import type { ExecutionTask, GbpConnection } from "../types";
 import { applyGbpAction, applyMediaFromBytes, applyMediaFromDraft } from "@/lib/google/gbp-apply";
 import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
+import type { NapDriftFieldName } from "@/lib/google/nap-drift";
 import type { GbpMediaCategory, GbpMediaFormat } from "@/lib/google/gbp-media";
 import { generateGbpPhotoImage } from "@/lib/llm/gbp-photos";
 
@@ -50,6 +51,8 @@ export async function executeTask(
     gbp_phone: "Updated phone number on Google Business Profile.",
     gbp_hours: "Updated business hours on Google Business Profile.",
     gbp_accept_suggestion: "Accepted Google's suggested profile change.",
+    gbp_title: "Synced business name on Google Business Profile.",
+    gbp_address: "Synced business address on Google Business Profile.",
     gbp_checklist: `Completed: ${task.title}`,
     review_response: `Posted review response for review ${task.payload.reviewId ?? "unknown"}.`,
     review_delete_reply: `Removed review reply for review ${task.payload.reviewId ?? "unknown"}.`,
@@ -142,11 +145,15 @@ async function executeTaskLive(
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
     case "gbp_attributes": {
-      const result = task.payload.enableRecommended
-        ? await applyGbpAction(connection, "enable_recommended_attributes", {})
-        : await applyGbpAction(connection, "update_attributes", {
-            attributes: task.payload.attributes as GbpAttributeUpdate[] | undefined,
-          });
+      const result = task.payload.bookingOnly
+        ? await applyGbpAction(connection, "update_booking_attributes", {
+            bookingUri: String(task.payload.bookingUri ?? ""),
+          })
+        : task.payload.enableRecommended
+          ? await applyGbpAction(connection, "enable_recommended_attributes", {})
+          : await applyGbpAction(connection, "update_attributes", {
+              attributes: task.payload.attributes as GbpAttributeUpdate[] | undefined,
+            });
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
     case "gbp_website": {
@@ -172,6 +179,19 @@ async function executeTaskLive(
     case "gbp_accept_suggestion": {
       const result = await applyGbpAction(connection, "accept_google_suggestion", {
         suggestionField: String(task.payload.suggestionField ?? ""),
+      });
+      return { ...task, status: "completed", completedAt: now, result: result.message };
+    }
+    case "gbp_title":
+    case "gbp_address": {
+      const result = await applyGbpAction(connection, "sync_nap_field", {
+        napField: task.payload.napField as NapDriftFieldName,
+        napCanonical: task.payload.napCanonical as {
+          name: string;
+          phone: string;
+          website: string;
+          address: string;
+        },
       });
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }

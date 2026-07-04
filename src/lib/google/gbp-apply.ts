@@ -1,6 +1,6 @@
 import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
-import { recommendAttributeUpdates } from "./gbp-attribute-recommendations";
+import { recommendAttributeUpdates, recommendBookingAttributes } from "./gbp-attribute-recommendations";
 import type { BusinessHours } from "./gbp-hours";
 import {
   defaultUsHolidayHours,
@@ -12,12 +12,13 @@ import {
   getGoogleUpdatedLocation,
   getLocationAttributes,
   listAvailableAttributes,
-  patchGbpLocation,
   resolveCategoryByDisplayName,
   updateLocationAttributes,
   type GbpAttributeUpdate,
   type GbpCategoryRef,
 } from "./gbp-location";
+import { patchGbpLocationValidated } from "./gbp-patch";
+import type { NapCanonical, NapDriftFieldName } from "./nap-drift";
 import {
   createGbpMediaFromUrl,
   extractPublicMediaUrl,
@@ -96,7 +97,7 @@ export async function applyPrimaryCategory(
     []
   );
 
-  await patchGbpLocation(connection, "categories", {
+  await patchGbpLocationValidated(connection, "categories", {
     categories: {
       primaryCategory: { name: primaryCategory.name },
       additionalCategories: additionalCategories.map((c) => ({ name: c.name })),
@@ -120,7 +121,7 @@ export async function applySecondaryCategories(
     displayNames
   );
 
-  await patchGbpLocation(connection, "categories", {
+  await patchGbpLocationValidated(connection, "categories", {
     categories: {
       primaryCategory: { name: primaryCategory.name },
       additionalCategories: additionalCategories.map((c) => ({ name: c.name })),
@@ -145,7 +146,7 @@ export async function applyDescription(
   const trimmed = description.trim();
   if (!trimmed) throw new Error("Description cannot be empty.");
 
-  await patchGbpLocation(connection, "profile.description", {
+  await patchGbpLocationValidated(connection, "profile.description", {
     profile: { description: trimmed },
   });
 
@@ -163,7 +164,7 @@ export async function applyTitle(
   const trimmed = title.trim();
   if (!trimmed) throw new Error("Business name cannot be empty.");
 
-  await patchGbpLocation(connection, "title", { title: trimmed });
+  await patchGbpLocationValidated(connection, "title", { title: trimmed });
 
   return {
     success: true,
@@ -179,7 +180,7 @@ export async function applyWebsite(
   const trimmed = websiteUri.trim();
   if (!trimmed) throw new Error("Website URL cannot be empty.");
 
-  await patchGbpLocation(connection, "websiteUri", { websiteUri: trimmed });
+  await patchGbpLocationValidated(connection, "websiteUri", { websiteUri: trimmed });
 
   return {
     success: true,
@@ -197,7 +198,7 @@ export async function applyPhone(
 
   const current = await getGbpLocationProfile(connection);
 
-  await patchGbpLocation(connection, "phoneNumbers", {
+  await patchGbpLocationValidated(connection, "phoneNumbers", {
     phoneNumbers: {
       primaryPhone: trimmed,
       additionalPhones: current.additionalPhones,
@@ -228,6 +229,14 @@ function buildFreeFormServiceItem(
   };
 }
 
+function serviceItemForPatch(
+  item: { name: string; description: string; raw?: Record<string, unknown> },
+  categoryName: string
+): Record<string, unknown> {
+  if (item.raw) return item.raw;
+  return buildFreeFormServiceItem(categoryName, item.name, item.description);
+}
+
 export async function applyServiceItem(
   connection: GbpConnection,
   serviceName: string,
@@ -253,14 +262,13 @@ export async function applyServiceItem(
     };
   }
 
+  const categoryName = current.primaryCategory.name;
   const serviceItems = [
-    ...current.serviceItems.map((s) =>
-      buildFreeFormServiceItem(current.primaryCategory!.name, s.name, s.description)
-    ),
-    buildFreeFormServiceItem(current.primaryCategory.name, name, description),
+    ...current.serviceItems.map((s) => serviceItemForPatch(s, categoryName)),
+    buildFreeFormServiceItem(categoryName, name, description),
   ];
 
-  await patchGbpLocation(connection, "serviceItems", { serviceItems });
+  await patchGbpLocationValidated(connection, "serviceItems", { serviceItems });
 
   return {
     success: true,
@@ -322,13 +330,86 @@ export async function applyRecommendedAttributes(
   };
 }
 
+export async function applyBookingAttributes(
+  connection: GbpConnection,
+  bookingUri?: string
+): Promise<GbpApplyResult> {
+  const [available, current, profile] = await Promise.all([
+    listAvailableAttributes(connection),
+    getLocationAttributes(connection),
+    getGbpLocationProfile(connection),
+  ]);
+
+  const uri = bookingUri?.trim() || profile.website;
+  if (!uri) {
+    throw new Error("No booking or website URL available to link.");
+  }
+
+  const updates = recommendBookingAttributes(available, current, uri);
+  if (updates.length === 0) {
+    return {
+      success: true,
+      message: "No booking or appointment attributes are available for this category.",
+      applied: { count: 0 },
+    };
+  }
+
+  await updateLocationAttributes(connection, updates);
+
+  return {
+    success: true,
+    message: `Linked booking URL on ${updates.length} attribute(s).`,
+    applied: { count: updates.length, bookingUri: uri },
+  };
+}
+
+export async function applyStorefrontAddress(
+  connection: GbpConnection,
+  address: string
+): Promise<GbpApplyResult> {
+  const trimmed = address.trim();
+  if (!trimmed) throw new Error("Address cannot be empty.");
+
+  await patchGbpLocationValidated(connection, "storefrontAddress", {
+    storefrontAddress: {
+      addressLines: [trimmed],
+      regionCode: "US",
+    },
+  });
+
+  return {
+    success: true,
+    message: "Business address updated on Google Business Profile.",
+    applied: { address: trimmed },
+  };
+}
+
+export async function applySyncNapField(
+  connection: GbpConnection,
+  field: NapDriftFieldName,
+  canonical: NapCanonical
+): Promise<GbpApplyResult> {
+  switch (field) {
+    case "title":
+      return applyTitle(connection, canonical.name);
+    case "phone":
+      return applyPhone(connection, canonical.phone);
+    case "website":
+      return applyWebsite(connection, canonical.website);
+    case "address":
+      return applyStorefrontAddress(connection, canonical.address);
+    default:
+      throw new Error(`Unsupported NAP field: ${field}`);
+  }
+}
+
 export async function applyRegularHours(
   connection: GbpConnection,
   regularHours?: BusinessHours
 ): Promise<GbpApplyResult> {
   const hours = regularHours ?? defaultWeekdayHours();
 
-  await patchGbpLocation(connection, "regularHours", { regularHours: hours });
+  await patchGbpLocationValidated(connection, "regularHours", { regularHours: hours });
 
   return {
     success: true,
@@ -352,7 +433,7 @@ export async function applyHolidayHours(
     defaultUsHolidayHours()
   );
 
-  await patchGbpLocation(connection, "specialHours", { specialHours: holidays });
+  await patchGbpLocationValidated(connection, "specialHours", { specialHours: holidays });
 
   return {
     success: true,
@@ -374,41 +455,49 @@ export async function applyGoogleSuggestion(
 
   switch (field) {
     case "title":
-      await patchGbpLocation(connection, "title", { title: googleLocation.title });
+      await patchGbpLocationValidated(connection, "title", { title: googleLocation.title });
       break;
     case "profile.description": {
       const desc = (googleLocation.profile as { description?: string } | undefined)?.description;
       if (!desc) throw new Error("No Google suggestion for description.");
-      await patchGbpLocation(connection, "profile.description", { profile: { description: desc } });
+      await patchGbpLocationValidated(connection, "profile.description", { profile: { description: desc } });
       break;
     }
     case "phoneNumbers.primaryPhone": {
       const phone = (googleLocation.phoneNumbers as { primaryPhone?: string } | undefined)
         ?.primaryPhone;
       if (!phone) throw new Error("No Google suggestion for phone.");
-      await patchGbpLocation(connection, "phoneNumbers", {
+      await patchGbpLocationValidated(connection, "phoneNumbers", {
         phoneNumbers: { primaryPhone: phone, additionalPhones: profile.additionalPhones },
       });
       break;
     }
     case "websiteUri":
       if (!googleLocation.websiteUri) throw new Error("No Google suggestion for website.");
-      await patchGbpLocation(connection, "websiteUri", {
+      await patchGbpLocationValidated(connection, "websiteUri", {
         websiteUri: googleLocation.websiteUri,
       });
       break;
     case "regularHours":
       if (!googleLocation.regularHours) throw new Error("No Google suggestion for hours.");
-      await patchGbpLocation(connection, "regularHours", {
+      await patchGbpLocationValidated(connection, "regularHours", {
         regularHours: googleLocation.regularHours,
       });
       break;
     case "specialHours":
       if (!googleLocation.specialHours) throw new Error("No Google suggestion for holiday hours.");
-      await patchGbpLocation(connection, "specialHours", {
+      await patchGbpLocationValidated(connection, "specialHours", {
         specialHours: googleLocation.specialHours,
       });
       break;
+    case "storefrontAddress": {
+      const addr = googleLocation.storefrontAddress;
+      if (!addr) throw new Error("No Google suggestion for address.");
+      await patchGbpLocationValidated(connection, "storefrontAddress", {
+        storefrontAddress: addr,
+      });
+      break;
+    }
     default:
       throw new Error(`Unsupported Google suggestion field: ${field}`);
   }
@@ -601,6 +690,8 @@ export type GbpApplyAction =
   | "update_regular_hours"
   | "update_holiday_hours"
   | "accept_google_suggestion"
+  | "sync_nap_field"
+  | "update_booking_attributes"
   | "upload_media"
   | "create_post"
   | "reply_review"
@@ -627,6 +718,9 @@ export async function applyGbpAction(
     reviewReply?: string;
     suggestionField?: string;
     regularHours?: BusinessHours;
+    napField?: NapDriftFieldName;
+    napCanonical?: NapCanonical;
+    bookingUri?: string;
   }
 ): Promise<GbpApplyResult> {
   switch (action) {
@@ -666,6 +760,13 @@ export async function applyGbpAction(
     case "accept_google_suggestion":
       if (!payload.suggestionField) throw new Error("suggestionField is required");
       return applyGoogleSuggestion(connection, payload.suggestionField);
+    case "sync_nap_field":
+      if (!payload.napField || !payload.napCanonical) {
+        throw new Error("napField and napCanonical are required");
+      }
+      return applySyncNapField(connection, payload.napField, payload.napCanonical);
+    case "update_booking_attributes":
+      return applyBookingAttributes(connection, payload.bookingUri);
     case "upload_media":
       if (!payload.sourceUrl) throw new Error("sourceUrl is required");
       return applyMediaUpload(connection, {

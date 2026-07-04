@@ -292,8 +292,8 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
         "Booking creates conversion signals directly inside Google",
         "Use your website URL if you accept online bookings",
       ],
-      gbpAction: "update_website",
-      actionData: { websiteUri: audit.gbp.identity.website },
+      gbpAction: "update_booking_attributes",
+      actionData: { bookingUri: audit.gbp.identity.website },
     },
     {
       stepNumber: 16,

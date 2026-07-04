@@ -34,7 +34,7 @@ export interface GbpLocationProfile {
   mapsUri: string;
   primaryCategory: GbpCategoryRef | null;
   additionalCategories: GbpCategoryRef[];
-  serviceItems: Array<{ name: string; description: string }>;
+  serviceItems: Array<{ name: string; description: string; raw?: Record<string, unknown> }>;
   attributes: string[];
   attributeDetails: GbpLocationAttribute[];
   hasRegularHours: boolean;
@@ -242,7 +242,7 @@ function parseInlineAttributes(attrs: AttributeApi[] | undefined): {
 
 function parseServiceItems(
   items: LocationApi["serviceItems"]
-): Array<{ name: string; description: string }> {
+): Array<{ name: string; description: string; raw?: Record<string, unknown> }> {
   return (items ?? [])
     .map((item) => {
       const free = item.freeFormServiceItem;
@@ -250,9 +250,16 @@ function parseServiceItems(
       const name = free?.label?.displayName ?? structured?.serviceTypeId ?? "";
       const description = free?.label?.description ?? structured?.description ?? "";
       if (!name && !description) return null;
-      return { name: name || "Service", description };
+      const parsed: { name: string; description: string; raw?: Record<string, unknown> } = {
+        name: name || "Service",
+        description,
+        raw: item as Record<string, unknown>,
+      };
+      return parsed;
     })
-    .filter((s): s is { name: string; description: string } => Boolean(s));
+    .filter((s): s is { name: string; description: string; raw?: Record<string, unknown> } =>
+      Boolean(s)
+    );
 }
 
 function apiErrorMessage(data: { error?: { message?: string } }, fallback: string): string {

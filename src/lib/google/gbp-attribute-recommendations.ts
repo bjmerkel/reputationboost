@@ -96,6 +96,35 @@ export function recommendAttributeUpdates(
   return updates;
 }
 
+/** Booking / appointment URI attributes only (step 15). */
+export function recommendBookingAttributes(
+  available: GbpAttributeMetadata[],
+  current: GbpLocationAttribute[],
+  bookingUri: string
+): GbpAttributeUpdate[] {
+  const enabled = new Set(
+    current.filter(isEnabledGbpAttribute).map((a) => attributeKey(a.name))
+  );
+  const updates: GbpAttributeUpdate[] = [];
+  const uri = bookingUri.trim();
+  if (!uri) return updates;
+
+  for (const meta of available) {
+    if (meta.deprecated || !isUriAttribute(meta)) continue;
+    if (enabled.has(attributeKey(meta.name))) continue;
+    const haystack = `${meta.displayName} ${meta.name}`.toLowerCase();
+    if (
+      haystack.includes("appointment") ||
+      haystack.includes("booking") ||
+      haystack.includes("reserv")
+    ) {
+      updates.push({ name: meta.name, uri });
+    }
+  }
+
+  return updates;
+}
+
 /** Count how many recommended attributes are not yet enabled. */
 export function countMissingRecommendedAttributes(
   available: GbpAttributeMetadata[],

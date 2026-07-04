@@ -47,6 +47,8 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_phone",
     "gbp_hours",
     "gbp_accept_suggestion",
+    "gbp_title",
+    "gbp_address",
   ].includes(type);
 }
 
@@ -298,6 +300,29 @@ export function tasksFromGbpPlanStep(
         }),
       ];
     }
+    case "update_booking_attributes": {
+      const bookingUri = data.bookingUri ?? audit.gbp.identity.website ?? "";
+      if (!bookingUri) {
+        return [
+          buildGbpTask(audit, step, "gbp_checklist", step.title, checklistContent(step), {
+            manual: true,
+          }),
+        ];
+      }
+      return [
+        buildGbpTask(
+          audit,
+          step,
+          "gbp_attributes",
+          step.title,
+          [
+            "Approve to link your booking or appointment URL on applicable GBP attributes.",
+            `Booking URL: ${bookingUri}`,
+          ].join("\n"),
+          { enableRecommended: true, bookingOnly: true, bookingUri }
+        ),
+      ];
+    }
     case "update_website": {
       const website = data.websiteUri ?? audit.gbp.identity.website ?? "";
       if (!website) {
@@ -484,6 +509,53 @@ export function tasksFromGbpPlan(
 }
 
 /** Gap-driven tasks not covered by the 16-step GBP plan (schema, citations, social). */
+export function tasksFromNapDrift(audit: FullAuditPayload): ExecutionTask[] {
+  const drifts = audit.gbp.napDrift ?? [];
+  if (drifts.length === 0) return [];
+
+  const canonical = {
+    name: audit.clientName,
+    phone: audit.gbp.identity.phone,
+    website: audit.gbp.identity.website,
+    address: audit.gbp.identity.address,
+  };
+
+  return drifts.map((drift) => {
+    const taskType =
+      drift.field === "title"
+        ? "gbp_title"
+        : drift.field === "phone"
+          ? "gbp_phone"
+          : drift.field === "website"
+            ? "gbp_website"
+            : "gbp_address";
+
+    return buildGbpTask(
+      audit,
+      {
+        stepNumber: 0,
+        title: `Sync ${drift.label}`,
+        instruction: `Update Google to match your onboarding record for ${drift.label.toLowerCase()}.`,
+      },
+      taskType,
+      `Sync ${drift.label}`,
+      [
+        `Sync ${drift.label} on your Google Business Profile.`,
+        "",
+        `Onboarding: ${drift.canonical}`,
+        `Google now: ${drift.live}`,
+        "",
+        "Approve to update Google with your onboarding value.",
+      ].join("\n"),
+      {
+        napField: drift.field,
+        napCanonical: canonical,
+        syncNap: true,
+      }
+    );
+  });
+}
+
 export const SUPPLEMENTARY_GAP_IDS = new Set([
   "missing-schema",
   "citation-mismatch",
@@ -494,6 +566,10 @@ export const SUPPLEMENTARY_GAP_IDS = new Set([
   "low-attributes",
   "google-pending-edits",
   "google-suggested-edits",
+  "nap-drift-title",
+  "nap-drift-phone",
+  "nap-drift-website",
+  "nap-drift-address",
 ]);
 
 export function tasksFromGoogleSuggestions(audit: FullAuditPayload): ExecutionTask[] {

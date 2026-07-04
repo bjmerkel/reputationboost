@@ -19,6 +19,8 @@ const ACTIONS: GbpApplyAction[] = [
   "update_regular_hours",
   "update_holiday_hours",
   "accept_google_suggestion",
+  "sync_nap_field",
+  "update_booking_attributes",
   "upload_media",
   "create_post",
   "reply_review",

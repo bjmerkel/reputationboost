@@ -352,6 +352,13 @@ export function applyGapMutation(audit: Phase1AuditPayload, gap: GapFlag): void 
       audit.gbp.googleSuggestions = [];
       bumpCompleteness(audit);
       break;
+    case "nap-drift-title":
+    case "nap-drift-phone":
+    case "nap-drift-website":
+    case "nap-drift-address":
+      audit.gbp.napDrift = [];
+      audit.gbp.issues.napInconsistencies = [];
+      break;
     case "unresponded-negative":
       audit.reviews.unrespondedNegative = 0;
       break;

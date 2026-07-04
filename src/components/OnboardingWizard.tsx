@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { GbpLocationOption } from "@/lib/google/gbp-accounts";
+import type { RankedGbpLocation } from "@/lib/google/gbp-onboarding-match";
 import GoogleBusinessAutocomplete, {
   type BusinessPlaceSelection,
 } from "@/components/GoogleBusinessAutocomplete";
@@ -12,7 +12,7 @@ import RankingMap from "@/components/platform/RankingMap";
 interface OnboardingWizardProps {
   step: "business" | "connect" | "location";
   businessId?: string;
-  locations?: GbpLocationOption[];
+  locations?: RankedGbpLocation[];
   error?: string;
   disconnected?: boolean;
   changingBusiness?: boolean;
@@ -144,7 +144,7 @@ export default function OnboardingWizard({
     router.push("/platform/audit?skipped_gbp=1");
   }
 
-  async function selectLocation(loc: GbpLocationOption) {
+  async function selectLocation(loc: RankedGbpLocation) {
     setLoading(true);
     setFormError("");
     try {
@@ -400,18 +400,36 @@ export default function OnboardingWizard({
               disabled={loading}
               onClick={() => selectLocation(loc)}
               className={`w-full rounded-xl border p-4 text-left transition disabled:opacity-50 ${
-                isLight
-                  ? "border-[#dadce0] bg-white hover:border-[#1a73e8] hover:bg-[#f8f9fa]"
-                  : "border-white/10 bg-white/[0.03] hover:border-emerald-500/40 hover:bg-white/[0.05]"
+                loc.recommended
+                  ? isLight
+                    ? "border-[#1a73e8] bg-[#e8f0fe] hover:bg-[#d2e3fc]"
+                    : "border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/15"
+                  : isLight
+                    ? "border-[#dadce0] bg-white hover:border-[#1a73e8] hover:bg-[#f8f9fa]"
+                    : "border-white/10 bg-white/[0.03] hover:border-emerald-500/40 hover:bg-white/[0.05]"
               }`}
             >
-              <p className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
-                {loc.title}
-              </p>
+              <div className="flex items-start justify-between gap-2">
+                <p className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+                  {loc.title}
+                </p>
+                {loc.recommended && (
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      isLight ? "bg-[#1a73e8] text-white" : "bg-emerald-500 text-white"
+                    }`}
+                  >
+                    Recommended
+                  </span>
+                )}
+              </div>
               <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
                 {loc.address}
               </p>
-              <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>{loc.primaryCategory}</p>
+              <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                {loc.primaryCategory}
+                {loc.matchReason ? ` · ${loc.matchReason}` : ""}
+              </p>
             </button>
           ))}
         </div>

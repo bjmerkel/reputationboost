@@ -9,7 +9,7 @@ import type { AuditGeneratedContent } from "@/lib/llm/content";
 import { buildTemplateContent } from "@/lib/llm/content";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { mapActionToExecutionType } from "./content";
-import { SUPPLEMENTARY_GAP_IDS, tasksFromGbpPlan, tasksFromGoogleSuggestions } from "./gbp-plan-tasks";
+import { SUPPLEMENTARY_GAP_IDS, tasksFromGbpPlan, tasksFromGoogleSuggestions, tasksFromNapDrift } from "./gbp-plan-tasks";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
 
 function requiresApproval(type: ExecutionTask["type"]): boolean {
@@ -28,6 +28,8 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_phone",
     "gbp_hours",
     "gbp_accept_suggestion",
+    "gbp_title",
+    "gbp_address",
   ].includes(type);
 }
 
@@ -266,6 +268,13 @@ function createTaskForAction(
           enableRecommended: true,
         }),
       ];
+    case "gbp_title":
+    case "gbp_address":
+    case "gbp_phone":
+    case "gbp_website":
+      return [
+        buildTask(audit, action, type, action.draftCopy ?? action.description, {}),
+      ];
     default:
       return [
         buildTask(audit, action, type, action.draftCopy ?? action.description, {}),
@@ -281,6 +290,7 @@ export function generateExecutionQueue(
   const tasks: ExecutionTask[] = [
     ...tasksFromGbpPlan(audit, resolvedContent),
     ...tasksFromGoogleSuggestions(audit),
+    ...tasksFromNapDrift(audit),
   ];
 
   for (const action of audit.strategy.actionPlan) {

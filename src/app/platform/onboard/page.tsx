@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import OnboardingWizard from "@/components/OnboardingWizard";
-import type { GbpLocationOption } from "@/lib/google/gbp-accounts";
+import type { RankedGbpLocation } from "@/lib/google/gbp-onboarding-match";
 import { getUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -33,12 +33,12 @@ export default async function OnboardPage({ searchParams }: PageProps) {
     redirect("/platform/audit");
   }
 
-  let locations: GbpLocationOption[] = [];
+  let locations: RankedGbpLocation[] = [];
   if (params.locations) {
     try {
       locations = JSON.parse(
         Buffer.from(params.locations, "base64url").toString("utf8")
-      ) as GbpLocationOption[];
+      ) as RankedGbpLocation[];
     } catch {
       locations = [];
     }

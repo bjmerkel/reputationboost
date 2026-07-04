@@ -7,6 +7,7 @@ import type {
 import type { OutcomesContext } from "../outcomes/types";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
 import { gapScoreComponent, gapScoreImpact } from "./score-impact";
+import { napDriftGapId } from "@/lib/google/nap-drift";
 
 function daysSince(iso: string | null): number {
   if (!iso) return 999;
@@ -221,6 +222,20 @@ export function detectGaps(
         "gbp_profile",
         "Google suggested profile changes",
         `Google recommends updates to: ${fields}. Review each suggestion in Take Action.`,
+        7,
+        2
+      )
+    );
+  }
+
+  for (const drift of audit.gbp.napDrift ?? []) {
+    gaps.push(
+      gap(
+        napDriftGapId(drift.field as "title" | "phone" | "website" | "address"),
+        "P1",
+        "gbp_profile",
+        `NAP mismatch: ${drift.label}`,
+        `Your onboarding record says "${drift.canonical}" but Google shows "${drift.live}". Sync to keep trust signals consistent.`,
         7,
         2
       )

@@ -164,6 +164,12 @@ export interface GbpSnapshot {
   qaItems?: GbpQaItem[];
   googleSuggestions?: GbpGoogleSuggestion[];
   hasGoogleUpdated?: boolean;
+  napDrift?: Array<{
+    field: string;
+    label: string;
+    canonical: string;
+    live: string;
+  }>;
 }
 
 export interface GeoRankPoint {
@@ -548,6 +554,7 @@ export type GbpPlanActionType =
   | "update_website"
   | "update_hours"
   | "accept_google_suggestion"
+  | "update_booking_attributes"
   | "create_post"
   | "manual";
 
@@ -557,6 +564,7 @@ export interface GbpPlanActionData {
   description?: string;
   postSummary?: string;
   websiteUri?: string;
+  bookingUri?: string;
   serviceName?: string;
   serviceDescription?: string;
   sourceUrl?: string;
@@ -736,6 +744,8 @@ export type ExecutionType =
   | "gbp_phone"
   | "gbp_hours"
   | "gbp_accept_suggestion"
+  | "gbp_title"
+  | "gbp_address"
   | "gbp_checklist"
   | "review_response"
   | "review_delete_reply"
