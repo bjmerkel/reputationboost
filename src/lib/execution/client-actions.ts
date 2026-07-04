@@ -69,6 +69,41 @@ export async function publishPhotoFile(taskId: string, file: File, category: str
   return data.task as ExecutionTask;
 }
 
+export async function publishVideoFile(taskId: string, file: File, category: string): Promise<ExecutionTask> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("category", category);
+  form.append("mediaFormat", "VIDEO");
+
+  const res = await fetch(`/api/execution/${taskId}/publish-video`, {
+    method: "POST",
+    body: form,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Video upload failed");
+  return data.task as ExecutionTask;
+}
+
+export async function publishPhotoBatch(
+  files: File[],
+  categories: string[]
+): Promise<{ uploaded: number; total: number }> {
+  const form = new FormData();
+  for (const file of files) {
+    form.append("files", file);
+  }
+  form.append("categories", JSON.stringify(categories));
+  form.append("mediaFormat", "PHOTO");
+
+  const res = await fetch("/api/google/gbp/media/batch", {
+    method: "POST",
+    body: form,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Batch upload failed");
+  return { uploaded: data.uploaded ?? 0, total: data.total ?? files.length };
+}
+
 /** Approve (if needed) then publish to Google in one flow. */
 export async function approveAndPublishTask(task: ExecutionTask): Promise<ExecutionTask> {
   if (task.type === "gbp_photo") {

@@ -145,6 +145,20 @@ export function analyzeGbpMediaCoverage(
   };
 }
 
+/** Minimum video upload size (100 KB). */
+export function validateMediaVideoUpload(bytes: ArrayBuffer): {
+  valid: boolean;
+  reason?: string;
+} {
+  if (bytes.byteLength < 102_400) {
+    return {
+      valid: false,
+      reason: "Video must be at least 100 KB. Choose a higher-quality clip.",
+    };
+  }
+  return { valid: true };
+}
+
 /** Minimum upload requirements from Google Business Profile media guidelines. */
 export function validateMediaUploadBytes(bytes: ArrayBuffer): {
   valid: boolean;

@@ -3,6 +3,7 @@ import { authHeadersForConnection } from "./auth-headers";
 import {
   validateMediaImageDimensions,
   validateMediaUploadBytes,
+  validateMediaVideoUpload,
 } from "./gbp-media-coverage";
 
 const GBP_V4 = "https://mybusiness.googleapis.com/v4";
@@ -408,14 +409,21 @@ export async function uploadGbpMediaFile(
     description?: string;
   }
 ): Promise<GbpMediaItem> {
-  const sizeCheck = validateMediaUploadBytes(file.bytes);
-  if (!sizeCheck.valid) {
-    throw new Error(sizeCheck.reason ?? "Media file is too small.");
-  }
+  if (options.mediaFormat === "VIDEO") {
+    const videoCheck = validateMediaVideoUpload(file.bytes);
+    if (!videoCheck.valid) {
+      throw new Error(videoCheck.reason ?? "Video file is too small.");
+    }
+  } else {
+    const sizeCheck = validateMediaUploadBytes(file.bytes);
+    if (!sizeCheck.valid) {
+      throw new Error(sizeCheck.reason ?? "Media file is too small.");
+    }
 
-  const dimensionCheck = await validateMediaImageDimensions(file.bytes, file.contentType);
-  if (!dimensionCheck.valid) {
-    throw new Error(dimensionCheck.reason ?? "Media dimensions are too small.");
+    const dimensionCheck = await validateMediaImageDimensions(file.bytes, file.contentType);
+    if (!dimensionCheck.valid) {
+      throw new Error(dimensionCheck.reason ?? "Media dimensions are too small.");
+    }
   }
 
   const resourceName = await startGbpMediaUpload(connection);

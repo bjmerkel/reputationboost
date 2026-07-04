@@ -6,6 +6,7 @@ import ExternalImage from "@/components/ExternalImage";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import TrendsPanel from "@/components/attribution/TrendsPanel";
 import { formatCustomerAttribution } from "@/lib/google/gbp-media-display";
+import { buildMediaHealthReport } from "@/lib/google/gbp-media-health";
 
 type DataTab = "profile" | "rankings" | "competitors" | "reviews" | "citations" | "trends";
 
@@ -207,13 +208,22 @@ export default function AuditDataPanel({
           )}
 
           {(audit.gbp.content.photoCount > 0 || mediaPreviews.length > 0) && (
-            <MediaGallery
+            <>
+              {audit.gbp.content.mediaCoverage && (
+                <MediaHealthPanel
+                  coverage={audit.gbp.content.mediaCoverage}
+                  photosByType={audit.gbp.content.photosByType}
+                  videoCount={audit.gbp.content.videoCount ?? 0}
+                />
+              )}
+              <MediaGallery
               photoCount={audit.gbp.content.photoCount}
               videoCount={audit.gbp.content.videoCount ?? 0}
               photosByType={audit.gbp.content.photosByType}
               previews={mediaPreviews}
               coverage={audit.gbp.content.mediaCoverage}
             />
+            </>
           )}
         </div>
       )}
@@ -576,6 +586,86 @@ function formatViolation(code: string): string {
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function MediaHealthPanel({
+  coverage,
+  photosByType,
+  videoCount,
+}: {
+  coverage: GbpMediaCoverage;
+  photosByType: Record<string, number>;
+  videoCount: number;
+}) {
+  const report = buildMediaHealthReport(coverage, photosByType);
+
+  return (
+    <div className="md:col-span-2 rounded-xl border border-white/8 bg-white/[0.02] p-4">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-slate-300">Media health</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Overall score based on coverage, engagement, video, and recency
+          </p>
+        </div>
+        <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white">
+          {report.overallScore}%
+        </span>
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { label: "Coverage", value: report.coverageScore },
+          { label: "Engagement", value: report.engagementScore },
+          { label: "Video", value: report.videoScore },
+          { label: "Recency", value: report.recencyScore },
+        ].map((metric) => (
+          <div key={metric.label} className="rounded-lg bg-white/5 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-slate-500">{metric.label}</p>
+            <p className="text-lg font-semibold text-slate-200">{metric.value}%</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {report.categoryStatus.map((item) => (
+          <div
+            key={item.category}
+            className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
+              item.filled ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"
+            }`}
+          >
+            <span>{item.label}</span>
+            <span>{item.filled ? `${item.count || "✓"}` : "Missing"}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
+        <span>{report.ownerPhotoCount} owner photos</span>
+        <span>·</span>
+        <span>{report.customerPhotoCount} customer</span>
+        <span>·</span>
+        <span>{videoCount} videos</span>
+        <span>·</span>
+        <span>{report.totalViews.toLocaleString()} views</span>
+        {report.daysSinceLastUpload !== null && (
+          <>
+            <span>·</span>
+            <span>last upload {report.daysSinceLastUpload}d ago</span>
+          </>
+        )}
+      </div>
+
+      {report.recommendations.length > 0 && (
+        <ul className="mt-3 space-y-1.5 text-xs text-amber-300/90">
+          {report.recommendations.map((item) => (
+            <li key={item}>• {item}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 function MediaGallery({

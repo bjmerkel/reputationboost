@@ -9,6 +9,8 @@ import {
   patchExecutionTask,
   publishPhotoFile,
   publishPhotoTask,
+  publishVideoFile,
+  publishPhotoBatch,
 } from "@/lib/execution/client-actions";
 
 interface UsePlanTasksOptions {
@@ -117,6 +119,29 @@ export function usePlanTasks({
     [runWithLoading]
   );
 
+  const uploadVideoFile = useCallback(
+    (task: ExecutionTask, file: File) =>
+      runWithLoading(task.id, () =>
+        publishVideoFile(task.id, file, String(task.payload.category ?? "AT_WORK")).then(() => undefined)
+      ),
+    [runWithLoading]
+  );
+
+  const uploadPhotoBatch = useCallback(
+    async (files: File[], categories: string[]) => {
+      setError(null);
+      try {
+        const result = await publishPhotoBatch(files, categories);
+        await refresh();
+        return result;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Batch upload failed");
+        throw e;
+      }
+    },
+    [refresh]
+  );
+
   const savePhotoPreview = useCallback(
     (taskId: string, previewDataUrl: string) =>
       runWithLoading(taskId, () =>
@@ -163,6 +188,8 @@ export function usePlanTasks({
     updateDraft,
     publishPhoto,
     uploadPhotoFile,
+    uploadVideoFile,
+    uploadPhotoBatch,
     savePhotoPreview,
     ensurePhotoTasks,
     approveAllRoutine,
@@ -176,6 +203,8 @@ export type PlanTaskActions = Pick<
   | "updateDraft"
   | "publishPhoto"
   | "uploadPhotoFile"
+  | "uploadVideoFile"
+  | "uploadPhotoBatch"
   | "savePhotoPreview"
   | "ensurePhotoTasks"
   | "approveAllRoutine"

@@ -55,6 +55,7 @@ export default function PlanStepPhotos({
     () => photoTasks.filter((t) => !isAiPhotoTask(t) && t.status !== "completed"),
     [photoTasks]
   );
+  const [batchMessage, setBatchMessage] = useState("");
 
   const generatePending = useCallback(async () => {
     if (!gbpConnected || pendingAi.length === 0) return;
@@ -186,6 +187,43 @@ export default function PlanStepPhotos({
           <p className={`text-xs font-semibold uppercase ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
             Upload your own photos
           </p>
+          {manualTasks.length >= 2 && actions.uploadPhotoBatch && (
+            <label
+              className={`flex cursor-pointer flex-col gap-2 rounded-lg border border-dashed px-3 py-3 ${
+                isLight ? "border-[#dadce0] bg-[#f8f9fa]" : "border-white/12 bg-white/[0.02]"
+              }`}
+            >
+              <span className={`text-sm font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
+                Batch upload by category
+              </span>
+              <span className={`text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                Select multiple images — each maps to a pending category task in order.
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="text-xs"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  if (files.length === 0) return;
+                  const categories = manualTasks
+                    .slice(0, files.length)
+                    .map((task) => String(task.payload.category ?? "ADDITIONAL"));
+                  setBatchMessage("");
+                  void actions
+                    .uploadPhotoBatch(files, categories)
+                    .then((result) =>
+                      setBatchMessage(`Uploaded ${result.uploaded} of ${result.total} photos to Google.`)
+                    )
+                    .catch(() => undefined);
+                }}
+              />
+            </label>
+          )}
+          {batchMessage && (
+            <p className={`text-xs ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>{batchMessage}</p>
+          )}
           {manualTasks.map((task) => (
             <label
               key={task.id}

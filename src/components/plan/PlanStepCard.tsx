@@ -6,6 +6,7 @@ import type { ActionAttribution } from "@/audit/types/timeseries";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import PlanStepDiff from "./PlanStepDiff";
 import PlanStepPhotos from "./PlanStepPhotos";
+import PlanStepVideos from "./PlanStepVideos";
 import PlanStepTaskRow from "./PlanStepTaskRow";
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
 
@@ -42,7 +43,10 @@ export default function PlanStepCard({
   );
 
   const hasPhotoTasks = step.tasks.some((t) => t.type === "gbp_photo");
-  const nonPhotoTasks = step.tasks.filter((t) => t.type !== "gbp_photo" && t.type !== "gbp_video");
+  const hasVideoTasks = step.tasks.some((t) => t.type === "gbp_video");
+  const nonPhotoTasks = step.tasks.filter(
+    (t) => t.type !== "gbp_photo" && t.type !== "gbp_video"
+  );
   const statusStyle = STATUS_STYLES[step.status] ?? STATUS_STYLES.pending;
   const stepAttribution = step.tasks
     .map((task) => attributionByTaskId[task.id])
@@ -150,8 +154,17 @@ export default function PlanStepCard({
             />
           )}
 
+          {hasVideoTasks && (
+            <PlanStepVideos
+              tasks={step.tasks}
+              gbpConnected={gbpConnected}
+              actions={actions}
+              variant={variant}
+            />
+          )}
+
           {nonPhotoTasks.length > 0 && (
-            <div className={`space-y-3 ${hasPhotoTasks ? "mt-4" : "mt-4"}`}>
+            <div className={`space-y-3 ${hasPhotoTasks || hasVideoTasks ? "mt-4" : "mt-4"}`}>
               {nonPhotoTasks.map((task) => (
                 <PlanStepTaskRow
                   key={task.id}

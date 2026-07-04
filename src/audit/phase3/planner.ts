@@ -9,7 +9,7 @@ import type { AuditGeneratedContent } from "@/lib/llm/content";
 import { buildTemplateContent } from "@/lib/llm/content";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { mapActionToExecutionType } from "./content";
-import { SUPPLEMENTARY_GAP_IDS, tasksFromGbpPlan, tasksFromGoogleSuggestions, tasksFromMediaMaintenance, tasksFromNapDrift } from "./gbp-plan-tasks";
+import { SUPPLEMENTARY_GAP_IDS, tasksFromGbpPlan, tasksFromGoogleSuggestions, tasksFromMediaMaintenance, tasksFromNapDrift, tasksFromVideoGaps } from "./gbp-plan-tasks";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
 
 function requiresApproval(type: ExecutionTask["type"]): boolean {
@@ -285,17 +285,37 @@ function createTaskForAction(
   }
 }
 
+function dedupeExecutionTasks(tasks: ExecutionTask[]): ExecutionTask[] {
+  const seenPhoto = new Set<string>();
+  const seenVideo = new Set<string>();
+
+  return tasks.filter((task) => {
+    if (task.type === "gbp_photo") {
+      const category = String(task.payload.category ?? "");
+      if (category && seenPhoto.has(category)) return false;
+      if (category) seenPhoto.add(category);
+    }
+    if (task.type === "gbp_video") {
+      const key = task.title.replace(/^Step \d+: /, "");
+      if (seenVideo.has(key)) return false;
+      seenVideo.add(key);
+    }
+    return true;
+  });
+}
+
 export function generateExecutionQueue(
   audit: FullAuditPayload,
   content?: AuditGeneratedContent
 ): Phase3ExecutionReport {
   const resolvedContent = content ?? buildTemplateContent(audit);
-  const tasks: ExecutionTask[] = [
+  const tasks = dedupeExecutionTasks([
     ...tasksFromGbpPlan(audit, resolvedContent),
     ...tasksFromGoogleSuggestions(audit),
     ...tasksFromMediaMaintenance(audit),
+    ...tasksFromVideoGaps(audit),
     ...tasksFromNapDrift(audit),
-  ];
+  ]);
 
   for (const action of audit.strategy.actionPlan) {
     const index = audit.strategy.actionPlan.indexOf(action);
@@ -304,15 +324,17 @@ export function generateExecutionQueue(
     tasks.push(...createTaskForAction(audit, action, resolvedContent));
   }
 
-  const pendingApproval = tasks.filter((t) => t.status === "pending_approval").length;
-  const autoApproved = tasks.filter((t) => t.status === "approved").length;
+  const dedupedTasks = dedupeExecutionTasks(tasks);
+
+  const pendingApproval = dedupedTasks.filter((t) => t.status === "pending_approval").length;
+  const autoApproved = dedupedTasks.filter((t) => t.status === "approved").length;
 
   return {
     generatedAt: new Date().toISOString(),
-    tasksCreated: tasks.length,
+    tasksCreated: dedupedTasks.length,
     pendingApproval,
     autoApproved,
-    tasks,
+    tasks: dedupedTasks,
     contentSource: resolvedContent.contentSource,
   };
 }

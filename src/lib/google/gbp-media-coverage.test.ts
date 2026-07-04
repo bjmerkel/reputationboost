@@ -4,6 +4,7 @@ import type { GbpMediaItem } from "./gbp-media";
 import {
   analyzeGbpMediaCoverage,
   validateMediaUploadBytes,
+  validateMediaVideoUpload,
 } from "./gbp-media-coverage";
 
 function mediaItem(
@@ -78,5 +79,14 @@ describe("validateMediaUploadBytes", () => {
     const result = validateMediaUploadBytes(tiny);
     assert.equal(result.valid, false);
     assert.match(result.reason ?? "", /10 KB/);
+  });
+});
+
+describe("validateMediaVideoUpload", () => {
+  it("rejects videos below 100KB", () => {
+    const small = new ArrayBuffer(50_000);
+    const result = validateMediaVideoUpload(small);
+    assert.equal(result.valid, false);
+    assert.match(result.reason ?? "", /100 KB/);
   });
 });

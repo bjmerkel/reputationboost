@@ -7,6 +7,8 @@ import type {
 } from "../types";
 import type { AuditGeneratedContent } from "@/lib/llm/content";
 import { buildTemplatePhotoJobs, photoJobDraftContent } from "@/lib/llm/gbp-photos";
+import { buildTemplateVideoJobs, videoJobDraftContent } from "@/lib/llm/gbp-videos";
+import { buildCategoryBatchUploadJobs } from "@/lib/google/gbp-media-batch";
 import type { GbpMediaCategory } from "@/lib/google/gbp-media";
 import { buildMediaMaintenanceActions } from "@/lib/google/gbp-media-maintenance";
 import { mediaCategoryLabel } from "@/lib/google/gbp-media-coverage";
@@ -136,8 +138,24 @@ export function buildPhotoExecutionTasks(
       gbpAction: "upload_photo",
     } as GbpPlanStep);
 
-  const jobs =
+  const categoryJobs = buildCategoryBatchUploadJobs(audit);
+  const templateJobs =
     content.gbpPhotoJobs.length > 0 ? content.gbpPhotoJobs : buildTemplatePhotoJobs(audit);
+
+  const jobs =
+    categoryJobs.length > 0
+      ? [
+          ...categoryJobs.map((job) => ({
+            title: job.title,
+            category: job.category,
+            hint: job.hint,
+            aiGenerated: job.category === "AT_WORK",
+          })),
+          ...templateJobs.filter(
+            (job) => job.category === "ADDITIONAL" && !categoryJobs.some((c) => c.category === job.category)
+          ),
+        ]
+      : templateJobs;
 
   return jobs.map((job, i) =>
     buildGbpTask(audit, photoStep, "gbp_photo", job.title, photoJobDraftContent(job), {
@@ -643,6 +661,68 @@ export function tasksFromMediaMaintenance(audit: FullAuditPayload): ExecutionTas
       }
     );
   });
+}
+
+export function tasksFromCategoryBatch(audit: FullAuditPayload): ExecutionTask[] {
+  const jobs = buildCategoryBatchUploadJobs(audit);
+  if (jobs.length === 0) return [];
+
+  const step: GbpPlanStep = {
+    stepNumber: 0,
+    title: "Category photo batch",
+    instruction: "Upload photos into the Google categories your profile is missing.",
+    gbpAction: "upload_photo",
+  };
+
+  return jobs.map((job, index) =>
+    buildGbpTask(
+      audit,
+      step,
+      "gbp_photo",
+      job.title,
+      [
+        job.hint,
+        "",
+        `Category: ${job.category}`,
+        `Why: ${job.reason}`,
+      ].join("\n"),
+      {
+        mediaFormat: "PHOTO",
+        category: job.category,
+        batchIndex: index + 1,
+        batchTotal: jobs.length,
+        categoryBatch: true,
+        hint: job.hint,
+        aiGenerated: job.category === "AT_WORK",
+      }
+    )
+  );
+}
+
+export function tasksFromVideoGaps(audit: FullAuditPayload): ExecutionTask[] {
+  const coverage = audit.gbp.content.mediaCoverage;
+  if (coverage?.hasVideo || audit.gbp.content.videoCount > 0) return [];
+
+  const jobs = buildTemplateVideoJobs(audit);
+  if (jobs.length === 0) return [];
+
+  const step: GbpPlanStep = {
+    stepNumber: 0,
+    title: "Video upload",
+    instruction: "Add short videos to boost profile engagement on Google Maps.",
+    gbpAction: "upload_video",
+  };
+
+  return jobs.map((job, index) =>
+    buildGbpTask(audit, step, "gbp_video", job.title, videoJobDraftContent(job), {
+      mediaFormat: "VIDEO",
+      category: job.category,
+      videoIndex: index + 1,
+      videoTotal: jobs.length,
+      hint: job.hint,
+      durationHint: job.durationHint,
+    })
+  );
 }
 
 export function tasksFromGoogleSuggestions(audit: FullAuditPayload): ExecutionTask[] {
