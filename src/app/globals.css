@@ -373,3 +373,232 @@ body {
 .platform-theme .maps-panel-light .text-cyan-400 {
   color: #1a73e8;
 }
+
+/* ─── Marketing: Google Maps–aligned light theme (matches platform) ───────── */
+.marketing-theme {
+  --background: #f8f9fa;
+  --foreground: #202124;
+  --muted: #5f6368;
+  --accent: #1a73e8;
+  --accent-secondary: #007b83;
+  --card: #ffffff;
+  --card-border: #dadce0;
+  --platform-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.marketing-theme .maps-card {
+  border-radius: 12px;
+  border: 1px solid #dadce0;
+  background: #ffffff;
+  box-shadow: var(--platform-shadow);
+}
+
+.marketing-theme .text-white {
+  color: #202124;
+}
+
+.marketing-theme .btn-primary,
+.marketing-theme .btn-primary.text-white,
+.marketing-theme a.btn-primary {
+  color: #ffffff !important;
+}
+
+.marketing-theme .text-slate-400 {
+  color: #5f6368;
+}
+
+.marketing-theme .text-slate-500 {
+  color: #80868b;
+}
+
+.marketing-theme .text-slate-300 {
+  color: #3c4043;
+}
+
+.marketing-theme .text-slate-600 {
+  color: #80868b;
+}
+
+.marketing-theme .text-emerald-400,
+.marketing-theme .text-emerald-300 {
+  color: #188038;
+}
+
+.marketing-theme .text-cyan-400 {
+  color: #1a73e8;
+}
+
+.marketing-theme .text-violet-400 {
+  color: #9334e6;
+}
+
+.marketing-theme .text-orange-400 {
+  color: #e37400;
+}
+
+.marketing-theme .text-red-400 {
+  color: #d93025;
+}
+
+.marketing-theme .text-amber-400 {
+  color: #e37400;
+}
+
+.marketing-theme .border-white\/8,
+.marketing-theme .border-white\/5,
+.marketing-theme .border-white\/10 {
+  border-color: #dadce0;
+}
+
+.marketing-theme .bg-white\/\[0\.02\],
+.marketing-theme .bg-white\/5,
+.marketing-theme .bg-white\/\[0\.03\] {
+  background-color: #f8f9fa;
+}
+
+.marketing-theme .bg-slate-900\/60,
+.marketing-theme .bg-slate-900\/80,
+.marketing-theme .bg-slate-900\/90 {
+  background-color: #ffffff;
+}
+
+.marketing-theme .bg-slate-950\/50 {
+  background-color: #ffffff;
+}
+
+.marketing-theme .bg-emerald-500\/10 {
+  background-color: #e6f4ea;
+}
+
+.marketing-theme .bg-emerald-500\/20 {
+  background-color: #ceead6;
+}
+
+.marketing-theme .bg-emerald-500\/5 {
+  background-color: #e6f4ea;
+}
+
+.marketing-theme .bg-emerald-950\/50,
+.marketing-theme .bg-cyan-950\/30 {
+  background-color: #e8f0fe;
+}
+
+.marketing-theme .bg-orange-500\/5,
+.marketing-theme .bg-orange-500\/10,
+.marketing-theme .bg-amber-500\/5 {
+  background-color: #fef7e0;
+}
+
+.marketing-theme .bg-red-500\/5,
+.marketing-theme .bg-red-500\/20 {
+  background-color: #fce8e6;
+}
+
+.marketing-theme .bg-violet-500\/\[0\.03\],
+.marketing-theme .bg-cyan-500\/\[0\.03\],
+.marketing-theme .bg-emerald-500\/\[0\.03\],
+.marketing-theme .bg-amber-500\/\[0\.03\] {
+  background-color: transparent;
+}
+
+.marketing-theme .border-emerald-500\/20,
+.marketing-theme .border-emerald-500\/40 {
+  border-color: #ceead6;
+}
+
+.marketing-theme .border-orange-500\/20,
+.marketing-theme .border-amber-500\/20 {
+  border-color: #fdd663;
+}
+
+.marketing-theme .border-violet-500\/40 {
+  border-color: #dadce0;
+}
+
+.marketing-theme .gradient-border {
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  box-shadow: var(--platform-shadow);
+}
+
+.marketing-theme .gradient-border::before {
+  display: none;
+}
+
+.marketing-theme .gradient-text {
+  background: linear-gradient(135deg, #1a73e8 0%, #007b83 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.marketing-theme .mesh-bg,
+.marketing-theme .grid-pattern {
+  display: none;
+}
+
+.marketing-theme .glass {
+  background: #ffffff;
+  border: none;
+  border-bottom: 1px solid #dadce0;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.marketing-theme .btn-primary {
+  background: #1a73e8;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3);
+}
+
+.marketing-theme .btn-primary:hover {
+  background: #1765cc;
+  transform: none;
+  box-shadow: 0 1px 3px rgba(60, 64, 67, 0.4);
+}
+
+.marketing-theme .btn-secondary {
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  color: #3c4043 !important;
+}
+
+.marketing-theme .btn-secondary:hover {
+  background: #f8f9fa;
+  border-color: #dadce0;
+}
+
+.marketing-theme .feature-card:hover {
+  transform: translateY(-2px);
+  background: #ffffff;
+  border-color: #1a73e8;
+  box-shadow: var(--platform-shadow);
+}
+
+.marketing-theme .feature-card:hover .feature-icon {
+  transform: scale(1.05);
+  box-shadow: none;
+}
+
+.marketing-theme .score-slider {
+  background: #e8eaed;
+}
+
+.marketing-theme .score-slider::-webkit-slider-thumb {
+  background: #1a73e8;
+  box-shadow: 0 1px 3px rgba(60, 64, 67, 0.4);
+}
+
+.marketing-theme .score-slider::-moz-range-thumb {
+  background: #1a73e8;
+  box-shadow: 0 1px 3px rgba(60, 64, 67, 0.4);
+}
+
+.marketing-theme section:nth-of-type(even) {
+  background-color: #ffffff;
+}
+
+.marketing-theme [id] {
+  scroll-margin-top: 5rem;
+}

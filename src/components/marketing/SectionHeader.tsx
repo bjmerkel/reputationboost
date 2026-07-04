@@ -3,11 +3,11 @@ import type { ReactNode } from "react";
 type LabelColor = "emerald" | "cyan" | "violet" | "amber" | "rose";
 
 const labelColorClass: Record<LabelColor, string> = {
-  emerald: "text-emerald-400",
-  cyan: "text-cyan-400",
-  violet: "text-violet-400",
-  amber: "text-amber-400",
-  rose: "text-rose-400",
+  emerald: "text-[#188038]",
+  cyan: "text-[#1a73e8]",
+  violet: "text-[#9334e6]",
+  amber: "text-[#e37400]",
+  rose: "text-[#d93025]",
 };
 
 export default function SectionHeader({
@@ -26,14 +26,14 @@ export default function SectionHeader({
   return (
     <div className={`mx-auto max-w-3xl text-center ${className}`}>
       <span
-        className={`text-sm font-semibold uppercase tracking-widest ${labelColorClass[labelColor]}`}
+        className={`text-xs font-semibold uppercase tracking-wider ${labelColorClass[labelColor]}`}
       >
         {label}
       </span>
-      <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+      <h2 className="mt-3 text-3xl font-normal tracking-tight text-[#202124] sm:text-4xl">
         {title}
       </h2>
-      {subtitle && <p className="mt-4 text-lg text-slate-400">{subtitle}</p>}
+      {subtitle && <p className="mt-4 text-base leading-relaxed text-[#5f6368]">{subtitle}</p>}
     </div>
   );
 }

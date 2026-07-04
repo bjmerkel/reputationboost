@@ -32,7 +32,7 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <>
+    <div className="marketing-theme min-h-screen bg-[#f8f9fa]">
       <FaqJsonLd />
       <Navbar />
       <main className="marketing-main">
@@ -53,6 +53,6 @@ export default function Home() {
       </main>
       <Footer />
       <MobileStickyCTA />
-    </>
+    </div>
   );
 }

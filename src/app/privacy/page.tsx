@@ -10,14 +10,14 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <>
+    <div className="marketing-theme min-h-screen bg-[#f8f9fa]">
       <Navbar />
-      <main className="min-h-screen pt-32 pb-20">
+      <main className="py-12 pb-20">
         <div className="mx-auto max-w-3xl px-6">
-          <h1 className="text-4xl font-extrabold text-white">Privacy Policy</h1>
-          <p className="mt-4 text-sm text-slate-500">Last updated: July 2026</p>
+          <h1 className="text-4xl font-normal text-[#202124]">Privacy Policy</h1>
+          <p className="mt-4 text-sm text-[#80868b]">Last updated: July 2026</p>
 
-          <div className="prose prose-invert mt-10 space-y-6 text-slate-400">
+          <div className="mt-10 space-y-6 text-[#5f6368]">
             <p>
               Reputation Boost (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) provides
               Google Business Profile optimization services. This Privacy Policy explains how we
@@ -25,7 +25,7 @@ export default function PrivacyPage() {
             </p>
 
             <section>
-              <h2 className="text-xl font-bold text-white">Information We Collect</h2>
+              <h2 className="text-xl font-medium text-[#202124]">Information We Collect</h2>
               <p className="mt-3">
                 We collect information you provide directly, including business name, address,
                 contact details, target keywords, and Google Business Profile data when you
@@ -35,7 +35,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-white">How We Use Your Information</h2>
+              <h2 className="text-xl font-medium text-[#202124]">How We Use Your Information</h2>
               <p className="mt-3">
                 We use your information to calculate your Reputation Boost Score, generate
                 optimization recommendations, track keyword rankings, execute approved GBP
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-white">Data Sharing</h2>
+              <h2 className="text-xl font-medium text-[#202124]">Data Sharing</h2>
               <p className="mt-3">
                 We do not sell your personal information. We share data only with service
                 providers necessary to operate our platform (e.g., hosting, Google APIs) and
@@ -53,10 +53,10 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-white">Contact Us</h2>
+              <h2 className="text-xl font-medium text-[#202124]">Contact Us</h2>
               <p className="mt-3">
                 For privacy-related questions, contact us at{" "}
-                <a href="mailto:info@reputationboost.com" className="text-emerald-400 hover:text-emerald-300">
+                <a href="mailto:info@reputationboost.com" className="text-[#1a73e8] hover:underline">
                   info@reputationboost.com
                 </a>
                 .
@@ -65,13 +65,13 @@ export default function PrivacyPage() {
           </div>
 
           <p className="mt-12">
-            <Link href="/" className="text-sm text-emerald-400 hover:text-emerald-300">
+            <Link href="/" className="text-sm text-[#1a73e8] hover:underline">
               ← Back to home
             </Link>
           </p>
         </div>
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

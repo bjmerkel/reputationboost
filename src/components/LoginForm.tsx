@@ -43,8 +43,7 @@ export default function LoginForm() {
         return;
       }
 
-      setMessage("Check your email to confirm your account, then sign in.");
-      setMode("signin");
+      setMessage("Check your email for a confirmation link.");
       setLoading(false);
       return;
     }
@@ -62,30 +61,30 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="gradient-border w-full max-w-md overflow-hidden rounded-2xl">
-      <div className="rounded-[calc(1rem-1px)] bg-slate-900/90 p-8 backdrop-blur-sm">
+    <div className="maps-card w-full max-w-md overflow-hidden">
+      <div className="p-8">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1a73e8]">
               <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
               </svg>
             </div>
-            <span className="text-xl font-bold text-white">Reputation Boost</span>
+            <span className="text-xl font-semibold text-[#202124]">Reputation Boost</span>
           </Link>
-          <p className="mt-4 text-sm text-slate-400">
+          <p className="mt-4 text-sm text-[#5f6368]">
             {mode === "signin"
               ? "Sign in to run audits and manage your Google Business Profile."
               : "Create an account to get started."}
           </p>
         </div>
 
-        <div className="mb-6 flex rounded-full bg-white/5 p-1">
+        <div className="mb-6 flex rounded-full border border-[#dadce0] bg-[#f8f9fa] p-1">
           <button
             type="button"
             onClick={() => setMode("signin")}
             className={`flex-1 rounded-full py-2 text-sm font-medium transition-colors ${
-              mode === "signin" ? "bg-emerald-500 text-white" : "text-slate-400 hover:text-white"
+              mode === "signin" ? "bg-[#1a73e8] text-white" : "text-[#5f6368] hover:text-[#202124]"
             }`}
           >
             Sign In
@@ -94,7 +93,7 @@ export default function LoginForm() {
             type="button"
             onClick={() => setMode("signup")}
             className={`flex-1 rounded-full py-2 text-sm font-medium transition-colors ${
-              mode === "signup" ? "bg-emerald-500 text-white" : "text-slate-400 hover:text-white"
+              mode === "signup" ? "bg-[#1a73e8] text-white" : "text-[#5f6368] hover:text-[#202124]"
             }`}
           >
             Sign Up
@@ -103,7 +102,7 @@ export default function LoginForm() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-300">
+            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[#3c4043]">
               Email
             </label>
             <input
@@ -113,13 +112,13 @@ export default function LoginForm() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+              className="w-full rounded-lg border border-[#dadce0] bg-white px-4 py-3 text-[#202124] placeholder:text-[#80868b] focus:border-[#1a73e8] focus:outline-none focus:ring-1 focus:ring-[#1a73e8]"
               placeholder="you@business.com"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-300">
+            <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-[#3c4043]">
               Password
             </label>
             <input
@@ -130,7 +129,7 @@ export default function LoginForm() {
               autoComplete={mode === "signup" ? "new-password" : "current-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+              className="w-full rounded-lg border border-[#dadce0] bg-white px-4 py-3 text-[#202124] placeholder:text-[#80868b] focus:border-[#1a73e8] focus:outline-none focus:ring-1 focus:ring-[#1a73e8]"
               placeholder="••••••••"
             />
           </div>
@@ -138,7 +137,7 @@ export default function LoginForm() {
           {message && (
             <p
               className={`text-sm ${
-                message.includes("Check your email") ? "text-emerald-400" : "text-red-400"
+                message.includes("Check your email") ? "text-[#188038]" : "text-[#d93025]"
               }`}
             >
               {message}
@@ -148,7 +147,7 @@ export default function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary w-full rounded-full py-3.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="btn-primary w-full rounded-full py-3 text-sm font-medium text-white disabled:opacity-50"
           >
             {loading
               ? "Please wait…"
@@ -158,8 +157,8 @@ export default function LoginForm() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-slate-500">
-          <Link href="/" className="text-slate-400 hover:text-white">
+        <p className="mt-6 text-center text-xs text-[#80868b]">
+          <Link href="/" className="text-[#1a73e8] hover:underline">
             ← Back to homepage
           </Link>
         </p>

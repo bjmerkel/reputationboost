@@ -22,7 +22,7 @@ export default function MobileStickyCTA() {
 
   return (
     <div
-      className={`fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 p-4 backdrop-blur-lg transition-transform duration-300 lg:hidden ${
+      className={`fixed inset-x-0 bottom-0 z-40 border-t border-[#dadce0] bg-white/95 p-4 backdrop-blur-sm transition-transform duration-300 lg:hidden ${
         visible ? "translate-y-0" : "translate-y-full"
       }`}
       style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
@@ -30,7 +30,7 @@ export default function MobileStickyCTA() {
     >
       <a
         href={SIGNUP_URL}
-        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold text-white"
+        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-medium text-white"
       >
         {SIGNUP_CTA_LABEL}
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

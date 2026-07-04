@@ -26,14 +26,14 @@ const footerLinks = {
 
 export default function Footer() {
   return (
-    <footer className="border-t border-white/5 bg-slate-950/50">
+    <footer className="border-t border-[#dadce0] bg-white">
       <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1a73e8]">
                 <svg
-                  className="h-5 w-5 text-white"
+                  className="h-4 w-4 text-white"
                   fill="none"
                   viewBox="0 0 24 24"
                   strokeWidth={2}
@@ -46,9 +46,9 @@ export default function Footer() {
                   />
                 </svg>
               </div>
-              <span className="text-lg font-bold text-white">Reputation Boost</span>
+              <span className="font-semibold text-[#202124]">Reputation Boost</span>
             </Link>
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-[#5f6368]">
               We score your Google Business Profile, build your action plan, and
               prove the revenue — so you know exactly where you stand and what
               to fix next.
@@ -57,13 +57,13 @@ export default function Footer() {
 
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
-              <h4 className="text-sm font-semibold text-white">{category}</h4>
+              <h4 className="text-sm font-semibold text-[#202124]">{category}</h4>
               <ul className="mt-4 space-y-3">
                 {links.map((link) => (
                   <li key={link.label}>
                     <a
                       href={link.href}
-                      className="text-sm text-slate-400 transition-colors hover:text-white"
+                      className="text-sm text-[#5f6368] transition-colors hover:text-[#1a73e8]"
                     >
                       {link.label}
                     </a>
@@ -74,13 +74,13 @@ export default function Footer() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-8 sm:flex-row">
-          <p className="text-sm text-slate-500">
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-[#dadce0] pt-8 sm:flex-row">
+          <p className="text-sm text-[#80868b]">
             &copy; {new Date().getFullYear()} Reputation Boost. All rights reserved.
           </p>
           <a
             href="mailto:info@reputationboost.com"
-            className="text-sm text-slate-500 transition-colors hover:text-white"
+            className="text-sm text-[#5f6368] transition-colors hover:text-[#1a73e8]"
           >
             info@reputationboost.com
           </a>

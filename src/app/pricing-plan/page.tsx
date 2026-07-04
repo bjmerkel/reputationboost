@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import PricingPlans from "@/components/PricingPlans";
 import Footer from "@/components/Footer";
+import SectionHeader from "@/components/marketing/SectionHeader";
 
 export const metadata: Metadata = {
   title: "Pricing | Reputation Boost",
@@ -17,47 +18,40 @@ export const metadata: Metadata = {
 
 export default function PricingPage() {
   return (
-    <>
+    <div className="marketing-theme min-h-screen bg-[#f8f9fa]">
       <Navbar />
-      <main className="relative overflow-hidden pt-32 pb-24 lg:pt-40">
-        <div className="mesh-bg absolute inset-0" />
-        <div className="grid-pattern absolute inset-0 opacity-30" />
-        <div className="pointer-events-none absolute -top-20 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-emerald-500/10 blur-3xl" />
+      <main className="py-12 lg:py-16">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <SectionHeader
+            label="Pricing"
+            labelColor="emerald"
+            title={
+              <>
+                Straightforward rates{" "}
+                <span className="gradient-text font-semibold">you can trust</span>
+              </>
+            }
+            subtitle="Our pricing is designed to be fair, transparent, and easy to understand. Know exactly what you're paying for — no hidden fees, no surprises."
+          />
 
-        <div className="relative mx-auto max-w-6xl px-6">
-          <div className="mx-auto max-w-3xl text-center">
-            <span className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
-              Pricing
-            </span>
-            <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-              Straightforward rates{" "}
-              <span className="gradient-text">you can trust</span>
-            </h1>
-            <p className="mt-4 text-lg leading-relaxed text-slate-400">
-              Our pricing is designed to be fair, transparent, and easy to
-              understand. Know exactly what you&apos;re paying for — no hidden
-              fees, no surprises.
-            </p>
-          </div>
-
-          <div className="mt-16">
+          <div className="mt-12">
             <PricingPlans />
           </div>
 
-          <div className="mt-16 rounded-2xl border border-white/8 bg-white/[0.02] p-8 text-center lg:p-12">
-            <h2 className="text-2xl font-bold text-white">
+          <div className="mt-12 maps-card p-8 text-center lg:p-12">
+            <h2 className="text-2xl font-medium text-[#202124]">
               All plans include Google Business Profile optimization
             </h2>
-            <p className="mx-auto mt-3 max-w-2xl text-slate-400">
+            <p className="mx-auto mt-3 max-w-2xl text-[#5f6368]">
               Every plan is built to help you rank higher on Google Maps, break
               into the Local 3-Pack, and turn searches into calls, direction
               requests, and website visits.
             </p>
-            <p className="mt-6 text-sm text-slate-500">
+            <p className="mt-6 text-sm text-[#80868b]">
               Questions about which plan is right for you?{" "}
               <a
                 href="mailto:info@reputationboost.com"
-                className="text-emerald-400 transition-colors hover:text-emerald-300"
+                className="text-[#1a73e8] hover:underline"
               >
                 Contact our team
               </a>
@@ -66,6 +60,6 @@ export default function PricingPage() {
         </div>
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

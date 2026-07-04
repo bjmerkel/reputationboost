@@ -16,13 +16,13 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50">
-      <nav className="glass mx-4 mt-4 rounded-2xl px-6 py-4 lg:mx-auto lg:max-w-6xl">
+    <header className="sticky top-0 z-50 border-b border-[#dadce0] bg-white">
+      <nav className="mx-auto max-w-6xl px-4 py-3 sm:px-6">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1a73e8]">
               <svg
-                className="h-5 w-5 text-white"
+                className="h-4 w-4 text-white"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth={2}
@@ -35,17 +35,15 @@ export default function Navbar() {
                 />
               </svg>
             </div>
-            <span className="text-lg font-bold tracking-tight text-white">
-              Reputation Boost
-            </span>
+            <span className="font-semibold text-[#202124]">Reputation Boost</span>
           </Link>
 
-          <div className="hidden items-center gap-8 md:flex">
+          <div className="hidden items-center gap-6 md:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm font-medium text-slate-400 transition-colors hover:text-white"
+                className="text-sm text-[#5f6368] transition-colors hover:text-[#202124]"
               >
                 {link.label}
               </Link>
@@ -55,13 +53,13 @@ export default function Navbar() {
           <div className="hidden items-center gap-3 md:flex">
             <Link
               href="/login"
-              className="btn-secondary rounded-full px-5 py-2.5 text-sm font-semibold text-white"
+              className="btn-secondary rounded-full px-5 py-2 text-sm font-medium"
             >
               Sign In
             </Link>
             <a
               href={SIGNUP_URL}
-              className="btn-primary rounded-full px-5 py-2.5 text-sm font-semibold text-white"
+              className="btn-primary rounded-full px-5 py-2 text-sm font-medium text-white"
             >
               {SIGNUP_CTA_LABEL}
             </a>
@@ -69,7 +67,7 @@ export default function Navbar() {
 
           <button
             type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-white/5 md:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-[#5f6368] hover:bg-[#f8f9fa] md:hidden"
             onClick={() => setOpen(!open)}
             aria-label="Toggle menu"
           >
@@ -84,12 +82,12 @@ export default function Navbar() {
         </div>
 
         {open && (
-          <div className="mt-4 flex flex-col gap-4 border-t border-white/10 pt-4 md:hidden">
+          <div className="mt-3 flex flex-col gap-3 border-t border-[#dadce0] pt-3 md:hidden">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm font-medium text-slate-300"
+                className="text-sm font-medium text-[#3c4043]"
                 onClick={() => setOpen(false)}
               >
                 {link.label}
@@ -98,13 +96,13 @@ export default function Navbar() {
             <div className="flex flex-col gap-2 pt-2">
               <Link
                 href="/login"
-                className="btn-secondary rounded-full px-5 py-2.5 text-center text-sm font-semibold text-white"
+                className="btn-secondary rounded-full px-5 py-2.5 text-center text-sm font-medium"
               >
                 Sign In
               </Link>
               <a
                 href={SIGNUP_URL}
-                className="btn-primary rounded-full px-5 py-2.5 text-center text-sm font-semibold text-white"
+                className="btn-primary rounded-full px-5 py-2.5 text-center text-sm font-medium text-white"
               >
                 {SIGNUP_CTA_LABEL}
               </a>
