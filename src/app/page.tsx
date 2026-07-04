@@ -4,6 +4,7 @@ import Hero from "@/components/Hero";
 import MarketingHome from "@/components/marketing/MarketingHome";
 import PlatformExplorer from "@/components/marketing/PlatformExplorer";
 import ProofNarrative from "@/components/marketing/ProofNarrative";
+import NightlyScoreLoop from "@/components/marketing/NightlyScoreLoop";
 import Testimonial from "@/components/Testimonial";
 import RoiCalculator from "@/components/marketing/RoiCalculator";
 import PricingPreview from "@/components/PricingPreview";
@@ -33,6 +34,7 @@ export default function Home() {
         <Navbar />
         <main className="marketing-main">
           <Hero />
+          <NightlyScoreLoop />
           <PlatformExplorer />
           <ProofNarrative />
           <Testimonial />

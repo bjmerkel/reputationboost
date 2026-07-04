@@ -45,7 +45,7 @@ function PlatformDemoPlan({ audit }: { audit: FullAuditPayload }) {
       <div className="rounded-lg border border-[#d2e3fc] bg-[#e8f0fe] px-4 py-3 text-sm text-[#1a73e8]">
         {pendingCount > 0
           ? `${pendingCount} AI-drafted actions ready for your approval — sign up to publish to Google.`
-          : "16 prioritized steps with projected score impact for each action."}
+          : "Prioritized steps with projected score impact for each action."}
       </div>
 
       {phases.map((phase) => {

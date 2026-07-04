@@ -108,7 +108,7 @@ export default function HeroBusinessSearch() {
           </svg>
         </a>
         <a
-          href="#how-it-works"
+          href="#nightly-score"
           className="btn-secondary inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-medium"
         >
           See How It Works

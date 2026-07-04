@@ -12,7 +12,7 @@ export const marketingFaqs = [
   {
     question: "How is it different from my Google star rating?",
     answer:
-      "Your star rating only measures review sentiment. The Reputation Boost Score measures your entire GBP — profile completeness, keyword relevance, geo-grid rankings, competitor position, and estimated revenue capture. It's the difference between knowing you have 4.2 stars and knowing you're losing $4,200/month to competitors ranking above you.",
+      "Your star rating only measures review sentiment. The Reputation Boost Score measures your entire GBP — profile completeness, keyword relevance, geo-grid rankings, competitor position, and estimated revenue capture. It's the difference between knowing you have 4.2 stars and knowing competitors above you in the map pack are capturing the calls.",
   },
   {
     question: "How do you track keyword rankings?",
@@ -42,7 +42,7 @@ export const marketingFaqs = [
   {
     question: "What's the difference between the three plans?",
     answer:
-      "All plans include your Reputation Boost Score, AI action plan, GBP optimization tools, and a dedicated account manager. The Omni plan ($199/mo) adds social media posts 1×/week. The Spectrum plan ($399/mo) adds 3×/week social posting and negative review dispute support.",
+      "All plans include your Reputation Boost Score, AI action plan, GBP optimization tools, and a dedicated account manager. The Omni plan ($199/mo) adds social media posts 1×/week. The Spectrum plan ($399/mo) adds 3×/week social posting and help flagging policy-violating reviews for Google's review process.",
   },
   {
     question: "Can I cancel anytime?",

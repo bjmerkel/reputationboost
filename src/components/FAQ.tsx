@@ -8,8 +8,8 @@ export default function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="relative scroll-mt-28 py-24 lg:py-32">
-      <div className="mx-auto max-w-3xl px-6">
+    <section id="faq" className="scroll-mt-28 border-b border-[#dadce0] bg-white py-20 lg:py-28">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <SectionHeader
           label="FAQ"
           labelColor="violet"
@@ -23,7 +23,7 @@ export default function FAQ() {
             return (
               <div
                 key={faq.question}
-                className="overflow-hidden rounded-xl border border-white/8 bg-white/[0.02]"
+                className="overflow-hidden rounded-xl border border-[#dadce0] bg-[#f8f9fa]"
               >
                 <button
                   type="button"
@@ -31,9 +31,9 @@ export default function FAQ() {
                   onClick={() => setOpenIndex(isOpen ? null : index)}
                   aria-expanded={isOpen}
                 >
-                  <span className="font-semibold text-white">{faq.question}</span>
+                  <span className="font-semibold text-[#202124]">{faq.question}</span>
                   <svg
-                    className={`h-5 w-5 shrink-0 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                    className={`h-5 w-5 shrink-0 text-[#80868b] transition-transform ${isOpen ? "rotate-180" : ""}`}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -42,8 +42,8 @@ export default function FAQ() {
                   </svg>
                 </button>
                 {isOpen && (
-                  <div className="border-t border-white/5 px-6 py-4">
-                    <p className="text-sm leading-relaxed text-slate-400">{faq.answer}</p>
+                  <div className="border-t border-[#dadce0] px-6 py-4">
+                    <p className="text-sm leading-relaxed text-[#5f6368]">{faq.answer}</p>
                   </div>
                 )}
               </div>

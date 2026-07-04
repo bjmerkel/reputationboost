@@ -6,7 +6,7 @@ import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 
 const navLinks = [
   { label: "Get Started", href: "/#hero-search" },
-  { label: "How It Works", href: "/#how-it-works" },
+  { label: "How It Works", href: "/#nightly-score" },
   { label: "Pricing", href: "/#pricing" },
 ];
 

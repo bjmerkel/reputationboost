@@ -3,66 +3,75 @@ import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
 import { pricingPlans } from "@/lib/pricing";
 import SectionHeader from "@/components/marketing/SectionHeader";
 
+function CheckIcon() {
+  return (
+    <svg className="mt-0.5 h-4 w-4 shrink-0 text-[#188038]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
 export default function PricingPreview() {
   return (
-    <section id="pricing" className="relative scroll-mt-28 py-24 lg:py-32">
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-violet-500/[0.03] to-transparent" />
-
-      <div className="relative mx-auto max-w-6xl px-6">
+    <section id="pricing" className="scroll-mt-28 border-b border-[#dadce0] bg-[#f8f9fa] py-20 lg:py-28">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeader
           label="Pricing"
           labelColor="violet"
           title={
             <>
               Plans built around your{" "}
-              <span className="gradient-text">Reputation Boost Score</span>
+              <span className="gradient-text font-semibold">Reputation Boost Score</span>
             </>
           }
           subtitle="Every plan includes your score audit, AI action plan, GBP optimization tools, and a dedicated account manager."
         />
 
-        <div className="mt-16 grid gap-6 lg:grid-cols-3">
+        <div className="mt-12 grid gap-6 lg:grid-cols-3">
           {pricingPlans.map((plan) => (
             <article
               key={plan.id}
-              className={`relative flex flex-col rounded-2xl border p-8 ${
+              className={`relative flex flex-col rounded-xl border bg-white p-8 ${
                 plan.popular
-                  ? "border-emerald-500/40 bg-emerald-500/[0.04] shadow-lg shadow-emerald-500/10"
-                  : "border-white/8 bg-white/[0.02]"
+                  ? "border-[#1a73e8] shadow-[0_2px_6px_rgba(60,64,67,0.15)]"
+                  : "border-[#dadce0]"
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-500 px-4 py-1 text-xs font-bold uppercase tracking-wider text-white">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-[#1a73e8] px-4 py-1 text-xs font-bold uppercase tracking-wider text-white">
                   Most Popular
                 </div>
               )}
 
-              <h3 className="text-xl font-bold text-white">{plan.name}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                {plan.description}
-              </p>
+              <h3 className="text-xl font-semibold text-[#202124]">{plan.name}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#5f6368]">{plan.description}</p>
 
               <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold tracking-tight text-white">
+                <span className="text-4xl font-bold tracking-tight text-[#202124]">
                   ${plan.price}
                 </span>
-                <span className="text-slate-400">/month</span>
+                <span className="text-[#80868b]">/month</span>
               </div>
 
-              {plan.extras.length > 0 && (
-                <ul className="mt-4 space-y-1">
-                  {plan.extras.map((extra) => (
-                    <li key={extra} className="text-sm text-emerald-300">
-                      + {extra}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <ul className="mt-6 flex-1 space-y-2.5">
+                {plan.highlights.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2 text-sm text-[#3c4043]">
+                    <CheckIcon />
+                    {feature}
+                  </li>
+                ))}
+                {plan.extras.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2 text-sm font-medium text-[#1a73e8]">
+                    <CheckIcon />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
 
               <a
                 href={SIGNUP_URL}
                 className={`mt-8 inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold ${
-                  plan.popular ? "btn-primary text-white" : "btn-secondary text-white"
+                  plan.popular ? "btn-primary text-white" : "btn-secondary"
                 }`}
               >
                 {SIGNUP_CTA_LABEL}
@@ -71,8 +80,8 @@ export default function PricingPreview() {
           ))}
         </div>
 
-        <p className="mt-10 text-center text-sm text-slate-500">
-          <Link href="/pricing-plan" className="text-emerald-400 transition-colors hover:text-emerald-300">
+        <p className="mt-10 text-center text-sm text-[#80868b]">
+          <Link href="/pricing-plan" className="text-[#1a73e8] hover:underline">
             Compare all features →
           </Link>
         </p>

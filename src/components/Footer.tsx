@@ -1,19 +1,19 @@
 import Link from "next/link";
-import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
+import { SIGNUP_URL, SIGNUP_CTA_LABEL, SUPPORT_EMAIL } from "@/lib/constants";
 
 const footerLinks = {
   Product: [
     { label: "Get Started", href: "/#hero-search" },
-    { label: "How It Works", href: "/#how-it-works" },
+    { label: "How It Works", href: "/#nightly-score" },
     { label: "Revenue Calculator", href: "/#roi-calculator" },
     { label: "Pricing", href: "/#pricing" },
     { label: SIGNUP_CTA_LABEL, href: SIGNUP_URL },
   ],
   Company: [
-    { label: "How It Works", href: "/#how-it-works" },
+    { label: "How It Works", href: "/#nightly-score" },
     { label: "Testimonials", href: "/#testimonials" },
     { label: "FAQ", href: "/#faq" },
-    { label: "Contact", href: "mailto:info@reputationboost.com" },
+    { label: "Contact", href: `mailto:${SUPPORT_EMAIL}` },
   ],
   Legal: [
     { label: "Privacy Policy", href: "/privacy" },
@@ -50,6 +50,11 @@ export default function Footer() {
               prove the revenue — so you know exactly where you stand and what
               to fix next.
             </p>
+            <p className="mt-4 text-sm text-[#5f6368]">
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-[#1a73e8] hover:underline">
+                {SUPPORT_EMAIL}
+              </a>
+            </p>
           </div>
 
           {Object.entries(footerLinks).map(([category, links]) => (
@@ -76,10 +81,10 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} Reputation Boost. All rights reserved.
           </p>
           <a
-            href="mailto:info@reputationboost.com"
+            href={`mailto:${SUPPORT_EMAIL}`}
             className="text-sm text-[#5f6368] transition-colors hover:text-[#1a73e8]"
           >
-            info@reputationboost.com
+            {SUPPORT_EMAIL}
           </a>
         </div>
       </div>

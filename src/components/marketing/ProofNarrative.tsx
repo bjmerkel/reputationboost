@@ -20,7 +20,7 @@ const howItWorks = [
   {
     step: "02",
     title: "Get Your Plan",
-    description: "16 prioritized actions with projected score and revenue impact.",
+    description: "Prioritized actions with projected score and revenue impact.",
   },
   {
     step: "03",
