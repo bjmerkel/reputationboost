@@ -1,5 +1,5 @@
 import type { FullAuditPayload } from "@/audit/types";
-import type { GbpMediaCategory } from "./gbp-media";
+import type { GbpMediaCategory } from "@/lib/google/gbp-media";
 
 export interface GbpVideoJob {
   title: string;

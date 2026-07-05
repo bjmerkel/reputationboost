@@ -501,7 +501,7 @@ export function detectGaps(
       gap(
         "no-search-keyword-data",
         "P2",
-        "visibility",
+        "rankings",
         "No search keyword impressions",
         "Google isn't reporting search terms for your listing. Strengthen categories, posts, and relevance signals.",
         4,
@@ -520,7 +520,7 @@ export function detectGaps(
       gap(
         "low-profile-conversions",
         "P2",
-        "visibility",
+        "gbp_profile",
         "Views without actions",
         `${audit.gbp.performance.profileViews} profile views but no calls, directions, or website clicks in ${audit.gbp.performance.periodDays} days.`,
         5,

@@ -6,7 +6,7 @@ import type {
   GbpPlanStep,
 } from "../types";
 import type { AuditGeneratedContent } from "@/lib/llm/content";
-import { buildTemplatePhotoJobs, photoJobDraftContent } from "@/lib/llm/gbp-photos";
+import { buildTemplatePhotoJobs, photoJobDraftContent, type GbpPhotoJob } from "@/lib/llm/gbp-photos";
 import { buildTemplateVideoJobs, videoJobDraftContent } from "@/lib/llm/gbp-videos";
 import { buildCategoryBatchUploadJobs } from "@/lib/google/gbp-media-batch";
 import { getGbpPubsubTopic, notificationTypeLabel, type GbpNotificationType } from "@/lib/google/gbp-notifications";
@@ -144,7 +144,7 @@ export function buildPhotoExecutionTasks(
   const templateJobs =
     content.gbpPhotoJobs.length > 0 ? content.gbpPhotoJobs : buildTemplatePhotoJobs(audit);
 
-  const jobs =
+  const jobs: GbpPhotoJob[] =
     categoryJobs.length > 0
       ? [
           ...categoryJobs.map((job) => ({
