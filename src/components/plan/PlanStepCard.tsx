@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { PlanStep, GbpMediaCoverage } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
+import { formatCurrency } from "@/audit/attribution/roi";
 import PlanStepDiff from "./PlanStepDiff";
 import PlanStepPhotos from "./PlanStepPhotos";
 import PlanStepVideos from "./PlanStepVideos";
@@ -27,6 +28,7 @@ export default function PlanStepCard({
   mediaCoverage,
   defaultExpanded = false,
   variant = "light",
+  currency = "USD",
 }: {
   step: PlanStep;
   totalSteps: number;
@@ -36,6 +38,7 @@ export default function PlanStepCard({
   mediaCoverage?: GbpMediaCoverage;
   defaultExpanded?: boolean;
   variant?: "light" | "dark";
+  currency?: string;
 }) {
   const isLight = variant === "light";
   const [expanded, setExpanded] = useState(
@@ -81,6 +84,21 @@ export default function PlanStepCard({
             (step.context.healthScoreImpact ?? 0) > 0 && (
               <p className={`mt-1 text-xs font-semibold ${isLight ? "text-[#188038]" : "text-emerald-400"}`}>
                 +{step.context.healthScoreImpact} Reputation Boost Score pts
+              </p>
+            )}
+          {step.status !== "completed" &&
+            step.status !== "skipped" &&
+            (step.context.revenueImpact ?? 0) > 0 && (
+              <p className={`mt-1 text-xs font-semibold ${isLight ? "text-[#188038]" : "text-emerald-400"}`}>
+                +{formatCurrency(step.context.revenueImpact!, currency)}/mo est.
+              </p>
+            )}
+          {step.status !== "completed" &&
+            step.status !== "skipped" &&
+            !(step.context.revenueImpact ?? 0) &&
+            (step.context.outcomeScoreImpact ?? 0) > 0 && (
+              <p className={`mt-1 text-xs ${isLight ? "text-[#1a73e8]" : "text-cyan-300"}`}>
+                +{step.context.outcomeScoreImpact} ranking outcome pts
               </p>
             )}
           {!expanded && (

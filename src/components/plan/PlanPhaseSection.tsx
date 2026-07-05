@@ -15,6 +15,7 @@ export default function PlanPhaseSection({
   mediaCoverage,
   defaultExpandedStep,
   variant = "light",
+  currency = "USD",
 }: {
   phase: PlanPhase;
   steps: PlanStep[];
@@ -24,6 +25,7 @@ export default function PlanPhaseSection({
   attributionByTaskId: Record<string, ActionAttribution>;
   mediaCoverage?: GbpMediaCoverage;
   defaultExpandedStep?: number;
+  currency?: string;
   variant?: "light" | "dark";
 }) {
   const isLight = variant === "light";
@@ -60,6 +62,7 @@ export default function PlanPhaseSection({
             mediaCoverage={mediaCoverage}
             defaultExpanded={step.stepNumber === defaultExpandedStep}
             variant={variant}
+            currency={currency}
           />
         ))}
       </div>

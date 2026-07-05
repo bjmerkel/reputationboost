@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import type { FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
+import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { usePlanTasks } from "@/hooks/usePlanTasks";
 import PlanPhaseSection from "./PlanPhaseSection";
 import PlanProgressHeader from "./PlanProgressHeader";
@@ -14,6 +15,8 @@ export default function PlanView({
   attributionByTaskId = {},
   variant = "light",
   onReviewPending,
+  avgCustomerValue,
+  currency = "USD",
 }: {
   audit: FullAuditPayload;
   clientId: string;
@@ -21,6 +24,8 @@ export default function PlanView({
   attributionByTaskId?: Record<string, ActionAttribution>;
   variant?: "light" | "dark";
   onReviewPending?: () => void;
+  avgCustomerValue?: number | null;
+  currency?: string;
 }) {
   const isLight = variant === "light";
   const {
@@ -81,6 +86,11 @@ export default function PlanView({
     return needs?.stepNumber ?? plan.steps.find((s) => s.status === "pending")?.stepNumber;
   }, [plan]);
 
+  const path = useMemo(
+    () => buildPathToHealthy(audit, plan, { avgCustomerValue, currency }),
+    [audit, plan, avgCustomerValue, currency]
+  );
+
   useEffect(() => {
     if (!gbpConnected || !plan) return;
     const photoStep = plan.steps.find((s) => s.stepNumber === 6);
@@ -111,7 +121,14 @@ export default function PlanView({
         </div>
       )}
 
-      <PlanProgressHeader plan={plan} variant={variant} onReviewPending={onReviewPending} />
+      <PlanProgressHeader
+        plan={plan}
+        variant={variant}
+        onReviewPending={onReviewPending}
+        estimatedMonthlyRevenue={path?.estimatedMonthlyRevenue}
+        projectedMonthlyRevenue={path?.projectedMonthlyRevenue}
+        currency={currency}
+      />
 
       {audit.strategy?.executiveSummary && (
         <p className={`text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
@@ -135,6 +152,7 @@ export default function PlanView({
             mediaCoverage={audit.gbp.content.mediaCoverage}
             defaultExpandedStep={defaultExpandedStep}
             variant={variant}
+            currency={currency}
           />
         );
       })}

@@ -1,6 +1,6 @@
 import type { FullAuditPayload, GbpPlanStep, PlanStepContext } from "../types";
 import type { AttributionCalibration } from "../phase2/attribution-calibration";
-import { estimateStepHealthImpact, estimateStepOutcomeImpact } from "../phase2/score-impact";
+import { estimateStepHealthImpact, estimateStepOutcomeImpact, estimateStepRevenueImpact } from "../phase2/score-impact";
 import { isCustomPlanStep } from "./plan-custom-steps";
 
 function targetKeywords(audit: FullAuditPayload, step: GbpPlanStep): string[] {
@@ -93,12 +93,15 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
 export function buildStepContext(
   audit: FullAuditPayload,
   step: GbpPlanStep,
-  calibration?: AttributionCalibration
+  calibration?: AttributionCalibration,
+  avgCustomerValue?: number | null
 ): PlanStepContext {
   const keywords = targetKeywords(audit, step);
   const outsidePack = keywordsOutsidePack(audit);
   const primaryKeyword =
     outsidePack[0] ?? keywords[0] ?? audit.strategy.gbpPlan?.keywordPriority?.[0]?.keyword;
+
+  const isCustom = isCustomPlanStep(step.stepNumber);
 
   return {
     targetKeywords: keywords,
@@ -106,9 +109,15 @@ export function buildStepContext(
     expectedEffect: buildExpectedEffect(audit, step),
     currentValue: step.current,
     recommendedValue: step.recommended,
-    healthScoreImpact: isCustomPlanStep(step.stepNumber)
+    healthScoreImpact: isCustom
       ? undefined
       : estimateStepHealthImpact(audit, step.stepNumber, calibration),
+    outcomeScoreImpact: isCustom
+      ? undefined
+      : estimateStepOutcomeImpact(audit, step.stepNumber),
+    revenueImpact: isCustom
+      ? null
+      : estimateStepRevenueImpact(audit, step.stepNumber, avgCustomerValue),
   };
 }
 
@@ -126,11 +135,12 @@ export function buildTaskPayloadContext(
     ...(context.healthScoreImpact != null
       ? { projectedDriverImpact: context.healthScoreImpact }
       : {}),
-    ...(isCustomPlanStep(step.stepNumber)
-      ? {}
-      : {
-          projectedOutcomeImpact: estimateStepOutcomeImpact(audit, step.stepNumber),
-        }),
+    ...(context.outcomeScoreImpact != null
+      ? { projectedOutcomeImpact: context.outcomeScoreImpact }
+      : {}),
+    ...(context.revenueImpact != null && context.revenueImpact > 0
+      ? { projectedRevenueGain: context.revenueImpact, revenueImpact: context.revenueImpact }
+      : {}),
     ...(isCustomPlanStep(step.stepNumber) ? { isCustomPlanStep: true } : {}),
   };
 }

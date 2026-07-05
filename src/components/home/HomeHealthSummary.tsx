@@ -2,6 +2,7 @@
 
 import type { FullAuditPayload, MonthlyReport, ScoreChangelogEntry } from "@/audit/types";
 import type { AttributionSummary } from "@/audit/types/timeseries";
+import { formatCurrency } from "@/audit/attribution/roi";
 import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
 import ScoreChangelog from "@/components/audit/ScoreChangelog";
 
@@ -23,6 +24,8 @@ export default function HomeHealthSummary({
   liveScore,
   liveScoreDate,
   dailyChangelog = [],
+  estimatedMonthlyRevenue,
+  currency = "USD",
 }: {
   audit: FullAuditPayload;
   summary: AttributionSummary | null;
@@ -30,6 +33,8 @@ export default function HomeHealthSummary({
   liveScore?: number | null;
   liveScoreDate?: string | null;
   dailyChangelog?: ScoreChangelogEntry[];
+  estimatedMonthlyRevenue?: number | null;
+  currency?: string;
 }) {
   const scores = audit.strategy?.scores;
   const mom = audit.strategy?.monthOverMonth;
@@ -81,6 +86,11 @@ export default function HomeHealthSummary({
           {mom && mom.overallScoreChange !== 0 && !liveScoreDate && (
             <p className={`mt-1 text-sm ${mom.overallScoreChange > 0 ? "text-[#137333]" : "text-[#d93025]"}`}>
               {formatDelta(mom.overallScoreChange)} pts since last audit
+            </p>
+          )}
+          {estimatedMonthlyRevenue != null && estimatedMonthlyRevenue > 0 && (
+            <p className="mt-2 text-sm font-medium text-[#188038]">
+              Est. {formatCurrency(estimatedMonthlyRevenue, currency)}/mo from Maps visibility
             </p>
           )}
         </div>

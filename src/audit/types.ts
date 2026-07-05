@@ -859,6 +859,8 @@ export interface PlanStepContext {
   currentValue?: string;
   recommendedValue?: string;
   healthScoreImpact?: number;
+  outcomeScoreImpact?: number;
+  revenueImpact?: number | null;
 }
 
 export interface PlanStepOutcome {

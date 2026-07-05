@@ -288,6 +288,8 @@ export default function AuditDashboard({
               attributionByTaskId={attributionData.attributionByTaskId}
               variant="light"
               onReviewPending={openBatchReview}
+              avgCustomerValue={avgCustomerValue}
+              currency={avgCustomerValueCurrency}
             />
           )}
 

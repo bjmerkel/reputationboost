@@ -8,6 +8,7 @@ import type { AttributionCalibration } from "@/audit/phase2/attribution-calibrat
 import { computeKeywordScores } from "@/audit/phase2/keyword-scores";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { buildPlan } from "@/audit/phase3/build-plan";
+import GapsPanel from "@/components/audit/GapsPanel";
 import KeywordScoreCards from "@/components/audit/KeywordScoreCards";
 import PathToHealthyPanel from "@/components/audit/PathToHealthyPanel";
 
@@ -44,8 +45,8 @@ export default function ListingStrengthInsights({
   );
 
   const plan = useMemo(
-    () => buildPlan(audit, tasks, attributions, globalCalibration),
-    [audit, tasks, attributions, globalCalibration]
+    () => buildPlan(audit, tasks, attributions, globalCalibration, avgCustomerValue),
+    [audit, tasks, attributions, globalCalibration, avgCustomerValue]
   );
 
   const path = useMemo(
@@ -68,7 +69,8 @@ export default function ListingStrengthInsights({
 
   return (
     <div className="space-y-4">
-      <PathToHealthyPanel path={path} />
+      <PathToHealthyPanel path={path} currency={currency} />
+      <GapsPanel audit={audit} avgCustomerValue={avgCustomerValue} currency={currency} />
       {showKeywords && (
         <KeywordScoreCards keywords={keywordScores} currency={currency} />
       )}

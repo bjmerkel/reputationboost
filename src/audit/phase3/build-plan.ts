@@ -47,7 +47,8 @@ function buildPlanStep(
   step: GbpPlanStep,
   tasks: ExecutionTask[],
   attributions: ActionAttribution[],
-  calibration?: AttributionCalibration
+  calibration?: AttributionCalibration,
+  avgCustomerValue?: number | null
 ): PlanStep {
   const status = deriveStepStatus(tasks);
   const outcome =
@@ -58,7 +59,7 @@ function buildPlanStep(
     phaseId: getPhaseForStep(step.stepNumber),
     title: step.title,
     instruction: step.instruction,
-    context: buildStepContext(audit, step, calibration),
+    context: buildStepContext(audit, step, calibration, avgCustomerValue),
     gbpAction: step.gbpAction,
     actionData: step.actionData,
     copyBlocks: step.copyBlocks,
@@ -119,7 +120,8 @@ export function buildPlan(
   audit: FullAuditPayload,
   tasks: ExecutionTask[],
   attributions: ActionAttribution[] = [],
-  globalCalibration?: AttributionCalibration
+  globalCalibration?: AttributionCalibration,
+  avgCustomerValue?: number | null
 ): Plan | null {
   const gbpPlan = audit.strategy?.gbpPlan;
   if (!gbpPlan) return null;
@@ -130,7 +132,14 @@ export function buildPlan(
     globalCalibration
   );
   const planSteps = gbpPlan.steps.map((step) =>
-    buildPlanStep(audit, step, tasksByStep.get(step.stepNumber) ?? [], attributions, calibration)
+    buildPlanStep(
+      audit,
+      step,
+      tasksByStep.get(step.stepNumber) ?? [],
+      attributions,
+      calibration,
+      avgCustomerValue
+    )
   );
 
   const currentHealthScore = Number.isFinite(audit.strategy.scores?.overall)

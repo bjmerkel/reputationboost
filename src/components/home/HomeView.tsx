@@ -2,6 +2,7 @@
 
 import type { ExecutionTask, FullAuditPayload, ScoreChangelogEntry } from "@/audit/types";
 import type { ActionAttribution, AttributionSummary } from "@/audit/types/timeseries";
+import { estimateTotalMonthlyRevenue } from "@/audit/phase2/counterfactual";
 import ActionAttributionFeed from "@/components/attribution/ActionAttributionFeed";
 import ListingStrengthInsights from "@/components/audit/ListingStrengthInsights";
 import HomeApprovalCTA from "@/components/home/HomeApprovalCTA";
@@ -38,6 +39,7 @@ export default function HomeView({
 }) {
   const batchableCount = pendingBatchTasks(tasks).length;
   const totalPending = tasks.filter((t) => t.status === "pending_approval").length;
+  const estimatedMonthlyRevenue = estimateTotalMonthlyRevenue(audit, avgCustomerValue);
 
   return (
     <div className="space-y-6">
@@ -48,6 +50,8 @@ export default function HomeView({
         liveScore={liveScore}
         liveScoreDate={liveScoreDate}
         dailyChangelog={scoreChangelog}
+        estimatedMonthlyRevenue={estimatedMonthlyRevenue}
+        currency={avgCustomerValueCurrency}
       />
 
       <ListingStrengthInsights

@@ -1,15 +1,22 @@
 "use client";
 
 import type { Plan } from "@/audit/types";
+import { formatCurrency } from "@/audit/attribution/roi";
 
 export default function PlanProgressHeader({
   plan,
   variant = "light",
   onReviewPending,
+  estimatedMonthlyRevenue,
+  projectedMonthlyRevenue,
+  currency = "USD",
 }: {
   plan: Plan;
   variant?: "light" | "dark";
   onReviewPending?: () => void;
+  estimatedMonthlyRevenue?: number | null;
+  projectedMonthlyRevenue?: number | null;
+  currency?: string;
 }) {
   const isLight = variant === "light";
   const { progress } = plan;
@@ -33,6 +40,14 @@ export default function PlanProgressHeader({
               · {progress.completedSteps} of {progress.totalSteps} steps complete
             </span>
           </p>
+          {estimatedMonthlyRevenue != null &&
+            projectedMonthlyRevenue != null &&
+            estimatedMonthlyRevenue > 0 && (
+              <p className={`mt-1 text-sm font-medium ${isLight ? "text-[#188038]" : "text-emerald-400"}`}>
+                Est. {formatCurrency(estimatedMonthlyRevenue, currency)} →{" "}
+                {formatCurrency(projectedMonthlyRevenue, currency)}/mo
+              </p>
+            )}
         </div>
         {progress.needsApproval > 0 && (
           onReviewPending ? (
