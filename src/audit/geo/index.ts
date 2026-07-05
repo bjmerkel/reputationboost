@@ -27,4 +27,5 @@ export {
   topCompetitorThreat,
   type CompetitorDominance,
 } from "./competitor-dominance";
-export { serviceAreaFromGrid, type ServiceAreaBounds } from "./service-area";
+export { buildCompetitorTerritories, type CompetitorTerritory } from "./competitor-territories";
+export { serviceAreaFromGrid, serviceAreaFromGbpPlaces, type ServiceAreaBounds } from "./service-area";

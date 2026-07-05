@@ -68,6 +68,9 @@ describe("enrichGbpLocationProfile", () => {
       canModifyServiceList: true,
       regularHours: null,
       specialHours: null,
+      serviceAreaPlaces: [],
+      isServiceAreaBusiness: false,
+      businessLatLng: null,
     };
 
     try {

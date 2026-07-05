@@ -308,7 +308,7 @@ export async function collectPlacesRankData(client: ClientConfig): Promise<{
     );
 
     const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions, {
-      profile: gridProfileForCollection("audit"),
+      profile: gridProfileForCollection("audit", client.heatmapProfile),
       includeLocalPack: true,
     });
 

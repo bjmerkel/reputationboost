@@ -11,6 +11,7 @@ interface VisibilityInsightPanelProps {
   onZoneSelect?: (zoneId: string | null) => void;
   onOpenPlan?: () => void;
   topCompetitorThreat?: import("@/audit/geo/competitor-dominance").CompetitorDominance | null;
+  competitorThreats?: import("@/audit/geo/competitor-dominance").CompetitorDominance[];
 }
 
 export default function VisibilityInsightPanel({
@@ -20,6 +21,7 @@ export default function VisibilityInsightPanel({
   onZoneSelect,
   onOpenPlan,
   topCompetitorThreat,
+  competitorThreats = [],
 }: VisibilityInsightPanelProps) {
   if (!summary.hasGridData) {
     return (
@@ -63,6 +65,16 @@ export default function VisibilityInsightPanel({
             {topCompetitorThreat.reviewGap > 0 &&
               ` · ${topCompetitorThreat.reviewGap} more reviews than you`}
           </p>
+        )}
+        {competitorThreats.length > 1 && (
+          <ul className="mt-2 space-y-1 text-[10px] text-[#5f6368]">
+            {competitorThreats.slice(1, 3).map((threat) => (
+              <li key={threat.placeId}>
+                <span className="font-medium text-[#3c4043]">{threat.name}</span> —{" "}
+                {threat.weakCellsOwned} weak cell{threat.weakCellsOwned === 1 ? "" : "s"}
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

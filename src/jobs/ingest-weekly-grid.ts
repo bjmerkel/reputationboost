@@ -72,7 +72,7 @@ async function ingestGridForBusiness(
   for (const keyword of keywords) {
     try {
       const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions, {
-        profile: gridProfileForCollection("weekly"),
+        profile: gridProfileForCollection("weekly", client.heatmapProfile),
         includeLocalPack: true,
       });
       await persistKeywordGridFromCollection(row.id, keyword, geoGrid, "weekly");

@@ -1,4 +1,5 @@
 import type { ClientConfig, GbpConnection } from "@/audit/types";
+import type { GridProfileKey } from "@/lib/google/geo-grid";
 import { createClient } from "@/lib/supabase/server";
 
 export interface BusinessRecord {
@@ -21,6 +22,7 @@ export interface BusinessRecord {
   onboarding_complete: boolean;
   avg_customer_value: number | null;
   avg_customer_value_currency: string;
+  heatmap_profile: string;
   website: string | null;
   phone: string | null;
   created_at: string;
@@ -79,6 +81,7 @@ export function businessRecordToClientConfig(row: BusinessRecord): ClientConfig 
     onboardingComplete: row.onboarding_complete,
     avgCustomerValue: row.avg_customer_value != null ? Number(row.avg_customer_value) : null,
     avgCustomerValueCurrency: row.avg_customer_value_currency ?? "USD",
+    heatmapProfile: (row.heatmap_profile as GridProfileKey) ?? "standard",
   };
 }
 

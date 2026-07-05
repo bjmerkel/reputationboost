@@ -34,13 +34,13 @@ export async function GET(request: Request) {
   };
 
   if (!isGoogleMapsConfigured()) {
-    const geoGrid = buildDemoGeoGrid(location, 4, gridProfileForCollection("api"));
+    const geoGrid = buildDemoGeoGrid(location, 4, gridProfileForCollection("api", business.heatmapProfile));
     return NextResponse.json({ keyword, geoGrid, source: "demo" });
   }
 
   try {
     const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions, {
-      profile: gridProfileForCollection("api"),
+      profile: gridProfileForCollection("api", business.heatmapProfile),
       includeLocalPack: true,
     });
     return NextResponse.json({ keyword, geoGrid, source: "api" });

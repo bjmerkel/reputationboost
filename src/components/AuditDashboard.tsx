@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import type { GridDiff } from "@/audit/geo/grid-diff";
-import { topCompetitorThreat } from "@/audit/geo/competitor-dominance";
+import { analyzeCompetitorDominance, topCompetitorThreat } from "@/audit/geo/competitor-dominance";
 import { buildVisibilitySummary } from "@/audit/geo";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import ResultsView from "@/components/results/ResultsView";
@@ -147,6 +147,14 @@ export default function AuditDashboard({
   const topThreat = useMemo(() => {
     if (!keywordRank?.geoGrid?.length) return null;
     return topCompetitorThreat(keywordRank.geoGrid, keywordRank.clientReviewCount);
+  }, [keywordRank]);
+
+  const competitorThreats = useMemo(() => {
+    if (!keywordRank?.geoGrid?.length) return [];
+    return analyzeCompetitorDominance(keywordRank.geoGrid, keywordRank.clientReviewCount).slice(
+      0,
+      3
+    );
   }, [keywordRank]);
 
   useEffect(() => {
@@ -359,6 +367,7 @@ export default function AuditDashboard({
             onZoneSelect={setSelectedZoneId}
             onOpenPlan={openPlan}
             topCompetitorThreat={topThreat}
+            competitorThreats={competitorThreats}
             currency={avgCustomerValueCurrency}
             clientId={clientId}
             gridDiff={gridDiff}

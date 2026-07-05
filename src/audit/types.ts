@@ -1,5 +1,7 @@
 export type AuditTrigger = "onboarding" | "monthly" | "weekly" | "manual";
 
+import type { GridProfileKey } from "@/lib/google/geo-grid";
+
 export type LocalPackPosition = 1 | 2 | 3 | "not_in_pack";
 
 export interface ClientConfig {
@@ -24,6 +26,7 @@ export interface ClientConfig {
   onboardingComplete?: boolean;
   avgCustomerValue?: number | null;
   avgCustomerValueCurrency?: string;
+  heatmapProfile?: GridProfileKey;
 }
 
 export interface GbpConnection {

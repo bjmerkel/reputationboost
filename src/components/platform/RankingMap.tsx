@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CompetitorDominance } from "@/audit/geo/competitor-dominance";
 import { cellDominanceLabel } from "@/audit/geo/competitor-dominance";
+import { buildCompetitorTerritories } from "@/audit/geo/competitor-territories";
 import type { VisibilitySummary } from "@/audit/geo/types";
 import { serviceAreaFromGrid } from "@/audit/geo/service-area";
 import type { GridDiff } from "@/audit/geo/grid-diff";
@@ -64,6 +65,7 @@ interface RankingMapProps {
   selectedZoneId?: string | null;
   onZoneSelect?: (zoneId: string | null) => void;
   topCompetitorThreat?: CompetitorDominance | null;
+  competitorThreats?: CompetitorDominance[];
   onOpenPlan?: () => void;
   currency?: string;
   clientId?: string;
@@ -86,6 +88,7 @@ export default function RankingMap({
   onZoneSelect,
   onOpenPlan,
   topCompetitorThreat,
+  competitorThreats = [],
   currency = "USD",
   clientId,
   gridDiff = null,
@@ -100,7 +103,9 @@ export default function RankingMap({
   const circlesRef = useRef<google.maps.Circle[]>([]);
   const gridCirclesRef = useRef<google.maps.Circle[]>([]);
   const dominanceMarkersRef = useRef<google.maps.Marker[]>([]);
-  const serviceAreaPolygonRef = useRef<google.maps.Polygon | null>(null);
+  const gridServiceAreaRef = useRef<google.maps.Polygon | null>(null);
+  const gbpServiceAreaRef = useRef<google.maps.Polygon | null>(null);
+  const territoryPolygonsRef = useRef<google.maps.Polygon[]>([]);
   const gridListenersRef = useRef<google.maps.MapsEventListener[]>([]);
   const centerRef = useRef<google.maps.LatLngLiteral | null>(null);
   const lastSizeRef = useRef({ width: 0, height: 0 });
@@ -113,6 +118,14 @@ export default function RankingMap({
   );
   const [gridLoading, setGridLoading] = useState(false);
   const [selectedCell, setSelectedCell] = useState<GeoGridPoint | null>(null);
+  const [gbpServiceAreaRing, setGbpServiceAreaRing] = useState<
+    Array<{ lat: number; lng: number }> | null
+  >(null);
+
+  const competitorTerritories = useMemo(() => {
+    if (!gridPoints?.length || !HEATMAP_FLAGS.competitorTerritories) return [];
+    return buildCompetitorTerritories(gridPoints);
+  }, [gridPoints]);
 
   const selectedZoneCells = useMemo(() => {
     if (!HEATMAP_FLAGS.zoneHighlights || !selectedZoneId || !visibilitySummary?.hasGridData) {
@@ -158,6 +171,39 @@ export default function RankingMap({
       cancelled = true;
     };
   }, [layers.showHeatmap, activeKeyword, ready, gridPoints?.length, disableGridFetch]);
+
+  useEffect(() => {
+    if (!clientId || !HEATMAP_FLAGS.gbpServiceArea || disableGridFetch) {
+      setGbpServiceAreaRing(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadGbpServiceArea() {
+      try {
+        const res = await fetch(
+          `/api/metrics/service-area?clientId=${encodeURIComponent(clientId!)}`
+        );
+        const data = (await res.json()) as {
+          source?: string | null;
+          ring?: Array<{ lat: number; lng: number }>;
+        };
+        if (!cancelled && res.ok && data.source === "gbp" && data.ring?.length) {
+          setGbpServiceAreaRing(data.ring);
+        } else if (!cancelled) {
+          setGbpServiceAreaRing(null);
+        }
+      } catch {
+        if (!cancelled) setGbpServiceAreaRing(null);
+      }
+    }
+
+    void loadGbpServiceArea();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, disableGridFetch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -402,20 +448,40 @@ export default function RankingMap({
   ]);
 
   useEffect(() => {
-    serviceAreaPolygonRef.current?.setMap(null);
-    serviceAreaPolygonRef.current = null;
+    gridServiceAreaRef.current?.setMap(null);
+    gbpServiceAreaRef.current?.setMap(null);
+    gridServiceAreaRef.current = null;
+    gbpServiceAreaRef.current = null;
 
     if (!ready || !mapInstance.current || !layers.showServiceArea) return;
-    if (!HEATMAP_FLAGS.serviceAreaOverlay || !gridPoints?.length || !centerRef.current) return;
+    if (!HEATMAP_FLAGS.serviceAreaOverlay) return;
 
     const google = window.google;
     if (!google) return;
+    const map = mapInstance.current;
+
+    if (gbpServiceAreaRing?.length && HEATMAP_FLAGS.gbpServiceArea) {
+      gbpServiceAreaRef.current = new google.maps.Polygon({
+        map,
+        paths: gbpServiceAreaRing,
+        fillColor: "#137333",
+        fillOpacity: 0.05,
+        strokeColor: "#137333",
+        strokeOpacity: 0.7,
+        strokeWeight: 2,
+        clickable: false,
+        zIndex: 35,
+      });
+      return;
+    }
+
+    if (!gridPoints?.length || !centerRef.current) return;
 
     const bounds = serviceAreaFromGrid(centerRef.current, gridPoints);
     if (!bounds) return;
 
-    serviceAreaPolygonRef.current = new google.maps.Polygon({
-      map: mapInstance.current,
+    gridServiceAreaRef.current = new google.maps.Polygon({
+      map,
       paths: bounds.ring,
       fillColor: "#1a73e8",
       fillOpacity: 0.06,
@@ -425,7 +491,33 @@ export default function RankingMap({
       clickable: false,
       zIndex: 40,
     });
-  }, [ready, layers.showServiceArea, gridPoints]);
+  }, [ready, layers.showServiceArea, gridPoints, gbpServiceAreaRing]);
+
+  useEffect(() => {
+    territoryPolygonsRef.current.forEach((polygon) => polygon.setMap(null));
+    territoryPolygonsRef.current = [];
+
+    if (!ready || !mapInstance.current || !layers.showCompetitorZones) return;
+    if (!HEATMAP_FLAGS.competitorTerritories || competitorTerritories.length === 0) return;
+
+    const google = window.google;
+    if (!google) return;
+
+    for (const territory of competitorTerritories) {
+      const polygon = new google.maps.Polygon({
+        map: mapInstance.current!,
+        paths: territory.ring,
+        fillColor: territory.color,
+        fillOpacity: 0.14,
+        strokeColor: territory.color,
+        strokeOpacity: 0.65,
+        strokeWeight: 1.5,
+        clickable: false,
+        zIndex: 45,
+      });
+      territoryPolygonsRef.current.push(polygon);
+    }
+  }, [ready, layers.showCompetitorZones, competitorTerritories]);
 
   useEffect(() => {
     if (!ready || !mapInstance.current) return;
@@ -521,6 +613,7 @@ export default function RankingMap({
           onZoneSelect={onZoneSelect}
           onOpenPlan={onOpenPlan}
           topCompetitorThreat={topCompetitorThreat}
+          competitorThreats={competitorThreats}
         />
       )}
       <CellDetailModal

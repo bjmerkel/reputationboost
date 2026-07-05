@@ -58,7 +58,7 @@ export async function refreshGridAfterTaskIfNeeded(
   };
 
   const geoGrid = await collectKeywordGeoGrid(primaryKeyword, location, matchOptions, {
-    profile: gridProfileForCollection("task_trigger"),
+    profile: gridProfileForCollection("task_trigger", client.heatmapProfile),
     includeLocalPack: true,
   });
   await persistKeywordGridFromCollection(

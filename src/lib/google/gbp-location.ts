@@ -46,6 +46,14 @@ export interface GbpLocationProfile {
   canModifyServiceList: boolean;
   regularHours: BusinessHours | null;
   specialHours: SpecialHours | null;
+  serviceAreaPlaces: GbpServiceAreaPlace[];
+  isServiceAreaBusiness: boolean;
+  businessLatLng: { lat: number; lng: number } | null;
+}
+
+export interface GbpServiceAreaPlace {
+  placeId: string;
+  placeName: string;
 }
 
 export interface GbpAttributeMetadata {
@@ -112,6 +120,13 @@ interface LocationApi {
     hasPendingEdits?: boolean;
     canModifyServiceList?: boolean;
   };
+  serviceArea?: {
+    businessType?: string;
+    places?: {
+      placeInfos?: Array<{ placeId?: string; placeName?: string }>;
+    };
+  };
+  latlng?: { latitude?: number; longitude?: number };
   error?: { message?: string };
 }
 
@@ -600,6 +615,8 @@ export async function getGbpLocationProfile(
       "specialHours",
       "moreHours",
       "metadata",
+      "serviceArea",
+      "latlng",
     ].join(",")
   );
 
@@ -608,6 +625,13 @@ export async function getGbpLocationProfile(
   const primary = data.categories?.primaryCategory;
   const additional = data.categories?.additionalCategories ?? [];
   const { labels, details } = parseInlineAttributes(data.attributes);
+  const serviceAreaPlaces =
+    data.serviceArea?.places?.placeInfos
+      ?.filter((p) => p.placeId && p.placeName)
+      .map((p) => ({
+        placeId: p.placeId!,
+        placeName: p.placeName!,
+      })) ?? [];
 
   return {
     locationName: data.name ?? resource,
@@ -643,6 +667,12 @@ export async function getGbpLocationProfile(
     canModifyServiceList: data.metadata?.canModifyServiceList !== false,
     regularHours: data.regularHours ?? null,
     specialHours: data.specialHours ?? null,
+    serviceAreaPlaces,
+    isServiceAreaBusiness: serviceAreaPlaces.length > 0,
+    businessLatLng:
+      data.latlng?.latitude != null && data.latlng?.longitude != null
+        ? { lat: data.latlng.latitude, lng: data.latlng.longitude }
+        : null,
   };
 }
 
