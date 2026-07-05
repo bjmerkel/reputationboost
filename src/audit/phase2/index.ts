@@ -45,7 +45,13 @@ export { buildPlanStepCandidates, summarizePlanCandidates } from "./plan-candida
 export type { PlanStepCandidate } from "./plan-candidates";
 export {
   estimateStepHealthImpact,
+  estimateStepOutcomeImpact,
+  estimateStepRevenueImpact,
+  gapCandidateSortScore,
   gapDriverScoreImpact,
+  gapOutcomeScoreImpact,
+  gapQualifiesForPool,
+  gapRevenueImpact,
   gapScoreImpact,
   gapScoreComponent,
 } from "./score-impact";

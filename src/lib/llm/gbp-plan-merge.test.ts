@@ -18,6 +18,8 @@ describe("buildPlanStepCandidates", () => {
     const unsatisfied = candidates.filter((c) => !c.satisfied);
     assert.ok(unsatisfied.length > 0);
     assert.ok(unsatisfied.some((c) => c.driverScoreImpact > 0));
+    assert.ok(candidates.every((c) => Array.isArray(c.linkedKeywords)));
+    assert.ok(candidates.some((c) => c.linkedGapIds.length > 0));
     assert.ok(candidates.every((c) => c.templateStep.stepNumber === c.stepNumber));
   });
 });

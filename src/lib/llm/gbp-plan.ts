@@ -29,7 +29,7 @@ Every recommendation must be:
 - Actionable with ready-to-paste copy where appropriate
 - GBP-only — no website SEO, backlinks, citations, or paid ads
 - Honest about current audit data (review count, photos, pack positions)
-- Grounded in the candidate pool's driverScoreImpact values (these are exact counterfactual score deltas)
+- Grounded in the candidate pool's driverScoreImpact, outcomeScoreImpact, and revenueImpact values (counterfactual deltas if that step is completed)
 - ${OUTCOMES_STRATEGY_INSTRUCTION}
 
 Return valid JSON only.`;
@@ -71,7 +71,7 @@ AUDIT DATA:
 ${context}
 ${outcomesBlock ? `\nACTION OUTCOMES (prioritize steps that replicate proven wins):\n${outcomesBlock}\n` : ""}
 
-PLAN STEP CANDIDATES (deterministic pool with exact driver-score impact if completed):
+PLAN STEP CANDIDATES (deterministic pool with exact counterfactual impacts if completed):
 Unsatisfied — eligible to select:
 ${JSON.stringify(unsatisfied, null, 2)}
 
@@ -85,12 +85,12 @@ ${JSON.stringify(
 INSTRUCTIONS:
 1. Select ONLY from unsatisfied candidates (stepNumber 1–16). Do not include satisfied steps.
 2. Order selectedSteps by your strategic priority (highest-impact / most urgent first).
-3. Prefer steps with higher driverScoreImpact unless business context suggests otherwise.
+3. Prefer steps with higher revenueImpact when available, else outcomeScoreImpact, else driverScoreImpact — use linkedGapIds and linkedKeywords to justify rank-focused work.
 4. Include selectionRationale on each step explaining why it matters for THIS business.
 5. For steps 3, 4, 5, and 9 include copyBlocks with paste-ready text when selected.
 6. Do NOT include copyBlocks for step 11 (review responses are AI-drafted per review).
 7. Optionally add up to 3 customActions for business-specific GBP work not covered by standard steps. Each customAction must include title, instruction, rationale, and may include copyBlocks with paste-ready text.
-8. Skip low-impact steps (driverScoreImpact 0) unless outcomes data shows they worked before.
+8. Skip low-impact steps (all impact fields 0) unless outcomes data shows they worked before — always include steps linked to rank-outside-pack gaps when unsatisfied.
 
 Return JSON:
 {

@@ -10,90 +10,199 @@ import { formatCurrency } from "../attribution/roi";
 import {
   estimateTotalMonthlyRevenue,
   pickActionsForTarget,
+  simulateActionMarginalImpact,
   type ActionRef,
 } from "./counterfactual";
 import { computeKeywordScores } from "./keyword-scores";
-import { estimateStepHealthImpact, gapDriverScoreImpact } from "./score-impact";
+import {
+  estimateStepHealthImpact,
+  gapCandidateSortScore,
+  gapDriverScoreImpact,
+  gapOutcomeScoreImpact,
+  gapQualifiesForPool,
+  gapRevenueImpact,
+} from "./score-impact";
 import type { AttributionCalibration } from "./attribution-calibration";
-import { resolvePathOptimizationMode } from "./path-optimization";
-import { computeHealthScores } from "./scoring";
+import {
+  compositeMarginalScore,
+  resolveBlendWeights,
+  resolvePathOptimizationMode,
+} from "./path-optimization";
+import { computeHealthScores, impressionWeightFloor, keywordImpressionWeight } from "./scoring";
 
 const HEALTHY_THRESHOLD = 70;
 
+const PRIORITY_ORDER: Record<string, number> = {
+  P0: 0,
+  P1: 1,
+  P2: 2,
+  P3: 3,
+};
+
 export type { PathToHealthyOptions };
 
-function gapToPathStep(
+interface PoolCandidate extends PathToHealthyStep {
+  sortScore: number;
+  impressionWeight: number;
+}
+
+function priorityRank(priority?: string): number {
+  return PRIORITY_ORDER[priority ?? "P3"] ?? 9;
+}
+
+function gapToPoolCandidate(
   audit: FullAuditPayload,
   gap: GapFlag,
-  index: number
-): PathToHealthyStep {
+  index: number,
+  options: PathToHealthyOptions
+): PoolCandidate {
+  const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+  const floor = impressionWeightFloor(searchKeywords);
+  const keyword = gap.id.startsWith("rank-outside-pack-")
+    ? gap.id.replace("rank-outside-pack-", "")
+    : undefined;
+  const driver = gapDriverScoreImpact(gap, audit);
+  const outcome = gapOutcomeScoreImpact(gap, audit);
+  const revenue = gapRevenueImpact(gap, audit, options.avgCustomerValue);
+
   return {
     id: gap.id,
     title: gap.title,
-    scoreImpact: gapDriverScoreImpact(gap, audit),
+    scoreImpact: driver > 0 ? driver : Math.max(outcome, revenue ?? 0),
     source: "gap",
     priority: gap.priority,
     order: index,
     gapId: gap.id,
-    keyword: gap.id.startsWith("rank-outside-pack-")
-      ? gap.id.replace("rank-outside-pack-", "")
-      : undefined,
+    keyword,
+    driverImpact: driver,
+    outcomeImpact: outcome,
+    revenueImpact: revenue,
+    sortScore: gapCandidateSortScore(
+      gap,
+      audit,
+      options.avgCustomerValue,
+      options.blendWeights
+    ),
+    impressionWeight: keyword
+      ? keywordImpressionWeight(keyword, searchKeywords, floor)
+      : gap.impactScore,
   };
 }
 
-function planStepsToPath(
+function planToPoolCandidate(
   audit: FullAuditPayload,
-  calibration?: AttributionCalibration
-): PathToHealthyStep[] {
-  const steps = audit.strategy?.gbpPlan?.steps ?? [];
-  return steps.map((step, index) => ({
-    id: `gbp-step-${step.stepNumber}`,
+  step: {
+    id: string;
+    title: string;
+    scoreImpact: number;
+    order: number;
+  },
+  options: PathToHealthyOptions
+): PoolCandidate {
+  const action: ActionRef = { source: "plan", id: step.id };
+  const impact = simulateActionMarginalImpact(audit, [], action, {
+    avgCustomerValue: options.avgCustomerValue,
+    calibration: options.calibration,
+  });
+  const weights = resolveBlendWeights(options.avgCustomerValue, options.blendWeights);
+
+  return {
+    id: step.id,
     title: step.title,
-    scoreImpact: estimateStepHealthImpact(audit, step.stepNumber, calibration),
-    source: "plan" as const,
-    order: index,
-  }));
+    scoreImpact: step.scoreImpact,
+    source: "plan",
+    order: step.order,
+    driverImpact: impact.driverGain,
+    outcomeImpact: impact.outcomeGain,
+    revenueImpact: impact.revenueGain,
+    sortScore: compositeMarginalScore(impact, weights),
+    impressionWeight: step.scoreImpact,
+  };
+}
+
+function sortPoolCandidates(candidates: PoolCandidate[]): PoolCandidate[] {
+  return [...candidates].sort((a, b) => {
+    if (b.sortScore !== a.sortScore) return b.sortScore - a.sortScore;
+    const priDiff = priorityRank(a.priority) - priorityRank(b.priority);
+    if (priDiff !== 0) return priDiff;
+    return b.impressionWeight - a.impressionWeight;
+  });
 }
 
 function buildCandidatePool(
   audit: FullAuditPayload,
   plan: Plan | null,
-  calibration?: AttributionCalibration
+  options: PathToHealthyOptions
 ): { steps: PathToHealthyStep[]; actions: ActionRef[] } {
+  const calibration = options.calibration;
+
   const gapSteps = (audit.strategy?.gaps ?? [])
-    .map((gap, index) => gapToPathStep(audit, gap, index))
-    .filter((s) => s.scoreImpact > 0);
+    .filter((gap) => gapQualifiesForPool(gap, audit, options.avgCustomerValue))
+    .map((gap, index) => gapToPoolCandidate(audit, gap, index, options));
 
   const planPathSteps = plan
     ? plan.steps
         .filter((s) => s.status !== "completed" && s.status !== "skipped")
-        .map((s) => ({
-          id: `gbp-step-${s.stepNumber}`,
-          title: s.title,
-          scoreImpact:
-            s.context.healthScoreImpact ??
-            estimateStepHealthImpact(audit, s.stepNumber, calibration),
-          source: "plan" as const,
-          order: s.stepNumber,
-        }))
-        .filter((s) => s.scoreImpact > 0)
-    : planStepsToPath(audit, calibration).filter((s) => s.scoreImpact > 0);
+        .map((s) =>
+          planToPoolCandidate(
+            audit,
+            {
+              id: `gbp-step-${s.stepNumber}`,
+              title: s.title,
+              scoreImpact:
+                s.context.healthScoreImpact ??
+                estimateStepHealthImpact(audit, s.stepNumber, calibration),
+              order: s.stepNumber,
+            },
+            options
+          )
+        )
+        .filter(
+          (s) =>
+            s.sortScore > 0 ||
+            (s.driverImpact ?? 0) > 0 ||
+            (s.outcomeImpact ?? 0) > 0 ||
+            (s.revenueImpact ?? 0) > 0
+        )
+    : (audit.strategy?.gbpPlan?.steps ?? [])
+        .map((step, index) =>
+          planToPoolCandidate(
+            audit,
+            {
+              id: `gbp-step-${step.stepNumber}`,
+              title: step.title,
+              scoreImpact: estimateStepHealthImpact(audit, step.stepNumber, calibration),
+              order: index,
+            },
+            options
+          )
+        )
+        .filter(
+          (s) =>
+            s.sortScore > 0 ||
+            (s.driverImpact ?? 0) > 0 ||
+            (s.outcomeImpact ?? 0) > 0 ||
+            (s.revenueImpact ?? 0) > 0
+        );
 
-  const steps: PathToHealthyStep[] = [...gapSteps];
+  const merged: PoolCandidate[] = [...gapSteps];
   const seen = new Set(gapSteps.map((s) => s.id));
   for (const step of planPathSteps) {
     if (!seen.has(step.id)) {
-      steps.push(step);
+      merged.push(step);
       seen.add(step.id);
     }
   }
 
-  const actions: ActionRef[] = steps.map((step) => ({
-    source: step.source,
-    id: step.id,
-  }));
+  const sorted = sortPoolCandidates(merged);
+  const steps: PathToHealthyStep[] = sorted.map(
+    ({ sortScore: _sortScore, impressionWeight: _impressionWeight, ...step }) => step
+  );
 
-  return { steps, actions };
+  return {
+    steps,
+    actions: steps.map((step) => ({ source: step.source, id: step.id })),
+  };
 }
 
 function formatRevenueLabel(
@@ -130,7 +239,6 @@ function buildHealthyPathResult(
   options: PathToHealthyOptions,
   scores: ReturnType<typeof computeHealthScores>
 ): PathToHealthy {
-  const currency = options.currency ?? "USD";
   const estimatedMonthlyRevenue = estimateTotalMonthlyRevenue(
     audit,
     options.avgCustomerValue
@@ -184,11 +292,7 @@ export function buildPathToHealthy(
 
   const pointsNeeded = driverTarget - currentDriverScore;
   const outcomePointsNeeded = Math.max(0, driverTarget - outcomeIndex);
-  const { steps: candidateSteps, actions } = buildCandidatePool(
-    audit,
-    plan,
-    options.calibration
-  );
+  const { steps: candidateSteps, actions } = buildCandidatePool(audit, plan, options);
   const stepById = new Map(candidateSteps.map((step) => [step.id, step]));
 
   const counterfactualOptions = {
