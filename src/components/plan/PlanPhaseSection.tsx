@@ -29,8 +29,12 @@ export default function PlanPhaseSection({
   variant?: "light" | "dark";
 }) {
   const isLight = variant === "light";
-  const phaseComplete = steps.every((s) => s.status === "completed" || s.status === "skipped");
-  const phaseNeedsApproval = steps.some((s) => s.status === "needs_approval");
+  const visibleSteps = steps.filter((s) => s.status !== "completed");
+  const phaseNeedsApproval = visibleSteps.some((s) => s.status === "needs_approval");
+
+  if (visibleSteps.length === 0) {
+    return null;
+  }
 
   return (
     <section className="space-y-3">
@@ -38,12 +42,7 @@ export default function PlanPhaseSection({
         <h3 className={`text-sm font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
           {phase.title}
         </h3>
-        {phaseComplete && (
-          <span className="rounded-full bg-[#e6f4ea] px-2 py-0.5 text-[10px] font-medium text-[#137333]">
-            Complete
-          </span>
-        )}
-        {!phaseComplete && phaseNeedsApproval && (
+        {phaseNeedsApproval && (
           <span className="rounded-full bg-[#fef7e0] px-2 py-0.5 text-[10px] font-medium text-[#e37400]">
             Action needed
           </span>
@@ -51,7 +50,7 @@ export default function PlanPhaseSection({
       </div>
 
       <div className="space-y-3">
-        {steps.map((step) => (
+        {visibleSteps.map((step) => (
           <PlanStepCard
             key={step.stepNumber}
             step={step}

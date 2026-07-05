@@ -48,7 +48,7 @@ export default function PlanStepCard({
   const hasPhotoTasks = step.tasks.some((t) => t.type === "gbp_photo");
   const hasVideoTasks = step.tasks.some((t) => t.type === "gbp_video");
   const nonPhotoTasks = step.tasks.filter(
-    (t) => t.type !== "gbp_photo" && t.type !== "gbp_video"
+    (t) => t.type !== "gbp_photo" && t.type !== "gbp_video" && t.status !== "completed"
   );
   const statusStyle = STATUS_STYLES[step.status] ?? STATUS_STYLES.pending;
   const stepAttribution = step.tasks
@@ -67,9 +67,6 @@ export default function PlanStepCard({
         <div className="min-w-0 flex-1">
           <p className={`text-xs font-medium ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
             Step {step.stepNumber} of {totalSteps}
-            {step.status === "completed" && (
-              <span className={isLight ? "text-[#137333]" : "text-emerald-400"}> · Done</span>
-            )}
           </p>
           <h4 className={`mt-0.5 text-base font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
             {step.title}
