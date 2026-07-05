@@ -203,7 +203,15 @@ function weightedKeywordVisibility(
 
 export function computeVisibilityScore(audit: Phase1AuditPayload): number {
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
-  return clamp(weightedKeywordVisibility(audit.rankings.keywords, searchKeywords));
+  const base = weightedKeywordVisibility(audit.rankings.keywords, searchKeywords);
+  const perfCoverage = audit.gbp.performance.coverage;
+  if (!perfCoverage) return clamp(base);
+
+  // Modest confidence adjustment from Performance API data quality (±5 pts).
+  const qualityBoost = (perfCoverage.coverageScore - 50) * 0.1;
+  const keywordPenalty =
+    perfCoverage.apiAvailable && !perfCoverage.hasSearchKeywords ? -3 : 0;
+  return clamp(base + qualityBoost + keywordPenalty);
 }
 
 export function computeKeywordRelevanceScore(audit: Phase1AuditPayload): number {
@@ -244,21 +252,67 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
   const videoScore = clamp((gbp.content.videoCount / 2) * 100);
 
   const daysSincePost = daysSince(gbp.content.lastPostDate);
-  const postScore =
+  let postScore =
     daysSincePost <= 7 ? 100 : daysSincePost <= 14 ? 70 : daysSincePost <= 30 ? 40 : 10;
+  const localPosts = gbp.localPosts;
+  if (localPosts?.apiAvailable) {
+    const cadenceScore =
+      localPosts.daysSinceLastPost == null
+        ? 10
+        : localPosts.daysSinceLastPost <= 7
+          ? 100
+          : localPosts.daysSinceLastPost <= 14
+            ? 70
+            : localPosts.daysSinceLastPost <= 30
+              ? 40
+              : 10;
+    postScore = clamp(
+      postScore * 0.55 + localPosts.coverageScore * 0.25 + cadenceScore * 0.2
+    );
+    if (
+      localPosts.livePostCount > 0 &&
+      !localPosts.hasCallToActionPosts &&
+      !localPosts.hasOfferPost
+    ) {
+      postScore -= 8;
+    }
+  }
 
-  const responseScore = clamp(gbp.engagement.responseRate * 100);
+  let responseScore = clamp(gbp.engagement.responseRate * 100);
+  const reviewCoverage = reviews.coverage ?? gbp.reviewCoverage;
+  if (reviewCoverage?.apiAvailable) {
+    responseScore = clamp(
+      responseScore * 0.6 +
+        reviewCoverage.responseRate * 100 * 0.25 +
+        reviewCoverage.coverageScore * 0.15
+    );
+    if (reviewCoverage.rejectedReplies > 0) {
+      responseScore -= Math.min(10, reviewCoverage.rejectedReplies * 5);
+    }
+    if (reviewCoverage.pendingReplies > 0) {
+      responseScore -= Math.min(5, reviewCoverage.pendingReplies * 2);
+    }
+  }
+
   const qaScore =
     gbp.content.unansweredQa === 0 ? 100 : clamp(100 - gbp.content.unansweredQa * 15);
 
+  const placeActionScore = gbp.placeActions?.apiAvailable
+    ? clamp(gbp.placeActions.coverageScore)
+    : 50;
+  const notificationScore =
+    gbp.notifications != null ? clamp(gbp.notifications.coverageScore) : 50;
+
   let profileTrust =
-    reviewStrength * 0.35 +
-    completeness * 0.2 +
-    photoScore * 0.13 +
+    reviewStrength * 0.32 +
+    completeness * 0.18 +
+    photoScore * 0.12 +
     videoScore * 0.05 +
-    postScore * 0.12 +
-    responseScore * 0.1 +
-    qaScore * 0.05;
+    postScore * 0.11 +
+    responseScore * 0.09 +
+    qaScore * 0.05 +
+    placeActionScore * 0.05 +
+    notificationScore * 0.03;
 
   if (reviews.unrespondedNegative > 0) {
     profileTrust -= Math.min(15, reviews.unrespondedNegative * 8);

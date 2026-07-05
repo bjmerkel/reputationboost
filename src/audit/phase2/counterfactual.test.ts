@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createTestAudit } from "../phase3/test-fixtures";
+import type { GapFlag } from "../types";
 import { buildTemplateGbpPlan } from "./gbp-plan";
 import {
   isStepSatisfied,
@@ -61,6 +62,106 @@ describe("counterfactual score simulation", () => {
     const rankGap = gaps.find((g) => g.id.startsWith("rank-outside-pack"));
     assert.ok(rankGap);
     assert.equal(simulateGapDriverImpact(audit, rankGap!), 0);
+  });
+
+  it("derives positive driver impact for new API coverage gaps", () => {
+    const audit = createTestAudit();
+    const gaps: Array<{ id: string; setup: (a: ReturnType<typeof createTestAudit>) => void }> = [
+      {
+        id: "missing-place-action-links",
+        setup: (a) => {
+          a.gbp.placeActions = {
+            apiAvailable: true,
+            partialApi: false,
+            coverageScore: 20,
+            linkCount: 0,
+            merchantLinkCount: 0,
+            configuredTypes: [],
+            availableTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+            missingRecommendedTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+            hasAppointmentLink: false,
+            hasOnlineAppointmentLink: false,
+            hasDiningReservationLink: false,
+            hasFoodOrderingLink: false,
+            hasShopOnlineLink: false,
+            endpoints: { links: "ok", typeMetadata: "ok" },
+            recommendations: [],
+          };
+        },
+      },
+      {
+        id: "rejected-review-replies",
+        setup: (a) => {
+          a.reviews.rejectedReplies = 2;
+          a.gbp.reviewCoverage = {
+            apiAvailable: true,
+            partialApi: false,
+            coverageScore: 50,
+            reviewCount: 87,
+            averageRating: 4.6,
+            responseRate: 0.72,
+            unrespondedCount: 5,
+            unrespondedNegativeCount: 2,
+            pendingReplies: 0,
+            rejectedReplies: 2,
+            reviewsLast30Days: 4,
+            reviewsWithMedia: 0,
+            avgResponseTimeHours: 36,
+            endpoints: { list: "ok", get: "ok" },
+            recommendations: [],
+          };
+        },
+      },
+      {
+        id: "posts-without-cta",
+        setup: (a) => {
+          a.gbp.localPosts = {
+            apiAvailable: true,
+            partialApi: false,
+            coverageScore: 55,
+            postCount: 3,
+            livePostCount: 3,
+            rejectedPostCount: 0,
+            processingPostCount: 0,
+            postsLast30Days: 1,
+            daysSinceLastPost: 20,
+            topicTypesUsed: ["STANDARD"],
+            hasOfferPost: false,
+            hasEventPost: false,
+            hasCallToActionPosts: false,
+            hasMediaPosts: true,
+            totalViews: 40,
+            endpoints: { list: "ok", insights: "ok" },
+            recommendations: [],
+          };
+        },
+      },
+      {
+        id: "missing-pubsub-notifications",
+        setup: (a) => {
+          a.gbp.notifications = {
+            configured: false,
+            pubsubTopic: null,
+            enabledTypes: [],
+            missingRecommendedTypes: ["NEW_REVIEW", "GOOGLE_UPDATE"],
+            deprecatedTypesEnabled: [],
+            coverageScore: 0,
+            hasReviewAlerts: false,
+            hasGoogleUpdateAlerts: false,
+            hasCustomerMediaAlerts: false,
+            hasVoiceOfMerchantAlerts: false,
+          };
+        },
+      },
+    ];
+
+    for (const { id, setup } of gaps) {
+      const mutated = structuredClone(audit);
+      setup(mutated);
+      const gap = detectGaps(mutated).find((g) => g.id === id) ?? ({ id } as GapFlag);
+      const impact = simulateGapDriverImpact(mutated, gap);
+      assert.ok(impact > 0, `expected positive impact for ${id}, got ${impact}`);
+    }
   });
 
   it("filters satisfied steps from the template plan", () => {

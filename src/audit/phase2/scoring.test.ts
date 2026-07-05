@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { KeywordRankSnapshot } from "../types";
 import {
   computeHealthScores,
+  computeConversionScore,
   computeVisibilityScore,
   impressionWeightFloor,
   keywordGeoGridVisibilityScore,
@@ -203,6 +204,160 @@ describe("computeHealthScores", () => {
     });
     assert.equal(base.overall, inflated.overall);
     assert.ok(inflated.engagementOutcomes.calls === 9999);
+  });
+
+  it("adjusts visibility from performance coverage quality", () => {
+    const audit = createTestAudit();
+    const withoutCoverage = computeVisibilityScore(audit);
+    const withHighCoverage = computeVisibilityScore({
+      ...audit,
+      gbp: {
+        ...audit.gbp,
+        performance: {
+          ...audit.gbp.performance,
+          coverage: {
+            apiAvailable: true,
+            partialApi: false,
+            coverageScore: 100,
+            hasCoreMetrics: true,
+            hasImpressionMetrics: true,
+            hasSearchKeywords: true,
+            hasConversations: false,
+            hasBookings: false,
+            keywordCount: 3,
+            trackedKeywordCount: 3,
+            totalActions: 161,
+            actionRate: 39.3,
+            endpoints: { coreMetrics: "ok", impressions: "ok", searchKeywords: "ok" },
+            recommendations: [],
+          },
+        },
+      },
+    });
+    const withMissingKeywords = computeVisibilityScore({
+      ...audit,
+      gbp: {
+        ...audit.gbp,
+        performance: {
+          ...audit.gbp.performance,
+          coverage: {
+            apiAvailable: true,
+            partialApi: false,
+            coverageScore: 60,
+            hasCoreMetrics: true,
+            hasImpressionMetrics: true,
+            hasSearchKeywords: false,
+            hasConversations: false,
+            hasBookings: false,
+            keywordCount: 0,
+            trackedKeywordCount: 0,
+            totalActions: 161,
+            actionRate: 39.3,
+            endpoints: { coreMetrics: "ok", impressions: "ok", searchKeywords: "error" },
+            recommendations: [],
+          },
+        },
+      },
+    });
+    assert.ok(withHighCoverage > withoutCoverage);
+    assert.ok(withMissingKeywords < withHighCoverage);
+  });
+
+  it("factors API coverage into conversion score", () => {
+    const audit = createTestAudit();
+    const base = computeConversionScore(audit);
+    const improved = computeConversionScore({
+      ...audit,
+      gbp: {
+        ...audit.gbp,
+        placeActions: {
+          apiAvailable: true,
+          partialApi: false,
+          coverageScore: 100,
+          linkCount: 2,
+          merchantLinkCount: 2,
+          configuredTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+          availableTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+          missingRecommendedTypes: [],
+          hasAppointmentLink: true,
+          hasOnlineAppointmentLink: true,
+          hasDiningReservationLink: false,
+          hasFoodOrderingLink: false,
+          hasShopOnlineLink: false,
+          endpoints: { links: "ok", typeMetadata: "ok" },
+          recommendations: [],
+        },
+        localPosts: {
+          apiAvailable: true,
+          partialApi: false,
+          coverageScore: 90,
+          postCount: 4,
+          livePostCount: 4,
+          rejectedPostCount: 0,
+          processingPostCount: 0,
+          postsLast30Days: 2,
+          daysSinceLastPost: 5,
+          topicTypesUsed: ["STANDARD"],
+          hasOfferPost: false,
+          hasEventPost: false,
+          hasCallToActionPosts: true,
+          hasMediaPosts: true,
+          totalViews: 120,
+          endpoints: { list: "ok", insights: "ok" },
+          recommendations: [],
+        },
+        reviewCoverage: {
+          apiAvailable: true,
+          partialApi: false,
+          coverageScore: 95,
+          reviewCount: 87,
+          averageRating: 4.6,
+          responseRate: 1,
+          unrespondedCount: 0,
+          unrespondedNegativeCount: 0,
+          pendingReplies: 0,
+          rejectedReplies: 0,
+          reviewsLast30Days: 4,
+          reviewsWithMedia: 2,
+          avgResponseTimeHours: 12,
+          endpoints: { list: "ok", get: "ok" },
+          recommendations: [],
+        },
+        notifications: {
+          configured: true,
+          pubsubTopic: "projects/example/topics/gbp",
+          enabledTypes: ["NEW_REVIEW", "GOOGLE_UPDATE"],
+          missingRecommendedTypes: [],
+          deprecatedTypesEnabled: [],
+          coverageScore: 100,
+          hasReviewAlerts: true,
+          hasGoogleUpdateAlerts: true,
+          hasCustomerMediaAlerts: true,
+          hasVoiceOfMerchantAlerts: true,
+        },
+      },
+      reviews: {
+        ...audit.reviews,
+        coverage: {
+          apiAvailable: true,
+          partialApi: false,
+          coverageScore: 95,
+          reviewCount: 87,
+          averageRating: 4.6,
+          responseRate: 1,
+          unrespondedCount: 0,
+          unrespondedNegativeCount: 0,
+          pendingReplies: 0,
+          rejectedReplies: 0,
+          reviewsLast30Days: 4,
+          reviewsWithMedia: 2,
+          avgResponseTimeHours: 12,
+          endpoints: { list: "ok", get: "ok" },
+          recommendations: [],
+        },
+      },
+    });
+    assert.ok(improved > base);
   });
 });
 

@@ -80,6 +80,137 @@ function bumpCompleteness(audit: Phase1AuditPayload): void {
   });
 }
 
+function ensurePerformanceCoverage(audit: Phase1AuditPayload) {
+  const { performance } = audit.gbp;
+  if (!performance.coverage) {
+    performance.coverage = {
+      apiAvailable: performance.source === "api",
+      partialApi: false,
+      coverageScore: performance.source === "api" ? 60 : 0,
+      hasCoreMetrics: true,
+      hasImpressionMetrics: performance.impressionsMaps > 0 || performance.impressionsSearch > 0,
+      hasSearchKeywords: (performance.searchKeywords?.length ?? 0) > 0,
+      hasConversations: performance.conversations > 0,
+      hasBookings: performance.bookings > 0,
+      keywordCount: performance.searchKeywords?.length ?? 0,
+      trackedKeywordCount:
+        performance.searchKeywords?.filter((kw) => kw.impressions != null && !kw.belowThreshold)
+          .length ?? 0,
+      totalActions: performance.calls + performance.directionRequests + performance.websiteClicks,
+      actionRate: 0,
+      endpoints: { coreMetrics: "ok", impressions: "ok", searchKeywords: "ok" },
+      recommendations: [],
+    };
+    if (performance.profileViews > 0) {
+      performance.coverage.actionRate =
+        Math.round((performance.coverage.totalActions / performance.profileViews) * 1000) / 10;
+    }
+  }
+  return performance.coverage;
+}
+
+function ensureLocalPostCoverage(audit: Phase1AuditPayload) {
+  const { gbp } = audit;
+  if (!gbp.localPosts) {
+    const days = daysSince(gbp.content.lastPostDate);
+    gbp.localPosts = {
+      apiAvailable: true,
+      partialApi: false,
+      coverageScore: days <= 14 ? 80 : 40,
+      postCount: gbp.content.postCount,
+      livePostCount: gbp.content.postCount,
+      rejectedPostCount: 0,
+      processingPostCount: 0,
+      postsLast30Days: days <= 30 ? 1 : 0,
+      daysSinceLastPost: days >= 999 ? null : days,
+      topicTypesUsed: ["STANDARD"],
+      hasOfferPost: false,
+      hasEventPost: false,
+      hasCallToActionPosts: false,
+      hasMediaPosts: false,
+      totalViews: null,
+      endpoints: { list: "ok", insights: "skipped" },
+      recommendations: [],
+    };
+  }
+  return gbp.localPosts;
+}
+
+function ensurePlaceActionCoverage(audit: Phase1AuditPayload) {
+  const { gbp } = audit;
+  if (!gbp.placeActions) {
+    gbp.placeActions = {
+      apiAvailable: true,
+      partialApi: false,
+      coverageScore: 0,
+      linkCount: 0,
+      merchantLinkCount: 0,
+      configuredTypes: [],
+      availableTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+      missingRecommendedTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+      hasAppointmentLink: false,
+      hasOnlineAppointmentLink: false,
+      hasDiningReservationLink: false,
+      hasFoodOrderingLink: false,
+      hasShopOnlineLink: false,
+      endpoints: { links: "ok", typeMetadata: "ok" },
+      recommendations: [],
+    };
+  }
+  return gbp.placeActions;
+}
+
+function ensureReviewCoverage(audit: Phase1AuditPayload) {
+  const { gbp, reviews } = audit;
+  const existing = reviews.coverage ?? gbp.reviewCoverage;
+  const coverage = {
+    apiAvailable: true,
+    partialApi: false,
+    coverageScore: Math.round(gbp.engagement.responseRate * 100),
+    reviewCount: gbp.engagement.reviewCount,
+    averageRating: gbp.engagement.averageRating,
+    responseRate: gbp.engagement.responseRate,
+    unrespondedCount: 0,
+    unrespondedNegativeCount: reviews.unrespondedNegative,
+    pendingReplies: reviews.pendingReplies,
+    rejectedReplies: reviews.rejectedReplies,
+    reviewsLast30Days: gbp.engagement.reviewsLast30Days,
+    reviewsWithMedia: 0,
+    avgResponseTimeHours: reviews.avgResponseTimeHours,
+    endpoints: { list: "ok", get: "ok" },
+    recommendations: [],
+    ...existing,
+  };
+  coverage.apiAvailable = true;
+  reviews.coverage = coverage;
+  gbp.reviewCoverage = coverage;
+  return coverage;
+}
+
+function ensureNotificationCoverage(audit: Phase1AuditPayload) {
+  const { gbp } = audit;
+  if (!gbp.notifications) {
+    gbp.notifications = {
+      configured: false,
+      pubsubTopic: null,
+      enabledTypes: [],
+      missingRecommendedTypes: [
+        "NEW_REVIEW",
+        "GOOGLE_UPDATE",
+        "NEW_CUSTOMER_MEDIA",
+        "VOICE_OF_MERCHANT_UPDATED",
+      ],
+      deprecatedTypesEnabled: [],
+      coverageScore: 0,
+      hasReviewAlerts: false,
+      hasGoogleUpdateAlerts: false,
+      hasCustomerMediaAlerts: false,
+      hasVoiceOfMerchantAlerts: false,
+    };
+  }
+  return gbp.notifications;
+}
+
 function clearRelevanceCache(audit: Phase1AuditPayload): void {
   delete audit.keywordRelevance;
 }
@@ -368,6 +499,167 @@ export function applyGapMutation(audit: Phase1AuditPayload, gap: GapFlag): void 
     case "unanswered-qa":
       audit.gbp.content.unansweredQa = 0;
       break;
+    case "performance-api-unavailable": {
+      const perf = audit.gbp.performance;
+      perf.source = "api";
+      delete perf.error;
+      const coverage = ensurePerformanceCoverage(audit);
+      coverage.apiAvailable = true;
+      coverage.partialApi = false;
+      coverage.coverageScore = 100;
+      coverage.hasCoreMetrics = true;
+      coverage.hasImpressionMetrics = true;
+      coverage.hasSearchKeywords = true;
+      break;
+    }
+    case "partial-performance-api": {
+      const coverage = ensurePerformanceCoverage(audit);
+      coverage.partialApi = false;
+      coverage.coverageScore = 100;
+      coverage.hasCoreMetrics = true;
+      coverage.hasImpressionMetrics = true;
+      coverage.hasSearchKeywords = true;
+      audit.gbp.performance.warnings = [];
+      break;
+    }
+    case "no-search-keyword-data": {
+      const perf = audit.gbp.performance;
+      perf.searchKeywords = audit.rankings.keywords.map((kw) => ({
+        keyword: kw.keyword,
+        impressions: 500,
+        belowThreshold: false,
+      }));
+      const coverage = ensurePerformanceCoverage(audit);
+      coverage.hasSearchKeywords = true;
+      coverage.keywordCount = perf.searchKeywords.length;
+      coverage.trackedKeywordCount = perf.searchKeywords.length;
+      coverage.coverageScore = Math.max(coverage.coverageScore, 85);
+      break;
+    }
+    case "low-profile-conversions": {
+      const perf = audit.gbp.performance;
+      perf.calls = Math.max(perf.calls, 20);
+      perf.directionRequests = Math.max(perf.directionRequests, 30);
+      perf.websiteClicks = Math.max(perf.websiteClicks, 15);
+      const coverage = ensurePerformanceCoverage(audit);
+      coverage.totalActions = perf.calls + perf.directionRequests + perf.websiteClicks;
+      coverage.actionRate =
+        perf.profileViews > 0
+          ? Math.round((coverage.totalActions / perf.profileViews) * 1000) / 10
+          : 10;
+      break;
+    }
+    case "place-actions-api-unavailable": {
+      const coverage = ensurePlaceActionCoverage(audit);
+      coverage.apiAvailable = true;
+      coverage.partialApi = false;
+      coverage.endpoints = { links: "ok", typeMetadata: "ok" };
+      if (coverage.configuredTypes.length === 0) {
+        coverage.coverageScore = Math.max(coverage.coverageScore, 50);
+      }
+      break;
+    }
+    case "missing-place-action-links": {
+      const coverage = ensurePlaceActionCoverage(audit);
+      coverage.apiAvailable = true;
+      coverage.configuredTypes = ["APPOINTMENT", "ONLINE_APPOINTMENT"];
+      coverage.missingRecommendedTypes = [];
+      coverage.coverageScore = 100;
+      coverage.hasAppointmentLink = true;
+      coverage.hasOnlineAppointmentLink = true;
+      coverage.linkCount = 2;
+      coverage.merchantLinkCount = 2;
+      break;
+    }
+    case "incomplete-place-action-links": {
+      const coverage = ensurePlaceActionCoverage(audit);
+      coverage.missingRecommendedTypes = [];
+      coverage.configuredTypes = [
+        ...new Set([...coverage.configuredTypes, ...coverage.availableTypes.slice(0, 2)]),
+      ];
+      coverage.coverageScore = 100;
+      coverage.hasAppointmentLink = true;
+      coverage.hasOnlineAppointmentLink = true;
+      break;
+    }
+    case "local-posts-api-unavailable": {
+      const coverage = ensureLocalPostCoverage(audit);
+      coverage.apiAvailable = true;
+      coverage.partialApi = false;
+      coverage.endpoints = { list: "ok", insights: "ok" };
+      coverage.coverageScore = Math.max(
+        coverage.coverageScore,
+        coverage.daysSinceLastPost != null && coverage.daysSinceLastPost <= 30 ? 70 : 50
+      );
+      break;
+    }
+    case "rejected-local-posts": {
+      const coverage = ensureLocalPostCoverage(audit);
+      coverage.rejectedPostCount = 0;
+      coverage.coverageScore = Math.max(coverage.coverageScore, 80);
+      audit.gbp.content.lastPostDate = new Date().toISOString();
+      coverage.daysSinceLastPost = 0;
+      coverage.postsLast30Days = Math.max(coverage.postsLast30Days, 1);
+      break;
+    }
+    case "posts-without-cta": {
+      const coverage = ensureLocalPostCoverage(audit);
+      coverage.hasCallToActionPosts = true;
+      coverage.coverageScore = Math.max(coverage.coverageScore, 75);
+      break;
+    }
+    case "reviews-api-unavailable": {
+      const coverage = ensureReviewCoverage(audit);
+      coverage.apiAvailable = true;
+      coverage.partialApi = false;
+      coverage.coverageScore = Math.max(coverage.coverageScore, 80);
+      break;
+    }
+    case "rejected-review-replies": {
+      audit.reviews.rejectedReplies = 0;
+      const coverage = ensureReviewCoverage(audit);
+      coverage.rejectedReplies = 0;
+      coverage.coverageScore = Math.max(coverage.coverageScore, 85);
+      break;
+    }
+    case "pending-review-replies": {
+      audit.reviews.pendingReplies = 0;
+      const coverage = ensureReviewCoverage(audit);
+      coverage.pendingReplies = 0;
+      coverage.coverageScore = Math.max(coverage.coverageScore, 80);
+      break;
+    }
+    case "missing-pubsub-notifications": {
+      const coverage = ensureNotificationCoverage(audit);
+      coverage.configured = true;
+      coverage.pubsubTopic = "projects/example/topics/gbp-notifications";
+      coverage.enabledTypes = [
+        "NEW_REVIEW",
+        "GOOGLE_UPDATE",
+        "NEW_CUSTOMER_MEDIA",
+        "VOICE_OF_MERCHANT_UPDATED",
+      ];
+      coverage.missingRecommendedTypes = [];
+      coverage.coverageScore = 100;
+      coverage.hasReviewAlerts = true;
+      coverage.hasGoogleUpdateAlerts = true;
+      coverage.hasCustomerMediaAlerts = true;
+      coverage.hasVoiceOfMerchantAlerts = true;
+      break;
+    }
+    case "incomplete-notification-types": {
+      const coverage = ensureNotificationCoverage(audit);
+      coverage.enabledTypes = [
+        ...new Set([...coverage.enabledTypes, ...coverage.missingRecommendedTypes]),
+      ];
+      coverage.missingRecommendedTypes = [];
+      coverage.coverageScore = 100;
+      coverage.hasReviewAlerts = true;
+      coverage.hasGoogleUpdateAlerts = true;
+      coverage.hasCustomerMediaAlerts = true;
+      coverage.hasVoiceOfMerchantAlerts = true;
+      break;
+    }
     default:
       break;
   }
