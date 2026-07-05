@@ -1,6 +1,7 @@
 import type { ClientConfig, GeoGridPoint, KeywordRankSnapshot, RankSnapshot } from "../types";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
-import { buildDemoGeoGrid } from "@/lib/google/geo-grid";
+import { buildDemoGeoGrid, type GridProfileKey } from "@/lib/google/geo-grid";
+import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { collectPlacesRankData } from "@/lib/google/local-rankings";
 
 const DISTANCES = [1, 3, 5, 10] as const;
@@ -54,7 +55,8 @@ function collectRanksDemo(client: ClientConfig): RankSnapshot {
     }),
     geoGrid: buildDemoGeoGrid(
       { lat: center.lat || 32.7157, lng: center.lng || -117.1611 },
-      baseRank
+      baseRank,
+      HEATMAP_FLAGS.gridProfile as GridProfileKey
     ),
     packLeaderRating: 4.8,
     packLeaderReviewCount: kw.leaderReviews,

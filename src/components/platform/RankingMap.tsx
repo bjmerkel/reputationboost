@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CompetitorDominance } from "@/audit/geo/competitor-dominance";
+import { cellDominanceLabel } from "@/audit/geo/competitor-dominance";
 import type { VisibilitySummary } from "@/audit/geo/types";
 import type { GridDiff } from "@/audit/geo/grid-diff";
 import { diffCellColor } from "@/audit/geo/grid-diff";
 import type { CompetitorProfile, GeoGridPoint, KeywordRankSnapshot } from "@/audit/types";
+import CellDetailModal from "@/components/platform/heatmap/CellDetailModal";
 import CoverageBadge from "@/components/platform/heatmap/CoverageBadge";
 import GridDiffControls from "@/components/platform/heatmap/GridDiffControls";
+import { rankColor } from "@/components/platform/heatmap/rank-colors";
 import VisibilityInsightPanel from "@/components/platform/heatmap/VisibilityInsightPanel";
 import { ZONE_SEVERITY_COLORS } from "@/components/platform/heatmap/zone-colors";
 import MapLayerControls, {
@@ -21,6 +25,8 @@ import {
   createGoogleMapOptions,
 } from "@/lib/google/map-marker-icons";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
+
+export { rankColor } from "@/components/platform/heatmap/rank-colors";
 
 function milesToMeters(miles: number): number {
   return Math.round(miles * 1609.34);
@@ -43,13 +49,6 @@ function preserveMapView(map: google.maps.Map, center: google.maps.LatLngLiteral
   map.setZoom(zoom);
 }
 
-export function rankColor(rank: number | null): string {
-  if (rank === null) return "#9aa0a6";
-  if (rank <= 3) return "#34a853";
-  if (rank <= 10) return "#fbbc04";
-  return "#ea4335";
-}
-
 interface RankingMapProps {
   lat: number;
   lng: number;
@@ -63,6 +62,7 @@ interface RankingMapProps {
   visibilitySummary?: VisibilitySummary;
   selectedZoneId?: string | null;
   onZoneSelect?: (zoneId: string | null) => void;
+  topCompetitorThreat?: CompetitorDominance | null;
   onOpenPlan?: () => void;
   currency?: string;
   clientId?: string;
@@ -84,6 +84,7 @@ export default function RankingMap({
   selectedZoneId = null,
   onZoneSelect,
   onOpenPlan,
+  topCompetitorThreat,
   currency = "USD",
   clientId,
   gridDiff = null,
@@ -97,6 +98,8 @@ export default function RankingMap({
   const competitorMarkersRef = useRef<google.maps.Marker[]>([]);
   const circlesRef = useRef<google.maps.Circle[]>([]);
   const gridCirclesRef = useRef<google.maps.Circle[]>([]);
+  const dominanceMarkersRef = useRef<google.maps.Marker[]>([]);
+  const gridListenersRef = useRef<google.maps.MapsEventListener[]>([]);
   const centerRef = useRef<google.maps.LatLngLiteral | null>(null);
   const lastSizeRef = useRef({ width: 0, height: 0 });
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +110,7 @@ export default function RankingMap({
     keywordRank?.geoGrid
   );
   const [gridLoading, setGridLoading] = useState(false);
+  const [selectedCell, setSelectedCell] = useState<GeoGridPoint | null>(null);
 
   const selectedZoneCells = useMemo(() => {
     if (!selectedZoneId || !visibilitySummary?.hasGridData) return null;
@@ -119,6 +123,7 @@ export default function RankingMap({
 
   useEffect(() => {
     setGridPoints(keywordRank?.geoGrid);
+    setSelectedCell(null);
   }, [keywordRank?.geoGrid, keywordRank?.keyword]);
 
   useEffect(() => {
@@ -278,17 +283,22 @@ export default function RankingMap({
 
     gridCirclesRef.current.forEach((c) => c.setMap(null));
     gridCirclesRef.current = [];
+    gridListenersRef.current.forEach((l) => l.remove());
+    gridListenersRef.current = [];
+    dominanceMarkersRef.current.forEach((m) => m.setMap(null));
+    dominanceMarkersRef.current = [];
 
     if (!layers.showHeatmap) return;
 
     const google = window.google;
     if (!google) return;
+    const map = mapInstance.current;
 
     if (diffActive && gridDiff?.cellDiffs.length) {
       for (const cell of gridDiff.cellDiffs) {
         const color = diffCellColor(cell.status);
         const circle = new google.maps.Circle({
-          map: mapInstance.current,
+          map,
           center: { lat: cell.lat, lng: cell.lng },
           radius: 140,
           fillColor: color,
@@ -306,33 +316,36 @@ export default function RankingMap({
 
     if (!gridPoints?.length) return;
 
+    const useSmoothBlend =
+      HEATMAP_FLAGS.heatmapLayer && layers.heatmapStyle === "gradient";
+
     for (const point of gridPoints) {
       const cellKey = `${point.offsetNorthMiles.toFixed(3)}:${point.offsetEastMiles.toFixed(3)}`;
       const inSelectedZone = selectedZoneCells?.has(cellKey) ?? false;
       const dimmed = selectedZoneCells != null && !inSelectedZone;
 
       let color = rankColor(point.rank);
-      let fillOpacity = 0.55;
-      let strokeWeight = 1;
-      let strokeOpacity = 0.85;
-      let radius = 140;
+      let fillOpacity = useSmoothBlend ? 0.38 : 0.55;
+      let strokeWeight = useSmoothBlend ? 0 : 1;
+      let strokeOpacity = useSmoothBlend ? 0 : 0.85;
+      let radius = useSmoothBlend ? 260 : 140;
 
       if (inSelectedZone && visibilitySummary) {
         const zone = visibilitySummary.zones.find((z) => z.id === selectedZoneId);
         if (zone) {
           color = ZONE_SEVERITY_COLORS[zone.severity].stroke;
-          fillOpacity = 0.7;
+          fillOpacity = useSmoothBlend ? 0.5 : 0.7;
           strokeWeight = 2.5;
           strokeOpacity = 1;
           radius = 155;
         }
       } else if (dimmed) {
-        fillOpacity = 0.2;
+        fillOpacity = useSmoothBlend ? 0.12 : 0.2;
         strokeOpacity = 0.35;
       }
 
       const circle = new google.maps.Circle({
-        map: mapInstance.current,
+        map,
         center: { lat: point.lat, lng: point.lng },
         radius,
         fillColor: color,
@@ -340,14 +353,42 @@ export default function RankingMap({
         strokeColor: color,
         strokeOpacity,
         strokeWeight,
-        clickable: false,
+        clickable: true,
         zIndex: inSelectedZone ? 200 : 100,
       });
+
+      const listener = circle.addListener("click", () => setSelectedCell(point));
+      gridListenersRef.current.push(listener);
       gridCirclesRef.current.push(circle);
+
+      if (layers.showCompetitorZones && HEATMAP_FLAGS.competitorDominance) {
+        const label = cellDominanceLabel(point);
+        if (label) {
+          const marker = new google.maps.Marker({
+            map,
+            position: { lat: point.lat, lng: point.lng },
+            clickable: false,
+            label: {
+              text: label,
+              color: "#202124",
+              fontSize: "9px",
+              fontWeight: "bold",
+            },
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 0,
+            },
+            zIndex: 300,
+          });
+          dominanceMarkersRef.current.push(marker);
+        }
+      }
     }
   }, [
     gridPoints,
     layers.showHeatmap,
+    layers.heatmapStyle,
+    layers.showCompetitorZones,
     ready,
     selectedZoneCells,
     selectedZoneId,
@@ -449,8 +490,17 @@ export default function RankingMap({
           selectedZoneId={selectedZoneId}
           onZoneSelect={onZoneSelect}
           onOpenPlan={onOpenPlan}
+          topCompetitorThreat={topCompetitorThreat}
         />
       )}
+      <CellDetailModal
+        cell={selectedCell}
+        keyword={activeKeyword ?? keywordRank?.keyword ?? ""}
+        clientRating={keywordRank?.clientRating}
+        clientReviewCount={keywordRank?.clientReviewCount}
+        open={selectedCell != null}
+        onClose={() => setSelectedCell(null)}
+      />
       {keywordRank && (
         <div className="absolute bottom-4 right-4 max-w-[220px] rounded-lg border border-[#dadce0]/80 bg-white px-3 py-2.5 text-xs shadow-[0_2px_6px_rgba(60,64,67,0.15)]">
           <p className="font-medium text-[#202124]">{keywordRank.keyword}</p>
@@ -461,6 +511,9 @@ export default function RankingMap({
           </p>
           {gridLoading && layers.showHeatmap && (
             <p className="mt-1 text-[#1a73e8]">Loading heatmap…</p>
+          )}
+          {layers.showHeatmap && !gridLoading && (
+            <p className="mt-1 text-[10px] text-[#80868b]">Click a cell for local pack details</p>
           )}
           <div className="mt-2 flex flex-wrap gap-1.5">
             {keywordRank.geoRanks.map((g) => (
@@ -478,7 +531,9 @@ export default function RankingMap({
           </div>
           {layers.showHeatmap && gridPoints && gridPoints.length > 0 && (
             <div className="mt-2 border-t border-[#dadce0] pt-2">
-              <p className="text-[10px] font-medium text-[#5f6368]">Geo grid legend</p>
+              <p className="text-[10px] font-medium text-[#5f6368]">
+                {layers.heatmapStyle === "gradient" ? "Smooth heatmap" : "Geo grid legend"}
+              </p>
               <div className="mt-1 flex flex-wrap gap-1">
                 {[
                   { label: "Top 3", color: rankColor(1) },

@@ -340,6 +340,15 @@ export interface GeoRankPoint {
   inLocalPack: boolean;
 }
 
+/** Competitor in the Local 3-Pack at a geo-grid cell. */
+export interface GeoGridLocalPackEntry {
+  placeId: string;
+  name: string;
+  position: number;
+  rating: number | null;
+  reviewCount: number;
+}
+
 /** Spatial rank sample at a grid point around the business (geo heatmap). */
 export interface GeoGridPoint {
   lat: number;
@@ -348,6 +357,8 @@ export interface GeoGridPoint {
   offsetEastMiles: number;
   rank: number | null;
   inLocalPack: boolean;
+  /** Top competitors in this cell's result set (when collected with local pack data). */
+  localPack?: GeoGridLocalPackEntry[];
 }
 
 export interface KeywordRankSnapshot {

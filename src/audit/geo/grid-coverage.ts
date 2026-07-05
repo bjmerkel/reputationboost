@@ -1,6 +1,7 @@
 import type { GeoGridPoint } from "@/audit/types";
 import type { RankSnapshotRow } from "@/audit/types/timeseries";
-import { GEO_GRID_SPACING_MILES, GEO_GRID_SIZE } from "@/lib/google/geo-grid";
+import { resolveGridProfile, type GridProfileKey } from "@/lib/google/geo-grid";
+import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 
 /** Share of grid cells in the Local 3-Pack (0–100). */
 export function gridCoveragePercent(geoGrid: GeoGridPoint[]): number {
@@ -58,7 +59,7 @@ export function rankRowsToGeoGrid(
   });
 }
 
-export const DEFAULT_GRID_META = {
-  gridSize: GEO_GRID_SIZE,
-  spacingMiles: GEO_GRID_SPACING_MILES,
-};
+export const DEFAULT_GRID_META = (() => {
+  const { size, spacing } = resolveGridProfile(HEATMAP_FLAGS.gridProfile as GridProfileKey);
+  return { gridSize: size, spacingMiles: spacing };
+})();

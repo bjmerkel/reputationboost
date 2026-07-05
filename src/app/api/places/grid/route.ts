@@ -3,6 +3,7 @@ import { getPrimaryBusiness } from "@/audit/businesses";
 import { getUser } from "@/lib/supabase/server";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { buildDemoGeoGrid, collectKeywordGeoGrid } from "@/lib/google/geo-grid";
+import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 import {
   resolveBusinessLocation,
   type BusinessMatchOptions,
@@ -33,12 +34,15 @@ export async function GET(request: Request) {
   };
 
   if (!isGoogleMapsConfigured()) {
-    const geoGrid = buildDemoGeoGrid(location, 4);
+    const geoGrid = buildDemoGeoGrid(location, 4, HEATMAP_FLAGS.gridProfile);
     return NextResponse.json({ keyword, geoGrid, source: "demo" });
   }
 
   try {
-    const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions);
+    const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions, {
+      profile: HEATMAP_FLAGS.gridProfile,
+      includeLocalPack: true,
+    });
     return NextResponse.json({ keyword, geoGrid, source: "api" });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Grid collection failed";

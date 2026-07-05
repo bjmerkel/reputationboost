@@ -70,7 +70,10 @@ async function ingestGridForBusiness(
 
   for (const keyword of keywords) {
     try {
-      const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions);
+      const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions, {
+        profile: "compact",
+        includeLocalPack: true,
+      });
       await persistKeywordGridFromCollection(row.id, keyword, geoGrid, "weekly");
       result.rankRowsUpserted += geoGrid.length;
       await sleep(SEARCH_DELAY_MS);

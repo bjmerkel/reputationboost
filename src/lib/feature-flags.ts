@@ -3,7 +3,7 @@ export const HEATMAP_FLAGS = {
   insightPanel: true,
   zoneHighlights: true,
   gridDiff: true,
-  heatmapLayer: false,
-  competitorDominance: false,
-  gridProfile: "compact" as "compact" | "standard" | "extended",
+  heatmapLayer: true,
+  competitorDominance: true,
+  gridProfile: "standard" as "compact" | "standard" | "extended",
 } as const;

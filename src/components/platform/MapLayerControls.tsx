@@ -1,10 +1,15 @@
 "use client";
 
 import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { HEATMAP_FLAGS } from "@/lib/feature-flags";
+
+export type HeatmapStyle = "cells" | "gradient";
 
 export type MapLayerState = {
   showCompetitors: boolean;
   showHeatmap: boolean;
+  heatmapStyle: HeatmapStyle;
+  showCompetitorZones: boolean;
   enabledRadii: Set<number>;
 };
 
@@ -17,7 +22,9 @@ export function createDefaultMapLayers(): MapLayerState {
   return {
     showCompetitors: true,
     showHeatmap: true,
-    enabledRadii: new Set(SEARCH_RADII_MILES),
+    heatmapStyle: HEATMAP_FLAGS.heatmapLayer ? "gradient" : "cells",
+    showCompetitorZones: HEATMAP_FLAGS.competitorDominance,
+    enabledRadii: new Set(),
   };
 }
 
@@ -62,6 +69,39 @@ export default function MapLayerControls({ layers, onChange }: MapLayerControlsP
       >
         Heatmap
       </button>
+      {HEATMAP_FLAGS.heatmapLayer && layers.showHeatmap && (
+        <button
+          type="button"
+          onClick={() =>
+            onChange({
+              ...layers,
+              heatmapStyle: layers.heatmapStyle === "gradient" ? "cells" : "gradient",
+            })
+          }
+          className={`rounded-full px-2.5 py-1 text-[11px] font-medium shadow-[0_1px_4px_rgba(60,64,67,0.2)] transition ${
+            layers.heatmapStyle === "gradient"
+              ? "bg-[#137333] text-white"
+              : "border border-[#dadce0] bg-white text-[#3c4043] hover:bg-[#f8f9fa]"
+          }`}
+        >
+          {layers.heatmapStyle === "gradient" ? "Smooth" : "Cells"}
+        </button>
+      )}
+      {HEATMAP_FLAGS.competitorDominance && (
+        <button
+          type="button"
+          onClick={() =>
+            onChange({ ...layers, showCompetitorZones: !layers.showCompetitorZones })
+          }
+          className={`rounded-full px-2.5 py-1 text-[11px] font-medium shadow-[0_1px_4px_rgba(60,64,67,0.2)] transition ${
+            layers.showCompetitorZones
+              ? "bg-[#ea4335] text-white"
+              : "border border-[#dadce0] bg-white text-[#3c4043] hover:bg-[#f8f9fa]"
+          }`}
+        >
+          Who wins
+        </button>
+      )}
       <button
         type="button"
         onClick={() =>

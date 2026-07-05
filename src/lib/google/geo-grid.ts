@@ -1,10 +1,24 @@
-import type { GeoGridPoint } from "@/audit/types";
-import { findBusinessRank, type BusinessMatchOptions } from "@/lib/google/local-rankings";
+import type { GeoGridLocalPackEntry, GeoGridPoint } from "@/audit/types";
+import {
+  extractCompetitors,
+  findBusinessRank,
+  type BusinessMatchOptions,
+} from "@/lib/google/local-rankings";
 import { milesToMeters, searchPlaces, type GeoLocation } from "@/lib/google/places";
 
-/** 5×5 grid — balances coverage with API cost (25 searches per keyword). */
-export const GEO_GRID_SIZE = 5;
-export const GEO_GRID_SPACING_MILES = 0.35;
+export type GridProfileKey = "compact" | "standard" | "extended";
+
+export const GRID_PROFILES = {
+  compact: { size: 5, spacing: 0.35 },
+  standard: { size: 7, spacing: 0.5 },
+  extended: { size: 9, spacing: 0.75 },
+} as const;
+
+/** @deprecated use GRID_PROFILES.compact */
+export const GEO_GRID_SIZE = GRID_PROFILES.compact.size;
+/** @deprecated use GRID_PROFILES.compact */
+export const GEO_GRID_SPACING_MILES = GRID_PROFILES.compact.spacing;
+
 const GRID_SEARCH_RADIUS_MILES = 1;
 
 export interface GridOffset {
@@ -12,16 +26,23 @@ export interface GridOffset {
   eastMiles: number;
 }
 
+export function resolveGridProfile(profile: GridProfileKey = "compact") {
+  return GRID_PROFILES[profile];
+}
+
 /** Symmetric N×N grid offsets centered on the business. */
-export function buildGeoGridOffsets(size = GEO_GRID_SIZE): GridOffset[] {
+export function buildGeoGridOffsets(
+  size: number = GRID_PROFILES.compact.size,
+  spacingMiles: number = GRID_PROFILES.compact.spacing
+): GridOffset[] {
   const half = Math.floor(size / 2);
   const offsets: GridOffset[] = [];
 
   for (let row = -half; row <= half; row++) {
     for (let col = -half; col <= half; col++) {
       offsets.push({
-        northMiles: row * GEO_GRID_SPACING_MILES,
-        eastMiles: col * GEO_GRID_SPACING_MILES,
+        northMiles: row * spacingMiles,
+        eastMiles: col * spacingMiles,
       });
     }
   }
@@ -43,16 +64,37 @@ export function offsetLocation(
   };
 }
 
+function toLocalPackEntries(
+  results: Awaited<ReturnType<typeof searchPlaces>>,
+  matchOptions: BusinessMatchOptions
+): GeoGridLocalPackEntry[] {
+  return extractCompetitors(results, matchOptions, 3).map((place) => ({
+    placeId: place.placeId,
+    name: place.name,
+    position: place.position,
+    rating: place.rating,
+    reviewCount: place.reviewCount,
+  }));
+}
+
+export interface CollectGeoGridOptions {
+  profile?: GridProfileKey;
+  includeLocalPack?: boolean;
+}
+
 /**
  * Collect rank at each grid point for one keyword (simulates local search from that area).
  */
 export async function collectKeywordGeoGrid(
   keyword: string,
   center: GeoLocation,
-  matchOptions: BusinessMatchOptions
+  matchOptions: BusinessMatchOptions,
+  options: CollectGeoGridOptions = {}
 ): Promise<GeoGridPoint[]> {
-  const offsets = buildGeoGridOffsets();
+  const { size, spacing } = resolveGridProfile(options.profile ?? "compact");
+  const offsets = buildGeoGridOffsets(size, spacing);
   const searchRadius = milesToMeters(GRID_SEARCH_RADIUS_MILES);
+  const includeLocalPack = options.includeLocalPack !== false;
   const grid: GeoGridPoint[] = [];
 
   for (const { northMiles, eastMiles } of offsets) {
@@ -60,22 +102,39 @@ export async function collectKeywordGeoGrid(
     const results = await searchPlaces(keyword, point, searchRadius, "nearby");
     const rank = findBusinessRank(results, matchOptions);
 
-    grid.push({
+    const cell: GeoGridPoint = {
       lat: point.lat,
       lng: point.lng,
       offsetNorthMiles: northMiles,
       offsetEastMiles: eastMiles,
       rank,
       inLocalPack: rank !== null && rank <= 3,
-    });
+    };
+
+    if (includeLocalPack) {
+      cell.localPack = toLocalPackEntries(results, matchOptions);
+    }
+
+    grid.push(cell);
   }
 
   return grid;
 }
 
+const DEMO_COMPETITORS = [
+  { name: "Joe's Plumbing", rating: 4.9, reviewCount: 312 },
+  { name: "ABC Drain Co", rating: 4.7, reviewCount: 189 },
+  { name: "Quick Fix LLC", rating: 4.6, reviewCount: 94 },
+];
+
 /** Demo grid with rank drift by distance from center. */
-export function buildDemoGeoGrid(center: GeoLocation, baseRank: number): GeoGridPoint[] {
-  return buildGeoGridOffsets().map(({ northMiles, eastMiles }) => {
+export function buildDemoGeoGrid(
+  center: GeoLocation,
+  baseRank: number,
+  profile: GridProfileKey = "compact"
+): GeoGridPoint[] {
+  const { size, spacing } = resolveGridProfile(profile);
+  return buildGeoGridOffsets(size, spacing).map(({ northMiles, eastMiles }) => {
     const dist = Math.sqrt(northMiles ** 2 + eastMiles ** 2);
     const drift = Math.round(dist * 2.5);
     const rank =
@@ -83,6 +142,7 @@ export function buildDemoGeoGrid(center: GeoLocation, baseRank: number): GeoGrid
         ? null
         : Math.min(20, Math.max(1, baseRank + (northMiles === 0 && eastMiles === 0 ? 0 : drift)));
     const point = offsetLocation(center, northMiles, eastMiles);
+    const weak = rank === null || rank > 3;
 
     return {
       lat: point.lat,
@@ -91,6 +151,15 @@ export function buildDemoGeoGrid(center: GeoLocation, baseRank: number): GeoGrid
       offsetEastMiles: eastMiles,
       rank,
       inLocalPack: rank !== null && rank <= 3,
+      localPack: weak
+        ? DEMO_COMPETITORS.map((c, i) => ({
+            placeId: `demo-${i}`,
+            name: c.name,
+            position: i + 1,
+            rating: c.rating,
+            reviewCount: c.reviewCount,
+          }))
+        : [],
     };
   });
 }

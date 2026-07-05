@@ -21,3 +21,9 @@ export {
   type CellDiffStatus,
   type GridDiff,
 } from "./grid-diff";
+export {
+  analyzeCompetitorDominance,
+  cellDominanceLabel,
+  topCompetitorThreat,
+  type CompetitorDominance,
+} from "./competitor-dominance";
