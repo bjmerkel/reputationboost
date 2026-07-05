@@ -11,6 +11,7 @@ import { formatCurrency } from "../attribution/roi";
 import { pickActionsForDriverTarget, projectOutcomeScoresFromActions, type ActionRef } from "./counterfactual";
 import { computeKeywordScores } from "./keyword-scores";
 import { estimateStepHealthImpact, gapDriverScoreImpact } from "./score-impact";
+import type { AttributionCalibration } from "./attribution-calibration";
 import { computeHealthScores } from "./scoring";
 
 const HEALTHY_THRESHOLD = 70;
