@@ -6,6 +6,7 @@ import { buildTemplateGbpPlan } from "./gbp-plan";
 import {
   isStepSatisfied,
   projectOutcomeScoresFromActions,
+  simulateActionMarginalImpact,
   simulateGapDriverImpact,
   simulateStepDriverImpact,
   projectHealthScoresFromStepNumbers,
@@ -212,5 +213,65 @@ describe("counterfactual score simulation", () => {
 
     assert.ok(projection.outcomeGain > 0);
     assert.ok(projection.projectedOutcomeIndex > computeHealthScores(audit).outcomeIndex);
+  });
+
+  it("returns unified marginal impact for a candidate action", () => {
+    const audit = createTestAudit();
+    const gaps = detectGaps(audit);
+    const unresponded = gaps.find((g) => g.id === "unresponded-negative");
+    assert.ok(unresponded);
+
+    const action = { source: "gap" as const, id: unresponded!.id };
+    const marginal = simulateActionMarginalImpact(audit, [], action);
+
+    assert.ok(marginal.driverGain >= 0);
+    assert.equal(marginal.driverGain, simulateGapDriverImpact(audit, unresponded!));
+    assert.ok(marginal.overallGain >= 0);
+  });
+
+  it("marginal driver gain decreases when actions overlap", () => {
+    const audit = createTestAudit();
+    const step3 = { source: "plan" as const, id: "gbp-step-3" };
+    const step4 = { source: "plan" as const, id: "gbp-step-4" };
+
+    const isolatedStep4 = simulateActionMarginalImpact(audit, [], step4).driverGain;
+    const stackedStep4 = simulateActionMarginalImpact(audit, [step3], step4).driverGain;
+
+    assert.ok(isolatedStep4 >= 0);
+    assert.ok(stackedStep4 >= 0);
+    assert.ok(stackedStep4 <= isolatedStep4);
+  });
+
+  it("includes revenue marginals when average customer value is set", () => {
+    const audit = createTestAudit();
+    const outsideKeyword = audit.rankings.keywords.find((k) => !k.inLocalPack)?.keyword;
+    assert.ok(outsideKeyword);
+
+    const withKeywords = {
+      ...audit,
+      gbp: {
+        ...audit.gbp,
+        performance: {
+          ...audit.gbp.performance,
+          searchKeywords: audit.rankings.keywords.map((kw) => ({
+            keyword: kw.keyword,
+            impressions: 800,
+            belowThreshold: false,
+          })),
+        },
+      },
+    };
+
+    const action = {
+      source: "gap" as const,
+      id: `rank-outside-pack-${outsideKeyword}`,
+    };
+    const marginal = simulateActionMarginalImpact(withKeywords, [], action, {
+      avgCustomerValue: 350,
+    });
+
+    assert.ok(marginal.outcomeGain > 0);
+    assert.ok(marginal.revenueGain != null);
+    assert.ok(marginal.revenueGain! > 0);
   });
 });

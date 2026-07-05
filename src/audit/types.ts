@@ -546,6 +546,34 @@ export interface KeywordScoreCard {
   suggestedAction: string;
 }
 
+export type PathOptimizationMode = "driver" | "outcome" | "revenue" | "balanced";
+
+export interface PathOptimizationBlendWeights {
+  driver: number;
+  outcome: number;
+  revenue: number;
+}
+
+/** Marginal score/revenue deltas from adding one action on top of a selected set. */
+export interface ActionMarginalImpact {
+  driverGain: number;
+  outcomeGain: number;
+  visibilityGain: number;
+  revenueCaptureGain: number;
+  revenueGain: number | null;
+  overallGain: number;
+}
+
+export interface PathToHealthyOptions {
+  avgCustomerValue?: number | null;
+  currency?: string;
+  calibration?: import("./phase2/attribution-calibration").AttributionCalibration;
+  mode?: PathOptimizationMode;
+  blendWeights?: PathOptimizationBlendWeights;
+  targetOutcomeIndex?: number;
+  targetRevenueGain?: number | null;
+}
+
 export interface PathToHealthyStep {
   id: string;
   title: string;
@@ -553,6 +581,12 @@ export interface PathToHealthyStep {
   source: "gap" | "plan";
   priority?: string;
   order: number;
+  driverImpact?: number;
+  outcomeImpact?: number;
+  revenueImpact?: number | null;
+  revenueImpactLabel?: string | null;
+  gapId?: string;
+  keyword?: string;
 }
 
 export interface PathToHealthy {

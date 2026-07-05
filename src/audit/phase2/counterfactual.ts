@@ -1,4 +1,4 @@
-import type { FullAuditPayload, GapFlag, KeywordRankSnapshot, Phase1AuditPayload } from "../types";
+import type { FullAuditPayload, GapFlag, KeywordRankSnapshot, Phase1AuditPayload, ActionMarginalImpact } from "../types";
 import { computeGbpCompletenessScore } from "../completeness";
 import {
   inferRecommendedSecondaryCategories,
@@ -924,6 +924,55 @@ export function projectOutcomeScoresFromActions(
       beforeRevenue != null && afterRevenue != null
         ? Math.max(0, afterRevenue - beforeRevenue)
         : null,
+  };
+}
+
+/**
+ * Marginal driver, outcome, and revenue deltas from adding one action on top of
+ * an already-selected set. Uses full counterfactual re-scoring to avoid
+ * double-counting overlapping profile changes.
+ */
+export function simulateActionMarginalImpact(
+  audit: Phase1AuditPayload,
+  selectedActions: ActionRef[],
+  candidate: ActionRef,
+  options?: CounterfactualProjectionOptions
+): ActionMarginalImpact {
+  const beforeHealth = projectHealthScoresFromActions(audit, selectedActions, options);
+  const afterHealth = projectHealthScoresFromActions(
+    audit,
+    [...selectedActions, candidate],
+    options
+  );
+
+  const beforeOutcome = projectOutcomeScoresFromActions(audit, selectedActions, options);
+  const afterOutcome = projectOutcomeScoresFromActions(
+    audit,
+    [...selectedActions, candidate],
+    options
+  );
+
+  const driverGain = Math.max(0, afterHealth.driverGain - beforeHealth.driverGain);
+  const outcomeGain = Math.max(0, afterOutcome.outcomeGain - beforeOutcome.outcomeGain);
+  const visibilityGain = Math.max(0, afterOutcome.visibilityGain - beforeOutcome.visibilityGain);
+  const revenueCaptureGain = Math.max(
+    0,
+    afterOutcome.revenueCaptureGain - beforeOutcome.revenueCaptureGain
+  );
+  const overallGain = Math.max(0, afterHealth.overallGain - beforeHealth.overallGain);
+
+  let revenueGain: number | null = null;
+  if (beforeOutcome.revenueGain != null && afterOutcome.revenueGain != null) {
+    revenueGain = Math.max(0, afterOutcome.revenueGain - beforeOutcome.revenueGain);
+  }
+
+  return {
+    driverGain,
+    outcomeGain,
+    visibilityGain,
+    revenueCaptureGain,
+    revenueGain,
+    overallGain,
   };
 }
 

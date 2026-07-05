@@ -20,6 +20,14 @@ export {
   computeOverallFromDriverOutcome,
 } from "./score-driver-outcome";
 export { computeKeywordScores } from "./keyword-scores";
+export {
+  BALANCED_WEIGHTS_WITH_ACV,
+  BALANCED_WEIGHTS_WITHOUT_ACV,
+  compositeMarginalScore,
+  normalizeMarginalGain,
+  resolveBlendWeights,
+} from "./path-optimization";
+export type { PathOptimizationBlendWeights } from "../types";
 export { buildPathToHealthy } from "./path-to-healthy";
 export {
   buildAttributionCalibration,
@@ -50,6 +58,7 @@ export {
   projectHealthScoresFromActions,
   projectHealthScoresFromStepNumbers,
   projectOutcomeScoresFromActions,
+  simulateActionMarginalImpact,
   simulateGapDriverImpact,
   simulateStepDriverImpact,
 } from "./counterfactual";
