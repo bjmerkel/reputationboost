@@ -35,27 +35,35 @@ export default function MapsSearchBar({
   return (
     <div ref={rootRef} className="relative flex-1">
       <div className="flex min-h-[48px] items-center gap-3 rounded-full border border-[#dadce0]/60 bg-white px-4 py-2 shadow-[0_2px_6px_rgba(60,64,67,0.15),0_1px_2px_rgba(60,64,67,0.3)]">
-        <svg
-          className="h-5 w-5 shrink-0 text-[#5f6368]"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={2}
-          stroke="currentColor"
-          aria-hidden
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-          />
-        </svg>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="min-w-0 flex-1 truncate text-left text-sm text-[#202124]"
-        >
-          {display}
-        </button>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="hidden shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#80868b] sm:inline">
+            Keyword
+          </span>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex min-w-0 flex-1 items-center gap-2 truncate text-left"
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            title="Switch which keyword the map ranks for"
+          >
+            <svg
+              className="h-4 w-4 shrink-0 text-[#1a73e8] sm:hidden"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z"
+              />
+            </svg>
+            <span className="truncate text-sm text-[#202124]">{display}</span>
+          </button>
+        </div>
         {keywords.length > 1 && (
           <svg
             className={`h-4 w-4 shrink-0 text-[#5f6368] transition ${open ? "rotate-180" : ""}`}
@@ -73,8 +81,12 @@ export default function MapsSearchBar({
       {open && keywords.length > 0 && (
         <ul
           role="listbox"
+          aria-label="Ranking keywords"
           className="absolute top-full z-50 mt-2 w-full overflow-hidden rounded-xl border border-[#dadce0] bg-white py-1 shadow-lg"
         >
+          <li className="border-b border-[#e8eaed] px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#80868b]">
+            Switch ranking keyword
+          </li>
           {keywords.map((kw) => {
             const isActive = kw.keyword === activeKeyword;
 

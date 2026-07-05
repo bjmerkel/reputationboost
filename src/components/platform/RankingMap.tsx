@@ -14,6 +14,7 @@ import CoverageBadge from "@/components/platform/heatmap/CoverageBadge";
 import GridDiffControls from "@/components/platform/heatmap/GridDiffControls";
 import { rankColor } from "@/components/platform/heatmap/rank-colors";
 import VisibilityInsightPanel from "@/components/platform/heatmap/VisibilityInsightPanel";
+import MapGuidePanel from "@/components/platform/MapGuidePanel";
 import { ZONE_SEVERITY_COLORS } from "@/components/platform/heatmap/zone-colors";
 import MapLayerControls, {
   createDefaultMapLayers,
@@ -624,62 +625,13 @@ export default function RankingMap({
         open={selectedCell != null}
         onClose={() => setSelectedCell(null)}
       />
-      {keywordRank && (
-        <div className="absolute bottom-4 right-4 max-w-[220px] rounded-lg border border-[#dadce0]/80 bg-white px-3 py-2.5 text-xs shadow-[0_2px_6px_rgba(60,64,67,0.15)]">
-          <p className="font-medium text-[#202124]">{keywordRank.keyword}</p>
-          <p className="mt-0.5 text-[#5f6368]">
-            {keywordRank.inLocalPack
-              ? `Rank #${keywordRank.localPackPosition} in Local 3-Pack`
-              : "Not in Local 3-Pack"}
-          </p>
-          {gridLoading && layers.showHeatmap && (
-            <p className="mt-1 text-[#1a73e8]">Loading heatmap…</p>
-          )}
-          {layers.showHeatmap && !gridLoading && (
-            <p className="mt-1 text-[10px] text-[#80868b]">Click a cell for local pack details</p>
-          )}
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {keywordRank.geoRanks.map((g) => (
-              <span
-                key={g.distanceMiles}
-                className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
-                style={{
-                  backgroundColor: rankColor(g.rank),
-                  opacity: layers.enabledRadii.has(g.distanceMiles) ? 1 : 0.4,
-                }}
-              >
-                {g.distanceMiles}mi: {g.rank ?? "—"}
-              </span>
-            ))}
-          </div>
-          {layers.showHeatmap && gridPoints && gridPoints.length > 0 && (
-            <div className="mt-2 border-t border-[#dadce0] pt-2">
-              <p className="text-[10px] font-medium text-[#5f6368]">
-                {layers.heatmapStyle === "gradient" ? "Smooth heatmap" : "Geo grid legend"}
-              </p>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {[
-                  { label: "Top 3", color: rankColor(1) },
-                  { label: "4–10", color: rankColor(7) },
-                  { label: "11+", color: rankColor(15) },
-                  { label: "N/F", color: rankColor(null) },
-                ].map((item) => (
-                  <span
-                    key={item.label}
-                    className="inline-flex items-center gap-1 text-[10px] text-[#5f6368]"
-                  >
-                    <span
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ backgroundColor: item.color }}
-                    />
-                    {item.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      <MapGuidePanel
+        keywordRank={keywordRank}
+        heatmapOn={layers.showHeatmap}
+        gridLoading={gridLoading}
+        hasGridData={Boolean(gridPoints?.length)}
+        enabledRadii={layers.enabledRadii}
+      />
     </div>
   );
 }
