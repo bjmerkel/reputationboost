@@ -2,6 +2,7 @@
 
 import type { FullAuditPayload, MonthlyReport, ScoreChangelogEntry } from "@/audit/types";
 import type { AttributionSummary } from "@/audit/types/timeseries";
+import { aggregateGridCoverage } from "@/audit/geo";
 import { formatCurrency } from "@/audit/attribution/roi";
 import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
 import ScoreChangelog from "@/components/audit/ScoreChangelog";
@@ -54,6 +55,7 @@ export default function HomeHealthSummary({
   const color = gradeColor(scores.grade);
   const auditChangelog = mom?.scoreChangelog ?? [];
   const changelog = dailyChangelog.length > 0 ? dailyChangelog : auditChangelog;
+  const gridCoverage = aggregateGridCoverage(audit.rankings.keywords);
 
   return (
     <section className="rounded-xl border border-[#dadce0] bg-white p-5 shadow-sm">
@@ -91,6 +93,17 @@ export default function HomeHealthSummary({
           {estimatedMonthlyRevenue != null && estimatedMonthlyRevenue > 0 && (
             <p className="mt-2 text-sm font-medium text-[#188038]">
               Est. {formatCurrency(estimatedMonthlyRevenue, currency)}/mo from Maps visibility
+            </p>
+          )}
+          {gridCoverage.keywordsWithGrid > 0 && (
+            <p className="mt-1 text-sm text-[#5f6368]">
+              <span className="font-medium text-[#202124]">
+                {gridCoverage.avgCoverage}% avg pack coverage
+              </span>
+              {" "}across your service area
+              {gridCoverage.avgCoverage < 50 && (
+                <span className="text-[#c5221f]"> — expand weak zones on the map</span>
+              )}
             </p>
           )}
         </div>

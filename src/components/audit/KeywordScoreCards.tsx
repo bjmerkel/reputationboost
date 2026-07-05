@@ -65,6 +65,9 @@ function KeywordCard({
 
       <p className={`mt-1.5 text-[#80868b] ${compact ? "text-[10px]" : "text-xs"}`}>
         {kw.impressionsLabel}
+        {kw.gridCoveragePercent != null && (
+          <span className="text-[#5f6368]"> · {kw.gridCoveragePercent}% area in pack</span>
+        )}
         {kw.scoreImpactIfRank1 > 0 && (
           <span className="text-[#188038]"> · +{kw.scoreImpactIfRank1} pts if #1</span>
         )}

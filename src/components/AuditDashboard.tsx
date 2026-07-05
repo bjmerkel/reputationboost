@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
+import { buildVisibilitySummary } from "@/audit/geo";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import ResultsView from "@/components/results/ResultsView";
 import { normalizeAuditView, type AuditView } from "@/components/audit/types";
@@ -68,6 +69,7 @@ export default function AuditDashboard({
   const [error, setError] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [batchReviewOpen, setBatchReviewOpen] = useState(false);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
 
   const reviewParam = searchParams.get("review");
 
@@ -126,6 +128,25 @@ export default function AuditDashboard({
       audit.competitors[0];
     return snap?.competitors ?? [];
   }, [audit, activeKeyword]);
+
+  const visibilitySummary = useMemo(() => {
+    if (!audit || !keywordRank) return undefined;
+    return buildVisibilitySummary({
+      keywordRank,
+      searchKeywords: audit.gbp.performance.searchKeywords ?? [],
+      avgCustomerValue,
+      gaps: audit.strategy?.gaps ?? [],
+      tasks,
+    });
+  }, [audit, keywordRank, avgCustomerValue, tasks]);
+
+  useEffect(() => {
+    setSelectedZoneId(null);
+  }, [activeKeyword]);
+
+  const openPlan = useCallback(() => {
+    setView("strategy");
+  }, [setView]);
 
   async function runAudit() {
     setLoading(true);
@@ -317,6 +338,11 @@ export default function AuditDashboard({
             keywordRank={keywordRank}
             competitors={activeCompetitors}
             activeKeyword={activeKeyword}
+            visibilitySummary={visibilitySummary}
+            selectedZoneId={selectedZoneId}
+            onZoneSelect={setSelectedZoneId}
+            onOpenPlan={openPlan}
+            currency={avgCustomerValueCurrency}
           />
         </div>
       </PlatformShell>

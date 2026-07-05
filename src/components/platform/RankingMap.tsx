@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { VisibilitySummary } from "@/audit/geo/types";
 import type { CompetitorProfile, GeoGridPoint, KeywordRankSnapshot } from "@/audit/types";
+import CoverageBadge from "@/components/platform/heatmap/CoverageBadge";
+import VisibilityInsightPanel from "@/components/platform/heatmap/VisibilityInsightPanel";
+import { ZONE_SEVERITY_COLORS } from "@/components/platform/heatmap/zone-colors";
 import MapLayerControls, {
   createDefaultMapLayers,
   type MapLayerState,
@@ -13,6 +17,7 @@ import {
   createCompetitorMarkerIcon,
   createGoogleMapOptions,
 } from "@/lib/google/map-marker-icons";
+import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 
 function milesToMeters(miles: number): number {
   return Math.round(miles * 1609.34);
@@ -52,6 +57,11 @@ interface RankingMapProps {
   activeKeyword?: string;
   /** Skip authenticated /api/places/grid fetches (marketing preview). */
   disableGridFetch?: boolean;
+  visibilitySummary?: VisibilitySummary;
+  selectedZoneId?: string | null;
+  onZoneSelect?: (zoneId: string | null) => void;
+  onOpenPlan?: () => void;
+  currency?: string;
 }
 
 export default function RankingMap({
@@ -63,6 +73,11 @@ export default function RankingMap({
   competitors = [],
   activeKeyword,
   disableGridFetch = false,
+  visibilitySummary,
+  selectedZoneId = null,
+  onZoneSelect,
+  onOpenPlan,
+  currency = "USD",
 }: RankingMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -81,6 +96,15 @@ export default function RankingMap({
     keywordRank?.geoGrid
   );
   const [gridLoading, setGridLoading] = useState(false);
+
+  const selectedZoneCells = useMemo(() => {
+    if (!selectedZoneId || !visibilitySummary?.hasGridData) return null;
+    const zone = visibilitySummary.zones.find((z) => z.id === selectedZoneId);
+    if (!zone) return null;
+    return new Set(
+      zone.cells.map((c) => `${c.offsetNorthMiles.toFixed(3)}:${c.offsetEastMiles.toFixed(3)}`)
+    );
+  }, [selectedZoneId, visibilitySummary]);
 
   useEffect(() => {
     setGridPoints(keywordRank?.geoGrid);
@@ -250,21 +274,52 @@ export default function RankingMap({
     if (!google) return;
 
     for (const point of gridPoints) {
-      const color = rankColor(point.rank);
+      const cellKey = `${point.offsetNorthMiles.toFixed(3)}:${point.offsetEastMiles.toFixed(3)}`;
+      const inSelectedZone = selectedZoneCells?.has(cellKey) ?? false;
+      const dimmed = selectedZoneCells != null && !inSelectedZone;
+
+      let color = rankColor(point.rank);
+      let fillOpacity = 0.55;
+      let strokeWeight = 1;
+      let strokeOpacity = 0.85;
+      let radius = 140;
+
+      if (inSelectedZone && visibilitySummary) {
+        const zone = visibilitySummary.zones.find((z) => z.id === selectedZoneId);
+        if (zone) {
+          color = ZONE_SEVERITY_COLORS[zone.severity].stroke;
+          fillOpacity = 0.7;
+          strokeWeight = 2.5;
+          strokeOpacity = 1;
+          radius = 155;
+        }
+      } else if (dimmed) {
+        fillOpacity = 0.2;
+        strokeOpacity = 0.35;
+      }
+
       const circle = new google.maps.Circle({
         map: mapInstance.current,
         center: { lat: point.lat, lng: point.lng },
-        radius: 140,
+        radius,
         fillColor: color,
-        fillOpacity: 0.55,
+        fillOpacity,
         strokeColor: color,
-        strokeOpacity: 0.85,
-        strokeWeight: 1,
+        strokeOpacity,
+        strokeWeight,
         clickable: false,
+        zIndex: inSelectedZone ? 200 : 100,
       });
       gridCirclesRef.current.push(circle);
     }
-  }, [gridPoints, layers.showHeatmap, ready]);
+  }, [
+    gridPoints,
+    layers.showHeatmap,
+    ready,
+    selectedZoneCells,
+    selectedZoneId,
+    visibilitySummary,
+  ]);
 
   useEffect(() => {
     if (!ready || !mapInstance.current) return;
@@ -341,6 +396,18 @@ export default function RankingMap({
     >
       <MapLayerControls layers={layers} onChange={setLayers} />
       <div ref={mapRef} className="absolute inset-0" />
+      {HEATMAP_FLAGS.insightPanel && visibilitySummary && (
+        <CoverageBadge summary={visibilitySummary} />
+      )}
+      {HEATMAP_FLAGS.insightPanel && visibilitySummary && (
+        <VisibilityInsightPanel
+          summary={visibilitySummary}
+          currency={currency}
+          selectedZoneId={selectedZoneId}
+          onZoneSelect={onZoneSelect}
+          onOpenPlan={onOpenPlan}
+        />
+      )}
       {keywordRank && (
         <div className="absolute bottom-4 right-4 max-w-[220px] rounded-lg border border-[#dadce0]/80 bg-white px-3 py-2.5 text-xs shadow-[0_2px_6px_rgba(60,64,67,0.15)]">
           <p className="font-medium text-[#202124]">{keywordRank.keyword}</p>

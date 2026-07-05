@@ -149,6 +149,8 @@ export function computeKeywordScores(
           kw.inLocalPack,
           relevance?.recommendation ?? null
         ),
+        gridCoveragePercent:
+          kw.geoGrid && kw.geoGrid.length > 0 ? visibilityScore : null,
       };
     })
     .sort((a, b) => {

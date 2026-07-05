@@ -544,6 +544,8 @@ export interface KeywordScoreCard {
   potentialAtRank1: number | null;
   scoreImpactIfRank1: number;
   suggestedAction: string;
+  /** Share of geo-grid cells in Local 3-Pack, when grid data exists */
+  gridCoveragePercent?: number | null;
 }
 
 export type PathOptimizationMode = "driver" | "outcome" | "revenue" | "balanced";
