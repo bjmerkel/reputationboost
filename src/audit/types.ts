@@ -287,6 +287,27 @@ export interface GbpLocalPostCoverage {
   recommendations: string[];
 }
 
+export interface GbpReviewCoverage {
+  apiAvailable: boolean;
+  partialApi: boolean;
+  coverageScore: number;
+  reviewCount: number;
+  averageRating: number;
+  responseRate: number;
+  unrespondedCount: number;
+  unrespondedNegativeCount: number;
+  pendingReplies: number;
+  rejectedReplies: number;
+  reviewsLast30Days: number;
+  reviewsWithMedia: number;
+  avgResponseTimeHours: number | null;
+  endpoints: {
+    list: string;
+    get: string;
+  };
+  recommendations: string[];
+}
+
 export interface GbpSnapshot {
   collectedAt: string;
   identity: GbpIdentity;
@@ -304,6 +325,7 @@ export interface GbpSnapshot {
   placeActions?: GbpPlaceActionCoverage;
   placeActionLinks?: GbpPlaceActionLinkSummary[];
   localPosts?: GbpLocalPostCoverage;
+  reviewCoverage?: GbpReviewCoverage;
   napDrift?: Array<{
     field: string;
     label: string;
@@ -421,6 +443,7 @@ export interface ReviewSnapshot {
   avgResponseTimeHours: number | null;
   pendingReplies: number;
   rejectedReplies: number;
+  coverage?: GbpReviewCoverage;
 }
 
 export interface CitationCheck {

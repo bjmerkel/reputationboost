@@ -10,6 +10,7 @@ import type {
   GbpPlaceActionCoverage,
   GbpPlaceActionLinkSummary,
   GbpPostItem,
+  GbpReviewCoverage,
   ReviewRecord,
 } from "@/audit/types";
 import ExternalImage from "@/components/ExternalImage";
@@ -18,6 +19,7 @@ import TrendsPanel from "@/components/attribution/TrendsPanel";
 import { formatCustomerAttribution } from "@/lib/google/gbp-media-display";
 import { buildMediaHealthReport } from "@/lib/google/gbp-media-health";
 import { buildPerformanceHealthReport } from "@/lib/google/gbp-performance-health";
+import { buildReviewsHealthReport } from "@/lib/google/gbp-reviews-health";
 import { buildLocalPostsHealthReport } from "@/lib/google/gbp-local-posts-health";
 import { buildPlaceActionsHealthReport } from "@/lib/google/gbp-place-actions-health";
 
@@ -373,6 +375,12 @@ export default function AuditDataPanel({
 
       {tab === "reviews" && (
         <div className="space-y-6">
+          {(audit.reviews.coverage ?? audit.gbp.reviewCoverage) && (
+            <ReviewsHealthPanel
+              coverage={(audit.reviews.coverage ?? audit.gbp.reviewCoverage)!}
+            />
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <ReviewStat label="Unresponded negative" value={String(audit.reviews.unrespondedNegative)} />
             <ReviewStat
@@ -647,6 +655,78 @@ function formatViolation(code: string): string {
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function ReviewsHealthPanel({ coverage }: { coverage: GbpReviewCoverage }) {
+  const report = buildReviewsHealthReport(coverage);
+
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-slate-300">Review management health</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Response rate, reply moderation, and review velocity
+          </p>
+        </div>
+        <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white">
+          {report.overallScore}%
+        </span>
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-2">
+        {[
+          { label: "Review list", status: coverage.endpoints.list },
+          { label: "Single review", status: coverage.endpoints.get },
+        ].map((endpoint) => (
+          <div
+            key={endpoint.label}
+            className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
+              endpoint.status === "ok"
+                ? "bg-emerald-500/10 text-emerald-300"
+                : "bg-amber-500/10 text-amber-300"
+            }`}
+          >
+            <span>{endpoint.label}</span>
+            <span className="uppercase">{endpoint.status}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { label: "Reviews", value: report.reviewCount },
+          { label: "Avg rating", value: `${report.averageRating}★` },
+          { label: "Response rate", value: `${report.responseRate}%` },
+          {
+            label: "Avg reply",
+            value: report.avgResponseTimeHours != null ? `${report.avgResponseTimeHours}h` : "—",
+          },
+        ].map((metric) => (
+          <div key={metric.label} className="rounded-lg bg-white/5 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-slate-500">{metric.label}</p>
+            <p className="text-sm font-semibold text-slate-200">{metric.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2 text-[11px] text-slate-400">
+        <span>{report.unrespondedNegativeCount} unresponded negative</span>
+        <span>·</span>
+        <span>{report.pendingReplies} pending replies</span>
+        <span>·</span>
+        <span>{report.rejectedReplies} rejected replies</span>
+      </div>
+
+      {report.recommendations.length > 0 && (
+        <ul className="space-y-1.5 text-xs text-amber-300/90">
+          {report.recommendations.map((item) => (
+            <li key={item}>• {item}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 function LocalPostsHealthPanel({

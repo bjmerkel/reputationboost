@@ -16,8 +16,9 @@ export interface GbpEnrichment {
   performance: GbpPerformanceMetrics;
   posts: GbpLocalPost[];
   postsApiOk: boolean;
-  questions: GbpQuestion[];
   reviews: GbpReview[];
+  reviewsApiOk: boolean;
+  questions: GbpQuestion[];
   media: GbpMediaSummary;
 }
 
@@ -63,11 +64,19 @@ export async function fetchGbpEnrichment(
     })
     .catch(() => [] as GbpLocalPost[]);
 
-  const [performance, posts, questions, reviews, media] = await Promise.all([
+  let reviewsApiOk = false;
+  const reviewsPromise = listGbpReviews(connection)
+    .then((items) => {
+      reviewsApiOk = true;
+      return items;
+    })
+    .catch(() => [] as GbpReview[]);
+
+  const [performance, posts, reviews, questions, media] = await Promise.all([
     fetchGbpPerformanceData(connection, 30, { platformEmail: options?.userEmail }),
     postsPromise,
+    reviewsPromise,
     fetchQuestions(connection).catch(() => []),
-    listGbpReviews(connection).catch(() => []),
     fetchGbpMediaSummary(connection).catch(() => ({
       photoCount: 0,
       videoCount: 0,
@@ -78,5 +87,5 @@ export async function fetchGbpEnrichment(
     })),
   ]);
 
-  return { performance, posts, postsApiOk, questions, reviews, media };
+  return { performance, posts, postsApiOk, reviews, reviewsApiOk, questions, media };
 }

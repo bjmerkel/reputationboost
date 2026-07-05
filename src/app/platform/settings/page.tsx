@@ -6,6 +6,7 @@ import GbpPerformanceSetup from "@/components/GbpPerformanceSetup";
 import GbpNotificationsSetup from "@/components/GbpNotificationsSetup";
 import GbpPlaceActionsSetup from "@/components/GbpPlaceActionsSetup";
 import GbpLocalPostsSetup from "@/components/GbpLocalPostsSetup";
+import GbpReviewsSetup from "@/components/GbpReviewsSetup";
 import GbpDisconnect from "@/components/GbpDisconnect";
 import GbpLocationSwitcher from "@/components/GbpLocationSwitcher";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
@@ -129,6 +130,7 @@ export default async function SettingsPage() {
               <GbpNotificationsSetup variant="light" />
               <GbpPlaceActionsSetup variant="light" />
               <GbpLocalPostsSetup variant="light" />
+              <GbpReviewsSetup variant="light" />
               <GbpDisconnect
                 businessId={business.businessId}
                 businessName={business.name}

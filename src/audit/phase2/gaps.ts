@@ -433,6 +433,45 @@ export function detectGaps(
     );
   }
 
+  const reviewCoverage = audit.reviews.coverage ?? audit.gbp.reviewCoverage;
+  if (reviewCoverage && !reviewCoverage.apiAvailable) {
+    gaps.push(
+      gap(
+        "reviews-api-unavailable",
+        "P2",
+        "technical",
+        "Reviews API unavailable",
+        "Google reviews can't be loaded. Reconnect with a manager account.",
+        4,
+        2
+      )
+    );
+  } else if (audit.reviews.rejectedReplies > 0) {
+    gaps.push(
+      gap(
+        "rejected-review-replies",
+        "P2",
+        "reviews",
+        "Rejected review replies",
+        `${audit.reviews.rejectedReplies} review repl${audit.reviews.rejectedReplies === 1 ? "y was" : "ies were"} rejected by Google — revise and repost.`,
+        5,
+        2
+      )
+    );
+  } else if (audit.reviews.pendingReplies > 0) {
+    gaps.push(
+      gap(
+        "pending-review-replies",
+        "P3",
+        "reviews",
+        "Pending review replies",
+        `${audit.reviews.pendingReplies} repl${audit.reviews.pendingReplies === 1 ? "y is" : "ies are"} awaiting Google moderation.`,
+        3,
+        1
+      )
+    );
+  }
+
   if (audit.reviews.unrespondedNegative > 0) {
     gaps.push(
       gap(

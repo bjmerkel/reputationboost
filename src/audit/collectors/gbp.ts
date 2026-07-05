@@ -3,6 +3,7 @@ import { computeGbpCompletenessScore } from "../completeness";
 import { compareNap } from "@/lib/google/nap-drift";
 import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
 import { isReviewResponded } from "@/lib/google/gbp-reviews";
+import { analyzeGbpReviewCoverage } from "@/lib/google/gbp-reviews-coverage";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
 import { analyzeGbpMediaCoverage } from "@/lib/google/gbp-media-coverage";
 import { getGbpNotificationSetting } from "@/lib/google/gbp-notifications";
@@ -164,6 +165,10 @@ async function collectGbpFromApi(
   });
   const questions = enrichment.questions;
   const gbpReviews = enrichment.reviews;
+  const reviewCoverage = analyzeGbpReviewCoverage({
+    reviews: gbpReviews,
+    probe: { endpoints: { list: enrichment.reviewsApiOk ? "ok" : "failed" } },
+  });
   const respondedReviews = gbpReviews.filter((r) => isReviewResponded(r));
   const responseRate =
     gbpReviews.length > 0 ? respondedReviews.length / gbpReviews.length : 0;
@@ -347,6 +352,7 @@ async function collectGbpFromApi(
       providerType: link.providerType,
     })),
     localPosts,
+    reviewCoverage,
     napDrift,
   };
 }

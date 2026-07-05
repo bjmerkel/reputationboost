@@ -5,6 +5,7 @@ import {
   isReviewResponded,
   type GbpReview,
 } from "@/lib/google/gbp-reviews";
+import { analyzeGbpReviewCoverage } from "@/lib/google/gbp-reviews-coverage";
 import { fetchPlaceDetails } from "@/lib/google/place-details";
 
 export async function collectReviewSnapshot(
@@ -56,8 +57,12 @@ async function collectReviewsFromApi(
   const now = new Date().toISOString();
   const enrichment = await fetchGbpEnrichment(connection);
   const reviews = enrichment.reviews.map(mapGbpReviewToRecord);
+  const coverage = analyzeGbpReviewCoverage({
+    reviews: enrichment.reviews,
+    probe: { endpoints: { list: enrichment.reviewsApiOk ? "ok" : "failed" } },
+  });
 
-  return buildReviewSnapshot(now, reviews);
+  return { ...buildReviewSnapshot(now, reviews), coverage };
 }
 
 async function collectReviewsFromPlaceDetails(client: ClientConfig): Promise<ReviewSnapshot> {

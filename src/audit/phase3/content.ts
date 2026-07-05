@@ -112,6 +112,12 @@ export function mapActionToExecutionType(actionId: string): ExecutionType | null
   }
   if (actionId.startsWith("rank-outside-pack")) return "gbp_description";
   if (actionId === "unresponded-negative" || actionId === "low-response-rate") return "review_response";
+  if (
+    actionId === "rejected-review-replies" ||
+    actionId === "pending-review-replies"
+  ) {
+    return "review_response";
+  }
   if (actionId.startsWith("review-gap")) return "review_request";
   if (actionId === "unanswered-qa") return "qa_answer";
   if (actionId === "missing-schema") return "schema_markup";

@@ -1,5 +1,9 @@
 import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
+import {
+  analyzeGbpReviewCoverage,
+  type GbpReviewCoverage,
+} from "./gbp-reviews-coverage";
 
 const GBP_V4 = "https://mybusiness.googleapis.com/v4";
 
@@ -8,6 +12,30 @@ export type ReviewReplyState =
   | "PENDING"
   | "REJECTED"
   | "APPROVED";
+
+export type GbpStarRating =
+  | "STAR_RATING_UNSPECIFIED"
+  | "ONE"
+  | "TWO"
+  | "THREE"
+  | "FOUR"
+  | "FIVE";
+
+export type ReviewEndpointStatus = "ok" | "failed" | "denied" | "skipped";
+
+export interface ReviewsApiProbe {
+  ok: boolean;
+  error?: string;
+  permissionDenied: boolean;
+  partial?: boolean;
+  reviewCount?: number;
+  averageRating?: number;
+  endpoints?: {
+    list: ReviewEndpointStatus;
+    get: ReviewEndpointStatus;
+  };
+  coverage?: GbpReviewCoverage;
+}
 
 export interface GbpReviewMediaItem {
   thumbnailUrl: string;
@@ -61,8 +89,30 @@ interface ReviewApi {
   }>;
 }
 
+function normalizeAccountId(accountId: string): string {
+  return accountId.replace(/^accounts\//, "");
+}
+
+function normalizeLocationId(locationId: string): string {
+  return locationId.replace(/^locations\//, "");
+}
+
 function reviewsBase(connection: GbpConnection): string {
-  return `${GBP_V4}/accounts/${connection.accountId}/locations/${connection.locationId}/reviews`;
+  return `${GBP_V4}/accounts/${normalizeAccountId(connection.accountId)}/locations/${normalizeLocationId(connection.locationId)}/reviews`;
+}
+
+async function throwApiError(res: Response, data: unknown, fallback: string): Promise<never> {
+  const message =
+    (data as { error?: { message?: string } })?.error?.message ?? `${fallback} (${res.status})`;
+  const err = new Error(message) as Error & { httpStatus?: number };
+  err.httpStatus = res.status;
+  throw err;
+}
+
+function endpointStatusFromError(error: unknown): ReviewEndpointStatus {
+  const httpStatus = (error as Error & { httpStatus?: number }).httpStatus;
+  if (httpStatus === 403 || httpStatus === 401) return "denied";
+  return "failed";
 }
 
 function starRatingToNumber(starRating: string | undefined): number {
@@ -158,7 +208,7 @@ export async function listGbpReviews(
     };
 
     if (!res.ok) {
-      throw new Error(data.error?.message ?? `Reviews API failed (${res.status})`);
+      await throwApiError(res, data, "Reviews API failed");
     }
 
     for (const review of data.reviews ?? []) {
@@ -182,7 +232,7 @@ export async function getGbpReview(
   const data = (await res.json()) as ReviewApi & { error?: { message?: string } };
 
   if (!res.ok) {
-    throw new Error(data.error?.message ?? `Review fetch failed (${res.status})`);
+    await throwApiError(res, data, "Review fetch failed");
   }
 
   return parseGbpReview(data);
@@ -222,7 +272,7 @@ export async function applyReviewReply(
   };
 
   if (!res.ok) {
-    throw new Error(data.error?.message ?? `Failed to post review reply (${res.status})`);
+    await throwApiError(res, data, "Failed to post review reply");
   }
 
   return {
@@ -248,9 +298,81 @@ export async function deleteReviewReply(
 
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-    throw new Error(data.error?.message ?? `Failed to delete review reply (${res.status})`);
+    await throwApiError(res, data, "Failed to delete review reply");
   }
 }
+
+async function probeEndpoint(probe: () => Promise<unknown>): Promise<ReviewEndpointStatus> {
+  try {
+    await probe();
+    return "ok";
+  } catch (error) {
+    return endpointStatusFromError(error);
+  }
+}
+
+/** Quick health check for settings and onboarding. */
+export async function probeReviewsApiAccess(
+  connection: GbpConnection
+): Promise<ReviewsApiProbe> {
+  const endpoints = {
+    list: await probeEndpoint(() => listGbpReviews(connection, { maxReviews: 5 })),
+    get: "skipped" as ReviewEndpointStatus,
+  };
+
+  if (endpoints.list !== "ok") {
+    return {
+      ok: false,
+      permissionDenied: endpoints.list === "denied",
+      error:
+        endpoints.list === "denied"
+          ? "Reviews API access denied for this location."
+          : "Reviews API unavailable for this location.",
+      endpoints,
+    };
+  }
+
+  try {
+    const reviews = await listGbpReviews(connection, { maxReviews: 100 });
+    if (reviews.length > 0) {
+      endpoints.get = await probeEndpoint(() => getGbpReview(connection, reviews[0].reviewId));
+    }
+
+    const coverage = analyzeGbpReviewCoverage({ reviews, probe: { endpoints } });
+    const averageRating =
+      reviews.length > 0
+        ? Math.round(
+            (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length) * 10
+          ) / 10
+        : 0;
+
+    return {
+      ok: true,
+      permissionDenied: false,
+      partial: endpoints.get !== "ok" && reviews.length > 0,
+      reviewCount: reviews.length,
+      averageRating,
+      endpoints,
+      coverage,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      permissionDenied: endpointStatusFromError(error) === "denied",
+      error: error instanceof Error ? error.message : "Reviews API probe failed",
+      endpoints,
+    };
+  }
+}
+
+export const REVIEWS_METHODS = [
+  "accounts.locations.reviews.list",
+  "accounts.locations.reviews.get",
+  "accounts.locations.reviews.updateReply",
+  "accounts.locations.reviews.deleteReply",
+] as const;
+
+export const STAR_RATINGS: GbpStarRating[] = ["ONE", "TWO", "THREE", "FOUR", "FIVE"];
 
 export function formatPolicyViolation(code?: string): string {
   if (!code || code === "POLICY_VIOLATION_UNSPECIFIED") return "";
