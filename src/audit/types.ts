@@ -606,6 +606,14 @@ export interface PathToHealthy {
   estimatedRevenueGainLabel: string | null;
   topKeywords: KeywordScoreCard[];
   alreadyHealthy: boolean;
+  /** How actions were prioritized when building this path */
+  optimizationMode?: PathOptimizationMode;
+  /** Current estimated monthly revenue at existing ranks (requires ACV) */
+  estimatedMonthlyRevenue?: number | null;
+  /** Projected monthly revenue after path actions (requires ACV) */
+  projectedMonthlyRevenue?: number | null;
+  currentRevenueCapture?: number;
+  projectedRevenueCapture?: number;
 }
 
 export interface EngagementOutcomes {

@@ -24,8 +24,10 @@ export {
   BALANCED_WEIGHTS_WITH_ACV,
   BALANCED_WEIGHTS_WITHOUT_ACV,
   compositeMarginalScore,
+  marginalScoreForMode,
   normalizeMarginalGain,
   resolveBlendWeights,
+  resolvePathOptimizationMode,
 } from "./path-optimization";
 export type { PathOptimizationBlendWeights } from "../types";
 export { buildPathToHealthy } from "./path-to-healthy";
@@ -55,6 +57,8 @@ export {
   cloneAudit,
   isStepSatisfied,
   pickActionsForDriverTarget,
+  pickActionsForTarget,
+  estimateTotalMonthlyRevenue,
   projectHealthScoresFromActions,
   projectHealthScoresFromStepNumbers,
   projectOutcomeScoresFromActions,

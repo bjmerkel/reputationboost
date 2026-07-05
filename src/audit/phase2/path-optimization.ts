@@ -1,4 +1,4 @@
-import type { ActionMarginalImpact, PathOptimizationBlendWeights } from "../types";
+import type { ActionMarginalImpact, PathOptimizationBlendWeights, PathOptimizationMode, PathToHealthyOptions } from "../types";
 
 /** Default blend when average customer value is known. */
 export const BALANCED_WEIGHTS_WITH_ACV: PathOptimizationBlendWeights = {
@@ -69,4 +69,40 @@ export function compositeMarginalScore(
     outcomeNorm * weights.outcome +
     revenueNorm * weights.revenue
   );
+}
+
+export function marginalScoreForMode(
+  impact: ActionMarginalImpact,
+  mode: PathOptimizationMode,
+  weights: PathOptimizationBlendWeights
+): number {
+  switch (mode) {
+    case "driver":
+      return impact.driverGain;
+    case "outcome":
+      return impact.outcomeGain;
+    case "revenue":
+      return impact.revenueGain ?? 0;
+    case "balanced":
+      return compositeMarginalScore(impact, weights);
+    default:
+      return impact.driverGain;
+  }
+}
+
+/** Choose optimization mode when the caller does not specify one explicitly. */
+export function resolvePathOptimizationMode(
+  options: Pick<PathToHealthyOptions, "mode" | "avgCustomerValue">,
+  scores: { driverScore: number; outcomeIndex: number }
+): PathOptimizationMode {
+  if (options.mode) return options.mode;
+
+  const hasAcv = options.avgCustomerValue != null && options.avgCustomerValue > 0;
+  if (hasAcv && scores.outcomeIndex < scores.driverScore) {
+    return "revenue";
+  }
+  if (hasAcv) {
+    return "balanced";
+  }
+  return "driver";
 }

@@ -11,6 +11,7 @@ import { collectGbpFromPlaceDetails } from "./collectors/gbp";
 import { ensureStrategy } from "./ensure-strategy";
 import { computeHealthScores } from "./phase2/scoring";
 import { detectGaps } from "./phase2/gaps";
+import { buildPathToHealthy } from "./phase2/path-to-healthy";
 import { suggestKeywords } from "@/lib/llm/keywords";
 import {
   extractCompetitors,
@@ -24,7 +25,8 @@ import { primaryCategoryFromTypes } from "@/lib/google/place-details";
 
 const PREVIEW_KEYWORD_COUNT = 3;
 const HEALTHY_TARGET = 70;
-const REVENUE_PER_POINT = 168; // ~$4,200 for a 25-point gain (47 → 72)
+/** Default job value for preview revenue estimates when the user has not set ACV. */
+const PREVIEW_AVG_CUSTOMER_VALUE = 350;
 
 export interface PreviewAuditInput {
   placeId: string;
@@ -315,22 +317,25 @@ export async function runPreviewAudit(input: PreviewAuditInput): Promise<Preview
   const audit = buildPreviewAuditPayload(client, gbp, rankings, competitors);
   const scores = computeHealthScores(audit);
   const gaps = detectGaps(audit).filter((g) => isPreviewRelevantGap(g.id));
+  const platformAudit = ensureStrategy({ ...audit } as FullAuditPayload);
+  const path = buildPathToHealthy(platformAudit, null, {
+    avgCustomerValue: PREVIEW_AVG_CUSTOMER_VALUE,
+    currency: "USD",
+  });
 
-  const topActions = gaps.slice(0, 3).map((gap) => ({
-    title: gap.title,
-    scoreImpact: gap.scoreImpact ?? gap.impact,
-  }));
+  const topActions =
+    path?.steps.slice(0, 3).map((step) => ({
+      title: step.title,
+      scoreImpact: step.driverImpact ?? step.scoreImpact,
+    })) ??
+    gaps.slice(0, 3).map((gap) => ({
+      title: gap.title,
+      scoreImpact: gap.scoreImpact ?? gap.impact,
+    }));
 
-  const pointsFromActions = topActions.reduce((sum, action) => sum + action.scoreImpact, 0);
-  const pointsNeeded = Math.max(0, HEALTHY_TARGET - scores.driverScore);
-  const projectedScore = Math.min(
-    85,
-    scores.overall + Math.min(pointsFromActions, pointsNeeded + 5)
-  );
-  const estimatedRevenueGain =
-    projectedScore > scores.overall
-      ? Math.round((projectedScore - scores.overall) * REVENUE_PER_POINT)
-      : null;
+  const pointsNeeded = path?.pointsNeeded ?? Math.max(0, HEALTHY_TARGET - scores.driverScore);
+  const projectedScore = path?.projectedScore ?? scores.overall;
+  const estimatedRevenueGain = path?.estimatedRevenueGain ?? null;
 
   const topGap = gaps[0]
     ? {
@@ -340,7 +345,6 @@ export async function runPreviewAudit(input: PreviewAuditInput): Promise<Preview
       }
     : null;
 
-  const platformAudit = ensureStrategy({ ...audit } as FullAuditPayload);
   const fullAddress =
     gbp.identity.address ||
     [input.address, input.city, input.state, input.zip].filter(Boolean).join(", ");
@@ -368,7 +372,7 @@ export async function runPreviewAudit(input: PreviewAuditInput): Promise<Preview
     })),
     topGap,
     pathToHealthy: {
-      currentScore: scores.overall,
+      currentScore: path?.currentScore ?? scores.overall,
       projectedScore,
       pointsNeeded,
       estimatedRevenueGain,

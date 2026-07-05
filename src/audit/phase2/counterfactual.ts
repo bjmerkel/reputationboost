@@ -1,4 +1,4 @@
-import type { FullAuditPayload, GapFlag, KeywordRankSnapshot, Phase1AuditPayload, ActionMarginalImpact } from "../types";
+import type { FullAuditPayload, GapFlag, KeywordRankSnapshot, Phase1AuditPayload, ActionMarginalImpact, PathOptimizationMode } from "../types";
 import { computeGbpCompletenessScore } from "../completeness";
 import {
   inferRecommendedSecondaryCategories,
@@ -7,6 +7,12 @@ import {
 import { resolveKeywordRelevance } from "./relevance-heuristic";
 import { computeHealthScores } from "./scoring";
 import type { AttributionCalibration } from "./attribution-calibration";
+import {
+  compositeMarginalScore,
+  marginalScoreForMode,
+  resolveBlendWeights,
+} from "./path-optimization";
+import type { PathOptimizationBlendWeights } from "../types";
 import { computeKeywordScores } from "./keyword-scores";
 
 const PHOTO_TARGET = 60;
@@ -818,6 +824,14 @@ function totalEstimatedRevenue(
   return any ? sum : null;
 }
 
+/** Sum of per-keyword monthly revenue estimates at current ranks. */
+export function estimateTotalMonthlyRevenue(
+  audit: Phase1AuditPayload,
+  avgCustomerValue?: number | null
+): number | null {
+  return totalEstimatedRevenue(audit, avgCustomerValue);
+}
+
 /** Apply projected rank improvements for keywords a plan step would influence. */
 export function applyOutcomeMutation(
   audit: Phase1AuditPayload,
@@ -991,6 +1005,94 @@ export function projectHealthScoresFromStepNumbers(
 
 export interface SelectedAction extends ActionRef {
   marginalDriverGain: number;
+  marginalOutcomeGain: number;
+  marginalRevenueGain: number | null;
+  marginalCompositeScore: number;
+}
+
+export interface ActionPickTarget {
+  mode: PathOptimizationMode;
+  driverPointsNeeded: number;
+  outcomePointsNeeded?: number;
+  revenueGainNeeded?: number | null;
+}
+
+export interface PickActionTargetOptions extends CounterfactualProjectionOptions {
+  blendWeights?: PathOptimizationBlendWeights;
+}
+
+function isActionTargetMet(
+  mode: PathOptimizationMode,
+  health: ProjectedHealthScores,
+  outcome: ProjectedOutcomeScores,
+  target: ActionPickTarget
+): boolean {
+  switch (mode) {
+    case "outcome":
+      return outcome.outcomeGain >= (target.outcomePointsNeeded ?? target.driverPointsNeeded);
+    case "revenue":
+      if (outcome.revenueGain != null && target.revenueGainNeeded != null) {
+        return outcome.revenueGain >= target.revenueGainNeeded;
+      }
+      return health.driverGain >= target.driverPointsNeeded;
+    case "driver":
+    case "balanced":
+    default:
+      return health.driverGain >= target.driverPointsNeeded;
+  }
+}
+
+/**
+ * Greedily pick actions until the target is met for the chosen optimization mode.
+ * Uses full counterfactual re-scoring at each pick to avoid double-counting overlaps.
+ */
+export function pickActionsForTarget(
+  audit: Phase1AuditPayload,
+  candidates: ActionRef[],
+  target: ActionPickTarget,
+  options?: PickActionTargetOptions
+): {
+  selected: SelectedAction[];
+  projection: ProjectedHealthScores;
+  outcomeProjection: ProjectedOutcomeScores;
+} {
+  const weights = resolveBlendWeights(options?.avgCustomerValue, options?.blendWeights);
+  const selected: SelectedAction[] = [];
+  const remaining = [...candidates];
+  let projection = projectHealthScoresFromActions(audit, [], options);
+  let outcomeProjection = projectOutcomeScoresFromActions(audit, [], options);
+
+  while (!isActionTargetMet(target.mode, projection, outcomeProjection, target) && remaining.length > 0) {
+    let bestIndex = -1;
+    let bestScore = 0;
+    let bestImpact: ActionMarginalImpact | null = null;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const candidate = remaining[i];
+      const impact = simulateActionMarginalImpact(audit, selected, candidate, options);
+      const score = marginalScoreForMode(impact, target.mode, weights);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = i;
+        bestImpact = impact;
+      }
+    }
+
+    if (bestIndex < 0 || bestScore <= 0 || !bestImpact) break;
+
+    const picked = remaining.splice(bestIndex, 1)[0];
+    selected.push({
+      ...picked,
+      marginalDriverGain: bestImpact.driverGain,
+      marginalOutcomeGain: bestImpact.outcomeGain,
+      marginalRevenueGain: bestImpact.revenueGain,
+      marginalCompositeScore: compositeMarginalScore(bestImpact, weights),
+    });
+    projection = projectHealthScoresFromActions(audit, selected, options);
+    outcomeProjection = projectOutcomeScoresFromActions(audit, selected, options);
+  }
+
+  return { selected, projection, outcomeProjection };
 }
 
 /**
@@ -1004,30 +1106,11 @@ export function pickActionsForDriverTarget(
   pointsNeeded: number,
   options?: CounterfactualProjectionOptions
 ): { selected: SelectedAction[]; projection: ProjectedHealthScores } {
-  const selected: SelectedAction[] = [];
-  const remaining = [...candidates];
-  let currentProjection = projectHealthScoresFromActions(audit, [], options);
-
-  while (currentProjection.driverGain < pointsNeeded && remaining.length > 0) {
-    let bestIndex = -1;
-    let bestMarginal = 0;
-
-    for (let i = 0; i < remaining.length; i++) {
-      const candidate = remaining[i];
-      const withCandidate = projectHealthScoresFromActions(audit, [...selected, candidate], options);
-      const marginal = withCandidate.driverGain - currentProjection.driverGain;
-      if (marginal > bestMarginal) {
-        bestMarginal = marginal;
-        bestIndex = i;
-      }
-    }
-
-    if (bestIndex < 0 || bestMarginal <= 0) break;
-
-    const picked = remaining.splice(bestIndex, 1)[0];
-    selected.push({ ...picked, marginalDriverGain: bestMarginal });
-    currentProjection = projectHealthScoresFromActions(audit, selected, options);
-  }
-
-  return { selected, projection: currentProjection };
+  const { selected, projection } = pickActionsForTarget(
+    audit,
+    candidates,
+    { mode: "driver", driverPointsNeeded: pointsNeeded },
+    options
+  );
+  return { selected, projection };
 }

@@ -4,14 +4,18 @@ import type {
   PathToHealthy,
   PathToHealthyOptions,
   PathToHealthyStep,
-  Phase1AuditPayload,
   Plan,
 } from "../types";
 import { formatCurrency } from "../attribution/roi";
-import { pickActionsForDriverTarget, projectOutcomeScoresFromActions, type ActionRef } from "./counterfactual";
+import {
+  estimateTotalMonthlyRevenue,
+  pickActionsForTarget,
+  type ActionRef,
+} from "./counterfactual";
 import { computeKeywordScores } from "./keyword-scores";
 import { estimateStepHealthImpact, gapDriverScoreImpact } from "./score-impact";
 import type { AttributionCalibration } from "./attribution-calibration";
+import { resolvePathOptimizationMode } from "./path-optimization";
 import { computeHealthScores } from "./scoring";
 
 const HEALTHY_THRESHOLD = 70;
@@ -30,6 +34,10 @@ function gapToPathStep(
     source: "gap",
     priority: gap.priority,
     order: index,
+    gapId: gap.id,
+    keyword: gap.id.startsWith("rank-outside-pack-")
+      ? gap.id.replace("rank-outside-pack-", "")
+      : undefined,
   };
 }
 
@@ -88,19 +96,66 @@ function buildCandidatePool(
   return { steps, actions };
 }
 
-function estimateRevenueGainFromActions(
-  audit: Phase1AuditPayload,
-  actions: ActionRef[],
-  options: PathToHealthyOptions
-): number | null {
-  if (!options.avgCustomerValue || options.avgCustomerValue <= 0) return null;
+function formatRevenueLabel(
+  amount: number | null | undefined,
+  currency: string
+): string | null {
+  if (amount == null || amount <= 0) return null;
+  return `+${formatCurrency(amount, currency)}/mo est.`;
+}
 
-  const projection = projectOutcomeScoresFromActions(audit, actions, {
-    avgCustomerValue: options.avgCustomerValue,
-    calibration: options.calibration,
-  });
+function enrichPathStep(
+  base: PathToHealthyStep,
+  action: {
+    marginalDriverGain: number;
+    marginalOutcomeGain: number;
+    marginalRevenueGain: number | null;
+  },
+  index: number,
+  currency: string
+): PathToHealthyStep {
+  return {
+    ...base,
+    scoreImpact: action.marginalDriverGain,
+    driverImpact: action.marginalDriverGain,
+    outcomeImpact: action.marginalOutcomeGain,
+    revenueImpact: action.marginalRevenueGain,
+    revenueImpactLabel: formatRevenueLabel(action.marginalRevenueGain, currency),
+    order: index,
+  };
+}
 
-  return projection.revenueGain;
+function buildHealthyPathResult(
+  audit: FullAuditPayload,
+  options: PathToHealthyOptions,
+  scores: ReturnType<typeof computeHealthScores>
+): PathToHealthy {
+  const currency = options.currency ?? "USD";
+  const estimatedMonthlyRevenue = estimateTotalMonthlyRevenue(
+    audit,
+    options.avgCustomerValue
+  );
+
+  return {
+    targetScore: HEALTHY_THRESHOLD,
+    currentScore: scores.overall,
+    currentDriverScore: scores.driverScore,
+    outcomeIndex: scores.outcomeIndex,
+    pointsNeeded: 0,
+    projectedScore: scores.overall,
+    projectedDriverScore: scores.driverScore,
+    projectedOutcomeIndex: scores.outcomeIndex,
+    steps: [],
+    estimatedRevenueGain: null,
+    estimatedRevenueGainLabel: null,
+    topKeywords: computeKeywordScores(audit, options).slice(0, 3),
+    alreadyHealthy: true,
+    optimizationMode: resolvePathOptimizationMode(options, scores),
+    estimatedMonthlyRevenue,
+    projectedMonthlyRevenue: estimatedMonthlyRevenue,
+    currentRevenueCapture: scores.revenueCapture,
+    projectedRevenueCapture: scores.revenueCapture,
+  };
 }
 
 export function buildPathToHealthy(
@@ -113,26 +168,22 @@ export function buildPathToHealthy(
   const currentDriverScore = scores.driverScore;
   const outcomeIndex = scores.outcomeIndex;
   const driverTarget = HEALTHY_THRESHOLD;
+  const currency = options.currency ?? "USD";
+  const optimizationMode = resolvePathOptimizationMode(options, {
+    driverScore: currentDriverScore,
+    outcomeIndex,
+  });
+  const estimatedMonthlyRevenue = estimateTotalMonthlyRevenue(
+    audit,
+    options.avgCustomerValue
+  );
 
   if (currentDriverScore >= driverTarget) {
-    return {
-      targetScore: driverTarget,
-      currentScore,
-      currentDriverScore,
-      outcomeIndex,
-      pointsNeeded: 0,
-      projectedScore: currentScore,
-      projectedDriverScore: currentDriverScore,
-      projectedOutcomeIndex: outcomeIndex,
-      steps: [],
-      estimatedRevenueGain: null,
-      estimatedRevenueGainLabel: null,
-      topKeywords: computeKeywordScores(audit, options).slice(0, 3),
-      alreadyHealthy: true,
-    };
+    return buildHealthyPathResult(audit, options, scores);
   }
 
   const pointsNeeded = driverTarget - currentDriverScore;
+  const outcomePointsNeeded = Math.max(0, driverTarget - outcomeIndex);
   const { steps: candidateSteps, actions } = buildCandidatePool(
     audit,
     plan,
@@ -140,31 +191,30 @@ export function buildPathToHealthy(
   );
   const stepById = new Map(candidateSteps.map((step) => [step.id, step]));
 
-  const { selected, projection } = pickActionsForDriverTarget(
-    audit,
-    actions,
-    pointsNeeded,
-    {
-      calibration: options.calibration,
-      avgCustomerValue: options.avgCustomerValue,
-    }
-  );
-
-  const outcomeProjection = projectOutcomeScoresFromActions(audit, selected, {
+  const counterfactualOptions = {
     calibration: options.calibration,
     avgCustomerValue: options.avgCustomerValue,
-  });
+    blendWeights: options.blendWeights,
+  };
 
-  const selectedSteps: PathToHealthyStep[] = selected.map((action, index) => {
-    const base = stepById.get(action.id)!;
-    return {
-      ...base,
-      scoreImpact: action.marginalDriverGain,
-      order: index,
-    };
-  });
+  const { selected, projection, outcomeProjection } = pickActionsForTarget(
+    audit,
+    actions,
+    {
+      mode: optimizationMode,
+      driverPointsNeeded: pointsNeeded,
+      outcomePointsNeeded,
+      revenueGainNeeded: options.targetRevenueGain,
+    },
+    counterfactualOptions
+  );
 
-  const revenueGain = estimateRevenueGainFromActions(audit, selected, options);
+  const selectedSteps: PathToHealthyStep[] = selected.map((action, index) =>
+    enrichPathStep(stepById.get(action.id)!, action, index, currency)
+  );
+
+  const revenueGain = outcomeProjection.revenueGain;
+  const revenueLabel = formatRevenueLabel(revenueGain, currency);
 
   return {
     targetScore: driverTarget,
@@ -177,11 +227,13 @@ export function buildPathToHealthy(
     projectedOutcomeIndex: outcomeProjection.projectedOutcomeIndex,
     steps: selectedSteps,
     estimatedRevenueGain: revenueGain,
-    estimatedRevenueGainLabel:
-      revenueGain != null
-        ? `+${formatCurrency(revenueGain, options.currency ?? "USD")}/mo est. from path actions`
-        : null,
+    estimatedRevenueGainLabel: revenueLabel ? `${revenueLabel} from path actions` : null,
     topKeywords: computeKeywordScores(audit, options).slice(0, 3),
     alreadyHealthy: false,
+    optimizationMode,
+    estimatedMonthlyRevenue,
+    projectedMonthlyRevenue: outcomeProjection.estimatedMonthlyRevenue,
+    currentRevenueCapture: scores.revenueCapture,
+    projectedRevenueCapture: outcomeProjection.projectedRevenueCapture,
   };
 }
