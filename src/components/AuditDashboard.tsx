@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
+import type { GridDiff } from "@/audit/geo/grid-diff";
 import { buildVisibilitySummary } from "@/audit/geo";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import ResultsView from "@/components/results/ResultsView";
@@ -70,6 +71,8 @@ export default function AuditDashboard({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [batchReviewOpen, setBatchReviewOpen] = useState(false);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [gridDiff, setGridDiff] = useState<GridDiff | null>(null);
+  const [diffActive, setDiffActive] = useState(false);
 
   const reviewParam = searchParams.get("review");
 
@@ -142,7 +145,14 @@ export default function AuditDashboard({
 
   useEffect(() => {
     setSelectedZoneId(null);
+    setGridDiff(null);
+    setDiffActive(false);
   }, [activeKeyword]);
+
+  const handleDiffChange = useCallback((diff: GridDiff | null, active: boolean) => {
+    setGridDiff(diff);
+    setDiffActive(active);
+  }, []);
 
   const openPlan = useCallback(() => {
     setView("strategy");
@@ -343,6 +353,10 @@ export default function AuditDashboard({
             onZoneSelect={setSelectedZoneId}
             onOpenPlan={openPlan}
             currency={avgCustomerValueCurrency}
+            clientId={clientId}
+            gridDiff={gridDiff}
+            diffActive={diffActive}
+            onDiffChange={handleDiffChange}
           />
         </div>
       </PlatformShell>

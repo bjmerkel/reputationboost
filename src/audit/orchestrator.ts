@@ -179,6 +179,17 @@ async function persistAudit(
   await saveAuditToSupabase(userId, businessId, audit);
 
   try {
+    const { persistAuditGridToTimeseries } = await import("@/audit/storage-grid-snapshots");
+    await persistAuditGridToTimeseries(
+      businessId,
+      audit.rankings,
+      audit.completedAt.slice(0, 10)
+    );
+  } catch {
+    // Non-fatal until migration 015 is applied
+  }
+
+  try {
     const { computeScoreDailySnapshot } = await import("@/audit/phase2/score-snapshot");
     const { upsertScoreDaily } = await import("@/audit/storage-score-daily");
     const { loadGlobalScoreModelAdmin } = await import("@/audit/storage-score-model");

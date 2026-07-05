@@ -2,6 +2,12 @@ import { pickPrimaryKeyword, resolveTargetKeywords } from "./keywords";
 import { buildAttributionNarrative } from "./narrative";
 import { estimateAttributionRevenue, formatCurrency } from "./roi";
 import type { CompletedTaskRecord } from "@/audit/storage-attribution";
+import { computeGridDiff } from "@/audit/geo/grid-diff";
+import { refreshGridAfterTaskIfNeeded } from "@/audit/geo/grid-refresh";
+import {
+  gridCoverageNearDateAdmin,
+  loadGridForDateAdmin,
+} from "@/audit/storage-grid-snapshots";
 import {
   enrichTaskWithProjectionSnapshot,
   resolveProjectionsFromTask,
@@ -115,6 +121,47 @@ export async function computeAttributionForTask(
 
   const preliminary = now < postEnd;
 
+  let gridCoverageBefore: number | null = null;
+  let gridCoverageAfter: number | null = null;
+  let cellsImproved: number | null = null;
+
+  if (primaryKeyword) {
+    const publishedDate = formatDateYmd(publishedAt);
+    const postDate = formatDateYmd(effectivePostEnd);
+    const beforeSnap = await gridCoverageNearDateAdmin(
+      businessId,
+      primaryKeyword,
+      publishedDate,
+      "before"
+    );
+    const afterSnap = await gridCoverageNearDateAdmin(
+      businessId,
+      primaryKeyword,
+      postDate,
+      "after"
+    );
+
+    if (beforeSnap) gridCoverageBefore = beforeSnap.coveragePercent;
+    if (afterSnap) gridCoverageAfter = afterSnap.coveragePercent;
+
+    if (beforeSnap && afterSnap) {
+      const [beforeGrid, afterGrid] = await Promise.all([
+        loadGridForDateAdmin(businessId, primaryKeyword, beforeSnap.date),
+        loadGridForDateAdmin(businessId, primaryKeyword, afterSnap.date),
+      ]);
+      if (beforeGrid.length > 0 && afterGrid.length > 0) {
+        const diff = computeGridDiff(
+          beforeGrid,
+          afterGrid,
+          primaryKeyword,
+          beforeSnap.date,
+          afterSnap.date
+        );
+        cellsImproved = diff.cellsImproved;
+      }
+    }
+  }
+
   const estimatedRevenue =
     avgCustomerValue && avgCustomerValue > 0
       ? estimateAttributionRevenue(
@@ -134,6 +181,9 @@ export async function computeAttributionForTask(
     directionsDelta,
     websiteClicksDelta,
     preliminary,
+    gridCoverageBefore,
+    gridCoverageAfter,
+    cellsImproved,
   });
 
   if (estimatedRevenue && estimatedRevenue > 0) {
@@ -223,6 +273,25 @@ export async function computeAttributionForTask(
     observedOutcomeImpact: observedOutcome.observedOutcomeImpact,
     outcomeIndexBefore: observedOutcome.outcomeIndexBefore,
     outcomeIndexAfter: observedOutcome.outcomeIndexAfter,
+    gridCoverageBefore,
+    gridCoverageAfter,
+    cellsImproved,
+  });
+
+  const rankImproved =
+    rankBefore !== null && rankAfter !== null
+      ? rankAfter < rankBefore
+      : rankBefore === null && rankAfter !== null && rankAfter <= 3;
+
+  void refreshGridAfterTaskIfNeeded(record, {
+    primaryKeyword,
+    rankImproved,
+    taskId: task.id,
+  }).catch((error) => {
+    console.warn(
+      `[attribution] grid refresh failed for ${task.id}:`,
+      error instanceof Error ? error.message : error
+    );
   });
 }
 

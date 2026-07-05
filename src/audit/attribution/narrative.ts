@@ -39,6 +39,9 @@ export interface NarrativeInput {
   directionsDelta: number;
   websiteClicksDelta: number;
   preliminary: boolean;
+  gridCoverageBefore?: number | null;
+  gridCoverageAfter?: number | null;
+  cellsImproved?: number | null;
 }
 
 export function buildAttributionNarrative(input: NarrativeInput): string {
@@ -56,6 +59,19 @@ export function buildAttributionNarrative(input: NarrativeInput): string {
     );
   } else if (input.primaryKeyword) {
     parts.push(`'${input.primaryKeyword}' holding at ${formatRank(input.rankAfter)}`);
+  }
+
+  if (
+    input.gridCoverageBefore != null &&
+    input.gridCoverageAfter != null &&
+    input.gridCoverageBefore !== input.gridCoverageAfter
+  ) {
+    const delta = input.gridCoverageAfter - input.gridCoverageBefore;
+    const sign = delta > 0 ? "+" : "";
+    parts.push(`area coverage ${input.gridCoverageBefore}% → ${input.gridCoverageAfter}% (${sign}${delta} pts)`);
+    if (input.cellsImproved != null && input.cellsImproved > 0) {
+      parts.push(`+${input.cellsImproved} grid cells entered pack`);
+    }
   }
 
   const engagement: string[] = [];

@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { VisibilitySummary } from "@/audit/geo/types";
+import type { GridDiff } from "@/audit/geo/grid-diff";
+import { diffCellColor } from "@/audit/geo/grid-diff";
 import type { CompetitorProfile, GeoGridPoint, KeywordRankSnapshot } from "@/audit/types";
 import CoverageBadge from "@/components/platform/heatmap/CoverageBadge";
+import GridDiffControls from "@/components/platform/heatmap/GridDiffControls";
 import VisibilityInsightPanel from "@/components/platform/heatmap/VisibilityInsightPanel";
 import { ZONE_SEVERITY_COLORS } from "@/components/platform/heatmap/zone-colors";
 import MapLayerControls, {
@@ -62,6 +65,10 @@ interface RankingMapProps {
   onZoneSelect?: (zoneId: string | null) => void;
   onOpenPlan?: () => void;
   currency?: string;
+  clientId?: string;
+  gridDiff?: GridDiff | null;
+  diffActive?: boolean;
+  onDiffChange?: (diff: GridDiff | null, active: boolean) => void;
 }
 
 export default function RankingMap({
@@ -78,6 +85,10 @@ export default function RankingMap({
   onZoneSelect,
   onOpenPlan,
   currency = "USD",
+  clientId,
+  gridDiff = null,
+  diffActive = false,
+  onDiffChange,
 }: RankingMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -268,10 +279,32 @@ export default function RankingMap({
     gridCirclesRef.current.forEach((c) => c.setMap(null));
     gridCirclesRef.current = [];
 
-    if (!layers.showHeatmap || !gridPoints?.length) return;
+    if (!layers.showHeatmap) return;
 
     const google = window.google;
     if (!google) return;
+
+    if (diffActive && gridDiff?.cellDiffs.length) {
+      for (const cell of gridDiff.cellDiffs) {
+        const color = diffCellColor(cell.status);
+        const circle = new google.maps.Circle({
+          map: mapInstance.current,
+          center: { lat: cell.lat, lng: cell.lng },
+          radius: 140,
+          fillColor: color,
+          fillOpacity: 0.6,
+          strokeColor: color,
+          strokeOpacity: 0.9,
+          strokeWeight: cell.status === "improved" || cell.status === "regressed" ? 2 : 1,
+          clickable: false,
+          zIndex: 150,
+        });
+        gridCirclesRef.current.push(circle);
+      }
+      return;
+    }
+
+    if (!gridPoints?.length) return;
 
     for (const point of gridPoints) {
       const cellKey = `${point.offsetNorthMiles.toFixed(3)}:${point.offsetEastMiles.toFixed(3)}`;
@@ -319,6 +352,8 @@ export default function RankingMap({
     selectedZoneCells,
     selectedZoneId,
     visibilitySummary,
+    diffActive,
+    gridDiff,
   ]);
 
   useEffect(() => {
@@ -398,6 +433,14 @@ export default function RankingMap({
       <div ref={mapRef} className="absolute inset-0" />
       {HEATMAP_FLAGS.insightPanel && visibilitySummary && (
         <CoverageBadge summary={visibilitySummary} />
+      )}
+      {HEATMAP_FLAGS.gridDiff && clientId && activeKeyword && onDiffChange && (
+        <GridDiffControls
+          clientId={clientId}
+          keyword={activeKeyword}
+          enabled={HEATMAP_FLAGS.gridDiff}
+          onDiffChange={onDiffChange}
+        />
       )}
       {HEATMAP_FLAGS.insightPanel && visibilitySummary && (
         <VisibilityInsightPanel

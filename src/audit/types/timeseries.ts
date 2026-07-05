@@ -68,6 +68,9 @@ export interface ActionAttribution {
   narrative: string;
   preliminary: boolean;
   computedAt: string;
+  gridCoverageBefore?: number | null;
+  gridCoverageAfter?: number | null;
+  cellsImproved?: number | null;
   projectedDriverImpact?: number | null;
   observedDriverImpact?: number | null;
   driverScoreBefore?: number | null;

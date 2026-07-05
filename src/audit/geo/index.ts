@@ -13,3 +13,11 @@ export {
   buildVisibilitySummary,
   type BuildVisibilitySummaryInput,
 } from "./visibility-summary";
+export { gridCoveragePercent, geoGridToRankRows, rankRowsToGeoGrid } from "./grid-coverage";
+export {
+  computeGridDiff,
+  diffCellColor,
+  type CellDiff,
+  type CellDiffStatus,
+  type GridDiff,
+} from "./grid-diff";

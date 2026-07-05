@@ -62,6 +62,11 @@ function rowToAttribution(row: Record<string, unknown>, title = ""): ActionAttri
       row.outcome_index_before != null ? Number(row.outcome_index_before) : null,
     outcomeIndexAfter:
       row.outcome_index_after != null ? Number(row.outcome_index_after) : null,
+    gridCoverageBefore:
+      row.grid_coverage_before != null ? Number(row.grid_coverage_before) : null,
+    gridCoverageAfter:
+      row.grid_coverage_after != null ? Number(row.grid_coverage_after) : null,
+    cellsImproved: row.cells_improved != null ? Number(row.cells_improved) : null,
   };
 }
 
@@ -93,6 +98,9 @@ export interface AttributionUpsertInput {
   observedOutcomeImpact?: number | null;
   outcomeIndexBefore?: number | null;
   outcomeIndexAfter?: number | null;
+  gridCoverageBefore?: number | null;
+  gridCoverageAfter?: number | null;
+  cellsImproved?: number | null;
 }
 
 export async function upsertActionAttribution(input: AttributionUpsertInput): Promise<void> {
@@ -125,6 +133,9 @@ export async function upsertActionAttribution(input: AttributionUpsertInput): Pr
       observed_outcome_impact: input.observedOutcomeImpact ?? null,
       outcome_index_before: input.outcomeIndexBefore ?? null,
       outcome_index_after: input.outcomeIndexAfter ?? null,
+      grid_coverage_before: input.gridCoverageBefore ?? null,
+      grid_coverage_after: input.gridCoverageAfter ?? null,
+      cells_improved: input.cellsImproved ?? null,
       computed_at: new Date().toISOString(),
     },
     { onConflict: "execution_task_id" }
