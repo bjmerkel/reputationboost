@@ -3,8 +3,10 @@ import { loadBusinessConfig } from "@/audit/businesses";
 import { serviceAreaFromGbpPlaces } from "@/audit/geo/service-area";
 import { getUser } from "@/lib/supabase/server";
 import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
-import { getGbpLocationProfile } from "@/lib/google/gbp-location";
-import { geocodeAddress } from "@/lib/google/places";
+import { fetchGbpServiceAreaData } from "@/lib/google/gbp-location";
+import { resolveServiceAreaPlace } from "@/lib/google/places";
+
+const EMPTY = { source: null, ring: [], places: [] as const };
 
 export async function GET(request: Request) {
   const user = await getUser();
@@ -26,33 +28,31 @@ export async function GET(request: Request) {
   }
 
   if (!client.gbpConnection || !isGoogleBusinessApiConfigured()) {
-    return NextResponse.json({ source: null, ring: [], places: [] });
+    return NextResponse.json(EMPTY);
   }
 
   try {
-    const profile = await getGbpLocationProfile(client.gbpConnection);
-    if (!profile.serviceAreaPlaces.length) {
-      return NextResponse.json({ source: null, ring: [], places: [] });
+    const { places } = await fetchGbpServiceAreaData(client.gbpConnection);
+    if (!places.length) {
+      return NextResponse.json(EMPTY);
     }
 
     const geocoded = [];
-    for (const place of profile.serviceAreaPlaces) {
-      try {
-        const point = await geocodeAddress(place.placeName);
-        geocoded.push({
-          placeId: place.placeId,
-          placeName: place.placeName,
-          lat: point.lat,
-          lng: point.lng,
-        });
-      } catch {
-        // Skip places that fail geocoding
-      }
+    for (const place of places) {
+      const point = await resolveServiceAreaPlace(place.placeId, place.placeName);
+      if (!point) continue;
+
+      geocoded.push({
+        placeId: place.placeId,
+        placeName: place.placeName,
+        lat: point.lat,
+        lng: point.lng,
+      });
     }
 
     const bounds = serviceAreaFromGbpPlaces(geocoded);
     if (!bounds) {
-      return NextResponse.json({ source: null, ring: [], places: [] });
+      return NextResponse.json(EMPTY);
     }
 
     return NextResponse.json({
@@ -61,8 +61,8 @@ export async function GET(request: Request) {
       radiusMiles: bounds.radiusMiles,
       places: geocoded,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load service area";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    // Optional map overlay — never fail the audit page
+    return NextResponse.json(EMPTY);
   }
 }

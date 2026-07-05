@@ -98,6 +98,45 @@ export async function geocodeAddress(address: string): Promise<GeoLocation> {
   return { lat, lng };
 }
 
+/** Geocode a Google place ID (region or address) to lat/lng; returns null on failure. */
+export async function geocodePlaceId(placeId: string): Promise<GeoLocation | null> {
+  if (!placeId.trim()) return null;
+
+  try {
+    const key = apiKeyOrThrow();
+    const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+    url.searchParams.set("place_id", placeId);
+    url.searchParams.set("key", key);
+
+    const res = await fetch(url.toString());
+    const data = (await res.json()) as GoogleGeocodeResponse;
+
+    if (data.status !== "OK" || !data.results?.[0]) {
+      return null;
+    }
+
+    const { lat, lng } = data.results[0].geometry.location;
+    return { lat, lng };
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve a GBP service-area place by ID first, then by display name. */
+export async function resolveServiceAreaPlace(
+  placeId: string,
+  placeName: string
+): Promise<GeoLocation | null> {
+  const byId = await geocodePlaceId(placeId);
+  if (byId) return byId;
+
+  try {
+    return await geocodeAddress(placeName);
+  } catch {
+    return null;
+  }
+}
+
 function mapPlaceResult(
   raw: NonNullable<GooglePlacesSearchResponse["results"]>[number],
   position: number

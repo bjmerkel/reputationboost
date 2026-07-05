@@ -615,8 +615,6 @@ export async function getGbpLocationProfile(
       "specialHours",
       "moreHours",
       "metadata",
-      "serviceArea",
-      "latlng",
     ].join(",")
   );
 
@@ -625,13 +623,6 @@ export async function getGbpLocationProfile(
   const primary = data.categories?.primaryCategory;
   const additional = data.categories?.additionalCategories ?? [];
   const { labels, details } = parseInlineAttributes(data.attributes);
-  const serviceAreaPlaces =
-    data.serviceArea?.places?.placeInfos
-      ?.filter((p) => p.placeId && p.placeName)
-      .map((p) => ({
-        placeId: p.placeId!,
-        placeName: p.placeName!,
-      })) ?? [];
 
   return {
     locationName: data.name ?? resource,
@@ -667,13 +658,45 @@ export async function getGbpLocationProfile(
     canModifyServiceList: data.metadata?.canModifyServiceList !== false,
     regularHours: data.regularHours ?? null,
     specialHours: data.specialHours ?? null,
-    serviceAreaPlaces,
-    isServiceAreaBusiness: serviceAreaPlaces.length > 0,
-    businessLatLng:
+    serviceAreaPlaces: [],
+    isServiceAreaBusiness: false,
+    businessLatLng: null,
+  };
+}
+
+export interface GbpServiceAreaData {
+  places: GbpServiceAreaPlace[];
+  businessLatLng: { lat: number; lng: number } | null;
+}
+
+/** Fetch service-area fields separately so profile loads never fail on unsupported readMask. */
+export async function fetchGbpServiceAreaData(
+  connection: GbpConnection
+): Promise<GbpServiceAreaData> {
+  try {
+    const resource = locationResourceName(connection.locationId);
+    const params = new URLSearchParams();
+    params.set("readMask", "serviceArea,latlng");
+
+    const data = await biFetch<LocationApi>(connection, `${resource}?${params.toString()}`);
+
+    const places =
+      data.serviceArea?.places?.placeInfos
+        ?.filter((p) => p.placeId && p.placeName)
+        .map((p) => ({
+          placeId: p.placeId!,
+          placeName: p.placeName!,
+        })) ?? [];
+
+    const businessLatLng =
       data.latlng?.latitude != null && data.latlng?.longitude != null
         ? { lat: data.latlng.latitude, lng: data.latlng.longitude }
-        : null,
-  };
+        : null;
+
+    return { places, businessLatLng };
+  } catch {
+    return { places: [], businessLatLng: null };
+  }
 }
 
 /** locations.getAttributes — dedicated attributes resource. */
