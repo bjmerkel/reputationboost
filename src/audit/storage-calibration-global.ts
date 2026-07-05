@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   buildAttributionCalibration,
+  resolveCalibrationConfidence,
   type AttributionCalibration,
 } from "@/audit/phase2/attribution-calibration";
 
@@ -46,6 +47,10 @@ function rowToAttribution(row: Record<string, unknown>): ActionAttribution {
       row.driver_score_before != null ? Number(row.driver_score_before) : null,
     driverScoreAfter:
       row.driver_score_after != null ? Number(row.driver_score_after) : null,
+    projectedOutcomeImpact:
+      row.projected_outcome_impact != null ? Number(row.projected_outcome_impact) : null,
+    projectedRevenueGain:
+      row.projected_revenue_gain != null ? Number(row.projected_revenue_gain) : null,
   };
 }
 
@@ -68,6 +73,22 @@ function rowToStepCalibration(
       row.median_observed_driver_impact != null
         ? Number(row.median_observed_driver_impact)
         : null,
+    medianObservedOutcomeImpact:
+      row.median_observed_outcome_impact != null
+        ? Number(row.median_observed_outcome_impact)
+        : null,
+    medianObservedRevenueGain:
+      row.median_observed_revenue_gain != null
+        ? Number(row.median_observed_revenue_gain)
+        : null,
+    medianProjectedRevenueGain:
+      row.median_projected_revenue_gain != null
+        ? Number(row.median_projected_revenue_gain)
+        : null,
+    revenueProjectionSampleSize: (row.revenue_projection_sample_size as number) ?? 0,
+    revenueProjectionScale:
+      row.revenue_projection_scale != null ? Number(row.revenue_projection_scale) : 1,
+    confidence: resolveCalibrationConfidence((row.sample_size as number) ?? 0),
   };
 }
 
@@ -99,6 +120,11 @@ export async function refreshGlobalScoreCalibration(): Promise<number> {
     projection_sample_size: cal.projectionSampleSize,
     median_projected_driver_impact: cal.medianProjectedDriverImpact,
     median_observed_driver_impact: cal.medianObservedDriverImpact,
+    median_observed_outcome_impact: cal.medianObservedOutcomeImpact,
+    median_observed_revenue_gain: cal.medianObservedRevenueGain,
+    median_projected_revenue_gain: cal.medianProjectedRevenueGain,
+    revenue_projection_sample_size: cal.revenueProjectionSampleSize,
+    revenue_projection_scale: cal.revenueProjectionScale,
     updated_at: new Date().toISOString(),
   }));
 

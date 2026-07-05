@@ -3,8 +3,13 @@ import { describe, it } from "node:test";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import {
   buildAttributionCalibration,
+  buildGapAttributionCalibration,
+  calibratedRevenueGain,
   calibratedStepImpact,
+  projectionRevenueScaleForStep,
   projectionScaleForStep,
+  rankDeltaForGap,
+  resolveCalibrationConfidence,
 } from "./attribution-calibration";
 
 function attribution(
@@ -105,5 +110,94 @@ describe("projectionScaleForStep", () => {
 
     const calibrated = calibratedStepImpact(6, 10, calibration);
     assert.ok(calibrated < 10);
+  });
+});
+
+describe("resolveCalibrationConfidence", () => {
+  it("maps sample sizes to confidence tiers", () => {
+    assert.equal(resolveCalibrationConfidence(0), "default");
+    assert.equal(resolveCalibrationConfidence(1), "low");
+    assert.equal(resolveCalibrationConfidence(2), "medium");
+    assert.equal(resolveCalibrationConfidence(5), "high");
+  });
+});
+
+describe("buildGapAttributionCalibration", () => {
+  it("derives per-keyword rank deltas from attributions", () => {
+    const calibration = buildGapAttributionCalibration([
+      attribution({
+        actionItemId: "gbp-step-8",
+        primaryKeyword: "plumber dallas",
+        rankBefore: 8,
+        rankAfter: 5,
+      }),
+      attribution({
+        id: "a2",
+        executionTaskId: "t2",
+        actionItemId: "gbp-step-10",
+        primaryKeyword: "plumber dallas",
+        rankBefore: 7,
+        rankAfter: 4,
+      }),
+    ]);
+
+    const gapCal = calibration["rank-outside-pack-plumber dallas"];
+    assert.ok(gapCal);
+    assert.equal(gapCal.sampleSize, 2);
+    assert.equal(gapCal.medianRankDelta, 3);
+    assert.equal(calibration["plumber dallas"].medianRankDelta, 3);
+  });
+});
+
+describe("rankDeltaForGap", () => {
+  it("uses calibrated median rank delta when available", () => {
+    const gapCalibration = buildGapAttributionCalibration([
+      attribution({
+        actionItemId: "gbp-step-8",
+        primaryKeyword: "hvac repair",
+        rankBefore: 9,
+        rankAfter: 6,
+      }),
+    ]);
+
+    assert.equal(
+      rankDeltaForGap("rank-outside-pack-hvac repair", 10, gapCalibration),
+      3
+    );
+  });
+
+  it("falls back to default lift when no calibration exists", () => {
+    assert.equal(rankDeltaForGap("rank-outside-pack-roofing", 12), 9);
+  });
+});
+
+describe("revenue projection calibration", () => {
+  it("scales projected revenue when historical projections overshoot", () => {
+    const calibration = buildAttributionCalibration([
+      attribution({
+        actionItemId: "gbp-step-4",
+        projectedRevenueGain: 1000,
+        estimatedRevenue: 400,
+      }),
+      attribution({
+        id: "a2",
+        executionTaskId: "t2",
+        actionItemId: "gbp-step-4",
+        projectedRevenueGain: 800,
+        estimatedRevenue: 350,
+      }),
+    ]);
+
+    const scale = projectionRevenueScaleForStep(4, calibration);
+    assert.ok(scale < 1);
+    assert.ok(scale >= 0.5);
+
+    const calibrated = calibratedRevenueGain(
+      500,
+      [{ source: "plan", id: "gbp-step-4" }],
+      calibration
+    );
+    assert.ok(calibrated < 500);
+    assert.ok(calibrated > 0);
   });
 });

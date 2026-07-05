@@ -52,6 +52,10 @@ function rowToAttribution(row: Record<string, unknown>, title = ""): ActionAttri
       row.driver_score_before != null ? Number(row.driver_score_before) : null,
     driverScoreAfter:
       row.driver_score_after != null ? Number(row.driver_score_after) : null,
+    projectedOutcomeImpact:
+      row.projected_outcome_impact != null ? Number(row.projected_outcome_impact) : null,
+    projectedRevenueGain:
+      row.projected_revenue_gain != null ? Number(row.projected_revenue_gain) : null,
   };
 }
 
@@ -78,6 +82,8 @@ export interface AttributionUpsertInput {
   observedDriverImpact?: number | null;
   driverScoreBefore?: number | null;
   driverScoreAfter?: number | null;
+  projectedOutcomeImpact?: number | null;
+  projectedRevenueGain?: number | null;
 }
 
 export async function upsertActionAttribution(input: AttributionUpsertInput): Promise<void> {
@@ -105,6 +111,8 @@ export async function upsertActionAttribution(input: AttributionUpsertInput): Pr
       observed_driver_impact: input.observedDriverImpact ?? null,
       driver_score_before: input.driverScoreBefore ?? null,
       driver_score_after: input.driverScoreAfter ?? null,
+      projected_outcome_impact: input.projectedOutcomeImpact ?? null,
+      projected_revenue_gain: input.projectedRevenueGain ?? null,
       computed_at: new Date().toISOString(),
     },
     { onConflict: "execution_task_id" }

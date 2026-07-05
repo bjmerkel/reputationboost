@@ -72,6 +72,9 @@ export interface ActionAttribution {
   observedDriverImpact?: number | null;
   driverScoreBefore?: number | null;
   driverScoreAfter?: number | null;
+  projectedOutcomeImpact?: number | null;
+  projectedRevenueGain?: number | null;
+  observedOutcomeImpact?: number | null;
 }
 
 export interface AttributionSummary {

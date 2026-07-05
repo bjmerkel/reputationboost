@@ -1,6 +1,6 @@
 import type { FullAuditPayload, GbpPlanStep, PlanStepContext } from "../types";
 import type { AttributionCalibration } from "../phase2/attribution-calibration";
-import { estimateStepHealthImpact } from "../phase2/score-impact";
+import { estimateStepHealthImpact, estimateStepOutcomeImpact } from "../phase2/score-impact";
 import { isCustomPlanStep } from "./plan-custom-steps";
 
 function targetKeywords(audit: FullAuditPayload, step: GbpPlanStep): string[] {
@@ -126,6 +126,11 @@ export function buildTaskPayloadContext(
     ...(context.healthScoreImpact != null
       ? { projectedDriverImpact: context.healthScoreImpact }
       : {}),
+    ...(isCustomPlanStep(step.stepNumber)
+      ? {}
+      : {
+          projectedOutcomeImpact: estimateStepOutcomeImpact(audit, step.stepNumber),
+        }),
     ...(isCustomPlanStep(step.stepNumber) ? { isCustomPlanStep: true } : {}),
   };
 }

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { FullAuditPayload, Plan } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
-import { buildAttributionCalibration, mergeCalibrations } from "@/audit/phase2/attribution-calibration";
+import { buildAttributionCalibration, buildGapAttributionCalibration, mergeCalibrations } from "@/audit/phase2/attribution-calibration";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { computeKeywordScores } from "@/audit/phase2/keyword-scores";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
@@ -33,6 +33,11 @@ export default function ListingStrengthInsights({
     [attributions]
   );
 
+  const gapCalibration = useMemo(
+    () => buildGapAttributionCalibration(attributions),
+    [attributions]
+  );
+
   const calibration = useMemo(
     () => mergeCalibrations(businessCalibration, globalCalibration),
     [businessCalibration, globalCalibration]
@@ -49,8 +54,9 @@ export default function ListingStrengthInsights({
         avgCustomerValue,
         currency,
         calibration,
+        gapCalibration,
       }),
-    [audit, plan, avgCustomerValue, currency, calibration]
+    [audit, plan, avgCustomerValue, currency, calibration, gapCalibration]
   );
 
   const keywordScores = useMemo(

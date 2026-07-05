@@ -568,6 +568,7 @@ export interface PathToHealthyOptions {
   avgCustomerValue?: number | null;
   currency?: string;
   calibration?: import("./phase2/attribution-calibration").AttributionCalibration;
+  gapCalibration?: import("./phase2/attribution-calibration").GapAttributionCalibration;
   mode?: PathOptimizationMode;
   blendWeights?: PathOptimizationBlendWeights;
   targetOutcomeIndex?: number;
@@ -614,6 +615,7 @@ export interface PathToHealthy {
   projectedMonthlyRevenue?: number | null;
   currentRevenueCapture?: number;
   projectedRevenueCapture?: number;
+  calibrationConfidence?: import("./phase2/attribution-calibration").CalibrationConfidence;
 }
 
 export interface EngagementOutcomes {

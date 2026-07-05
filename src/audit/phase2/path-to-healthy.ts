@@ -22,7 +22,11 @@ import {
   gapQualifiesForPool,
   gapRevenueImpact,
 } from "./score-impact";
-import type { AttributionCalibration } from "./attribution-calibration";
+import {
+  resolveCalibrationConfidence,
+  type AttributionCalibration,
+  type GapAttributionCalibration,
+} from "./attribution-calibration";
 import {
   compositeMarginalScore,
   resolveBlendWeights,
@@ -205,6 +209,17 @@ function buildCandidatePool(
   };
 }
 
+function resolvePathCalibrationConfidence(
+  calibration?: AttributionCalibration,
+  gapCalibration?: GapAttributionCalibration
+) {
+  const sampleSizes = [
+    ...Object.values(calibration ?? {}).map((entry) => entry.sampleSize),
+    ...Object.values(gapCalibration ?? {}).map((entry) => entry.sampleSize),
+  ];
+  return resolveCalibrationConfidence(Math.max(0, ...sampleSizes));
+}
+
 function formatRevenueLabel(
   amount: number | null | undefined,
   currency: string
@@ -263,6 +278,10 @@ function buildHealthyPathResult(
     projectedMonthlyRevenue: estimatedMonthlyRevenue,
     currentRevenueCapture: scores.revenueCapture,
     projectedRevenueCapture: scores.revenueCapture,
+    calibrationConfidence: resolvePathCalibrationConfidence(
+      options.calibration,
+      options.gapCalibration
+    ),
   };
 }
 
@@ -297,6 +316,7 @@ export function buildPathToHealthy(
 
   const counterfactualOptions = {
     calibration: options.calibration,
+    gapCalibration: options.gapCalibration,
     avgCustomerValue: options.avgCustomerValue,
     blendWeights: options.blendWeights,
   };
@@ -339,5 +359,9 @@ export function buildPathToHealthy(
     projectedMonthlyRevenue: outcomeProjection.estimatedMonthlyRevenue,
     currentRevenueCapture: scores.revenueCapture,
     projectedRevenueCapture: outcomeProjection.projectedRevenueCapture,
+    calibrationConfidence: resolvePathCalibrationConfidence(
+      options.calibration,
+      options.gapCalibration
+    ),
   };
 }

@@ -33,9 +33,14 @@ export type { PathOptimizationBlendWeights } from "../types";
 export { buildPathToHealthy } from "./path-to-healthy";
 export {
   buildAttributionCalibration,
+  buildGapAttributionCalibration,
+  calibratedRevenueGain,
   calibratedStepImpact,
   mergeCalibrations,
+  projectionRevenueScaleForStep,
   projectionScaleForStep,
+  rankDeltaForGap,
+  resolveCalibrationConfidence,
 } from "./attribution-calibration";
 export { applyRankSnapshotsToAudit, computeScoreDailySnapshot } from "./score-snapshot";
 export { buildScoreChangelogFromSnapshots, buildScoreChangelogFromHealthScores, buildRankMovementsFromSnapshots } from "./score-changelog";

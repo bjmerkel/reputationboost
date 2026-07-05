@@ -1,4 +1,4 @@
-import type { FullAuditPayload, GapFlag, KeywordRankSnapshot, Phase1AuditPayload, ActionMarginalImpact, PathOptimizationMode } from "../types";
+import type { FullAuditPayload, GapFlag, KeywordRankSnapshot, Phase1AuditPayload, ActionMarginalImpact, PathOptimizationMode, PathOptimizationBlendWeights } from "../types";
 import { computeGbpCompletenessScore } from "../completeness";
 import {
   inferRecommendedSecondaryCategories,
@@ -6,13 +6,16 @@ import {
 } from "./gbp-current-state";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
 import { computeHealthScores } from "./scoring";
-import type { AttributionCalibration } from "./attribution-calibration";
+import type { AttributionCalibration, GapAttributionCalibration } from "./attribution-calibration";
+import {
+  calibratedRevenueGain,
+  rankDeltaForGap,
+} from "./attribution-calibration";
 import {
   compositeMarginalScore,
   marginalScoreForMode,
   resolveBlendWeights,
 } from "./path-optimization";
-import type { PathOptimizationBlendWeights } from "../types";
 import { computeKeywordScores } from "./keyword-scores";
 
 const PHOTO_TARGET = 60;
@@ -718,7 +721,9 @@ export interface ProjectedOutcomeScores {
 
 export interface CounterfactualProjectionOptions {
   calibration?: AttributionCalibration;
+  gapCalibration?: GapAttributionCalibration;
   avgCustomerValue?: number | null;
+  blendWeights?: PathOptimizationBlendWeights;
 }
 
 export interface ActionRef {
@@ -854,13 +859,21 @@ export function applyOutcomeMutation(
 }
 
 /** Apply projected rank improvements for rank-outside-pack gaps. */
-export function applyOutcomeGapMutation(audit: Phase1AuditPayload, gap: GapFlag): void {
+export function applyOutcomeGapMutation(
+  audit: Phase1AuditPayload,
+  gap: GapFlag,
+  options?: CounterfactualProjectionOptions
+): void {
   if (!gap.id.startsWith("rank-outside-pack-")) return;
 
   const keyword = gap.id.replace("rank-outside-pack-", "");
   audit.rankings.keywords = audit.rankings.keywords.map((kw) => {
     if (kw.keyword.toLowerCase() !== keyword.toLowerCase()) return kw;
-    const delta = Math.max(3, numericRankAtOneMile(kw) - 3);
+    const delta = rankDeltaForGap(
+      gap.id,
+      numericRankAtOneMile(kw),
+      options?.gapCalibration
+    );
     return improveKeywordRank(kw, delta);
   });
   refreshRankingAggregates(audit);
@@ -882,7 +895,7 @@ function applyActionMutations(
 
   const gap = { id: action.id } as GapFlag;
   applyGapMutation(audit, gap);
-  applyOutcomeGapMutation(audit, gap);
+  applyOutcomeGapMutation(audit, gap, options);
 }
 
 /** Re-run scoring after applying a set of plan steps and/or gaps. */
@@ -924,6 +937,15 @@ export function projectOutcomeScoresFromActions(
   const after = computeHealthScores(mutated);
   const afterRevenue = totalEstimatedRevenue(mutated, options.avgCustomerValue);
 
+  const rawRevenueGain =
+    beforeRevenue != null && afterRevenue != null
+      ? Math.max(0, afterRevenue - beforeRevenue)
+      : null;
+  const revenueGain =
+    rawRevenueGain != null
+      ? calibratedRevenueGain(rawRevenueGain, actions, options.calibration)
+      : null;
+
   return {
     projectedOutcomeIndex: after.outcomeIndex,
     projectedVisibility: after.visibility,
@@ -934,10 +956,7 @@ export function projectOutcomeScoresFromActions(
     revenueCaptureGain: after.revenueCapture - before.revenueCapture,
     overallGain: after.overall - before.overall,
     estimatedMonthlyRevenue: afterRevenue,
-    revenueGain:
-      beforeRevenue != null && afterRevenue != null
-        ? Math.max(0, afterRevenue - beforeRevenue)
-        : null,
+    revenueGain,
   };
 }
 
@@ -1017,9 +1036,7 @@ export interface ActionPickTarget {
   revenueGainNeeded?: number | null;
 }
 
-export interface PickActionTargetOptions extends CounterfactualProjectionOptions {
-  blendWeights?: PathOptimizationBlendWeights;
-}
+export interface PickActionTargetOptions extends CounterfactualProjectionOptions {}
 
 function isActionTargetMet(
   mode: PathOptimizationMode,

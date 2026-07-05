@@ -131,6 +131,8 @@ export async function computeAttributionForTask(
   }
 
   const projectedDriverImpact = resolveProjectedDriverImpact(task);
+  const projectedOutcomeImpact = resolveProjectedOutcomeImpact(task);
+  const projectedRevenueGain = resolveProjectedRevenueGain(task);
   const scoreSnapshots = await listScoreDailyForBusinessAdmin(businessId, windowDays * 3);
   const observed = computeObservedDriverImpact(
     scoreSnapshots,
@@ -171,6 +173,8 @@ export async function computeAttributionForTask(
     estimatedRevenue,
     narrative,
     projectedDriverImpact,
+    projectedOutcomeImpact,
+    projectedRevenueGain,
     observedDriverImpact: observed.observedDriverImpact,
     driverScoreBefore: observed.driverScoreBefore,
     driverScoreAfter: observed.driverScoreAfter,
@@ -181,6 +185,24 @@ function resolveProjectedDriverImpact(task: CompletedTaskRecord["task"]): number
   const payload = task.payload ?? {};
   const fromPayload = payload.projectedDriverImpact ?? payload.healthScoreImpact;
   if (typeof fromPayload === "number" && Number.isFinite(fromPayload)) {
+    return Math.round(fromPayload);
+  }
+  return null;
+}
+
+function resolveProjectedOutcomeImpact(task: CompletedTaskRecord["task"]): number | null {
+  const payload = task.payload ?? {};
+  const fromPayload = payload.projectedOutcomeImpact ?? payload.outcomeScoreImpact;
+  if (typeof fromPayload === "number" && Number.isFinite(fromPayload)) {
+    return Math.max(0, Math.round(fromPayload));
+  }
+  return null;
+}
+
+function resolveProjectedRevenueGain(task: CompletedTaskRecord["task"]): number | null {
+  const payload = task.payload ?? {};
+  const fromPayload = payload.projectedRevenueGain ?? payload.revenueImpact;
+  if (typeof fromPayload === "number" && Number.isFinite(fromPayload) && fromPayload > 0) {
     return Math.round(fromPayload);
   }
   return null;
