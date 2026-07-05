@@ -10,7 +10,7 @@ import {
   type SearchRadiusMiles,
 } from "./places";
 import { collectKeywordGeoGrid } from "./geo-grid";
-import { HEATMAP_FLAGS } from "@/lib/feature-flags";
+import { gridProfileForCollection } from "@/lib/feature-flags";
 
 const TOP_COMPETITORS = 5;
 /** Radii tried when harvesting competitors (ranking still uses all four). */
@@ -308,7 +308,7 @@ export async function collectPlacesRankData(client: ClientConfig): Promise<{
     );
 
     const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions, {
-      profile: HEATMAP_FLAGS.gridProfile,
+      profile: gridProfileForCollection("audit"),
       includeLocalPack: true,
     });
 

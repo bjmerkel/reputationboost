@@ -7,6 +7,7 @@ import {
 } from "@/audit/storage-timeseries";
 import { persistKeywordGridFromCollection } from "@/audit/storage-grid-snapshots";
 import type { IngestRunResult } from "@/audit/types/timeseries";
+import { gridProfileForCollection } from "@/lib/feature-flags";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { collectKeywordGeoGrid } from "@/lib/google/geo-grid";
 import {
@@ -71,7 +72,7 @@ async function ingestGridForBusiness(
   for (const keyword of keywords) {
     try {
       const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions, {
-        profile: "compact",
+        profile: gridProfileForCollection("weekly"),
         includeLocalPack: true,
       });
       await persistKeywordGridFromCollection(row.id, keyword, geoGrid, "weekly");

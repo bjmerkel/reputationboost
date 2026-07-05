@@ -13,7 +13,7 @@ export {
   buildVisibilitySummary,
   type BuildVisibilitySummaryInput,
 } from "./visibility-summary";
-export { gridCoveragePercent, geoGridToRankRows, rankRowsToGeoGrid } from "./grid-coverage";
+export { gridCoveragePercent, geoGridToRankRows, rankRowsToGeoGrid, inferGridMetaFromPoints } from "./grid-coverage";
 export {
   computeGridDiff,
   diffCellColor,
@@ -27,3 +27,4 @@ export {
   topCompetitorThreat,
   type CompetitorDominance,
 } from "./competitor-dominance";
+export { serviceAreaFromGrid, type ServiceAreaBounds } from "./service-area";

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CompetitorDominance } from "@/audit/geo/competitor-dominance";
 import { cellDominanceLabel } from "@/audit/geo/competitor-dominance";
 import type { VisibilitySummary } from "@/audit/geo/types";
+import { serviceAreaFromGrid } from "@/audit/geo/service-area";
 import type { GridDiff } from "@/audit/geo/grid-diff";
 import { diffCellColor } from "@/audit/geo/grid-diff";
 import type { CompetitorProfile, GeoGridPoint, KeywordRankSnapshot } from "@/audit/types";
@@ -99,6 +100,7 @@ export default function RankingMap({
   const circlesRef = useRef<google.maps.Circle[]>([]);
   const gridCirclesRef = useRef<google.maps.Circle[]>([]);
   const dominanceMarkersRef = useRef<google.maps.Marker[]>([]);
+  const serviceAreaPolygonRef = useRef<google.maps.Polygon | null>(null);
   const gridListenersRef = useRef<google.maps.MapsEventListener[]>([]);
   const centerRef = useRef<google.maps.LatLngLiteral | null>(null);
   const lastSizeRef = useRef({ width: 0, height: 0 });
@@ -113,7 +115,9 @@ export default function RankingMap({
   const [selectedCell, setSelectedCell] = useState<GeoGridPoint | null>(null);
 
   const selectedZoneCells = useMemo(() => {
-    if (!selectedZoneId || !visibilitySummary?.hasGridData) return null;
+    if (!HEATMAP_FLAGS.zoneHighlights || !selectedZoneId || !visibilitySummary?.hasGridData) {
+      return null;
+    }
     const zone = visibilitySummary.zones.find((z) => z.id === selectedZoneId);
     if (!zone) return null;
     return new Set(
@@ -396,6 +400,32 @@ export default function RankingMap({
     diffActive,
     gridDiff,
   ]);
+
+  useEffect(() => {
+    serviceAreaPolygonRef.current?.setMap(null);
+    serviceAreaPolygonRef.current = null;
+
+    if (!ready || !mapInstance.current || !layers.showServiceArea) return;
+    if (!HEATMAP_FLAGS.serviceAreaOverlay || !gridPoints?.length || !centerRef.current) return;
+
+    const google = window.google;
+    if (!google) return;
+
+    const bounds = serviceAreaFromGrid(centerRef.current, gridPoints);
+    if (!bounds) return;
+
+    serviceAreaPolygonRef.current = new google.maps.Polygon({
+      map: mapInstance.current,
+      paths: bounds.ring,
+      fillColor: "#1a73e8",
+      fillOpacity: 0.06,
+      strokeColor: "#1a73e8",
+      strokeOpacity: 0.55,
+      strokeWeight: 2,
+      clickable: false,
+      zIndex: 40,
+    });
+  }, [ready, layers.showServiceArea, gridPoints]);
 
   useEffect(() => {
     if (!ready || !mapInstance.current) return;

@@ -10,6 +10,7 @@ export type MapLayerState = {
   showHeatmap: boolean;
   heatmapStyle: HeatmapStyle;
   showCompetitorZones: boolean;
+  showServiceArea: boolean;
   enabledRadii: Set<number>;
 };
 
@@ -24,6 +25,7 @@ export function createDefaultMapLayers(): MapLayerState {
     showHeatmap: true,
     heatmapStyle: HEATMAP_FLAGS.heatmapLayer ? "gradient" : "cells",
     showCompetitorZones: HEATMAP_FLAGS.competitorDominance,
+    showServiceArea: HEATMAP_FLAGS.serviceAreaOverlay,
     enabledRadii: new Set(),
   };
 }
@@ -100,6 +102,21 @@ export default function MapLayerControls({ layers, onChange }: MapLayerControlsP
           }`}
         >
           Who wins
+        </button>
+      )}
+      {HEATMAP_FLAGS.serviceAreaOverlay && (
+        <button
+          type="button"
+          onClick={() =>
+            onChange({ ...layers, showServiceArea: !layers.showServiceArea })
+          }
+          className={`rounded-full px-2.5 py-1 text-[11px] font-medium shadow-[0_1px_4px_rgba(60,64,67,0.2)] transition ${
+            layers.showServiceArea
+              ? "bg-[#1a73e8] text-white"
+              : "border border-[#dadce0] bg-white text-[#3c4043] hover:bg-[#f8f9fa]"
+          }`}
+        >
+          Service area
         </button>
       )}
       <button

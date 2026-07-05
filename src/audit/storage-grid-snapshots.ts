@@ -1,11 +1,12 @@
 import type { GeoGridPoint, KeywordRankSnapshot, RankSnapshot } from "@/audit/types";
 import type { RankSnapshotRow } from "@/audit/types/timeseries";
 import {
-  DEFAULT_GRID_META,
   geoGridToRankRows,
   gridCoveragePercent,
+  inferGridMetaFromPoints,
   rankRowsToGeoGrid,
 } from "@/audit/geo/grid-coverage";
+import { attachLocalPackToGrid, loadCellLeadersForDate, upsertCellLeaders } from "@/audit/storage-cell-leaders";
 import { upsertRankSnapshots } from "@/audit/storage-timeseries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -29,12 +30,13 @@ function gridMetaToDb(params: {
   triggerTaskId?: string | null;
 }) {
   const cellsInPack = params.geoGrid.filter((p) => p.inLocalPack).length;
+  const { gridSize, spacingMiles } = inferGridMetaFromPoints(params.geoGrid);
   return {
     business_id: params.businessId,
     keyword: params.keyword,
     date: params.date,
-    grid_size: DEFAULT_GRID_META.gridSize,
-    spacing_miles: DEFAULT_GRID_META.spacingMiles,
+    grid_size: gridSize,
+    spacing_miles: spacingMiles,
     cells_total: params.geoGrid.length,
     cells_in_pack: cellsInPack,
     coverage_percent: gridCoveragePercent(params.geoGrid),
@@ -68,6 +70,12 @@ export async function upsertGridSnapshot(params: {
   });
 
   await upsertRankSnapshots(rankRows);
+  await upsertCellLeaders({
+    businessId: params.businessId,
+    keyword: params.keyword,
+    date: params.date,
+    geoGrid: params.geoGrid,
+  });
 
   const { error } = await supabase.from("grid_snapshots").upsert(gridMetaToDb(params), {
     onConflict: "business_id,keyword,date",
@@ -157,7 +165,7 @@ export async function loadGridForDateAdmin(
   // Daily ingest stores only center (0,0); full grids have multiple cells.
   if (data.length === 1) return [];
 
-  return rankRowsToGeoGrid(
+  const grid = rankRowsToGeoGrid(
     data.map((r) => ({
       grid_north: Number(r.grid_north),
       grid_east: Number(r.grid_east),
@@ -166,6 +174,9 @@ export async function loadGridForDateAdmin(
     })),
     center
   );
+
+  const leaders = await loadCellLeadersForDate(businessId, keyword, date);
+  return attachLocalPackToGrid(grid, leaders);
 }
 
 export async function loadGridForDateForUser(

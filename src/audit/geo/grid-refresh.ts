@@ -11,6 +11,7 @@ import {
   type BusinessMatchOptions,
 } from "@/lib/google/local-rankings";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { gridProfileForCollection } from "@/lib/feature-flags";
 
 async function loadBusinessClient(businessId: string) {
   const supabase = createAdminClient();
@@ -56,7 +57,10 @@ export async function refreshGridAfterTaskIfNeeded(
       .join(", "),
   };
 
-  const geoGrid = await collectKeywordGeoGrid(primaryKeyword, location, matchOptions);
+  const geoGrid = await collectKeywordGeoGrid(primaryKeyword, location, matchOptions, {
+    profile: gridProfileForCollection("task_trigger"),
+    includeLocalPack: true,
+  });
   await persistKeywordGridFromCollection(
     record.businessId,
     primaryKeyword,

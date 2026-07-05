@@ -59,7 +59,34 @@ export function rankRowsToGeoGrid(
   });
 }
 
-export const DEFAULT_GRID_META = (() => {
-  const { size, spacing } = resolveGridProfile(HEATMAP_FLAGS.gridProfile as GridProfileKey);
-  return { gridSize: size, spacingMiles: spacing };
-})();
+/** Infer grid size/spacing from collected cell offsets. */
+export function inferGridMetaFromPoints(geoGrid: GeoGridPoint[]): {
+  gridSize: number;
+  spacingMiles: number;
+} {
+  if (geoGrid.length === 0) {
+    const { size, spacing } = resolveGridProfile(HEATMAP_FLAGS.gridProfile as GridProfileKey);
+    return { gridSize: size, spacingMiles: spacing };
+  }
+
+  const gridSize = Math.round(Math.sqrt(geoGrid.length));
+  const spacingSamples = new Set<number>();
+
+  for (const point of geoGrid) {
+    if (point.offsetNorthMiles !== 0) {
+      spacingSamples.add(Math.abs(point.offsetNorthMiles));
+    }
+    if (point.offsetEastMiles !== 0) {
+      spacingSamples.add(Math.abs(point.offsetEastMiles));
+    }
+  }
+
+  const spacingMiles =
+    spacingSamples.size > 0
+      ? Math.min(...spacingSamples)
+      : resolveGridProfile(HEATMAP_FLAGS.gridProfile as GridProfileKey).spacing;
+
+  return { gridSize, spacingMiles };
+}
+
+export const DEFAULT_GRID_META = inferGridMetaFromPoints([]);

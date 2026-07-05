@@ -3,7 +3,7 @@ import { getPrimaryBusiness } from "@/audit/businesses";
 import { getUser } from "@/lib/supabase/server";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { buildDemoGeoGrid, collectKeywordGeoGrid } from "@/lib/google/geo-grid";
-import { HEATMAP_FLAGS } from "@/lib/feature-flags";
+import { gridProfileForCollection } from "@/lib/feature-flags";
 import {
   resolveBusinessLocation,
   type BusinessMatchOptions,
@@ -34,13 +34,13 @@ export async function GET(request: Request) {
   };
 
   if (!isGoogleMapsConfigured()) {
-    const geoGrid = buildDemoGeoGrid(location, 4, HEATMAP_FLAGS.gridProfile);
+    const geoGrid = buildDemoGeoGrid(location, 4, gridProfileForCollection("api"));
     return NextResponse.json({ keyword, geoGrid, source: "demo" });
   }
 
   try {
     const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions, {
-      profile: HEATMAP_FLAGS.gridProfile,
+      profile: gridProfileForCollection("api"),
       includeLocalPack: true,
     });
     return NextResponse.json({ keyword, geoGrid, source: "api" });
