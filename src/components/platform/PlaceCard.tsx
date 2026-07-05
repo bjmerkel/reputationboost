@@ -42,22 +42,22 @@ export default function PlaceCard({
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
-      {heroPhoto && (
-        <div className="relative h-36 w-full shrink-0 overflow-hidden bg-[#e8eaed]">
-          <ExternalImage
-            src={heroPhoto}
-            alt=""
-            className="h-full w-full object-cover"
-          />
-          {heroPreview?.isCustomerPhoto && (
-            <span className="absolute left-2 top-2 rounded bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white">
-              {formatCustomerAttribution(heroPreview.attributionName)} photo
-            </span>
-          )}
-        </div>
-      )}
-
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain">
+        {heroPhoto && (
+          <div className="relative h-36 w-full shrink-0 overflow-hidden bg-[#e8eaed]">
+            <ExternalImage
+              src={heroPhoto}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+            {heroPreview?.isCustomerPhoto && (
+              <span className="absolute left-2 top-2 rounded bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white">
+                {formatCustomerAttribution(heroPreview.attributionName)} photo
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="shrink-0 border-b border-[#dadce0] px-4 py-4">
           <h1 className="text-xl font-normal leading-snug text-[#202124]">
             {gbp.identity.name || audit.clientName}
