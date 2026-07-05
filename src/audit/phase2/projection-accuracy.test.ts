@@ -8,9 +8,13 @@ import {
 } from "./counterfactual";
 import { buildPathToHealthy } from "./path-to-healthy";
 import {
+  buildOutcomeProjectionAccuracySamples,
   buildProjectionAccuracySamples,
+  buildRevenueProjectionAccuracySamples,
   computeObservedDriverImpact,
+  computeObservedOutcomeImpact,
   medianDriverScoreInRange,
+  medianOutcomeIndexInRange,
   summarizeProjectionAccuracy,
 } from "./projection-accuracy";
 
@@ -123,6 +127,11 @@ describe("projection accuracy", () => {
     assert.equal(medianDriverScoreInRange(snapshots, "2026-06-20", "2026-07-01"), 48);
   });
 
+  it("computes median outcome index in a date range", () => {
+    assert.equal(medianOutcomeIndexInRange(snapshots, "2026-06-01", "2026-06-15"), 34);
+    assert.equal(medianOutcomeIndexInRange(snapshots, "2026-06-20", "2026-07-01"), 36);
+  });
+
   it("computes observed driver impact around a published action", () => {
     const observed = computeObservedDriverImpact(
       snapshots,
@@ -134,6 +143,20 @@ describe("projection accuracy", () => {
     assert.equal(observed.driverScoreBefore, 41);
     assert.equal(observed.driverScoreAfter, 46);
     assert.equal(observed.observedDriverImpact, 5);
+    assert.equal(observed.preliminary, false);
+  });
+
+  it("computes observed outcome impact around a published action", () => {
+    const observed = computeObservedOutcomeImpact(
+      snapshots,
+      "2026-06-15T12:00:00.000Z",
+      14,
+      new Date("2026-07-10T00:00:00.000Z")
+    );
+
+    assert.equal(observed.outcomeIndexBefore, 34);
+    assert.equal(observed.outcomeIndexAfter, 35);
+    assert.equal(observed.observedOutcomeImpact, 1);
     assert.equal(observed.preliminary, false);
   });
 
@@ -162,5 +185,27 @@ describe("projection accuracy", () => {
     assert.equal(summary.sampleSize, 2);
     assert.equal(summary.meanError, 0);
     assert.equal(summary.meanAbsError, 2);
+  });
+
+  it("builds outcome and revenue projection accuracy samples", () => {
+    const outcomeSamples = buildOutcomeProjectionAccuracySamples([
+      {
+        actionItemId: "gbp-step-3",
+        projectedOutcomeImpact: 5,
+        observedOutcomeImpact: 3,
+      },
+    ]);
+    assert.equal(outcomeSamples.length, 1);
+    assert.equal(outcomeSamples[0].error, -2);
+
+    const revenueSamples = buildRevenueProjectionAccuracySamples([
+      {
+        actionItemId: "gbp-step-4",
+        projectedRevenueGain: 800,
+        estimatedRevenue: 400,
+      },
+    ]);
+    assert.equal(revenueSamples.length, 1);
+    assert.equal(revenueSamples[0].error, -400);
   });
 });

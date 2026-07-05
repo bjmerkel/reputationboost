@@ -79,8 +79,12 @@ export {
 } from "./counterfactual";
 export {
   buildProjectionAccuracySamples,
+  buildOutcomeProjectionAccuracySamples,
+  buildRevenueProjectionAccuracySamples,
   computeObservedDriverImpact,
+  computeObservedOutcomeImpact,
   medianDriverScoreInRange,
+  medianOutcomeIndexInRange,
   summarizeProjectionAccuracy,
 } from "./projection-accuracy";
 export { computeMonthOverMonth } from "./diff";

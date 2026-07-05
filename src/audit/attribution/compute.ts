@@ -1,8 +1,18 @@
 import { pickPrimaryKeyword, resolveTargetKeywords } from "./keywords";
 import { buildAttributionNarrative } from "./narrative";
 import { estimateAttributionRevenue, formatCurrency } from "./roi";
-import { computeObservedDriverImpact } from "@/audit/phase2/projection-accuracy";
 import type { CompletedTaskRecord } from "@/audit/storage-attribution";
+import {
+  enrichTaskWithProjectionSnapshot,
+  resolveProjectionsFromTask,
+  snapshotTaskProjections,
+} from "./projection-snapshot";
+import {
+  computeObservedDriverImpact,
+  computeObservedOutcomeImpact,
+} from "@/audit/phase2/projection-accuracy";
+import { loadAuditByIdForBusiness } from "@/audit/storage-supabase";
+import { loadGlobalScoreCalibrationAdmin, refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import {
   getRankSnapshotsInRange,
   sumPerformanceInRange,
@@ -130,11 +140,17 @@ export async function computeAttributionForTask(
     narrative += ` → ~${formatCurrency(estimatedRevenue, avgCustomerValueCurrency)} estimated`;
   }
 
-  const projectedDriverImpact = resolveProjectedDriverImpact(task);
-  const projectedOutcomeImpact = resolveProjectedOutcomeImpact(task);
-  const projectedRevenueGain = resolveProjectedRevenueGain(task);
+  const projections = resolveProjectionsFromTask(task);
+  const projectedDriverImpact = projections.projectedDriverImpact;
+  const projectedOutcomeImpact = projections.projectedOutcomeImpact;
+  const projectedRevenueGain = projections.projectedRevenueGain;
   const scoreSnapshots = await listScoreDailyForBusinessAdmin(businessId, windowDays * 3);
   const observed = computeObservedDriverImpact(
+    scoreSnapshots,
+    task.completedAt!,
+    windowDays
+  );
+  const observedOutcome = computeObservedOutcomeImpact(
     scoreSnapshots,
     task.completedAt!,
     windowDays
@@ -150,6 +166,32 @@ export async function computeAttributionForTask(
       narrative += ` · Driver score moved ${observed.observedDriverImpact >= 0 ? "+" : ""}${observed.observedDriverImpact} pts (projected ${projectedDriverImpact >= 0 ? "+" : ""}${projectedDriverImpact})`;
     } else if (observed.observedDriverImpact > 0) {
       narrative += ` · Driver score +${observed.observedDriverImpact} pts`;
+    }
+  }
+
+  if (
+    observedOutcome.observedOutcomeImpact != null &&
+    projectedOutcomeImpact != null &&
+    !preliminary
+  ) {
+    const outcomeError = observedOutcome.observedOutcomeImpact - projectedOutcomeImpact;
+    if (Math.abs(outcomeError) >= 3) {
+      narrative += ` · Outcome index ${observedOutcome.observedOutcomeImpact >= 0 ? "+" : ""}${observedOutcome.observedOutcomeImpact} (projected ${projectedOutcomeImpact >= 0 ? "+" : ""}${projectedOutcomeImpact})`;
+    } else if (observedOutcome.observedOutcomeImpact > 0) {
+      narrative += ` · Outcome index +${observedOutcome.observedOutcomeImpact}`;
+    }
+  }
+
+  if (
+    estimatedRevenue != null &&
+    estimatedRevenue > 0 &&
+    projectedRevenueGain != null &&
+    projectedRevenueGain > 0 &&
+    !preliminary
+  ) {
+    const revenueError = estimatedRevenue - projectedRevenueGain;
+    if (Math.abs(revenueError) >= Math.max(100, projectedRevenueGain * 0.5)) {
+      narrative += ` · Revenue ~${formatCurrency(estimatedRevenue, avgCustomerValueCurrency)} (projected ${formatCurrency(projectedRevenueGain, avgCustomerValueCurrency)})`;
     }
   }
 
@@ -178,34 +220,29 @@ export async function computeAttributionForTask(
     observedDriverImpact: observed.observedDriverImpact,
     driverScoreBefore: observed.driverScoreBefore,
     driverScoreAfter: observed.driverScoreAfter,
+    observedOutcomeImpact: observedOutcome.observedOutcomeImpact,
+    outcomeIndexBefore: observedOutcome.outcomeIndexBefore,
+    outcomeIndexAfter: observedOutcome.outcomeIndexAfter,
   });
 }
 
-function resolveProjectedDriverImpact(task: CompletedTaskRecord["task"]): number | null {
-  const payload = task.payload ?? {};
-  const fromPayload = payload.projectedDriverImpact ?? payload.healthScoreImpact;
-  if (typeof fromPayload === "number" && Number.isFinite(fromPayload)) {
-    return Math.round(fromPayload);
-  }
-  return null;
-}
+async function prepareRecordWithProjectionSnapshot(
+  record: CompletedTaskRecord
+): Promise<CompletedTaskRecord> {
+  const audit = await loadAuditByIdForBusiness(record.businessId, record.task.auditId);
+  if (!audit) return record;
 
-function resolveProjectedOutcomeImpact(task: CompletedTaskRecord["task"]): number | null {
-  const payload = task.payload ?? {};
-  const fromPayload = payload.projectedOutcomeImpact ?? payload.outcomeScoreImpact;
-  if (typeof fromPayload === "number" && Number.isFinite(fromPayload)) {
-    return Math.max(0, Math.round(fromPayload));
-  }
-  return null;
-}
+  const globalCalibration = await loadGlobalScoreCalibrationAdmin().catch(() => ({}));
 
-function resolveProjectedRevenueGain(task: CompletedTaskRecord["task"]): number | null {
-  const payload = task.payload ?? {};
-  const fromPayload = payload.projectedRevenueGain ?? payload.revenueImpact;
-  if (typeof fromPayload === "number" && Number.isFinite(fromPayload) && fromPayload > 0) {
-    return Math.round(fromPayload);
-  }
-  return null;
+  const snapshot = snapshotTaskProjections(audit, record.task, {
+    avgCustomerValue: record.avgCustomerValue,
+    globalCalibration,
+  });
+
+  return {
+    ...record,
+    task: enrichTaskWithProjectionSnapshot(record.task, snapshot),
+  };
 }
 
 export async function recomputeAttributionsForBusiness(
@@ -238,7 +275,14 @@ export async function computeAttributionAfterTaskCompletion(
   if (!context || context.task.status !== "completed") return;
 
   try {
-    await computeAttributionForTask(context);
+    const enriched = await prepareRecordWithProjectionSnapshot(context);
+    await computeAttributionForTask(enriched);
+    void refreshGlobalScoreCalibration().catch((error) => {
+      console.warn(
+        `[attribution] calibration refresh failed after ${taskId}:`,
+        error instanceof Error ? error.message : error
+      );
+    });
   } catch (error) {
     console.warn(
       `[attribution] post-completion compute failed for ${taskId}:`,

@@ -1,4 +1,5 @@
 import type { FullAuditPayload, Phase1AuditPayload } from "@/audit/types";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { auditBelongsToBusiness } from "./audit-validation";
 
@@ -160,6 +161,24 @@ export async function loadAuditByIdFromSupabase(
   );
 
   return belongs ? audit : null;
+}
+
+/** Load audit payload by business + audit id (admin, for attribution closed-loop). */
+export async function loadAuditByIdForBusiness(
+  businessId: string,
+  auditId: string
+): Promise<FullAuditPayload | null> {
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from("audit_runs")
+    .select("payload")
+    .eq("business_id", businessId)
+    .eq("audit_id", auditId)
+    .maybeSingle();
+
+  if (error || !data?.payload) return null;
+  return data.payload as FullAuditPayload;
 }
 
 export async function listAuditsFromSupabase(

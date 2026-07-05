@@ -75,6 +75,8 @@ export interface ActionAttribution {
   projectedOutcomeImpact?: number | null;
   projectedRevenueGain?: number | null;
   observedOutcomeImpact?: number | null;
+  outcomeIndexBefore?: number | null;
+  outcomeIndexAfter?: number | null;
 }
 
 export interface AttributionSummary {
