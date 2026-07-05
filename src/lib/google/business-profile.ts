@@ -4,47 +4,27 @@ import {
   type GbpPerformanceData,
 } from "./gbp-performance";
 import { fetchGbpMediaSummary, type GbpMediaSummary } from "./gbp-media";
+import { listGbpLocalPosts, type GbpLocalPost } from "./gbp-local-posts";
 import { listGbpReviews, type GbpReview } from "./gbp-reviews";
 import { authHeadersForConnection } from "./token-store";
 
 export type { GbpReview } from "./gbp-reviews";
+export type { GbpLocalPost } from "./gbp-local-posts";
 
 export type GbpPerformanceMetrics = GbpPerformanceData;
 export interface GbpEnrichment {
   performance: GbpPerformanceMetrics;
   posts: GbpLocalPost[];
+  postsApiOk: boolean;
   questions: GbpQuestion[];
   reviews: GbpReview[];
   media: GbpMediaSummary;
-}
-
-export interface GbpLocalPost {
-  createTime: string;
-  summary: string;
 }
 
 export interface GbpQuestion {
   text: string;
   answerCount: number;
   topAnswer?: string;
-}
-
-async function fetchLocalPosts(connection: GbpConnection): Promise<GbpLocalPost[]> {
-  const url = `https://mybusiness.googleapis.com/v4/accounts/${connection.accountId}/locations/${connection.locationId}/localPosts`;
-  const res = await fetch(url, { headers: authHeadersForConnection(connection) });
-  const data = (await res.json()) as {
-    localPosts?: Array<{ createTime?: string; summary?: string }>;
-    error?: { message?: string };
-  };
-
-  if (!res.ok) {
-    throw new Error(data.error?.message ?? `Local posts API failed (${res.status})`);
-  }
-
-  return (data.localPosts ?? []).map((post) => ({
-    createTime: post.createTime ?? new Date().toISOString(),
-    summary: post.summary ?? "",
-  }));
 }
 
 async function fetchQuestions(connection: GbpConnection): Promise<GbpQuestion[]> {
@@ -75,9 +55,17 @@ export async function fetchGbpEnrichment(
   connection: GbpConnection,
   options?: { userEmail?: string }
 ): Promise<GbpEnrichment> {
+  let postsApiOk = false;
+  const postsPromise = listGbpLocalPosts(connection)
+    .then((items) => {
+      postsApiOk = true;
+      return items;
+    })
+    .catch(() => [] as GbpLocalPost[]);
+
   const [performance, posts, questions, reviews, media] = await Promise.all([
     fetchGbpPerformanceData(connection, 30, { platformEmail: options?.userEmail }),
-    fetchLocalPosts(connection).catch(() => []),
+    postsPromise,
     fetchQuestions(connection).catch(() => []),
     listGbpReviews(connection).catch(() => []),
     fetchGbpMediaSummary(connection).catch(() => ({
@@ -90,5 +78,5 @@ export async function fetchGbpEnrichment(
     })),
   ]);
 
-  return { performance, posts, questions, reviews, media };
+  return { performance, posts, postsApiOk, questions, reviews, media };
 }

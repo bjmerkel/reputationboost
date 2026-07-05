@@ -143,7 +143,32 @@ export function detectGaps(
   }
 
   const daysSincePost = daysSince(audit.gbp.content.lastPostDate);
-  if (daysSincePost > 14) {
+  const localPostCoverage = audit.gbp.localPosts;
+  if (localPostCoverage && !localPostCoverage.apiAvailable) {
+    gaps.push(
+      gap(
+        "local-posts-api-unavailable",
+        "P2",
+        "technical",
+        "Local Posts API unavailable",
+        "Google Posts can't be loaded. Reconnect with a manager account.",
+        4,
+        2
+      )
+    );
+  } else if (localPostCoverage?.rejectedPostCount) {
+    gaps.push(
+      gap(
+        "rejected-local-posts",
+        "P2",
+        "content",
+        "Rejected Google Posts",
+        `${localPostCoverage.rejectedPostCount} post${localPostCoverage.rejectedPostCount === 1 ? "" : "s"} rejected by Google — review content policies and republish.`,
+        5,
+        2
+      )
+    );
+  } else if (daysSincePost > 14) {
     gaps.push(
       gap(
         "stale-posts",
@@ -153,6 +178,25 @@ export function detectGaps(
         `Last post was ${daysSincePost} days ago. Active posting signals relevance to Google Maps.`,
         6,
         3
+      )
+    );
+  }
+
+  if (
+    localPostCoverage?.apiAvailable &&
+    localPostCoverage.livePostCount > 0 &&
+    !localPostCoverage.hasCallToActionPosts &&
+    !localPostCoverage.hasOfferPost
+  ) {
+    gaps.push(
+      gap(
+        "posts-without-cta",
+        "P3",
+        "content",
+        "Posts missing call-to-action",
+        "Your Google Posts don't include Book, Learn more, or Call buttons — add CTAs to drive clicks.",
+        3,
+        2
       )
     );
   }

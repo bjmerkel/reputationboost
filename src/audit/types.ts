@@ -197,6 +197,11 @@ export interface GbpServiceItem {
 export interface GbpPostItem {
   createTime: string;
   summary: string;
+  name?: string;
+  topicType?: string;
+  state?: string;
+  searchUrl?: string;
+  actionType?: string;
 }
 
 export interface GbpQaItem {
@@ -259,6 +264,29 @@ export interface GbpPlaceActionLinkSummary {
   providerType?: string;
 }
 
+export interface GbpLocalPostCoverage {
+  apiAvailable: boolean;
+  partialApi: boolean;
+  coverageScore: number;
+  postCount: number;
+  livePostCount: number;
+  rejectedPostCount: number;
+  processingPostCount: number;
+  postsLast30Days: number;
+  daysSinceLastPost: number | null;
+  topicTypesUsed: string[];
+  hasOfferPost: boolean;
+  hasEventPost: boolean;
+  hasCallToActionPosts: boolean;
+  hasMediaPosts: boolean;
+  totalViews: number | null;
+  endpoints: {
+    list: string;
+    insights: string;
+  };
+  recommendations: string[];
+}
+
 export interface GbpSnapshot {
   collectedAt: string;
   identity: GbpIdentity;
@@ -275,6 +303,7 @@ export interface GbpSnapshot {
   notifications?: GbpNotificationCoverage;
   placeActions?: GbpPlaceActionCoverage;
   placeActionLinks?: GbpPlaceActionLinkSummary[];
+  localPosts?: GbpLocalPostCoverage;
   napDrift?: Array<{
     field: string;
     label: string;

@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import type {
   FullAuditPayload,
+  GbpLocalPostCoverage,
   GbpMediaCoverage,
   GbpMediaPreview,
   GbpPerformanceCoverage,
   GbpPlaceActionCoverage,
   GbpPlaceActionLinkSummary,
+  GbpPostItem,
   ReviewRecord,
 } from "@/audit/types";
 import ExternalImage from "@/components/ExternalImage";
@@ -16,6 +18,7 @@ import TrendsPanel from "@/components/attribution/TrendsPanel";
 import { formatCustomerAttribution } from "@/lib/google/gbp-media-display";
 import { buildMediaHealthReport } from "@/lib/google/gbp-media-health";
 import { buildPerformanceHealthReport } from "@/lib/google/gbp-performance-health";
+import { buildLocalPostsHealthReport } from "@/lib/google/gbp-local-posts-health";
 import { buildPlaceActionsHealthReport } from "@/lib/google/gbp-place-actions-health";
 
 type DataTab = "profile" | "rankings" | "competitors" | "reviews" | "citations" | "trends";
@@ -255,6 +258,13 @@ export default function AuditDataPanel({
             <PlaceActionsHealthPanel
               coverage={audit.gbp.placeActions}
               links={audit.gbp.placeActionLinks ?? []}
+            />
+          )}
+
+          {audit.gbp.localPosts && (
+            <LocalPostsHealthPanel
+              coverage={audit.gbp.localPosts}
+              recentPosts={audit.gbp.recentPosts ?? []}
             />
           )}
 
@@ -637,6 +647,90 @@ function formatViolation(code: string): string {
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function LocalPostsHealthPanel({
+  coverage,
+  recentPosts,
+}: {
+  coverage: GbpLocalPostCoverage;
+  recentPosts: GbpPostItem[];
+}) {
+  const report = buildLocalPostsHealthReport(coverage);
+
+  return (
+    <div className="md:col-span-2 rounded-xl border border-white/8 bg-white/[0.02] p-4">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-slate-300">Google Posts health</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Posting frequency, topic mix, and engagement signals
+          </p>
+        </div>
+        <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white">
+          {report.overallScore}%
+        </span>
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-2">
+        {[
+          { label: "Post list", status: coverage.endpoints.list },
+          { label: "Insights", status: coverage.endpoints.insights },
+        ].map((endpoint) => (
+          <div
+            key={endpoint.label}
+            className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
+              endpoint.status === "ok"
+                ? "bg-emerald-500/10 text-emerald-300"
+                : "bg-amber-500/10 text-amber-300"
+            }`}
+          >
+            <span>{endpoint.label}</span>
+            <span className="uppercase">{endpoint.status}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { label: "Live posts", value: report.livePostCount },
+          { label: "Last 30d", value: report.postsLast30Days },
+          {
+            label: "Last post",
+            value: report.daysSinceLastPost !== null ? `${report.daysSinceLastPost}d` : "—",
+          },
+          { label: "Topics", value: report.topicSummary },
+        ].map((metric) => (
+          <div key={metric.label} className="rounded-lg bg-white/5 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-slate-500">{metric.label}</p>
+            <p className="text-sm font-semibold text-slate-200">{metric.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {recentPosts.length > 0 && (
+        <ul className="mb-4 space-y-2 text-xs text-slate-300">
+          {recentPosts.slice(0, 4).map((post) => (
+            <li key={post.name ?? post.createTime} className="rounded-lg bg-white/5 px-3 py-2">
+              <div className="flex items-center justify-between gap-2 text-slate-500">
+                <span>{post.topicType?.toLowerCase() ?? "post"}</span>
+                <span>{post.state?.toLowerCase() ?? "live"}</span>
+              </div>
+              <p className="mt-1 line-clamp-2 text-slate-300">{post.summary}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {report.recommendations.length > 0 && (
+        <ul className="space-y-1.5 text-xs text-amber-300/90">
+          {report.recommendations.map((item) => (
+            <li key={item}>• {item}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 function PlaceActionsHealthPanel({

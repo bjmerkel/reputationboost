@@ -100,6 +100,13 @@ export function mapActionToExecutionType(actionId: string): ExecutionType | null
   ) {
     return "gbp_place_action";
   }
+  if (
+    actionId === "local-posts-api-unavailable" ||
+    actionId === "rejected-local-posts" ||
+    actionId === "posts-without-cta"
+  ) {
+    return "google_post";
+  }
   if (actionId === "miscategorized-media" || actionId === "stale-media") {
     return "gbp_media_recategorize";
   }

@@ -32,6 +32,7 @@ import {
   type GbpMediaCategory,
   type GbpMediaFormat,
 } from "./gbp-media";
+import { createGbpLocalPost } from "./gbp-local-posts";
 import {
   applyReviewReply as postReviewReply,
   deleteReviewReply,
@@ -571,36 +572,16 @@ export async function applyGooglePost(
   connection: GbpConnection,
   summary: string
 ): Promise<GbpApplyResult> {
-  const trimmed = summary.trim();
-  if (!trimmed) throw new Error("Post content cannot be empty.");
-
-  const url = `https://mybusiness.googleapis.com/v4/accounts/${connection.accountId}/locations/${connection.locationId}/localPosts`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      ...authHeadersForConnection(connection),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      languageCode: "en",
-      summary: trimmed,
-      topicType: "STANDARD",
-      callToAction: {
-        actionType: "CALL",
-      },
-    }),
+  const post = await createGbpLocalPost(connection, {
+    summary,
+    topicType: "STANDARD",
+    callToAction: { actionType: "CALL" },
   });
-
-  const data = (await res.json()) as { name?: string; error?: { message?: string } };
-  if (!res.ok) {
-    throw new Error(data.error?.message ?? `Failed to create Google Post (${res.status})`);
-  }
 
   return {
     success: true,
     message: "Google Post published to your Business Profile.",
-    applied: { postId: data.name },
+    applied: { postId: post.name },
   };
 }
 

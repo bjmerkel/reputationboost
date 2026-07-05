@@ -14,6 +14,12 @@ import {
 } from "@/lib/google/gbp-place-actions";
 import { analyzeGbpPlaceActionCoverage } from "@/lib/google/gbp-place-actions-coverage";
 import {
+  listGbpLocalPosts,
+  localPostActionLabel,
+  reportGbpLocalPostInsights,
+} from "@/lib/google/gbp-local-posts";
+import { analyzeGbpLocalPostCoverage } from "@/lib/google/gbp-local-posts-coverage";
+import {
   enrichGbpLocationProfile,
   fetchAllGoogleSuggestions,
   getGbpEnabledAttributeLabels,
@@ -142,8 +148,20 @@ async function collectGbpFromApi(
   const hasDescription = description.length > 0;
   const posts = enrichment.posts;
   const sortedPosts = [...posts].sort(
-    (a, b) => new Date(b.createTime).getTime() - new Date(a.createTime).getTime()
+    (a, b) => new Date(b.createTime ?? 0).getTime() - new Date(a.createTime ?? 0).getTime()
   );
+  const postInsights =
+    sortedPosts.length > 0
+      ? await reportGbpLocalPostInsights(
+          connection,
+          sortedPosts.slice(0, 5).map((post) => post.name).filter(Boolean)
+        ).catch(() => [])
+      : [];
+  const localPosts = analyzeGbpLocalPostCoverage({
+    posts,
+    insights: postInsights,
+    probe: { endpoints: { list: enrichment.postsApiOk ? "ok" : "failed" } },
+  });
   const questions = enrichment.questions;
   const gbpReviews = enrichment.reviews;
   const respondedReviews = gbpReviews.filter((r) => isReviewResponded(r));
@@ -300,8 +318,15 @@ async function collectGbpFromApi(
       source: liveProfile ? "oauth" : "places",
     },
     recentPosts: sortedPosts.slice(0, 5).map((p) => ({
-      createTime: p.createTime,
+      createTime: p.createTime ?? "",
       summary: p.summary,
+      name: p.name,
+      topicType: p.topicType,
+      state: p.state,
+      searchUrl: p.searchUrl,
+      actionType: p.callToAction?.actionType
+        ? localPostActionLabel(p.callToAction.actionType)
+        : undefined,
     })),
     qaItems: questions.slice(0, 10).map((q) => ({
       question: q.text,
@@ -321,6 +346,7 @@ async function collectGbpFromApi(
       isEditable: link.isEditable,
       providerType: link.providerType,
     })),
+    localPosts,
     napDrift,
   };
 }
