@@ -94,6 +94,12 @@ export function mapActionToExecutionType(actionId: string): ExecutionType | null
   ) {
     return "gbp_notifications";
   }
+  if (
+    actionId === "missing-place-action-links" ||
+    actionId === "incomplete-place-action-links"
+  ) {
+    return "gbp_place_action";
+  }
   if (actionId === "miscategorized-media" || actionId === "stale-media") {
     return "gbp_media_recategorize";
   }

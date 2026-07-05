@@ -228,6 +228,37 @@ export interface GbpNotificationCoverage {
   hasVoiceOfMerchantAlerts: boolean;
 }
 
+export interface GbpPlaceActionCoverage {
+  apiAvailable: boolean;
+  partialApi: boolean;
+  coverageScore: number;
+  linkCount: number;
+  merchantLinkCount: number;
+  configuredTypes: string[];
+  availableTypes: string[];
+  missingRecommendedTypes: string[];
+  hasAppointmentLink: boolean;
+  hasOnlineAppointmentLink: boolean;
+  hasDiningReservationLink: boolean;
+  hasFoodOrderingLink: boolean;
+  hasShopOnlineLink: boolean;
+  endpoints: {
+    links: string;
+    typeMetadata: string;
+  };
+  recommendations: string[];
+}
+
+export interface GbpPlaceActionLinkSummary {
+  name: string;
+  uri: string;
+  placeActionType: string;
+  displayType: string;
+  isPreferred?: boolean;
+  isEditable?: boolean;
+  providerType?: string;
+}
+
 export interface GbpSnapshot {
   collectedAt: string;
   identity: GbpIdentity;
@@ -242,6 +273,8 @@ export interface GbpSnapshot {
   googleSuggestions?: GbpGoogleSuggestion[];
   hasGoogleUpdated?: boolean;
   notifications?: GbpNotificationCoverage;
+  placeActions?: GbpPlaceActionCoverage;
+  placeActionLinks?: GbpPlaceActionLinkSummary[];
   napDrift?: Array<{
     field: string;
     label: string;
@@ -820,6 +853,7 @@ export type ExecutionType =
   | "gbp_media_recategorize"
   | "gbp_media_delete"
   | "gbp_notifications"
+  | "gbp_place_action"
   | "gbp_attributes"
   | "gbp_website"
   | "gbp_phone"

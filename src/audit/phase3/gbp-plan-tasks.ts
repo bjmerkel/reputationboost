@@ -10,6 +10,9 @@ import { buildTemplatePhotoJobs, photoJobDraftContent, type GbpPhotoJob } from "
 import { buildTemplateVideoJobs, videoJobDraftContent } from "@/lib/llm/gbp-videos";
 import { buildCategoryBatchUploadJobs } from "@/lib/google/gbp-media-batch";
 import { getGbpPubsubTopic, notificationTypeLabel, type GbpNotificationType } from "@/lib/google/gbp-notifications";
+import {
+  placeActionTypeLabel,
+} from "@/lib/google/gbp-place-actions";
 import type { GbpMediaCategory } from "@/lib/google/gbp-media";
 import { buildMediaMaintenanceActions } from "@/lib/google/gbp-media-maintenance";
 import { mediaCategoryLabel } from "@/lib/google/gbp-media-coverage";
@@ -601,6 +604,9 @@ export const SUPPLEMENTARY_GAP_IDS = new Set([
   "partial-performance-api",
   "no-search-keyword-data",
   "low-profile-conversions",
+  "place-actions-api-unavailable",
+  "missing-place-action-links",
+  "incomplete-place-action-links",
   "google-pending-edits",
   "google-suggested-edits",
   "nap-drift-title",
@@ -695,6 +701,42 @@ export function tasksFromVideoGaps(audit: FullAuditPayload): ExecutionTask[] {
       durationHint: job.durationHint,
     })
   );
+}
+
+export function tasksFromPlaceActionGaps(audit: FullAuditPayload): ExecutionTask[] {
+  const coverage = audit.gbp.placeActions;
+  if (!coverage?.apiAvailable || coverage.missingRecommendedTypes.length === 0) return [];
+
+  const website = audit.gbp.identity.website?.trim();
+  const step: GbpPlanStep = {
+    stepNumber: 0,
+    title: "Place action links",
+    instruction: "Add booking, ordering, or shop links on your Google Business Profile.",
+    gbpAction: "manual",
+  };
+
+  return coverage.missingRecommendedTypes.map((type) => {
+    const label = placeActionTypeLabel(type);
+    const suggestedUri = website || "https://";
+    return buildGbpTask(
+      audit,
+      step,
+      "gbp_place_action",
+      `Add ${label} link`,
+      [
+        `Add a ${label.toLowerCase()} link on your Google Business Profile.`,
+        "",
+        "Paste the destination URL on the first line, then approve to publish.",
+        "",
+        suggestedUri,
+      ].join("\n"),
+      {
+        placeActionType: type,
+        suggestedUri,
+        syncPlaceAction: true,
+      }
+    );
+  });
 }
 
 export function tasksFromNotificationGaps(audit: FullAuditPayload): ExecutionTask[] {

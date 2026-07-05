@@ -8,6 +8,12 @@ import { analyzeGbpMediaCoverage } from "@/lib/google/gbp-media-coverage";
 import { getGbpNotificationSetting } from "@/lib/google/gbp-notifications";
 import { analyzeGbpNotificationCoverage } from "@/lib/google/gbp-notifications-coverage";
 import {
+  listGbpPlaceActionLinks,
+  listGbpPlaceActionTypeMetadata,
+  placeActionTypeLabel,
+} from "@/lib/google/gbp-place-actions";
+import { analyzeGbpPlaceActionCoverage } from "@/lib/google/gbp-place-actions-coverage";
+import {
   enrichGbpLocationProfile,
   fetchAllGoogleSuggestions,
   getGbpEnabledAttributeLabels,
@@ -107,7 +113,8 @@ async function collectGbpFromApi(
 ): Promise<GbpSnapshot> {
   const now = new Date().toISOString();
 
-  const [enrichment, liveProfileResult, place, notificationSetting] = await Promise.all([
+  const [enrichment, liveProfileResult, place, notificationSetting, placeActionLinks, placeActionTypes] =
+    await Promise.all([
     fetchGbpEnrichment(connection, { userEmail: options?.userEmail }),
     getGbpLocationProfile(connection)
       .then((profile) => enrichGbpLocationProfile(connection, profile))
@@ -116,6 +123,8 @@ async function collectGbpFromApi(
       ? fetchPlaceDetails(connection.placeId ?? client.gbpPlaceId!).catch(() => null)
       : Promise.resolve(null),
     getGbpNotificationSetting(connection).catch(() => null),
+    listGbpPlaceActionLinks(connection).catch(() => []),
+    listGbpPlaceActionTypeMetadata(connection).catch(() => []),
   ]);
   const notifications = analyzeGbpNotificationCoverage(notificationSetting);
 
@@ -146,6 +155,11 @@ async function collectGbpFromApi(
     liveProfile?.primaryCategory?.displayName ||
     client.industry ||
     primaryCategoryFromTypes(place?.types ?? []);
+  const placeActions = analyzeGbpPlaceActionCoverage({
+    links: placeActionLinks,
+    availableTypes: placeActionTypes,
+    primaryCategory,
+  });
   const secondaryCategories = liveProfile?.additionalCategories.length
     ? liveProfile.additionalCategories.map((c) => c.displayName)
     : secondaryCategoriesFromTypes(place?.types ?? []);
@@ -297,6 +311,16 @@ async function collectGbpFromApi(
     googleSuggestions,
     hasGoogleUpdated: liveProfile?.hasGoogleUpdated ?? false,
     notifications,
+    placeActions,
+    placeActionLinks: placeActionLinks.map((link) => ({
+      name: link.name,
+      uri: link.uri,
+      placeActionType: link.placeActionType,
+      displayType: placeActionTypeLabel(link.placeActionType),
+      isPreferred: link.isPreferred,
+      isEditable: link.isEditable,
+      providerType: link.providerType,
+    })),
     napDrift,
   };
 }

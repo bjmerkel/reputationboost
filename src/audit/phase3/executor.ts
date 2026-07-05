@@ -4,6 +4,7 @@ import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
 import type { NapDriftFieldName } from "@/lib/google/nap-drift";
 import type { GbpMediaCategory, GbpMediaFormat } from "@/lib/google/gbp-media";
 import { syncRecommendedGbpNotifications } from "@/lib/google/gbp-notifications";
+import { createGbpPlaceActionLink, type GbpPlaceActionType } from "@/lib/google/gbp-place-actions";
 import { generateGbpPhotoImage } from "@/lib/llm/gbp-photos";
 
 function dataUrlToBytes(dataUrl: string): { bytes: ArrayBuffer; contentType: string } {
@@ -50,6 +51,7 @@ export async function executeTask(
     gbp_media_recategorize: "Photo recategorized on Google Business Profile.",
     gbp_media_delete: "Photo removed from Google Business Profile.",
     gbp_notifications: "Real-time GBP Pub/Sub alerts enabled.",
+    gbp_place_action: "Place action link published on Google Business Profile.",
     gbp_attributes: "Updated business attributes on Google.",
     gbp_website: "Updated website URL on Google Business Profile.",
     gbp_phone: "Updated phone number on Google Business Profile.",
@@ -168,6 +170,33 @@ async function executeTaskLive(
         status: "completed",
         completedAt: now,
         result: `Enabled ${setting.notificationTypes.length} real-time GBP alert types.`,
+      };
+    }
+    case "gbp_place_action": {
+      const uri =
+        task.draftContent
+          .split("\n")
+          .map((line) => line.trim())
+          .find((line) => line.startsWith("https://")) ??
+        String(task.payload.suggestedUri ?? "");
+      const placeActionType = String(
+        task.payload.placeActionType ?? "APPOINTMENT"
+      ) as GbpPlaceActionType;
+
+      if (!uri.startsWith("https://")) {
+        throw new Error("A valid https:// URL is required on the first line of the draft.");
+      }
+
+      const link = await createGbpPlaceActionLink(connection, {
+        uri,
+        placeActionType,
+        isPreferred: true,
+      });
+      return {
+        ...task,
+        status: "completed",
+        completedAt: now,
+        result: `Published ${link.placeActionType.replace(/_/g, " ").toLowerCase()} link.`,
       };
     }
     case "gbp_attributes": {

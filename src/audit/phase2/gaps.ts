@@ -529,6 +529,50 @@ export function detectGaps(
     );
   }
 
+  const placeActions = audit.gbp.placeActions;
+  if (placeActions && !placeActions.apiAvailable) {
+    gaps.push(
+      gap(
+        "place-actions-api-unavailable",
+        "P2",
+        "technical",
+        "Place Actions API unavailable",
+        "Booking and ordering links can't be loaded. Reconnect with a manager account.",
+        4,
+        2
+      )
+    );
+  } else if (placeActions?.apiAvailable && placeActions.configuredTypes.length === 0) {
+    gaps.push(
+      gap(
+        "missing-place-action-links",
+        "P2",
+        "gbp_profile",
+        "No place action links configured",
+        "Add booking, ordering, or shop links so customers can act directly from Google Maps.",
+        5,
+        2
+      )
+    );
+  } else if (
+    placeActions?.apiAvailable &&
+    placeActions.missingRecommendedTypes.length > 0
+  ) {
+    gaps.push(
+      gap(
+        "incomplete-place-action-links",
+        "P2",
+        "gbp_profile",
+        "Incomplete place action links",
+        `Missing: ${placeActions.missingRecommendedTypes
+          .map((t) => t.replace(/_/g, " ").toLowerCase())
+          .join(", ")}.`,
+        4,
+        2
+      )
+    );
+  }
+
   if (!audit.offGoogle.website.hasLocalBusinessSchema) {
     gaps.push(
       gap(
