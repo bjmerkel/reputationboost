@@ -17,6 +17,7 @@ import type { AttributionCalibration } from "../phase2/attribution-calibration";
 import { projectHealthScoresFromStepNumbers } from "../phase2/counterfactual";
 import { buildStepContext } from "./step-context";
 import { findStepOutcome } from "./step-outcomes";
+import { GOOGLE_UPDATES_STEP_NUMBER } from "@/lib/google/gbp-update-helpers";
 
 function groupTasksByStep(tasks: ExecutionTask[]): Map<number, ExecutionTask[]> {
   const grouped = new Map<number, ExecutionTask[]>();
@@ -141,6 +142,28 @@ export function buildPlan(
       avgCustomerValue
     )
   );
+
+  const googleUpdateTasks = tasksByStep.get(GOOGLE_UPDATES_STEP_NUMBER) ?? [];
+  if (googleUpdateTasks.length > 0) {
+    planSteps.unshift({
+      stepNumber: GOOGLE_UPDATES_STEP_NUMBER,
+      phaseId: "foundation",
+      title: "Resolve Google profile updates",
+      instruction:
+        "Google has suggested changes or is still processing your recent edits. Accept Google's version or keep yours for each field.",
+      context: {
+        targetKeywords: gbpPlan.targetKeywords,
+        expectedEffect:
+          "Clearing Google conflicts keeps your public listing aligned with what you intend customers to see.",
+      },
+      tasks: googleUpdateTasks,
+      status: deriveStepStatus(googleUpdateTasks),
+      outcome:
+        deriveStepStatus(googleUpdateTasks) === "completed"
+          ? findStepOutcome(GOOGLE_UPDATES_STEP_NUMBER, googleUpdateTasks, attributions)
+          : undefined,
+    });
+  }
 
   const currentHealthScore = Number.isFinite(audit.strategy.scores?.overall)
     ? audit.strategy.scores.overall

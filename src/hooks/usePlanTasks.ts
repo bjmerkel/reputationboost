@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { ExecutionTask, Plan } from "@/audit/types";
+import type { ExecutionTask, FullAuditPayload, Plan } from "@/audit/types";
 import {
   approveAllRoutineTasks,
   approveAndPublishTask,
@@ -165,6 +165,19 @@ export function usePlanTasks({
     return data.tasks as ExecutionTask[];
   }, [auditId, clientId, refresh]);
 
+  const syncGoogleUpdates = useCallback(async () => {
+    setError(null);
+    const res = await fetch("/api/google/gbp/google-updated", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId, auditId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Failed to refresh Google updates");
+    await refresh();
+    return data.audit as FullAuditPayload;
+  }, [auditId, clientId, refresh]);
+
   const approveAllRoutine = useCallback(async () => {
     setError(null);
     try {
@@ -194,6 +207,7 @@ export function usePlanTasks({
     uploadPhotoBatch,
     savePhotoPreview,
     ensurePhotoTasks,
+    syncGoogleUpdates,
     approveAllRoutine,
   };
 }
@@ -209,6 +223,7 @@ export type PlanTaskActions = Pick<
   | "uploadPhotoBatch"
   | "savePhotoPreview"
   | "ensurePhotoTasks"
+  | "syncGoogleUpdates"
   | "approveAllRoutine"
   | "loadingTaskId"
   | "error"

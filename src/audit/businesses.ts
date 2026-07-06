@@ -30,6 +30,7 @@ export interface BusinessRecord {
   webhook_auto_send: boolean;
   webhook_delay_hours: number;
   webhook_trigger_events: string[];
+  gbp_google_update_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -88,6 +89,7 @@ export function businessRecordToClientConfig(row: BusinessRecord): ClientConfig 
     avgCustomerValueCurrency: row.avg_customer_value_currency ?? "USD",
     heatmapProfile: (row.heatmap_profile as GridProfileKey) ?? "standard",
     privateFeedbackUrl: row.private_feedback_url ?? undefined,
+    gbpGoogleUpdateAt: row.gbp_google_update_at ?? null,
   };
 }
 

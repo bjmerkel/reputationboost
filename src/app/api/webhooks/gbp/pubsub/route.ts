@@ -8,6 +8,7 @@ import {
   parseReviewIdFromReviewName,
 } from "@/lib/review-requests/attribution";
 import { recordGbpGoogleUpdateEvent } from "@/lib/google/gbp-update-events";
+import { syncGoogleUpdatesForBusiness } from "@/lib/google/gbp-update-sync";
 import { isAdminSupabaseConfigured } from "@/lib/supabase/admin";
 
 interface PubSubPushEnvelope {
@@ -80,6 +81,7 @@ export async function POST(request: Request) {
   let reviewAuthor: string | undefined;
   let reviewRating: number | undefined;
   let googleUpdateBusinessId: string | null = null;
+  let googleUpdateSynced = false;
 
   if (
     isGoogleUpdateNotification(payload?.notificationType) &&
@@ -92,6 +94,12 @@ export async function POST(request: Request) {
         eventId,
       });
       googleUpdateBusinessId = recorded?.businessId ?? null;
+
+      const businessRecord = await findBusinessRecordByGbpLocation(payload.locationName);
+      if (businessRecord) {
+        const sync = await syncGoogleUpdatesForBusiness(businessRecord);
+        googleUpdateSynced = Boolean(sync.audit);
+      }
     } catch (error) {
       console.warn("[gbp-pubsub] google update event failed:", error);
     }
@@ -149,6 +157,7 @@ export async function POST(request: Request) {
     reviewAuthor: reviewAuthor ?? null,
     reviewRating: reviewRating ?? null,
     googleUpdateBusinessId,
+    googleUpdateSynced,
   });
 }
 

@@ -164,6 +164,39 @@ export async function appendExecutionTasks(
   if (error) throw new Error(`Failed to save execution tasks: ${error.message}`);
 }
 
+export async function listExecutionTasksForBusinessAdmin(
+  userId: string,
+  businessId: string,
+  auditId: string
+): Promise<ExecutionTask[]> {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("execution_tasks")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("business_id", businessId)
+    .eq("audit_id", auditId)
+    .order("created_at", { ascending: true });
+
+  if (error || !data) return [];
+  return data.map((row) => rowToTask(row));
+}
+
+export async function appendExecutionTasksAdmin(
+  userId: string,
+  businessId: string,
+  tasks: ExecutionTask[]
+): Promise<void> {
+  if (tasks.length === 0) return;
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+  const rows = tasks.map((t) => taskToRow(t, userId, businessId));
+  const { error } = await supabase.from("execution_tasks").upsert(rows, { onConflict: "id" });
+  if (error) throw new Error(`Failed to save execution tasks: ${error.message}`);
+}
+
 export async function getExecutionTask(
   userId: string,
   taskId: string

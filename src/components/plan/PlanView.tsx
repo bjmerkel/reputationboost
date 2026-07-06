@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
+import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
 import { usePlanTasks } from "@/hooks/usePlanTasks";
+import GoogleUpdatesPanel from "./GoogleUpdatesPanel";
 import PlanPhaseSection from "./PlanPhaseSection";
 import PlanProgressHeader from "./PlanProgressHeader";
 
@@ -12,23 +14,29 @@ export default function PlanView({
   audit,
   clientId,
   gbpConnected = true,
+  gbpGoogleUpdateAt,
   attributionByTaskId = {},
   variant = "light",
   onReviewPending,
+  onAuditUpdated,
   avgCustomerValue,
   currency = "USD",
 }: {
   audit: FullAuditPayload;
   clientId: string;
   gbpConnected?: boolean;
+  gbpGoogleUpdateAt?: string | null;
   attributionByTaskId?: Record<string, ActionAttribution>;
   variant?: "light" | "dark";
   onReviewPending?: () => void;
+  onAuditUpdated?: (audit: FullAuditPayload) => void;
   avgCustomerValue?: number | null;
   currency?: string;
 }) {
   const isLight = variant === "light";
+  const [syncingGoogleUpdates, setSyncingGoogleUpdates] = useState(false);
   const {
+    tasks,
     plan,
     loading,
     error,
@@ -41,6 +49,7 @@ export default function PlanView({
     uploadPhotoBatch,
     savePhotoPreview,
     ensurePhotoTasks,
+    syncGoogleUpdates,
     approveAllRoutine,
     loadingTaskId,
   } = usePlanTasks({
@@ -60,6 +69,7 @@ export default function PlanView({
       uploadPhotoBatch,
       savePhotoPreview,
       ensurePhotoTasks,
+      syncGoogleUpdates,
       approveAllRoutine,
       loadingTaskId,
       error,
@@ -74,11 +84,22 @@ export default function PlanView({
       uploadPhotoBatch,
       savePhotoPreview,
       ensurePhotoTasks,
+      syncGoogleUpdates,
       approveAllRoutine,
       loadingTaskId,
       error,
     ]
   );
+
+  const refreshGoogleUpdates = useCallback(async () => {
+    setSyncingGoogleUpdates(true);
+    try {
+      const updated = await syncGoogleUpdates();
+      if (updated) onAuditUpdated?.(updated);
+    } finally {
+      setSyncingGoogleUpdates(false);
+    }
+  }, [onAuditUpdated, syncGoogleUpdates]);
 
   const defaultExpandedStep = useMemo(() => {
     if (!plan) return undefined;
@@ -98,6 +119,11 @@ export default function PlanView({
       void ensurePhotoTasks().catch(() => undefined);
     }
   }, [gbpConnected, plan, ensurePhotoTasks]);
+
+  useEffect(() => {
+    if (!gbpConnected || !needsGoogleUpdateRefresh(audit, gbpGoogleUpdateAt)) return;
+    void refreshGoogleUpdates().catch(() => undefined);
+  }, [audit.auditId, gbpConnected, gbpGoogleUpdateAt, refreshGoogleUpdates]);
 
   if (loading && !plan) {
     return (
@@ -120,6 +146,17 @@ export default function PlanView({
           Approve and publish each step here — changes go directly to your Google Business Profile.
         </div>
       )}
+
+      <GoogleUpdatesPanel
+        audit={audit}
+        gbpConnected={gbpConnected}
+        actions={actions}
+        attributionByTaskId={attributionByTaskId}
+        tasks={tasks}
+        syncing={syncingGoogleUpdates}
+        onRefresh={() => void refreshGoogleUpdates()}
+        variant={variant}
+      />
 
       <PlanProgressHeader
         plan={plan}

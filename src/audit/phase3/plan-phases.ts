@@ -1,6 +1,6 @@
 import type { PlanPhase, PlanPhaseId } from "../types";
 
-const FOUNDATION_STEPS = [1, 2, 3, 4, 5, 12, 13, 14, 15];
+const FOUNDATION_STEPS = [0, 1, 2, 3, 4, 5, 12, 13, 14, 15];
 const CONTENT_STEPS = [6, 7, 8, 9];
 const REPUTATION_STEPS = [10, 11];
 const ONGOING_STEPS = [16];
@@ -20,6 +20,7 @@ export const PLAN_PHASE_DEFINITIONS: PlanPhase[] = [
 ];
 
 export function getPhaseForStep(stepNumber: number): PlanPhaseId {
+  if (stepNumber === 0) return "foundation";
   if (stepNumber >= 17) return "ongoing";
   return STEP_TO_PHASE.get(stepNumber) ?? "foundation";
 }

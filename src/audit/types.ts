@@ -28,6 +28,8 @@ export interface ClientConfig {
   avgCustomerValueCurrency?: string;
   heatmapProfile?: GridProfileKey;
   privateFeedbackUrl?: string;
+  /** Set when Google sends GOOGLE_UPDATE Pub/Sub notifications. */
+  gbpGoogleUpdateAt?: string | null;
 }
 
 export interface GbpConnection {

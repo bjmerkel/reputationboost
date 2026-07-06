@@ -1,6 +1,7 @@
 import type { ExecutionTask, FullAuditPayload, GapFlag } from "@/audit/types";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { pendingBatchTasks } from "@/lib/execution/pending-tasks";
+import { getGoogleDiffFields } from "@/lib/google/gbp-update-helpers";
 
 export type PlaybookStage = "setup" | "launch" | "execute" | "grow" | "maintain";
 
@@ -136,6 +137,7 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
         avgCustomerValue: input.avgCustomerValue,
       })
     : null;
+  const googleDiffFields = input.audit ? getGoogleDiffFields(input.audit) : [];
 
   const onboardHref = input.businessId
     ? `/platform/onboard?businessId=${input.businessId}`
@@ -220,6 +222,20 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
     action: batchPending.length > 0 ? "review_approvals" : "open_plan",
     estimatedMinutes: batchPending.length > 0 ? Math.min(15, batchPending.length * 2) : 5,
   });
+
+  if (googleDiffFields.length > 0) {
+    items.push({
+      id: "google-updates",
+      stage: "execute",
+      title: `Resolve ${googleDiffFields.length} Google profile conflict${googleDiffFields.length === 1 ? "" : "s"}`,
+      description: `Google recommends changes to: ${googleDiffFields.map((field) => field.label).join(", ")}.`,
+      why: "Accept or keep your version so customers see the profile you intend.",
+      priority: PRIORITY.high,
+      status: googleDiffFields.length === 0 ? "done" : "pending",
+      action: "open_plan",
+      estimatedMinutes: Math.max(3, googleDiffFields.length * 2),
+    });
+  }
 
   if (reviewPending > 0 || unrespondedNegative > 0) {
     items.push({

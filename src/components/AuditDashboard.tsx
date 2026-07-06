@@ -12,6 +12,7 @@ import { ensureStrategy } from "@/audit/ensure-strategy";
 import ResultsView from "@/components/results/ResultsView";
 import { normalizeAuditView, type AuditView } from "@/components/audit/types";
 import MonthlyReportPanel from "@/components/MonthlyReportPanel";
+import GoogleUpdatesBanner from "@/components/audit/GoogleUpdatesBanner";
 import PerformancePermissionBanner from "@/components/PerformancePermissionBanner";
 import MapsSearchBar from "@/components/platform/MapsSearchBar";
 import PlaceCard from "@/components/platform/PlaceCard";
@@ -41,6 +42,7 @@ interface AuditRunnerProps {
   gbpConnected?: boolean;
   avgCustomerValue?: number | null;
   avgCustomerValueCurrency?: string;
+  gbpGoogleUpdateAt?: string | null;
   initialAudit: FullAuditPayload | null;
   initialExecutionTasks?: ExecutionTask[];
 }
@@ -54,6 +56,7 @@ export default function AuditDashboard({
   gbpConnected = true,
   avgCustomerValue,
   avgCustomerValueCurrency = "USD",
+  gbpGoogleUpdateAt,
   initialAudit,
   initialExecutionTasks = [],
 }: AuditRunnerProps) {
@@ -270,6 +273,15 @@ export default function AuditDashboard({
         </div>
       )}
 
+      <div className="shrink-0">
+        <GoogleUpdatesBanner
+          audit={audit}
+          gbpGoogleUpdateAt={gbpGoogleUpdateAt}
+          onOpenPlan={() => setView("strategy")}
+          variant="light"
+        />
+      </div>
+
       {error && <p className="mb-3 shrink-0 text-sm text-[#d93025]">{error}</p>}
 
       <PlatformShell
@@ -345,9 +357,11 @@ export default function AuditDashboard({
               audit={audit}
               clientId={clientId}
               gbpConnected={gbpConnected}
+              gbpGoogleUpdateAt={gbpGoogleUpdateAt}
               attributionByTaskId={attributionData.attributionByTaskId}
               variant="light"
               onReviewPending={openBatchReview}
+              onAuditUpdated={setAudit}
               avgCustomerValue={avgCustomerValue}
               currency={avgCustomerValueCurrency}
             />

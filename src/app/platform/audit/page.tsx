@@ -79,6 +79,7 @@ export default async function PlatformAuditPage() {
           avgCustomerValueCurrency={business.avgCustomerValueCurrency}
           initialAudit={latestAudit}
           initialExecutionTasks={initialExecutionTasks}
+          gbpGoogleUpdateAt={business.gbpGoogleUpdateAt}
         />
       </Suspense>
     </main>
