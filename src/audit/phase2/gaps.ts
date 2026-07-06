@@ -363,21 +363,29 @@ export function detectGaps(
   }
 
   if (!audit.gbp.completeness.noPendingEdits) {
+    const processingFields =
+      audit.gbp.googleUpdateState?.pendingFields.map((f) => f.label).join(", ") ?? "";
     gaps.push(
       gap(
         "google-pending-edits",
         "P1",
         "gbp_profile",
         "Google has pending edits on your profile",
-        "Review and accept or reject Google's suggested changes before they affect how customers see your business.",
+        processingFields
+          ? `Your updates are still processing for: ${processingFields}. Other suggested changes may also need review in Business Profile Manager.`
+          : "Review and accept or reject Google's suggested changes before they affect how customers see your business.",
         8,
         2
       )
     );
   }
 
-  if ((audit.gbp.googleSuggestions?.length ?? 0) > 0) {
-    const fields = audit.gbp.googleSuggestions!.map((s) => s.label).join(", ");
+  const diffSuggestions =
+    audit.gbp.googleSuggestions?.filter((s) => s.kind !== "pending") ??
+    audit.gbp.googleUpdateState?.diffFields ??
+    [];
+  if (diffSuggestions.length > 0) {
+    const fields = diffSuggestions.map((s) => s.label).join(", ");
     gaps.push(
       gap(
         "google-suggested-edits",

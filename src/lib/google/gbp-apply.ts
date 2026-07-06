@@ -11,7 +11,7 @@ import {
   attributeApiToUpdate,
   getGbpLocationProfile,
   getGoogleUpdatedAttributes,
-  getGoogleUpdatedLocation,
+  getGoogleUpdatedSnapshot,
   getLocationAttributes,
   listAvailableAttributes,
   lookupServiceTypeForDisplayName,
@@ -20,7 +20,12 @@ import {
   type GbpAttributeUpdate,
   type GbpCategoryRef,
 } from "./gbp-location";
-import { ATTRIBUTE_SUGGESTION_PREFIX } from "./gbp-google-updated";
+import {
+  ATTRIBUTE_SUGGESTION_PREFIX,
+  fieldLabel,
+  isGoogleUpdateResolved,
+  maskIncludesField,
+} from "./gbp-google-updated";
 import {
   buildDescriptionApplyMessage,
   descriptionsMatch,
@@ -167,11 +172,24 @@ export async function applyDescription(
     profile: { description: trimmed },
   });
 
-  const live = await getGbpLocationProfile(connection);
+  const [live, snapshot] = await Promise.all([
+    getGbpLocationProfile(connection),
+    getGoogleUpdatedSnapshot(connection).catch(() => ({
+      location: {},
+      diffMask: "",
+      pendingMask: "",
+    })),
+  ]);
+
+  const descriptionProcessing = maskIncludesField(snapshot.pendingMask, "profile.description");
+  const descriptionConflict = maskIncludesField(snapshot.diffMask, "profile.description");
+
   const verification = {
     verified: descriptionsMatch(trimmed, live.description),
     hasPendingEdits: live.hasPendingEdits,
     liveDescription: live.description,
+    isProcessing: descriptionProcessing,
+    hasDiff: descriptionConflict,
   };
   const outcome = buildDescriptionApplyMessage(verification, trimmed.length);
 
@@ -183,6 +201,10 @@ export async function applyDescription(
       liveDescriptionLength: live.description.length,
       verified: verification.verified,
       hasPendingEdits: live.hasPendingEdits,
+      isProcessing: descriptionProcessing,
+      hasDiff: descriptionConflict,
+      diffMask: snapshot.diffMask,
+      pendingMask: snapshot.pendingMask,
     },
   };
 }
@@ -517,24 +539,112 @@ export async function applyGoogleAttributeSuggestion(
   };
 }
 
-export async function applyGoogleSuggestion(
+async function verifyGoogleUpdateFieldResolved(
   connection: GbpConnection,
-  field: string
+  field: string,
+  action: "accepted" | "rejected"
 ): Promise<GbpApplyResult> {
-  if (field.startsWith(ATTRIBUTE_SUGGESTION_PREFIX)) {
-    return applyGoogleAttributeSuggestion(
-      connection,
-      field.slice(ATTRIBUTE_SUGGESTION_PREFIX.length)
-    );
-  }
-
-  const [profile, googleUpdated] = await Promise.all([
+  const [profile, snapshot] = await Promise.all([
     getGbpLocationProfile(connection),
-    getGoogleUpdatedLocation(connection),
+    getGoogleUpdatedSnapshot(connection),
   ]);
 
-  const googleLocation = googleUpdated as Record<string, unknown>;
+  const label = fieldLabel(field);
+  const stillInDiff = maskIncludesField(snapshot.diffMask, field);
 
+  if (stillInDiff) {
+    return {
+      success: false,
+      message: `Google still shows a conflict for ${label}. Check Business Profile Manager or try again.`,
+      applied: {
+        field,
+        action,
+        diffMask: snapshot.diffMask,
+        pendingMask: snapshot.pendingMask,
+      },
+    };
+  }
+
+  const resolved = isGoogleUpdateResolved(snapshot.diffMask, profile.hasGoogleUpdated);
+  const pendingNote = maskIncludesField(snapshot.pendingMask, field)
+    ? ` ${label} is still processing on Google.`
+    : "";
+
+  return {
+    success: true,
+    message: resolved
+      ? `${action === "accepted" ? "Accepted" : "Kept"} your ${label.toLowerCase()} — Google update resolved.${pendingNote}`
+      : `${action === "accepted" ? "Accepted" : "Kept"} Google's update for ${label}.${pendingNote}`,
+    applied: {
+      field,
+      action,
+      diffMask: snapshot.diffMask,
+      pendingMask: snapshot.pendingMask,
+      resolved,
+    },
+  };
+}
+
+async function patchOwnerFieldValue(
+  connection: GbpConnection,
+  field: string,
+  profile: Awaited<ReturnType<typeof getGbpLocationProfile>>,
+  preferredValue?: string
+): Promise<void> {
+  switch (field) {
+    case "title":
+      await patchGbpLocationValidated(connection, "title", {
+        title: preferredValue ?? profile.title,
+      });
+      break;
+    case "profile.description":
+      await patchGbpLocationValidated(connection, "profile.description", {
+        profile: { description: preferredValue ?? profile.description },
+      });
+      break;
+    case "phoneNumbers.primaryPhone":
+      await patchGbpLocationValidated(connection, "phoneNumbers", {
+        phoneNumbers: {
+          primaryPhone: preferredValue ?? profile.phone,
+          additionalPhones: profile.additionalPhones,
+        },
+      });
+      break;
+    case "websiteUri":
+      await patchGbpLocationValidated(connection, "websiteUri", {
+        websiteUri: preferredValue ?? profile.website,
+      });
+      break;
+    case "regularHours":
+      if (!profile.regularHours) throw new Error("No regular hours on profile to keep.");
+      await patchGbpLocationValidated(connection, "regularHours", {
+        regularHours: profile.regularHours,
+      });
+      break;
+    case "specialHours":
+      if (!profile.specialHours) throw new Error("No holiday hours on profile to keep.");
+      await patchGbpLocationValidated(connection, "specialHours", {
+        specialHours: profile.specialHours,
+      });
+      break;
+    case "storefrontAddress":
+      await patchGbpLocationValidated(connection, "storefrontAddress", {
+        storefrontAddress: preferredValue
+          ? { addressLines: [preferredValue], regionCode: "US" }
+          : { addressLines: [profile.address], regionCode: "US" },
+      });
+      break;
+    default:
+      throw new Error(`Unsupported Google suggestion field: ${field}`);
+  }
+}
+
+async function patchGoogleFieldValue(
+  connection: GbpConnection,
+  field: string,
+  googleLocation: Record<string, unknown>,
+  profile: Awaited<ReturnType<typeof getGbpLocationProfile>>
+): Promise<void> {
   switch (field) {
     case "title":
       await patchGbpLocationValidated(connection, "title", { title: googleLocation.title });
@@ -583,12 +693,53 @@ export async function applyGoogleSuggestion(
     default:
       throw new Error(`Unsupported Google suggestion field: ${field}`);
   }
+}
 
-  return {
-    success: true,
-    message: `Accepted Google's suggested update for ${field}.`,
-    applied: { field },
-  };
+export async function applyGoogleSuggestion(
+  connection: GbpConnection,
+  field: string
+): Promise<GbpApplyResult> {
+  if (field.startsWith(ATTRIBUTE_SUGGESTION_PREFIX)) {
+    const result = await applyGoogleAttributeSuggestion(
+      connection,
+      field.slice(ATTRIBUTE_SUGGESTION_PREFIX.length)
+    );
+    return result;
+  }
+
+  const [profile, snapshot] = await Promise.all([
+    getGbpLocationProfile(connection),
+    getGoogleUpdatedSnapshot(connection),
+  ]);
+
+  if (!maskIncludesField(snapshot.diffMask, field)) {
+    throw new Error(`No Google update conflict for ${fieldLabel(field)}.`);
+  }
+
+  await patchGoogleFieldValue(connection, field, snapshot.location, profile);
+  return verifyGoogleUpdateFieldResolved(connection, field, "accepted");
+}
+
+export async function rejectGoogleSuggestion(
+  connection: GbpConnection,
+  field: string,
+  preferredValue?: string
+): Promise<GbpApplyResult> {
+  if (field.startsWith(ATTRIBUTE_SUGGESTION_PREFIX)) {
+    throw new Error("Rejecting attribute suggestions is not supported yet.");
+  }
+
+  const [profile, snapshot] = await Promise.all([
+    getGbpLocationProfile(connection),
+    getGoogleUpdatedSnapshot(connection),
+  ]);
+
+  if (!maskIncludesField(snapshot.diffMask, field)) {
+    throw new Error(`No Google update conflict for ${fieldLabel(field)}.`);
+  }
+
+  await patchOwnerFieldValue(connection, field, profile, preferredValue);
+  return verifyGoogleUpdateFieldResolved(connection, field, "rejected");
 }
 
 export async function applyGooglePost(
@@ -783,6 +934,7 @@ export type GbpApplyAction =
   | "update_regular_hours"
   | "update_holiday_hours"
   | "accept_google_suggestion"
+  | "reject_google_suggestion"
   | "sync_nap_field"
   | "update_booking_attributes"
   | "upload_media"
@@ -812,6 +964,7 @@ export async function applyGbpAction(
     reviewId?: string;
     reviewReply?: string;
     suggestionField?: string;
+    preferredValue?: string;
     regularHours?: BusinessHours;
     napField?: NapDriftFieldName;
     napCanonical?: NapCanonical;
@@ -856,6 +1009,9 @@ export async function applyGbpAction(
     case "accept_google_suggestion":
       if (!payload.suggestionField) throw new Error("suggestionField is required");
       return applyGoogleSuggestion(connection, payload.suggestionField);
+    case "reject_google_suggestion":
+      if (!payload.suggestionField) throw new Error("suggestionField is required");
+      return rejectGoogleSuggestion(connection, payload.suggestionField, payload.preferredValue);
     case "sync_nap_field":
       if (!payload.napField || !payload.napCanonical) {
         throw new Error("napField and napCanonical are required");

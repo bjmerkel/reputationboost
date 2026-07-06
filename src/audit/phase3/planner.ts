@@ -29,6 +29,7 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_phone",
     "gbp_hours",
     "gbp_accept_suggestion",
+    "gbp_reject_suggestion",
     "gbp_title",
     "gbp_address",
     "gbp_place_action",
@@ -263,6 +264,16 @@ function createTaskForAction(
           audit,
           action,
           "gbp_accept_suggestion",
+          action.draftCopy ?? action.description,
+          {}
+        ),
+      ];
+    case "gbp_reject_suggestion":
+      return [
+        buildTask(
+          audit,
+          action,
+          "gbp_reject_suggestion",
           action.draftCopy ?? action.description,
           {}
         ),

@@ -23,6 +23,7 @@ import { analyzeGbpLocalPostCoverage } from "@/lib/google/gbp-local-posts-covera
 import {
   enrichGbpLocationProfile,
   fetchAllGoogleSuggestions,
+  fetchGoogleUpdateState,
   getGbpEnabledAttributeLabels,
   getGbpLocationProfile,
 } from "@/lib/google/gbp-location";
@@ -142,6 +143,11 @@ async function collectGbpFromApi(
   const googleSuggestions = liveProfileResult
     ? await fetchAllGoogleSuggestions(connection, liveProfileResult).catch(() => [])
     : [];
+  const googleUpdateState =
+    liveProfileResult &&
+    (liveProfileResult.hasGoogleUpdated || liveProfileResult.hasPendingEdits)
+      ? await fetchGoogleUpdateState(connection, liveProfileResult).catch(() => undefined)
+      : undefined;
 
   const liveProfile = liveProfileResult;
   const description =
@@ -339,6 +345,7 @@ async function collectGbpFromApi(
       topAnswer: q.topAnswer,
     })),
     googleSuggestions,
+    googleUpdateState,
     hasGoogleUpdated: liveProfile?.hasGoogleUpdated ?? false,
     notifications,
     placeActions,

@@ -98,6 +98,7 @@ export async function executeTask(
     gbp_phone: "Updated phone number on Google Business Profile.",
     gbp_hours: "Updated business hours on Google Business Profile.",
     gbp_accept_suggestion: "Accepted Google's suggested profile change.",
+    gbp_reject_suggestion: "Kept your preferred value on Google Business Profile.",
     gbp_title: "Synced business name on Google Business Profile.",
     gbp_address: "Synced business address on Google Business Profile.",
     gbp_checklist: `Completed: ${task.title}`,
@@ -281,7 +282,29 @@ async function executeTaskLive(
       const result = await applyGbpAction(connection, "accept_google_suggestion", {
         suggestionField: String(task.payload.suggestionField ?? ""),
       });
-      return { ...task, status: "completed", completedAt: now, result: result.message };
+      return {
+        ...task,
+        status: result.success ? "completed" : "failed",
+        completedAt: now,
+        result: result.message,
+      };
+    }
+    case "gbp_reject_suggestion": {
+      const result = await applyGbpAction(connection, "reject_google_suggestion", {
+        suggestionField: String(task.payload.suggestionField ?? ""),
+        preferredValue:
+          typeof task.payload.preferredValue === "string"
+            ? task.payload.preferredValue
+            : typeof task.payload.ownerValue === "string"
+              ? task.payload.ownerValue
+              : undefined,
+      });
+      return {
+        ...task,
+        status: result.success ? "completed" : "failed",
+        completedAt: now,
+        result: result.message,
+      };
     }
     case "gbp_title":
     case "gbp_address": {

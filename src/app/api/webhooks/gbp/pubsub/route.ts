@@ -7,7 +7,7 @@ import {
   findBusinessRecordByGbpLocation,
   parseReviewIdFromReviewName,
 } from "@/lib/review-requests/attribution";
-import { isAdminSupabaseConfigured } from "@/lib/supabase/admin";
+import { recordGbpGoogleUpdateEvent } from "@/lib/google/gbp-update-events";
 
 interface PubSubPushEnvelope {
   message?: {
@@ -42,6 +42,11 @@ function isReviewNotification(type: string | undefined): boolean {
   return type.toUpperCase().includes("REVIEW");
 }
 
+function isGoogleUpdateNotification(type: string | undefined): boolean {
+  if (!type) return false;
+  return type.toUpperCase() === "GOOGLE_UPDATE";
+}
+
 /** Receive Google Business Profile Pub/Sub push notifications. */
 export async function POST(request: Request) {
   const token = process.env.GBP_PUBSUB_VERIFICATION_TOKEN?.trim();
@@ -73,6 +78,23 @@ export async function POST(request: Request) {
   let attributionId: string | null = null;
   let reviewAuthor: string | undefined;
   let reviewRating: number | undefined;
+  let googleUpdateBusinessId: string | null = null;
+
+  if (
+    isGoogleUpdateNotification(payload?.notificationType) &&
+    payload?.locationName &&
+    isAdminSupabaseConfigured()
+  ) {
+    try {
+      const recorded = await recordGbpGoogleUpdateEvent(payload.locationName, {
+        detectedAt: envelope.message?.publishTime ?? new Date().toISOString(),
+        eventId,
+      });
+      googleUpdateBusinessId = recorded?.businessId ?? null;
+    } catch (error) {
+      console.warn("[gbp-pubsub] google update event failed:", error);
+    }
+  }
 
   if (
     isReviewNotification(payload?.notificationType) &&
@@ -125,6 +147,7 @@ export async function POST(request: Request) {
     attributionId,
     reviewAuthor: reviewAuthor ?? null,
     reviewRating: reviewRating ?? null,
+    googleUpdateBusinessId,
   });
 }
 

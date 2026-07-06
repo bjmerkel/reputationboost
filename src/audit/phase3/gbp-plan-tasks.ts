@@ -59,6 +59,7 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_phone",
     "gbp_hours",
     "gbp_accept_suggestion",
+    "gbp_reject_suggestion",
     "gbp_title",
     "gbp_address",
   ].includes(type);
@@ -793,33 +794,71 @@ export function tasksFromNotificationGaps(audit: FullAuditPayload): ExecutionTas
 }
 
 export function tasksFromGoogleSuggestions(audit: FullAuditPayload): ExecutionTask[] {
-  const suggestions = audit.gbp.googleSuggestions ?? [];
+  const suggestions = (audit.gbp.googleSuggestions ?? []).filter(
+    (suggestion) => suggestion.kind !== "pending"
+  );
   if (suggestions.length === 0) return [];
 
-  return suggestions.map((suggestion, index) =>
-    buildGbpTask(
-      audit,
-      {
-        stepNumber: 0,
-        title: "Review Google suggestion",
-        instruction: `Google suggests changing ${suggestion.label}.`,
-      },
-      "gbp_accept_suggestion",
-      `Accept Google change: ${suggestion.label}`,
-      [
-        `Google suggests updating ${suggestion.label}.`,
-        "",
-        `Current: ${suggestion.ownerValue}`,
-        `Google suggests: ${suggestion.googleValue}`,
-        "",
-        "Approve to accept Google's version on your profile.",
-      ].join("\n"),
-      {
-        suggestionField: suggestion.field,
-        suggestionIndex: index + 1,
-        ownerValue: suggestion.ownerValue,
-        googleValue: suggestion.googleValue,
-      }
-    )
-  );
+  const tasks: ExecutionTask[] = [];
+
+  for (const [index, suggestion] of suggestions.entries()) {
+    tasks.push(
+      buildGbpTask(
+        audit,
+        {
+          stepNumber: 0,
+          title: "Review Google suggestion",
+          instruction: `Google suggests changing ${suggestion.label}.`,
+        },
+        "gbp_accept_suggestion",
+        `Accept Google change: ${suggestion.label}`,
+        [
+          `Google suggests updating ${suggestion.label}.`,
+          "",
+          `Your version: ${suggestion.ownerValue}`,
+          `Google shows: ${suggestion.googleValue}`,
+          "",
+          "Approve to accept Google's version on your profile.",
+        ].join("\n"),
+        {
+          suggestionField: suggestion.field,
+          suggestionIndex: index + 1,
+          ownerValue: suggestion.ownerValue,
+          googleValue: suggestion.googleValue,
+          suggestionAction: "accept",
+        }
+      )
+    );
+
+    tasks.push(
+      buildGbpTask(
+        audit,
+        {
+          stepNumber: 0,
+          title: "Keep your version",
+          instruction: `Reject Google's suggested change to ${suggestion.label}.`,
+        },
+        "gbp_reject_suggestion",
+        `Keep your version: ${suggestion.label}`,
+        [
+          `Google is showing a different ${suggestion.label.toLowerCase()} than your preferred value.`,
+          "",
+          `Your version: ${suggestion.ownerValue}`,
+          `Google shows: ${suggestion.googleValue}`,
+          "",
+          "Approve to keep your version and overwrite what customers see on Google.",
+        ].join("\n"),
+        {
+          suggestionField: suggestion.field,
+          suggestionIndex: index + 1,
+          ownerValue: suggestion.ownerValue,
+          googleValue: suggestion.googleValue,
+          preferredValue: suggestion.ownerValue,
+          suggestionAction: "reject",
+        }
+      )
+    );
+  }
+
+  return tasks;
 }

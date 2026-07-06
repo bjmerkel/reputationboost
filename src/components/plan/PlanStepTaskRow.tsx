@@ -20,6 +20,8 @@ const TYPE_LABELS: Partial<Record<ExecutionTask["type"], string>> = {
   gbp_attributes: "Attributes",
   gbp_website: "Website",
   gbp_checklist: "Checklist",
+  gbp_accept_suggestion: "Accept Google change",
+  gbp_reject_suggestion: "Keep your version",
   review_response: "Review reply",
   review_delete_reply: "Remove reply",
   review_request: "Review request",

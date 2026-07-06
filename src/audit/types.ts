@@ -70,6 +70,15 @@ export interface GbpGoogleSuggestion {
   label: string;
   ownerValue: string;
   googleValue: string;
+  /** diff = Google shows different data; pending = owner update still processing */
+  kind?: "diff" | "pending";
+}
+
+export interface GbpGoogleUpdateState {
+  diffMask: string;
+  pendingMask: string;
+  diffFields: GbpGoogleSuggestion[];
+  pendingFields: GbpGoogleSuggestion[];
 }
 
 export interface GbpMediaPreview {
@@ -324,6 +333,7 @@ export interface GbpSnapshot {
   recentPosts?: GbpPostItem[];
   qaItems?: GbpQaItem[];
   googleSuggestions?: GbpGoogleSuggestion[];
+  googleUpdateState?: GbpGoogleUpdateState;
   hasGoogleUpdated?: boolean;
   notifications?: GbpNotificationCoverage;
   placeActions?: GbpPlaceActionCoverage;
@@ -974,6 +984,7 @@ export type ExecutionType =
   | "gbp_phone"
   | "gbp_hours"
   | "gbp_accept_suggestion"
+  | "gbp_reject_suggestion"
   | "gbp_title"
   | "gbp_address"
   | "gbp_checklist"

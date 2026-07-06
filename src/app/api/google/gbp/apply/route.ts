@@ -19,6 +19,7 @@ const ACTIONS: GbpApplyAction[] = [
   "update_regular_hours",
   "update_holiday_hours",
   "accept_google_suggestion",
+  "reject_google_suggestion",
   "sync_nap_field",
   "update_booking_attributes",
   "upload_media",
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
       reviewId?: string;
       reviewReply?: string;
       suggestionField?: string;
+      preferredValue?: string;
       mediaName?: string;
     };
 
@@ -113,6 +115,7 @@ export async function POST(request: Request) {
       reviewId: body.reviewId,
       reviewReply: body.reviewReply,
       suggestionField: body.suggestionField,
+      preferredValue: body.preferredValue,
       mediaName: body.mediaName,
     });
 

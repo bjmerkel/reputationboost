@@ -30,8 +30,8 @@ export function isGbpDescriptionLiveSync(result?: string | null): boolean {
   if (!result?.trim()) return false;
   if (wasGbpDescriptionSimulated(result)) return false;
   return (
-    result.includes("Business description updated on Google Business Profile") ||
-    result.includes("Description verified on Google Business Profile")
+    result.includes("Description verified on Google Business Profile") ||
+    result.includes("Description submitted — Google is processing")
   );
 }
 
@@ -49,13 +49,17 @@ export interface DescriptionVerification {
   verified: boolean;
   hasPendingEdits: boolean;
   liveDescription: string;
+  /** profile.description is in Google's pendingMask (still processing). */
+  isProcessing?: boolean;
+  /** profile.description is in Google's diffMask (conflict with serving data). */
+  hasDiff?: boolean;
 }
 
 export function buildDescriptionApplyMessage(
   verification: DescriptionVerification,
   sentLength: number
 ): { success: boolean; message: string } {
-  const { verified, hasPendingEdits, liveDescription } = verification;
+  const { verified, hasPendingEdits, liveDescription, isProcessing, hasDiff } = verification;
 
   if (verified) {
     let message = "Description verified on Google Business Profile.";
@@ -64,6 +68,22 @@ export function buildDescriptionApplyMessage(
         " Google has other pending edits on your profile — resolve them in Business Profile Manager if the public listing still looks wrong.";
     }
     return { success: true, message };
+  }
+
+  if (isProcessing) {
+    return {
+      success: true,
+      message:
+        "Description submitted — Google is processing. It can take a few hours to appear on Maps and Search; no action needed.",
+    };
+  }
+
+  if (hasDiff) {
+    return {
+      success: false,
+      message:
+        "Google is showing a different description than what you submitted. Accept or reject Google's version in Take Action to resolve the conflict.",
+    };
   }
 
   if (hasPendingEdits) {

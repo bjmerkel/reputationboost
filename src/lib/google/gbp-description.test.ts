@@ -91,4 +91,32 @@ describe("gbp-description", () => {
     assert.equal(outcome.success, true);
     assert.match(outcome.message, /verified on Google Business Profile/i);
   });
+
+  it("builds processing success message", () => {
+    const outcome = buildDescriptionApplyMessage(
+      {
+        verified: false,
+        hasPendingEdits: false,
+        liveDescription: "old",
+        isProcessing: true,
+      },
+      500
+    );
+    assert.equal(outcome.success, true);
+    assert.match(outcome.message, /processing/i);
+  });
+
+  it("builds diff conflict failure message", () => {
+    const outcome = buildDescriptionApplyMessage(
+      {
+        verified: false,
+        hasPendingEdits: false,
+        liveDescription: "google version",
+        hasDiff: true,
+      },
+      500
+    );
+    assert.equal(outcome.success, false);
+    assert.match(outcome.message, /different description/i);
+  });
 });

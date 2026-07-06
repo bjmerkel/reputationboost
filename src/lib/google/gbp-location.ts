@@ -1,7 +1,12 @@
 import type { GbpConnection } from "@/audit/types";
-import type { GbpGoogleSuggestion } from "@/audit/types";
+import type { GbpGoogleSuggestion, GbpGoogleUpdateState } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
-import { diffGoogleUpdatedLocation, diffGoogleUpdatedAttributes } from "./gbp-google-updated";
+import {
+  diffGoogleUpdatedAttributes,
+  diffGoogleUpdatedLocation,
+  pendingFieldsFromMask,
+  suggestionsFromDiffMask,
+} from "./gbp-google-updated";
 import type { BusinessHours, SpecialHours } from "./gbp-hours";
 import {
   hasFullWeekCoverage,
@@ -805,23 +810,53 @@ export async function updateLocationAttributes(
   }
 }
 
+/** Full getGoogleUpdated response including diffMask and pendingMask. */
+export interface GbpGoogleUpdatedSnapshot {
+  location: Record<string, unknown>;
+  diffMask: string;
+  pendingMask: string;
+}
+
+const GOOGLE_UPDATED_READ_MASK = [
+  "name",
+  "title",
+  "profile",
+  "phoneNumbers",
+  "websiteUri",
+  "storefrontAddress",
+  "categories",
+  "serviceItems",
+  "regularHours",
+  "specialHours",
+].join(",");
+
+/** locations.getGoogleUpdated — Google's suggested edits and processing masks. */
+export async function getGoogleUpdatedSnapshot(
+  connection: GbpConnection
+): Promise<GbpGoogleUpdatedSnapshot> {
+  const resource = locationResourceName(connection.locationId);
+  const params = new URLSearchParams();
+  params.set("readMask", GOOGLE_UPDATED_READ_MASK);
+
+  const data = await biFetch<{
+    location?: Record<string, unknown>;
+    diffMask?: string;
+    pendingMask?: string;
+  }>(connection, `${resource}:getGoogleUpdated?${params.toString()}`);
+
+  return {
+    location: data.location ?? {},
+    diffMask: data.diffMask ?? "",
+    pendingMask: data.pendingMask ?? "",
+  };
+}
+
 /** locations.getGoogleUpdated — Google's suggested edits for this location. */
 export async function getGoogleUpdatedLocation(
   connection: GbpConnection
 ): Promise<Record<string, unknown>> {
-  const resource = locationResourceName(connection.locationId);
-  const params = new URLSearchParams();
-  params.set(
-    "readMask",
-    "name,title,profile,phoneNumbers,websiteUri,storefrontAddress,categories,serviceItems,regularHours,specialHours"
-  );
-
-  const data = await biFetch<{ location?: Record<string, unknown> }>(
-    connection,
-    `${resource}:getGoogleUpdated?${params.toString()}`
-  );
-
-  return data.location ?? data;
+  const snapshot = await getGoogleUpdatedSnapshot(connection);
+  return snapshot.location;
 }
 
 /** locations.attributes.getGoogleUpdated — Google's suggested attribute changes. */
@@ -854,6 +889,28 @@ export function ownerLocationForDiff(profile: GbpLocationProfile): Record<string
   };
 }
 
+/** Fetch diff/pending masks and field-level suggestions for a location. */
+export async function fetchGoogleUpdateState(
+  connection: GbpConnection,
+  profile: GbpLocationProfile
+): Promise<GbpGoogleUpdateState> {
+  const snapshot = await getGoogleUpdatedSnapshot(connection);
+  const owner = ownerLocationForDiff(profile);
+
+  const diffFields = snapshot.diffMask
+    ? suggestionsFromDiffMask(owner, snapshot.location, snapshot.diffMask)
+    : diffGoogleUpdatedLocation(owner, snapshot.location);
+
+  const pendingFields = pendingFieldsFromMask(owner, snapshot.pendingMask);
+
+  return {
+    diffMask: snapshot.diffMask,
+    pendingMask: snapshot.pendingMask,
+    diffFields,
+    pendingFields,
+  };
+}
+
 /** Fetch Google-suggested location edits when metadata indicates changes. */
 export async function fetchGoogleSuggestions(
   connection: GbpConnection,
@@ -862,8 +919,8 @@ export async function fetchGoogleSuggestions(
   if (!profile.hasGoogleUpdated && !profile.hasPendingEdits) return [];
 
   try {
-    const googleUpdated = await getGoogleUpdatedLocation(connection);
-    return diffGoogleUpdatedLocation(ownerLocationForDiff(profile), googleUpdated);
+    const state = await fetchGoogleUpdateState(connection, profile);
+    return [...state.diffFields, ...state.pendingFields];
   } catch {
     return [];
   }
