@@ -8,6 +8,7 @@ import {
   updateWebhookSettings,
 } from "@/lib/integrations/webhook-storage";
 import { auditHasReviewGap } from "@/lib/review-requests/eligibility";
+import { ZAPIER_SETUP_STEPS, ZAPIER_TEMPLATES } from "@/lib/integrations/zapier-templates";
 import { getUser } from "@/lib/supabase/server";
 
 function buildWebhookUrl(request: Request, token: string): string {
@@ -43,13 +44,8 @@ export async function GET(request: Request) {
       triggerEvents: settings.triggerEvents,
       auditHasReviewGap: hasReviewGap,
       privateFeedbackUrl: record?.private_feedback_url ?? null,
-      zapierSteps: [
-        "Create a Zap with your CRM trigger (Job Completed or Invoice Paid).",
-        "Add action: Webhooks by Zapier → POST.",
-        "Paste your Reputation Boost webhook URL.",
-        "Map customer phone, name, service, and set event to job.completed.",
-        "Optional: map sentiment as negative to route unhappy customers to private feedback.",
-      ],
+      zapierTemplates: ZAPIER_TEMPLATES,
+      zapierSteps: ZAPIER_SETUP_STEPS,
       samplePayload: {
         event: "job.completed",
         phone: "214-555-0100",
@@ -60,6 +56,12 @@ export async function GET(request: Request) {
         externalId: "job-12345",
         source: "jobber",
         sendReviewRequest: true,
+      },
+      optOutSamplePayload: {
+        event: "customer.opted_out",
+        phone: "214-555-0100",
+        optedOut: true,
+        source: "twilio",
       },
     });
   } catch (error) {

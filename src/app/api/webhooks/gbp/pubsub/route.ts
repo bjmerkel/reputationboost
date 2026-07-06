@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { createId } from "@/lib/create-id";
+import { getGbpReview } from "@/lib/google/gbp-reviews";
+import { getValidGbpConnectionForRecord } from "@/lib/google/token-store";
 import {
   attributeReviewToRecentOutreach,
-  findBusinessByGbpLocation,
+  findBusinessRecordByGbpLocation,
+  parseReviewIdFromReviewName,
 } from "@/lib/review-requests/attribution";
 import { isAdminSupabaseConfigured } from "@/lib/supabase/admin";
 
@@ -68,6 +71,8 @@ export async function POST(request: Request) {
   });
 
   let attributionId: string | null = null;
+  let reviewAuthor: string | undefined;
+  let reviewRating: number | undefined;
 
   if (
     isReviewNotification(payload?.notificationType) &&
@@ -75,12 +80,35 @@ export async function POST(request: Request) {
     isAdminSupabaseConfigured()
   ) {
     try {
-      const business = await findBusinessByGbpLocation(payload.locationName);
-      if (business) {
+      const businessRecord = await findBusinessRecordByGbpLocation(payload.locationName);
+      if (businessRecord) {
+        const reviewId = payload.reviewName
+          ? parseReviewIdFromReviewName(payload.reviewName)
+          : null;
+
+        if (reviewId) {
+          try {
+            const connection = await getValidGbpConnectionForRecord(businessRecord);
+            if (connection) {
+              const review = await getGbpReview(connection, reviewId);
+              if (!review.isAnonymous && review.reviewer) {
+                reviewAuthor = review.reviewer;
+              }
+              if (review.rating > 0) {
+                reviewRating = review.rating;
+              }
+            }
+          } catch (error) {
+            console.warn("[gbp-pubsub] review fetch failed, using time-window attribution:", error);
+          }
+        }
+
         const attribution = await attributeReviewToRecentOutreach({
-          businessId: business.businessId,
-          userId: business.userId,
+          businessId: businessRecord.id,
+          userId: businessRecord.user_id,
           reviewDetectedAt: envelope.message?.publishTime ?? new Date().toISOString(),
+          reviewAuthor,
+          reviewRating,
           attributionMethod: "pubsub_review",
         });
         attributionId = attribution?.id ?? null;
@@ -95,6 +123,8 @@ export async function POST(request: Request) {
     eventId,
     notificationType: payload?.notificationType ?? null,
     attributionId,
+    reviewAuthor: reviewAuthor ?? null,
+    reviewRating: reviewRating ?? null,
   });
 }
 
