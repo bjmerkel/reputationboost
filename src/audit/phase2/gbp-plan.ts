@@ -186,7 +186,9 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
         .map((k, i) => `Week ${i + 1}: Post targeting "${k.keyword}" (${k.position})`),
       gbpAction: "create_post",
       actionData: {
-        postSummary: `Looking for ${targetKeywords[0]} in ${city}? ${audit.clientName} delivers professional ${category} with ${audit.gbp.engagement.reviewCount}+ reviews. Call ${audit.gbp.identity.phone} today.`,
+        // No phone numbers or URLs in post text — Google rejects them; the
+        // post's Call button links to the verified profile number.
+        postSummary: `Looking for ${targetKeywords[0]} in ${city}? ${audit.clientName} delivers professional ${category} with ${audit.gbp.engagement.reviewCount}+ reviews. Tap Call to reach our team today.`,
       },
     },
     {

@@ -1,6 +1,7 @@
 import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
 import { analyzeGbpLocalPostCoverage } from "./gbp-local-posts-coverage";
+import { sanitizeGbpPostSummary } from "./gbp-post-content";
 
 const GBP_V4 = "https://mybusiness.googleapis.com/v4";
 
@@ -237,7 +238,9 @@ export async function createGbpLocalPost(
   connection: GbpConnection,
   input: CreateGbpLocalPostInput
 ): Promise<GbpLocalPost> {
-  const trimmed = input.summary.trim();
+  // Google rejects posts with phone numbers or URLs in the summary — links
+  // belong in callToAction.url and calls go through the verified number.
+  const trimmed = sanitizeGbpPostSummary(input.summary).text;
   if (!trimmed) throw new Error("Post summary cannot be empty.");
 
   const topicType = input.topicType ?? "STANDARD";

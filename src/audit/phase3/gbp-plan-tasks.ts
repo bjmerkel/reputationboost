@@ -18,6 +18,7 @@ import { buildMediaMaintenanceActions } from "@/lib/google/gbp-media-maintenance
 import { mediaCategoryLabel } from "@/lib/google/gbp-media-coverage";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { sanitizeGbpDescriptionDraft } from "@/lib/google/gbp-description";
+import { sanitizeGbpPostDraft } from "@/lib/google/gbp-post-content";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { generateReviewResponses } from "@/audit/phase3/content";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
@@ -410,9 +411,13 @@ export function tasksFromGbpPlanStep(
       );
     }
     case "create_post": {
-      const posts = content.googlePosts.length
-        ? content.googlePosts
-        : [data.postSummary ?? step.copyBlocks?.[0]?.content ?? step.instruction];
+      // Google rejects posts with phone numbers or URLs in the body — the
+      // Call CTA button carries the contact action.
+      const posts = (
+        content.googlePosts.length
+          ? content.googlePosts
+          : [data.postSummary ?? step.copyBlocks?.[0]?.content ?? step.instruction]
+      ).map(sanitizeGbpPostDraft);
       const allKeywords = audit.rankings.keywords.map((k) => k.keyword);
       return posts.map((post, i) => {
         const matched = matchKeywordsInText(post, allKeywords);

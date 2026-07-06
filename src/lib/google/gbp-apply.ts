@@ -47,6 +47,7 @@ import {
   type GbpMediaFormat,
 } from "./gbp-media";
 import { createGbpLocalPost } from "./gbp-local-posts";
+import { buildPostSanitizeNote, sanitizeGbpPostSummary } from "./gbp-post-content";
 import {
   applyReviewReply as postReviewReply,
   deleteReviewReply,
@@ -830,16 +831,32 @@ export async function applyGooglePost(
   connection: GbpConnection,
   summary: string
 ): Promise<GbpApplyResult> {
+  // Google disallows phone numbers and URLs in post text — the CALL button
+  // below carries the contact action via the verified profile number.
+  const sanitized = sanitizeGbpPostSummary(summary);
+  if (!sanitized.text) {
+    throw new Error(
+      "Post text is empty after removing phone numbers and URLs, which Google does not allow in post content. Rewrite the post and rely on the Call button for contact info."
+    );
+  }
+
   const post = await createGbpLocalPost(connection, {
-    summary,
+    summary: sanitized.text,
     topicType: "STANDARD",
     callToAction: { actionType: "CALL" },
   });
 
+  const note = buildPostSanitizeNote(sanitized);
   return {
     success: true,
-    message: "Google Post published to your Business Profile.",
-    applied: { postId: post.name },
+    message: note
+      ? `Google Post published to your Business Profile. ${note}`
+      : "Google Post published to your Business Profile.",
+    applied: {
+      postId: post.name,
+      sanitized: sanitized.removedUrls || sanitized.removedPhoneNumbers,
+      offerLanguageWarnings: sanitized.offerLanguageWarnings,
+    },
   };
 }
 
