@@ -42,7 +42,7 @@ export async function PATCH(
 }
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ taskId: string }> }
 ) {
   const user = await getUser();
@@ -56,7 +56,21 @@ export async function POST(
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  if (task.status !== "approved") {
+  let body: { retry?: boolean } = {};
+  try {
+    body = (await request.json()) as { retry?: boolean };
+  } catch {
+    body = {};
+  }
+
+  const retry = body.retry === true;
+  const canExecute =
+    task.status === "approved" ||
+    (retry &&
+      task.type === "gbp_description" &&
+      (task.status === "completed" || task.status === "failed"));
+
+  if (!canExecute) {
     return NextResponse.json(
       { error: "Task must be approved before execution" },
       { status: 400 }

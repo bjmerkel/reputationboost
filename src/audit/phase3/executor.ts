@@ -134,7 +134,12 @@ async function executeTaskLive(
       const result = await applyGbpAction(connection, "update_description", {
         description: task.draftContent,
       });
-      return { ...task, status: "completed", completedAt: now, result: result.message };
+      return {
+        ...task,
+        status: result.success ? "completed" : "failed",
+        completedAt: now,
+        result: result.message,
+      };
     }
     case "gbp_primary_category": {
       const category = String(

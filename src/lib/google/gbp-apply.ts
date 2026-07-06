@@ -21,6 +21,11 @@ import {
   type GbpCategoryRef,
 } from "./gbp-location";
 import { ATTRIBUTE_SUGGESTION_PREFIX } from "./gbp-google-updated";
+import {
+  buildDescriptionApplyMessage,
+  descriptionsMatch,
+  GBP_DESCRIPTION_MAX_LENGTH,
+} from "./gbp-description";
 import { patchGbpLocationValidated } from "./gbp-patch";
 import type { NapCanonical, NapDriftFieldName } from "./nap-drift";
 import {
@@ -152,15 +157,33 @@ export async function applyDescription(
 ): Promise<GbpApplyResult> {
   const trimmed = description.trim();
   if (!trimmed) throw new Error("Description cannot be empty.");
+  if (trimmed.length > GBP_DESCRIPTION_MAX_LENGTH) {
+    throw new Error(
+      `Description is ${trimmed.length} characters. Google allows at most ${GBP_DESCRIPTION_MAX_LENGTH}.`
+    );
+  }
 
   await patchGbpLocationValidated(connection, "profile.description", {
     profile: { description: trimmed },
   });
 
+  const live = await getGbpLocationProfile(connection);
+  const verification = {
+    verified: descriptionsMatch(trimmed, live.description),
+    hasPendingEdits: live.hasPendingEdits,
+    liveDescription: live.description,
+  };
+  const outcome = buildDescriptionApplyMessage(verification, trimmed.length);
+
   return {
-    success: true,
-    message: "Business description updated on Google Business Profile.",
-    applied: { descriptionLength: trimmed.length },
+    success: outcome.success,
+    message: outcome.message,
+    applied: {
+      descriptionLength: trimmed.length,
+      liveDescriptionLength: live.description.length,
+      verified: verification.verified,
+      hasPendingEdits: live.hasPendingEdits,
+    },
   };
 }
 
