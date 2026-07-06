@@ -27,6 +27,9 @@ describe("enrichGbpLocationProfile", () => {
           { status: 200 }
         );
       }
+      if (url.includes("readMask=serviceArea")) {
+        return new Response(JSON.stringify({}), { status: 200 });
+      }
       return new Response(JSON.stringify({}), { status: 404 });
     }) as typeof fetch;
 
@@ -66,6 +69,15 @@ describe("enrichGbpLocationProfile", () => {
       hasGoogleUpdated: false,
       hasPendingEdits: false,
       canModifyServiceList: true,
+      canOperateLocalPost: true,
+      hasVoiceOfMerchant: false,
+      duplicateLocation: null,
+      newReviewUri: null,
+      openStatus: null,
+      canReopen: null,
+      openingDate: null,
+      serviceAreaBusinessType: null,
+      moreHoursCount: 0,
       regularHours: null,
       specialHours: null,
       serviceAreaPlaces: [],

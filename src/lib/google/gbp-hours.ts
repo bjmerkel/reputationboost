@@ -86,6 +86,13 @@ export function formatRegularHoursSummary(regularHours?: BusinessHours | null): 
     .join(", ");
 }
 
+export function formatSpecialHoursSummary(specialHours?: SpecialHours | null): string {
+  const periods = specialHours?.specialHourPeriods ?? [];
+  if (periods.length === 0) return "No holiday or special hours";
+
+  return `${periods.length} special period${periods.length === 1 ? "" : "s"} configured`;
+}
+
 /** Default Mon–Fri 9:00–17:00 when a location has no regular hours yet. */
 export function defaultWeekdayHours(): BusinessHours {
   return {

@@ -323,6 +323,58 @@ export interface GbpReviewCoverage {
   recommendations: string[];
 }
 
+/** Status for a single Google Location API field in the profile inventory. */
+export type GbpLocationFieldStatus =
+  | "good"
+  | "needs_work"
+  | "missing"
+  | "blocked"
+  | "conflict"
+  | "processing";
+
+/** One checkable field aligned to Google's Business Information Location resource. */
+export interface GbpLocationInventoryField {
+  /** API path, e.g. profile.description */
+  apiPath: string;
+  /** Human label for UI */
+  label: string;
+  /** Section grouping in the inventory panel */
+  section:
+    | "identity"
+    | "profile"
+    | "hours"
+    | "services"
+    | "attributes"
+    | "service_area"
+    | "status"
+    | "engagement"
+    | "performance";
+  current: string;
+  status: GbpLocationFieldStatus;
+  /** Google's constraints or guidance for this field */
+  constraint?: string;
+  /** Whether the field can be updated via our GBP apply actions */
+  editable: boolean;
+  /** profile.description in diffMask / pendingMask */
+  hasConflict?: boolean;
+  isProcessing?: boolean;
+}
+
+export interface GbpLocationInventory {
+  collectedAt: string;
+  source: "oauth" | "places" | "mixed";
+  fields: GbpLocationInventoryField[];
+  summary: {
+    total: number;
+    good: number;
+    needsWork: number;
+    missing: number;
+    conflict: number;
+    processing: number;
+    blocked: number;
+  };
+}
+
 export interface GbpSnapshot {
   collectedAt: string;
   identity: GbpIdentity;
@@ -342,6 +394,7 @@ export interface GbpSnapshot {
   placeActionLinks?: GbpPlaceActionLinkSummary[];
   localPosts?: GbpLocalPostCoverage;
   reviewCoverage?: GbpReviewCoverage;
+  locationInventory?: GbpLocationInventory;
   napDrift?: Array<{
     field: string;
     label: string;

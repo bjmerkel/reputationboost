@@ -50,6 +50,15 @@ export interface GbpLocationProfile {
   hasGoogleUpdated: boolean;
   hasPendingEdits: boolean;
   canModifyServiceList: boolean;
+  canOperateLocalPost: boolean;
+  hasVoiceOfMerchant: boolean;
+  duplicateLocation: string | null;
+  newReviewUri: string | null;
+  openStatus: string | null;
+  canReopen: boolean | null;
+  openingDate: string | null;
+  serviceAreaBusinessType: string | null;
+  moreHoursCount: number;
   regularHours: BusinessHours | null;
   specialHours: SpecialHours | null;
   serviceAreaPlaces: GbpServiceAreaPlace[];
@@ -119,12 +128,21 @@ interface LocationApi {
   regularHours?: BusinessHours;
   specialHours?: SpecialHours;
   moreHours?: unknown[];
+  openInfo?: {
+    status?: string;
+    canReopen?: boolean;
+    openingDate?: { year?: number; month?: number; day?: number };
+  };
   metadata?: {
     placeId?: string;
     mapsUri?: string;
     hasGoogleUpdated?: boolean;
     hasPendingEdits?: boolean;
     canModifyServiceList?: boolean;
+    canOperateLocalPost?: boolean;
+    hasVoiceOfMerchant?: boolean;
+    duplicateLocation?: string;
+    newReviewUri?: string;
   };
   serviceArea?: {
     businessType?: string;
@@ -572,11 +590,23 @@ export async function enrichGbpLocationProfile(
     };
   });
 
+  const serviceAreaData = await fetchGbpServiceAreaData(connection).catch(() => ({
+    places: [],
+    businessLatLng: null as { lat: number; lng: number } | null,
+  }));
+
   return {
     ...profile,
     primaryCategory,
     additionalCategories,
     serviceItems,
+    serviceAreaPlaces: serviceAreaData.places,
+    businessLatLng: serviceAreaData.businessLatLng,
+    isServiceAreaBusiness:
+      profile.isServiceAreaBusiness ||
+      serviceAreaData.places.length > 0 ||
+      profile.serviceAreaBusinessType === "CUSTOMER_LOCATION_ONLY" ||
+      profile.serviceAreaBusinessType === "CUSTOMER_AND_BUSINESS_LOCATION",
   };
 }
 
@@ -597,6 +627,15 @@ export async function resolveCategoryByDisplayName(
   if (matches[0]) return matches[0];
 
   throw new Error(`Could not find GBP category for "${displayName}"`);
+}
+
+function formatOpeningDate(
+  date?: { year?: number; month?: number; day?: number }
+): string | null {
+  if (!date?.year) return null;
+  const month = date.month ? String(date.month).padStart(2, "0") : "??";
+  const day = date.day ? String(date.day).padStart(2, "0") : "??";
+  return `${date.year}-${month}-${day}`;
 }
 
 /** locations.get — full location profile. */
@@ -620,6 +659,7 @@ export async function getGbpLocationProfile(
       "regularHours",
       "specialHours",
       "moreHours",
+      "openInfo",
       "metadata",
     ].join(",")
   );
@@ -629,6 +669,7 @@ export async function getGbpLocationProfile(
   const primary = data.categories?.primaryCategory;
   const additional = data.categories?.additionalCategories ?? [];
   const { labels, details } = parseInlineAttributes(data.attributes);
+  const serviceAreaType = data.serviceArea?.businessType ?? null;
 
   return {
     locationName: data.name ?? resource,
@@ -662,10 +703,21 @@ export async function getGbpLocationProfile(
     hasGoogleUpdated: Boolean(data.metadata?.hasGoogleUpdated),
     hasPendingEdits: Boolean(data.metadata?.hasPendingEdits),
     canModifyServiceList: data.metadata?.canModifyServiceList !== false,
+    canOperateLocalPost: data.metadata?.canOperateLocalPost !== false,
+    hasVoiceOfMerchant: Boolean(data.metadata?.hasVoiceOfMerchant),
+    duplicateLocation: data.metadata?.duplicateLocation ?? null,
+    newReviewUri: data.metadata?.newReviewUri ?? null,
+    openStatus: data.openInfo?.status ?? null,
+    canReopen: data.openInfo?.canReopen ?? null,
+    openingDate: formatOpeningDate(data.openInfo?.openingDate),
+    serviceAreaBusinessType: serviceAreaType,
+    moreHoursCount: data.moreHours?.length ?? 0,
     regularHours: data.regularHours ?? null,
     specialHours: data.specialHours ?? null,
     serviceAreaPlaces: [],
-    isServiceAreaBusiness: false,
+    isServiceAreaBusiness: Boolean(
+      serviceAreaType && serviceAreaType !== "BUSINESS_TYPE_UNSPECIFIED"
+    ),
     businessLatLng: null,
   };
 }

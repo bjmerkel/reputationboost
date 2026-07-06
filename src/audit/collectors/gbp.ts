@@ -27,6 +27,7 @@ import {
   getGbpEnabledAttributeLabels,
   getGbpLocationProfile,
 } from "@/lib/google/gbp-location";
+import { buildGbpLocationInventory } from "@/lib/google/gbp-location-inventory";
 import {
   fetchPlaceDetails,
   primaryCategoryFromTypes,
@@ -234,7 +235,7 @@ async function collectGbpFromApi(
         )
       : [];
 
-  return {
+  const snapshotBase = {
     collectedAt: now,
     identity: {
       name,
@@ -320,6 +321,30 @@ async function collectGbpFromApi(
         (d) => `${d.label}: onboarding "${d.canonical}" vs GBP "${d.live}"`
       ),
     },
+  };
+
+  return {
+    ...snapshotBase,
+    locationInventory: buildGbpLocationInventory({
+      collectedAt: now,
+      source: liveProfile ? "oauth" : place ? "mixed" : "oauth",
+      profile: liveProfile,
+      identity: snapshotBase.identity,
+      completeness: snapshotBase.completeness,
+      content: snapshotBase.content,
+      engagement: snapshotBase.engagement,
+      performance: snapshotBase.performance,
+      issues: snapshotBase.issues,
+      googleUpdateState,
+      liveProfile: {
+        primaryCategory,
+        secondaryCategories,
+        description,
+        services: serviceItems,
+        attributes,
+        source: liveProfile ? "oauth" : "places",
+      },
+    }),
     liveProfile: {
       primaryCategory,
       secondaryCategories,
@@ -370,19 +395,27 @@ export async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<
   const now = new Date().toISOString();
   const description = place.description;
 
-  return {
-    collectedAt: now,
-    identity: {
-      name: place.name || client.name,
-      address: place.address,
-      phone: place.phone || client.phone || "",
-      website: place.website || client.website || "",
-      primaryCategory: client.industry || primaryCategoryFromTypes(place.types),
-      secondaryCategories: secondaryCategoriesFromTypes(place.types),
-      placeId: place.placeId,
-      mapsUrl: place.mapsUrl || client.gbpMapsUrl,
-    },
-    completeness: {
+  const identity = {
+    name: place.name || client.name,
+    address: place.address,
+    phone: place.phone || client.phone || "",
+    website: place.website || client.website || "",
+    primaryCategory: client.industry || primaryCategoryFromTypes(place.types),
+    secondaryCategories: secondaryCategoriesFromTypes(place.types),
+    placeId: place.placeId,
+    mapsUrl: place.mapsUrl || client.gbpMapsUrl,
+  };
+  const completeness = {
+    hasHours: place.hasHours,
+    hasFullWeekHours: false,
+    hasHolidayHours: place.hasHolidayHours,
+    hasDescription: description.length > 0,
+    descriptionLength: description.length,
+    hasServices: false,
+    serviceCount: 0,
+    attributeCount: 0,
+    noPendingEdits: true,
+    completenessScore: computeGbpCompletenessScore({
       hasHours: place.hasHours,
       hasFullWeekHours: false,
       hasHolidayHours: place.hasHolidayHours,
@@ -391,65 +424,77 @@ export async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<
       hasServices: false,
       serviceCount: 0,
       attributeCount: 0,
+      hasPhotos: place.photoCount > 0,
+      hasWebsite: Boolean(place.website),
       noPendingEdits: true,
-      completenessScore: computeGbpCompletenessScore({
-        hasHours: place.hasHours,
-        hasFullWeekHours: false,
-        hasHolidayHours: place.hasHolidayHours,
-        hasDescription: description.length > 0,
-        descriptionLength: description.length,
-        hasServices: false,
-        serviceCount: 0,
-        attributeCount: 0,
-        hasPhotos: place.photoCount > 0,
-        hasWebsite: Boolean(place.website),
-        noPendingEdits: true,
-      }),
-    },
-    content: {
-      photoCount: place.photoCount,
-      videoCount: 0,
-      photosByType: { all: place.photoCount },
-      lastPhotoUpload: null,
-      postCount: 0,
-      lastPostDate: null,
-      qaCount: 0,
-      unansweredQa: 0,
-    },
-    engagement: {
-      reviewCount: place.reviewCount,
-      averageRating: place.rating ?? 0,
-      reviewsLast30Days: 0,
-      reviewsLast90Days: 0,
-      responseRate: 0,
-      avgResponseTimeHours: 0,
-    },
-    performance: {
-      calls: 0,
-      directionRequests: 0,
-      websiteClicks: 0,
-      profileViews: 0,
-      impressionsMaps: 0,
-      impressionsSearch: 0,
-      conversations: 0,
-      bookings: 0,
-      periodDays: 30,
-      source: "unavailable",
-    },
-    issues: {
-      isSuspended: place.businessStatus === "CLOSED_PERMANENTLY",
-      isVerified: place.isOperational,
-      hasDuplicateListings: false,
-      napInconsistencies: [],
-    },
-    liveProfile: {
-      primaryCategory: client.industry || primaryCategoryFromTypes(place.types),
-      secondaryCategories: secondaryCategoriesFromTypes(place.types),
-      description,
-      services: [],
-      attributes: [],
+    }),
+  };
+  const content = {
+    photoCount: place.photoCount,
+    videoCount: 0,
+    photosByType: { all: place.photoCount },
+    lastPhotoUpload: null,
+    postCount: 0,
+    lastPostDate: null,
+    qaCount: 0,
+    unansweredQa: 0,
+  };
+  const engagement = {
+    reviewCount: place.reviewCount,
+    averageRating: place.rating ?? 0,
+    reviewsLast30Days: 0,
+    reviewsLast90Days: 0,
+    responseRate: 0,
+    avgResponseTimeHours: 0,
+  };
+  const performance = {
+    calls: 0,
+    directionRequests: 0,
+    websiteClicks: 0,
+    profileViews: 0,
+    impressionsMaps: 0,
+    impressionsSearch: 0,
+    conversations: 0,
+    bookings: 0,
+    periodDays: 30,
+    source: "unavailable" as const,
+  };
+  const issues = {
+    isSuspended: place.businessStatus === "CLOSED_PERMANENTLY",
+    isVerified: place.isOperational,
+    hasDuplicateListings: false,
+    napInconsistencies: [] as string[],
+  };
+  const liveProfile = {
+    primaryCategory: identity.primaryCategory,
+    secondaryCategories: identity.secondaryCategories,
+    description,
+    services: [] as Array<{ name: string; description: string }>,
+    attributes: [] as string[],
+    source: "places" as const,
+  };
+
+  return {
+    collectedAt: now,
+    identity,
+    completeness,
+    content,
+    engagement,
+    performance,
+    issues,
+    locationInventory: buildGbpLocationInventory({
+      collectedAt: now,
       source: "places",
-    },
+      profile: null,
+      identity,
+      completeness,
+      content,
+      engagement,
+      performance,
+      issues,
+      liveProfile,
+    }),
+    liveProfile,
     recentPosts: [],
     qaItems: [],
     googleSuggestions: [],
