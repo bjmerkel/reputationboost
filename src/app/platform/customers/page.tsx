@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import CustomersPageClient from "@/components/customers/CustomersPageClient";
+import OutreachActivityPanel from "@/components/customers/OutreachActivityPanel";
 import WebhookIntegrationPanel from "@/components/customers/WebhookIntegrationPanel";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isTwilioConfigured } from "@/lib/sms/twilio";
@@ -61,13 +62,15 @@ export default async function CustomersPage() {
           </p>
         </div>
 
-        <WebhookIntegrationPanel />
-
-        <CustomersPageClient
+        <div className="space-y-6">
+          <WebhookIntegrationPanel />
+          <OutreachActivityPanel />
+          <CustomersPageClient
           businessName={business.name}
           reviewUrl={reviewUrl}
           twilioConfigured={isTwilioConfigured()}
-        />
+          />
+        </div>
       </div>
     </main>
   );

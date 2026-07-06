@@ -10,6 +10,7 @@ import {
 } from "@/lib/review-requests/eligibility";
 import { scheduleReviewRequestForCustomer } from "@/lib/review-requests/scheduled-sms";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { buildPrivateFeedbackTemplate } from "@/lib/sms/private-feedback";
 import { sendReviewRequests } from "@/lib/sms/send-review-requests";
 import { normalizeWebhookPayload } from "./normalize-webhook-payload";
 import {
@@ -146,6 +147,7 @@ export async function processInboundWebhook(
   );
   const audit = rawAudit ? ensureStrategy(rawAudit) : null;
   const hasReviewGap = auditHasReviewGap(audit);
+  const sentiment = readSentiment(payload as unknown as Record<string, unknown>);
 
   const eligibility = evaluateReviewRequestEligibility({
     customer,
@@ -154,7 +156,8 @@ export async function processInboundWebhook(
     autoSend: settings.autoSend,
     triggerEvents: settings.triggerEvents,
     auditHasReviewGap: hasReviewGap,
-    sentiment: readSentiment(payload as unknown as Record<string, unknown>),
+    sentiment,
+    hasPrivateFeedbackUrl: Boolean(business.privateFeedbackUrl),
   });
 
   let reviewRequestSent = false;
@@ -166,41 +169,52 @@ export async function processInboundWebhook(
     : undefined;
 
   if (eligibility.eligible) {
-    const template = audit
-      ? await generateReviewRequestMessage(audit, customer)
-      : buildDefaultTemplate(business.name);
+    const usePrivateFeedback = eligibility.usePrivateFeedback === true;
+    const reviewUrlOverride = usePrivateFeedback ? business.privateFeedbackUrl : undefined;
 
-    if (settings.delayHours > 0) {
-      const scheduled = await scheduleReviewRequestForCustomer({
-        userId: settings.userId,
-        business,
-        customer,
-        template,
-        delayHours: settings.delayHours,
-      });
-
-      if (scheduled.scheduled) {
-        reviewRequestScheduled = true;
-        scheduledAt = scheduled.scheduledAt;
-        scheduledSmsId = scheduled.smsId;
-        reviewRequestSkippedReason = undefined;
-      } else {
-        reviewRequestSkippedReason = scheduled.reason ?? "schedule_failed";
-      }
+    if (usePrivateFeedback && !reviewUrlOverride) {
+      reviewRequestSkippedReason = "Private feedback URL is not configured.";
     } else {
-      const result = await sendReviewRequests({
-        userId: settings.userId,
-        business,
-        template,
-        customerIds: [customer.id],
-        serviceRole: true,
-      });
+      const template = usePrivateFeedback
+        ? buildPrivateFeedbackTemplate(business.name)
+        : audit
+          ? await generateReviewRequestMessage(audit, customer)
+          : buildDefaultTemplate(business.name);
 
-      reviewRequestSent = result.sent > 0;
-      if (!reviewRequestSent) {
-        reviewRequestSkippedReason = result.messages[0]?.error ?? "send_failed";
+      if (settings.delayHours > 0) {
+        const scheduled = await scheduleReviewRequestForCustomer({
+          userId: settings.userId,
+          business,
+          customer,
+          template,
+          delayHours: settings.delayHours,
+          reviewUrlOverride,
+        });
+
+        if (scheduled.scheduled) {
+          reviewRequestScheduled = true;
+          scheduledAt = scheduled.scheduledAt;
+          scheduledSmsId = scheduled.smsId;
+          reviewRequestSkippedReason = undefined;
+        } else {
+          reviewRequestSkippedReason = scheduled.reason ?? "schedule_failed";
+        }
       } else {
-        reviewRequestSkippedReason = undefined;
+        const result = await sendReviewRequests({
+          userId: settings.userId,
+          business,
+          template,
+          customerIds: [customer.id],
+          serviceRole: true,
+          reviewUrlOverride,
+        });
+
+        reviewRequestSent = result.sent > 0;
+        if (!reviewRequestSent) {
+          reviewRequestSkippedReason = result.messages[0]?.error ?? "send_failed";
+        } else {
+          reviewRequestSkippedReason = undefined;
+        }
       }
     }
   }
@@ -212,7 +226,11 @@ export async function processInboundWebhook(
     eventType: payload.event,
     source: payload.source ?? "webhook",
     externalId: payload.externalId,
-    payload: payload as unknown as Record<string, unknown>,
+    payload: {
+      ...(payload as unknown as Record<string, unknown>),
+      sentiment,
+      usedPrivateFeedback: eligibility.usePrivateFeedback === true,
+    },
     occurredAt: payload.serviceDate,
     reviewRequestSent,
     reviewRequestScheduled,

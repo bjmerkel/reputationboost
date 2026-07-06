@@ -27,6 +27,7 @@ export interface ClientConfig {
   avgCustomerValue?: number | null;
   avgCustomerValueCurrency?: string;
   heatmapProfile?: GridProfileKey;
+  privateFeedbackUrl?: string;
 }
 
 export interface GbpConnection {

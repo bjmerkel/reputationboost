@@ -32,6 +32,7 @@ export interface SendReviewRequestsInput {
   /** Skip audit-gap checks for explicit UI sends. Defaults to true for manual sends. */
   manualSend?: boolean;
   auditHasReviewGap?: boolean;
+  reviewUrlOverride?: string;
 }
 
 export interface SendReviewRequestsResult {
@@ -90,7 +91,7 @@ export async function sendReviewRequests(
     throw new Error("Business ID is required");
   }
 
-  const reviewUrl = resolveReviewUrl(input.business);
+  const reviewUrl = input.reviewUrlOverride ?? resolveReviewUrl(input.business);
   if (!reviewUrl) {
     throw new Error(
       "No Google review link available. Connect your Google Business Profile or add a Place ID in settings."

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { createId } from "@/lib/create-id";
+import {
+  attributeReviewToRecentOutreach,
+  findBusinessByGbpLocation,
+} from "@/lib/review-requests/attribution";
+import { isAdminSupabaseConfigured } from "@/lib/supabase/admin";
 
 interface PubSubPushEnvelope {
   message?: {
@@ -27,6 +32,11 @@ function decodePubSubData(data?: string): GbpPubSubNotification | null {
   } catch {
     return null;
   }
+}
+
+function isReviewNotification(type: string | undefined): boolean {
+  if (!type) return false;
+  return type.toUpperCase().includes("REVIEW");
 }
 
 /** Receive Google Business Profile Pub/Sub push notifications. */
@@ -57,10 +67,34 @@ export async function POST(request: Request) {
     subscription: envelope.subscription,
   });
 
+  let attributionId: string | null = null;
+
+  if (
+    isReviewNotification(payload?.notificationType) &&
+    payload?.locationName &&
+    isAdminSupabaseConfigured()
+  ) {
+    try {
+      const business = await findBusinessByGbpLocation(payload.locationName);
+      if (business) {
+        const attribution = await attributeReviewToRecentOutreach({
+          businessId: business.businessId,
+          userId: business.userId,
+          reviewDetectedAt: envelope.message?.publishTime ?? new Date().toISOString(),
+          attributionMethod: "pubsub_review",
+        });
+        attributionId = attribution?.id ?? null;
+      }
+    } catch (error) {
+      console.warn("[gbp-pubsub] outreach attribution failed:", error);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     eventId,
     notificationType: payload?.notificationType ?? null,
+    attributionId,
   });
 }
 

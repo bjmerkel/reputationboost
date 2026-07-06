@@ -25,6 +25,7 @@ export interface BusinessRecord {
   heatmap_profile: string;
   website: string | null;
   phone: string | null;
+  private_feedback_url: string | null;
   webhook_token: string | null;
   webhook_auto_send: boolean;
   webhook_delay_hours: number;
@@ -86,6 +87,7 @@ export function businessRecordToClientConfig(row: BusinessRecord): ClientConfig 
     avgCustomerValue: row.avg_customer_value != null ? Number(row.avg_customer_value) : null,
     avgCustomerValueCurrency: row.avg_customer_value_currency ?? "USD",
     heatmapProfile: (row.heatmap_profile as GridProfileKey) ?? "standard",
+    privateFeedbackUrl: row.private_feedback_url ?? undefined,
   };
 }
 
