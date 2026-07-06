@@ -77,7 +77,7 @@ export default function MonthlyReportPanel({
         {report.headline}
       </h3>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+      <div className={`mt-8 grid gap-6${embedded ? "" : " lg:grid-cols-2"}`}>
         <ReportBlock title="Rank movement" icon="📈" variant={variant}>
           {report.rankMovements.length === 0 ? (
             <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
@@ -111,9 +111,19 @@ export default function MonthlyReportPanel({
 
         <ReportBlock title="Engagement lift" icon="📞" variant={variant}>
           <div className="space-y-3">
-            <EngagementRow label="Calls" metric={report.engagement.calls} variant={variant} />
-            <EngagementRow label="Directions" metric={report.engagement.directions} variant={variant} />
-            <EngagementRow label="Website clicks" metric={report.engagement.websiteClicks} variant={variant} />
+            <EngagementRow label="Calls" metric={report.engagement.calls} variant={variant} embedded={embedded} />
+            <EngagementRow
+              label="Directions"
+              metric={report.engagement.directions}
+              variant={variant}
+              embedded={embedded}
+            />
+            <EngagementRow
+              label="Website clicks"
+              metric={report.engagement.websiteClicks}
+              variant={variant}
+              embedded={embedded}
+            />
           </div>
         </ReportBlock>
 
@@ -228,10 +238,12 @@ function EngagementRow({
   label,
   metric,
   variant = "dark",
+  embedded = false,
 }: {
   label: string;
   metric: { current: number; prior: number; change: number; changePercent: number | null };
   variant?: "dark" | "light";
+  embedded?: boolean;
 }) {
   const isLight = variant === "light";
   const positive = metric.change > 0;
@@ -239,23 +251,27 @@ function EngagementRow({
 
   return (
     <div
-      className={`flex items-center justify-between gap-4 rounded-lg px-3 py-2 ${
-        isLight ? "bg-[#f8f9fa]" : "bg-white/5"
-      }`}
+      className={`rounded-lg px-3 py-2 ${
+        embedded ? "space-y-1" : "flex items-center justify-between gap-4"
+      } ${isLight ? "bg-[#f8f9fa]" : "bg-white/5"}`}
     >
       <span className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>{label}</span>
-      <div className="text-right">
+      <div
+        className={`flex flex-wrap items-baseline gap-x-2 gap-y-0.5 ${
+          embedded ? "" : "justify-end text-right"
+        }`}
+      >
         <span className={`text-sm font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
           {metric.current}
         </span>
         {metric.prior > 0 && (
-          <span className={`ml-2 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+          <span className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
             was {metric.prior}
           </span>
         )}
         {metric.change !== 0 && (
           <span
-            className={`ml-2 text-xs font-medium ${
+            className={`text-xs font-medium ${
               positive
                 ? isLight
                   ? "text-[#188038]"
