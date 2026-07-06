@@ -7,7 +7,7 @@ import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import TaskOutcomeBadge from "@/components/attribution/TaskOutcomeBadge";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
-import { needsGbpDescriptionRepublish } from "@/lib/google/gbp-description";
+import { needsGbpDescriptionRepublish, GBP_DESCRIPTION_MAX_LENGTH } from "@/lib/google/gbp-description";
 
 const TYPE_LABELS: Partial<Record<ExecutionTask["type"], string>> = {
   google_post: "Google post",
@@ -53,6 +53,9 @@ export default function PlanStepTaskRow({
     (task.type !== "review_response" || isValidReviewId(task.payload.reviewId));
 
   const needsRepublish = gbpConnected && needsGbpDescriptionRepublish(task);
+  const isDescriptionTask = task.type === "gbp_description";
+  const descriptionLength = (editing ? draft : task.draftContent).length;
+  const descriptionOverLimit = isDescriptionTask && descriptionLength > GBP_DESCRIPTION_MAX_LENGTH;
 
   const isPhotoWithoutPreview =
     task.type === "gbp_photo" && typeof task.payload.previewDataUrl !== "string";
@@ -99,14 +102,29 @@ export default function PlanStepTaskRow({
       {task.type !== "gbp_photo" && (
         <div className="mt-3">
           {editing ? (
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={5}
-              className={`w-full rounded-lg border p-3 text-sm ${
-                isLight ? "border-[#dadce0] bg-white text-[#3c4043]" : "border-white/10 bg-slate-900 text-slate-200"
-              }`}
-            />
+            <>
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={5}
+                className={`w-full rounded-lg border p-3 text-sm ${
+                  isLight ? "border-[#dadce0] bg-white text-[#3c4043]" : "border-white/10 bg-slate-900 text-slate-200"
+                } ${descriptionOverLimit ? "border-[#d93025]" : ""}`}
+              />
+              {isDescriptionTask && (
+                <p
+                  className={`mt-1 text-xs ${
+                    descriptionOverLimit
+                      ? "text-[#d93025]"
+                      : isLight
+                        ? "text-[#80868b]"
+                        : "text-slate-500"
+                  }`}
+                >
+                  {descriptionLength}/{GBP_DESCRIPTION_MAX_LENGTH} characters — plain text only (Google field: profile.description)
+                </p>
+              )}
+            </>
           ) : (
             <p className={`whitespace-pre-wrap text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
               {normalizeTextContent(task.draftContent)}
@@ -258,8 +276,9 @@ export default function PlanStepTaskRow({
 
       {needsRepublish && (
         <p className={`mt-2 text-xs ${isLight ? "text-[#c5221f]" : "text-red-400"}`}>
-          This description was not verified on Google. Review replies use a different API and can
-          appear before profile fields like the business description.
+          This description was not verified on Google&apos;s <code className="text-[11px]">profile.description</code>{" "}
+          field. Review replies use a different API. Before re-publishing: remove URLs and sales copy, stay under 750
+          characters, and resolve any description conflict in Take Action → Google Updates.
         </p>
       )}
 

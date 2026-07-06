@@ -8,8 +8,10 @@ import {
   isGbpDescriptionLiveSync,
   needsGbpDescriptionRepublish,
   normalizeGbpDescription,
+  preflightDescriptionPublish,
   sanitizeGbpDescriptionForPublish,
   wasGbpDescriptionSimulated,
+  GBP_DESCRIPTION_FIELD,
 } from "./gbp-description";
 
 describe("gbp-description", () => {
@@ -136,5 +138,23 @@ describe("gbp-description", () => {
     );
     assert.equal(result.removedHtml, true);
     assert.doesNotMatch(result.text, /</);
+  });
+
+  it("blocks publish when profile.description is processing on Google", () => {
+    const preflight = preflightDescriptionPublish({
+      pendingMask: GBP_DESCRIPTION_FIELD,
+    });
+    assert.equal(preflight.canPatch, false);
+    assert.equal(preflight.isProcessing, true);
+    assert.match(preflight.blockReason ?? "", /profile\.description/i);
+  });
+
+  it("blocks publish when profile.description has a Google conflict", () => {
+    const preflight = preflightDescriptionPublish({
+      diffMask: GBP_DESCRIPTION_FIELD,
+    });
+    assert.equal(preflight.canPatch, false);
+    assert.equal(preflight.hasConflict, true);
+    assert.match(preflight.blockReason ?? "", /Google Updates/i);
   });
 });

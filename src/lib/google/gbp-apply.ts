@@ -30,7 +30,9 @@ import {
   buildDescriptionApplyMessage,
   buildDescriptionSanitizeNote,
   descriptionsMatch,
+  GBP_DESCRIPTION_FIELD,
   GBP_DESCRIPTION_MAX_LENGTH,
+  preflightDescriptionPublish,
   sanitizeGbpDescriptionForPublish,
 } from "./gbp-description";
 import { patchGbpLocationValidated } from "./gbp-patch";
@@ -181,12 +183,26 @@ export async function applyDescription(
     diffMask: "",
     pendingMask: "",
   }));
-  const descriptionConflict = maskIncludesField(snapshot.diffMask, "profile.description");
+  const preflight = preflightDescriptionPublish(snapshot);
 
-  if (descriptionConflict) {
+  if (!preflight.canPatch && !preflight.hasConflict) {
+    return {
+      success: true,
+      message: preflight.blockReason ?? "Description is processing on Google.",
+      applied: {
+        descriptionLength: trimmed.length,
+        skippedPatch: true,
+        isProcessing: preflight.isProcessing,
+        pendingMask: snapshot.pendingMask,
+        diffMask: snapshot.diffMask,
+      },
+    };
+  }
+
+  if (preflight.hasConflict) {
     const conflictResult = await rejectGoogleSuggestion(
       connection,
-      "profile.description",
+      GBP_DESCRIPTION_FIELD,
       trimmed
     );
     if (!conflictResult.success) {
@@ -198,7 +214,7 @@ export async function applyDescription(
       };
     }
   } else {
-    await patchGbpLocationValidated(connection, "profile.description", {
+    await patchGbpLocationValidated(connection, GBP_DESCRIPTION_FIELD, {
       profile: { description: trimmed },
     });
   }
@@ -214,11 +230,11 @@ export async function applyDescription(
 
   const descriptionProcessing = maskIncludesField(
     refreshedSnapshot.pendingMask,
-    "profile.description"
+    GBP_DESCRIPTION_FIELD
   );
   const descriptionStillConflict = maskIncludesField(
     refreshedSnapshot.diffMask,
-    "profile.description"
+    GBP_DESCRIPTION_FIELD
   );
 
   const verification = {
@@ -243,7 +259,7 @@ export async function applyDescription(
       hasDiff: descriptionStillConflict,
       diffMask: refreshedSnapshot.diffMask,
       pendingMask: refreshedSnapshot.pendingMask,
-      resolvedConflict: descriptionConflict,
+      resolvedConflict: preflight.hasConflict,
       sanitized: sanitized.removedUrls || sanitized.removedHtml || sanitized.removedInvalidChars,
       contentPolicyWarnings: sanitized.contentPolicyWarnings,
     },

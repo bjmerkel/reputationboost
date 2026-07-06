@@ -1,5 +1,10 @@
+import { maskIncludesField } from "./gbp-google-updated";
+
 /** Google Business Profile description field limit (characters). */
 export const GBP_DESCRIPTION_MAX_LENGTH = 750;
+
+/** Field mask path for the description on Google's Location resource. */
+export const GBP_DESCRIPTION_FIELD = "profile.description";
 
 const SIMULATED_RESULT = "Updated GBP business description.";
 
@@ -103,6 +108,51 @@ export function buildDescriptionSanitizeNote(result: GbpDescriptionSanitizeResul
   }
   if (notes.length === 0) return null;
   return `${notes.join("; ")}.`;
+}
+
+export interface DescriptionPublishPreflight {
+  /** profile.description is in Google's diffMask — accept/reject required first. */
+  hasConflict: boolean;
+  /** profile.description is in Google's pendingMask — already processing. */
+  isProcessing: boolean;
+  /** Safe to PATCH profile.description with a new value. */
+  canPatch: boolean;
+  blockReason: string | null;
+}
+
+export function preflightDescriptionPublish(snapshot: {
+  diffMask?: string;
+  pendingMask?: string;
+}): DescriptionPublishPreflight {
+  const hasConflict = maskIncludesField(snapshot.diffMask ?? "", GBP_DESCRIPTION_FIELD);
+  const isProcessing = maskIncludesField(snapshot.pendingMask ?? "", GBP_DESCRIPTION_FIELD);
+
+  if (hasConflict) {
+    return {
+      hasConflict: true,
+      isProcessing,
+      canPatch: false,
+      blockReason:
+        "Google has a conflicting description for profile.description. Resolve it in Take Action → Google Updates before publishing.",
+    };
+  }
+
+  if (isProcessing) {
+    return {
+      hasConflict: false,
+      isProcessing: true,
+      canPatch: false,
+      blockReason:
+        "Google is already processing a description change (profile.description). Wait a few hours before publishing again.",
+    };
+  }
+
+  return {
+    hasConflict: false,
+    isProcessing: false,
+    canPatch: true,
+    blockReason: null,
+  };
 }
 
 /** Compare sent vs live description, allowing for Google's 750-char cap. */
