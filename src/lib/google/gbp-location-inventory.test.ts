@@ -200,5 +200,6 @@ describe("gbp-location-inventory", () => {
 
     assert.ok(inventory.summary.missing > 0 || inventory.summary.needsWork > 0);
     assert.equal(inventory.summary.total, inventory.fields.length);
+    assert.ok((inventory.summary.potentialScoreGain ?? 0) >= 0);
   });
 });

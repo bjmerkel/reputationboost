@@ -5,6 +5,7 @@ import type {
   GbpLocationFieldStatus,
   GbpSnapshot,
 } from "@/audit/types";
+import { enrichLocationInventoryScores } from "./gbp-field-score-impact";
 import { GBP_DESCRIPTION_MAX_LENGTH } from "./gbp-description";
 import type { GbpLocationProfile } from "./gbp-location";
 import { maskIncludesField } from "./gbp-google-updated";
@@ -25,6 +26,8 @@ export interface BuildGbpLocationInventoryInput {
   issues: GbpSnapshot["issues"];
   googleUpdateState?: GbpGoogleUpdateState;
   liveProfile?: GbpSnapshot["liveProfile"];
+  monthlyActions?: number;
+  avgCustomerValue?: number | null;
 }
 
 function fieldStatus(
@@ -470,10 +473,16 @@ export function buildGbpLocationInventory(
     },
   ];
 
-  return {
-    collectedAt: input.collectedAt,
-    source: input.source,
-    fields,
-    summary: summarize(fields),
-  };
+  return enrichLocationInventoryScores(
+    {
+      collectedAt: input.collectedAt,
+      source: input.source,
+      fields,
+      summary: summarize(fields),
+    },
+    {
+      monthlyActions: input.monthlyActions,
+      avgCustomerValue: input.avgCustomerValue,
+    }
+  );
 }

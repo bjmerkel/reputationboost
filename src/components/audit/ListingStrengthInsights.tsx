@@ -11,6 +11,7 @@ import { buildPlan } from "@/audit/phase3/build-plan";
 import GapsPanel from "@/components/audit/GapsPanel";
 import KeywordScoreCards from "@/components/audit/KeywordScoreCards";
 import PathToHealthyPanel from "@/components/audit/PathToHealthyPanel";
+import ProfileCommandCenter from "@/components/audit/ProfileCommandCenter";
 
 export default function ListingStrengthInsights({
   audit,
@@ -70,6 +71,12 @@ export default function ListingStrengthInsights({
   return (
     <div className="space-y-4">
       <PathToHealthyPanel path={path} currency={currency} />
+      <ProfileCommandCenter
+        audit={audit}
+        avgCustomerValue={avgCustomerValue}
+        currency={currency}
+        variant="light"
+      />
       <GapsPanel audit={audit} avgCustomerValue={avgCustomerValue} currency={currency} />
       {showKeywords && (
         <KeywordScoreCards keywords={keywordScores} currency={currency} />

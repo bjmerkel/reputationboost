@@ -344,6 +344,8 @@ async function collectGbpFromApi(
         attributes,
         source: liveProfile ? "oauth" : "places",
       },
+      monthlyActions:
+        performance.calls + performance.directionRequests + performance.websiteClicks,
     }),
     liveProfile: {
       primaryCategory,

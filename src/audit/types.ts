@@ -358,6 +358,11 @@ export interface GbpLocationInventoryField {
   /** profile.description in diffMask / pendingMask */
   hasConflict?: boolean;
   isProcessing?: boolean;
+  /** Estimated driver-score points if this field is fixed */
+  scoreImpact?: number;
+  scoreComponent?: ScoreComponent;
+  /** Estimated monthly revenue lift when avg job value is known */
+  revenueImpact?: number;
 }
 
 export interface GbpLocationInventory {
@@ -372,6 +377,10 @@ export interface GbpLocationInventory {
     conflict: number;
     processing: number;
     blocked: number;
+    /** Sum of scoreImpact across fields that need work */
+    potentialScoreGain?: number;
+    /** Sum of revenueImpact when avg customer value is set */
+    potentialRevenueGain?: number;
   };
 }
 

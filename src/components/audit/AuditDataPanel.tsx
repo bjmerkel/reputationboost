@@ -16,6 +16,7 @@ import type {
 import ExternalImage from "@/components/ExternalImage";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import TrendsPanel from "@/components/attribution/TrendsPanel";
+import ProfileCommandCenter from "@/components/audit/ProfileCommandCenter";
 import { formatCustomerAttribution } from "@/lib/google/gbp-media-display";
 import { buildMediaHealthReport } from "@/lib/google/gbp-media-health";
 import { buildPerformanceHealthReport } from "@/lib/google/gbp-performance-health";
@@ -151,7 +152,11 @@ export default function AuditDataPanel({
       </div>
 
       {tab === "profile" && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
+          {audit.gbp.locationInventory && (
+            <ProfileCommandCenter audit={audit} variant={isLight ? "light" : "dark"} />
+          )}
+          <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-3">
             <DataBlock
               title="Identity"
@@ -288,6 +293,7 @@ export default function AuditDataPanel({
             />
             </>
           )}
+          </div>
         </div>
       )}
 
