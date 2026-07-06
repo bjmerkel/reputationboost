@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { getPrimaryBusiness } from "@/audit/businesses";
+import { ensureStrategy } from "@/audit/ensure-strategy";
+import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
+import { auditHasReviewGap } from "@/lib/review-requests/eligibility";
 import { sendReviewRequests } from "@/lib/sms/send-review-requests";
 import { isTwilioConfigured } from "@/lib/sms/twilio";
 import { getUser } from "@/lib/supabase/server";
+import { parseJsonBody } from "@/lib/http/parse-json-body";
 
 export async function POST(request: Request) {
   const user = await getUser();
@@ -16,17 +20,23 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as {
+    const body = await parseJsonBody<{
       template?: string;
       customerIds?: string[];
       batchSize?: number;
       dryRun?: boolean;
       executionTaskId?: string;
-    };
+    }>(request);
 
     if (!body.template?.trim()) {
       return NextResponse.json({ error: "Message template is required" }, { status: 400 });
     }
+
+    const rawAudit = await loadLatestAuditFromSupabase(user.id, business.id, {
+      businessName: business.name,
+      businessUuid: business.businessId,
+    });
+    const audit = rawAudit ? ensureStrategy(rawAudit) : null;
 
     const result = await sendReviewRequests({
       userId: user.id,
@@ -36,6 +46,8 @@ export async function POST(request: Request) {
       batchSize: body.batchSize,
       executionTaskId: body.executionTaskId,
       dryRun: body.dryRun,
+      manualSend: true,
+      auditHasReviewGap: auditHasReviewGap(audit),
     });
 
     return NextResponse.json({

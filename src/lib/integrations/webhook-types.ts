@@ -37,5 +37,9 @@ export interface WebhookProcessResult {
   eventId: string;
   eventType: string;
   reviewRequestSent: boolean;
+  reviewRequestScheduled?: boolean;
+  scheduledAt?: string;
+  scheduledSmsId?: string;
+  auditHasReviewGap?: boolean;
   reviewRequestSkippedReason?: string;
 }

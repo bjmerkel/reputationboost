@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { REVIEW_REQUEST_COOLDOWN_DAYS } from "@/lib/review-requests/eligibility";
 import { normalizePhoneE164 } from "@/lib/sms/phone";
 import type {
   CustomerInput,
@@ -39,7 +40,11 @@ export async function listCustomers(
     .order("created_at", { ascending: false });
 
   if (options.eligibleOnly) {
-    query = query.eq("opted_out", false).is("review_requested_at", null);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - REVIEW_REQUEST_COOLDOWN_DAYS);
+    query = query
+      .eq("opted_out", false)
+      .or(`review_requested_at.is.null,review_requested_at.lt.${cutoff.toISOString()}`);
   }
 
   if (options.limit) {

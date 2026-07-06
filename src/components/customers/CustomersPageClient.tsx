@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
+import { REVIEW_REQUEST_COOLDOWN_DAYS } from "@/lib/review-requests/eligibility";
 
 interface Customer {
   id: string;
@@ -15,6 +16,15 @@ interface Customer {
   opted_out: boolean;
   review_requested_at: string | null;
   created_at: string;
+}
+
+function isEligibleCustomer(customer: Customer): boolean {
+  if (customer.opted_out) return false;
+  if (!customer.review_requested_at) return true;
+  const days = Math.floor(
+    (Date.now() - new Date(customer.review_requested_at).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  return days >= REVIEW_REQUEST_COOLDOWN_DAYS;
 }
 
 interface CustomersPageProps {
@@ -64,7 +74,7 @@ export default function CustomersPageClient({
   });
 
   const eligibleCustomers = useMemo(
-    () => customers.filter((c) => !c.opted_out && !c.review_requested_at),
+    () => customers.filter(isEligibleCustomer),
     [customers]
   );
 
@@ -446,7 +456,7 @@ export default function CustomersPageClient({
               </thead>
               <tbody className="divide-y divide-[#dadce0]">
                 {customers.map((customer) => {
-                  const eligible = !customer.opted_out && !customer.review_requested_at;
+                  const eligible = isEligibleCustomer(customer);
                   return (
                     <tr key={customer.id} className={eligible ? "" : "opacity-60"}>
                       <td className="px-4 py-3">
