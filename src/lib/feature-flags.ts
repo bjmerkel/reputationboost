@@ -10,8 +10,10 @@ export const HEATMAP_FLAGS = {
   competitorTerritories: true,
   serviceAreaOverlay: true,
   gbpServiceArea: true,
-  /** Live audit + on-demand grid fetches */
+  /** Live on-demand grid fetches from the map UI */
   gridProfile: "standard" as GridProfileKey,
+  /** Full audits use compact grid to stay within serverless time limits */
+  auditGridProfile: "compact" as GridProfileKey,
   /** Weekly cron uses compact grid to limit API cost */
   weeklyGridProfile: "compact" as GridProfileKey,
 } as const;
@@ -25,6 +27,10 @@ export function gridProfileForCollection(
 ): GridProfileKey {
   if (context === "weekly") {
     return HEATMAP_FLAGS.weeklyGridProfile;
+  }
+
+  if (context === "audit") {
+    return HEATMAP_FLAGS.auditGridProfile;
   }
 
   if (businessProfile) {
