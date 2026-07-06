@@ -3,6 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
 
+interface ZapierTemplate {
+  id: string;
+  label: string;
+  description: string;
+  templateUrl: string;
+  eventType: string;
+  sampleFields: string[];
+}
+
 interface WebhookSettings {
   webhookUrl: string;
   autoSend: boolean;
@@ -11,7 +20,9 @@ interface WebhookSettings {
   auditHasReviewGap?: boolean;
   privateFeedbackUrl?: string | null;
   zapierSteps?: string[];
+  zapierTemplates?: ZapierTemplate[];
   samplePayload: Record<string, unknown>;
+  optOutSamplePayload?: Record<string, unknown>;
 }
 
 export default function WebhookIntegrationPanel() {
@@ -205,6 +216,37 @@ export default function WebhookIntegrationPanel() {
 
         <div>
           <label className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">
+            Zapier templates
+          </label>
+          <p className="mt-1 text-sm text-[#5f6368]">
+            Open a pre-built Zap, then paste your webhook URL above into the Webhooks action.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {(settings.zapierTemplates ?? []).map((template) => (
+              <div
+                key={template.id}
+                className="rounded-lg border border-[#dadce0] bg-[#f8f9fa] p-4"
+              >
+                <p className="font-semibold text-[#202124]">{template.label}</p>
+                <p className="mt-1 text-sm text-[#5f6368]">{template.description}</p>
+                <p className="mt-2 text-xs text-[#80868b]">
+                  Event: <code>{template.eventType}</code>
+                </p>
+                <a
+                  href={template.templateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex rounded-full bg-[#ff4f00] px-4 py-2 text-sm font-semibold text-white hover:bg-[#e64800]"
+                >
+                  Open in Zapier
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">
             Zapier / Make setup
           </label>
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-[#5f6368]">
@@ -241,6 +283,29 @@ export default function WebhookIntegrationPanel() {
             {copied === "payload" ? "Copied" : "Copy sample payload"}
           </button>
         </div>
+
+        {settings.optOutSamplePayload && (
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">
+              Opt-out sample payload
+            </label>
+            <pre className="mt-1 overflow-x-auto rounded-lg bg-[#f8f9fa] p-3 text-xs text-[#3c4043]">
+              {JSON.stringify(settings.optOutSamplePayload, null, 2)}
+            </pre>
+            <button
+              type="button"
+              onClick={() =>
+                void copyText(
+                  "optout",
+                  JSON.stringify(settings.optOutSamplePayload, null, 2)
+                )
+              }
+              className="mt-2 text-sm font-semibold text-[#1a73e8] hover:underline"
+            >
+              {copied === "optout" ? "Copied" : "Copy opt-out payload"}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">

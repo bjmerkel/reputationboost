@@ -1,5 +1,15 @@
 import type { WebhookPayload } from "./webhook-types";
 
+export const OPT_OUT_EVENT_TYPES = new Set([
+  "customer.opted_out",
+  "sms.opt_out",
+  "do_not_contact",
+  "customer.unsubscribed",
+  "sms.stop",
+]);
+
+export const OPT_IN_EVENT_TYPES = new Set(["customer.opted_in", "sms.opt_in"]);
+
 function readString(record: Record<string, unknown>, keys: string[]): string | undefined {
   for (const key of keys) {
     const value = record[key];
@@ -26,6 +36,20 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
+function resolveOptedOut(
+  event: string,
+  explicit: boolean | undefined
+): boolean | undefined {
+  const normalized = event.trim().toLowerCase();
+  if (OPT_OUT_EVENT_TYPES.has(normalized)) return true;
+  if (OPT_IN_EVENT_TYPES.has(normalized)) return false;
+  return explicit;
+}
+
+export function isOptOutEvent(eventType: string): boolean {
+  return OPT_OUT_EVENT_TYPES.has(eventType.trim().toLowerCase());
+}
+
 export function normalizeWebhookPayload(data: unknown): WebhookPayload {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     throw new Error("Webhook body must be a JSON object");
@@ -42,6 +66,12 @@ export function normalizeWebhookPayload(data: unknown): WebhookPayload {
   const firstName = readString(record, ["firstName", "first_name", "given_name"]);
   const lastName = readString(record, ["lastName", "last_name", "family_name", "surname"]);
   const parsedName = fullName ? splitName(fullName) : { firstName: "", lastName: "" };
+  const explicitOptedOut = readBoolean(record, [
+    "optedOut",
+    "opted_out",
+    "doNotContact",
+    "do_not_contact",
+  ]);
 
   return {
     event,
@@ -55,7 +85,7 @@ export function normalizeWebhookPayload(data: unknown): WebhookPayload {
     externalId: readString(record, ["externalId", "external_id", "jobId", "job_id", "invoiceId", "invoice_id"]),
     source: readString(record, ["source", "integration", "crm"]) ?? "webhook",
     sendReviewRequest: readBoolean(record, ["sendReviewRequest", "send_review_request"]),
-    optedOut: readBoolean(record, ["optedOut", "opted_out", "doNotContact", "do_not_contact"]),
+    optedOut: resolveOptedOut(event, explicitOptedOut),
   };
 }
 

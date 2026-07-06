@@ -90,6 +90,15 @@ describe("evaluateReviewRequestEligibility", () => {
     assert.equal(result.eligible, true);
     assert.equal(result.usePrivateFeedback, true);
   });
+
+  it("blocks opted-out customers", () => {
+    const result = evaluateReviewRequestEligibility({
+      customer: customer({ opted_out: true }),
+      manualSend: true,
+    });
+    assert.equal(result.eligible, false);
+    assert.equal(result.reason, "customer_opted_out");
+  });
 });
 
 describe("auditHasReviewGap", () => {

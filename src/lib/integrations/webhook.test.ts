@@ -30,6 +30,31 @@ describe("normalizeWebhookPayload", () => {
     assert.throws(() => normalizeWebhookPayload({ phone: "2145550100" }), /event/);
     assert.throws(() => normalizeWebhookPayload({ event: "job.completed" }), /phone/);
   });
+
+  it("maps opt-out event types to optedOut true", () => {
+    const payload = normalizeWebhookPayload({
+      event: "customer.opted_out",
+      phone: "214-555-0100",
+    });
+    assert.equal(payload.optedOut, true);
+  });
+
+  it("maps opt-in event types to optedOut false", () => {
+    const payload = normalizeWebhookPayload({
+      event: "customer.opted_in",
+      phone: "214-555-0100",
+    });
+    assert.equal(payload.optedOut, false);
+  });
+
+  it("honors explicit optedOut flag on regular events", () => {
+    const payload = normalizeWebhookPayload({
+      event: "job.completed",
+      phone: "214-555-0100",
+      opted_out: true,
+    });
+    assert.equal(payload.optedOut, true);
+  });
 });
 
 describe("isTriggerEvent", () => {

@@ -12,7 +12,7 @@ import { scheduleReviewRequestForCustomer } from "@/lib/review-requests/schedule
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildPrivateFeedbackTemplate } from "@/lib/sms/private-feedback";
 import { sendReviewRequests } from "@/lib/sms/send-review-requests";
-import { normalizeWebhookPayload } from "./normalize-webhook-payload";
+import { isOptOutEvent, normalizeWebhookPayload } from "./normalize-webhook-payload";
 import {
   getBusinessConfigForWebhook,
   getWebhookBusinessByToken,
@@ -98,6 +98,30 @@ async function updateCustomerEventMetadata(
   return data as CustomerRecord;
 }
 
+async function applyOptPreference(
+  customer: CustomerRecord,
+  optedOut: boolean | undefined
+): Promise<{ customer: CustomerRecord; optOutApplied: boolean; optInApplied: boolean }> {
+  if (optedOut === undefined) {
+    return { customer, optOutApplied: false, optInApplied: false };
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .update({ opted_out: optedOut, updated_at: new Date().toISOString() })
+    .eq("id", customer.id)
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+
+  return {
+    customer: data as CustomerRecord,
+    optOutApplied: optedOut === true,
+    optInApplied: optedOut === false,
+  };
+}
+
 export async function processInboundWebhook(
   token: string,
   rawBody: unknown
@@ -120,17 +144,11 @@ export async function processInboundWebhook(
     source: payload.source ?? "webhook",
   });
 
-  if (payload.optedOut) {
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("customers")
-      .update({ opted_out: true, updated_at: new Date().toISOString() })
-      .eq("id", customer.id)
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
-    customer = data as CustomerRecord;
-  }
+  const { customer: updatedCustomer, optOutApplied, optInApplied } = await applyOptPreference(
+    customer,
+    payload.optedOut
+  );
+  customer = updatedCustomer;
 
   customer = await updateCustomerEventMetadata(
     customer,
@@ -138,6 +156,39 @@ export async function processInboundWebhook(
     payload.externalId,
     payload.source ?? "webhook"
   );
+
+  const isOptOut = isOptOutEvent(payload.event) || payload.optedOut === true;
+
+  if (isOptOut) {
+    const eventId = await logCustomerEvent({
+      businessId: settings.businessId,
+      userId: settings.userId,
+      customerId: customer.id,
+      eventType: payload.event,
+      source: payload.source ?? "webhook",
+      externalId: payload.externalId,
+      payload: {
+        ...(payload as unknown as Record<string, unknown>),
+        optedOut: true,
+      },
+      occurredAt: payload.serviceDate,
+      reviewRequestSent: false,
+      reviewRequestScheduled: false,
+    });
+
+    return {
+      ok: true,
+      customerId: customer.id,
+      eventId,
+      eventType: payload.event,
+      reviewRequestSent: false,
+      reviewRequestScheduled: false,
+      optedOut: true,
+      optOutApplied,
+      optInApplied,
+      reviewRequestSkippedReason: "Customer opted out of review requests.",
+    };
+  }
 
   const rawAudit = await loadLatestAuditForBusinessAdmin(
     settings.userId,
@@ -230,6 +281,7 @@ export async function processInboundWebhook(
       ...(payload as unknown as Record<string, unknown>),
       sentiment,
       usedPrivateFeedback: eligibility.usePrivateFeedback === true,
+      optedOut: payload.optedOut ?? false,
     },
     occurredAt: payload.serviceDate,
     reviewRequestSent,
@@ -247,5 +299,8 @@ export async function processInboundWebhook(
     scheduledSmsId,
     auditHasReviewGap: hasReviewGap,
     reviewRequestSkippedReason,
+    optedOut: customer.opted_out,
+    optOutApplied,
+    optInApplied,
   };
 }

@@ -42,4 +42,7 @@ export interface WebhookProcessResult {
   scheduledSmsId?: string;
   auditHasReviewGap?: boolean;
   reviewRequestSkippedReason?: string;
+  optedOut?: boolean;
+  optOutApplied?: boolean;
+  optInApplied?: boolean;
 }
