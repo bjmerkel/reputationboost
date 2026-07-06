@@ -103,45 +103,80 @@ export interface AttributionUpsertInput {
   cellsImproved?: number | null;
 }
 
+function isMissingColumnError(message: string): boolean {
+  return /Could not find the '.*' column of 'action_attributions'/i.test(message);
+}
+
+function buildAttributionRow(
+  input: AttributionUpsertInput,
+  includeExtended: boolean
+): Record<string, unknown> {
+  const row: Record<string, unknown> = {
+    execution_task_id: input.executionTaskId,
+    business_id: input.businessId,
+    task_type: input.taskType,
+    action_item_id: input.actionItemId,
+    published_at: input.publishedAt,
+    window_days: input.windowDays,
+    primary_keyword: input.primaryKeyword,
+    rank_before: input.rankBefore,
+    rank_after: input.rankAfter,
+    rank_delta: input.rankDelta,
+    keywords_improved: input.keywordsImproved,
+    calls_delta: input.callsDelta,
+    directions_delta: input.directionsDelta,
+    website_clicks_delta: input.websiteClicksDelta,
+    impressions_delta: input.impressionsDelta,
+    estimated_revenue: input.estimatedRevenue,
+    narrative: input.narrative,
+    computed_at: new Date().toISOString(),
+  };
+
+  if (!includeExtended) return row;
+
+  return {
+    ...row,
+    projected_driver_impact: input.projectedDriverImpact ?? null,
+    observed_driver_impact: input.observedDriverImpact ?? null,
+    driver_score_before: input.driverScoreBefore ?? null,
+    driver_score_after: input.driverScoreAfter ?? null,
+    projected_outcome_impact: input.projectedOutcomeImpact ?? null,
+    projected_revenue_gain: input.projectedRevenueGain ?? null,
+    observed_outcome_impact: input.observedOutcomeImpact ?? null,
+    outcome_index_before: input.outcomeIndexBefore ?? null,
+    outcome_index_after: input.outcomeIndexAfter ?? null,
+    grid_coverage_before: input.gridCoverageBefore ?? null,
+    grid_coverage_after: input.gridCoverageAfter ?? null,
+    cells_improved: input.cellsImproved ?? null,
+  };
+}
+
 export async function upsertActionAttribution(input: AttributionUpsertInput): Promise<void> {
   const supabase = createAdminClient();
-  const { error } = await supabase.from("action_attributions").upsert(
-    {
-      execution_task_id: input.executionTaskId,
-      business_id: input.businessId,
-      task_type: input.taskType,
-      action_item_id: input.actionItemId,
-      published_at: input.publishedAt,
-      window_days: input.windowDays,
-      primary_keyword: input.primaryKeyword,
-      rank_before: input.rankBefore,
-      rank_after: input.rankAfter,
-      rank_delta: input.rankDelta,
-      keywords_improved: input.keywordsImproved,
-      calls_delta: input.callsDelta,
-      directions_delta: input.directionsDelta,
-      website_clicks_delta: input.websiteClicksDelta,
-      impressions_delta: input.impressionsDelta,
-      estimated_revenue: input.estimatedRevenue,
-      narrative: input.narrative,
-      projected_driver_impact: input.projectedDriverImpact ?? null,
-      observed_driver_impact: input.observedDriverImpact ?? null,
-      driver_score_before: input.driverScoreBefore ?? null,
-      driver_score_after: input.driverScoreAfter ?? null,
-      projected_outcome_impact: input.projectedOutcomeImpact ?? null,
-      projected_revenue_gain: input.projectedRevenueGain ?? null,
-      observed_outcome_impact: input.observedOutcomeImpact ?? null,
-      outcome_index_before: input.outcomeIndexBefore ?? null,
-      outcome_index_after: input.outcomeIndexAfter ?? null,
-      grid_coverage_before: input.gridCoverageBefore ?? null,
-      grid_coverage_after: input.gridCoverageAfter ?? null,
-      cells_improved: input.cellsImproved ?? null,
-      computed_at: new Date().toISOString(),
-    },
-    { onConflict: "execution_task_id" }
-  );
+  const upsertOptions = { onConflict: "execution_task_id" as const };
 
-  if (error) throw new Error(`Failed to upsert action_attribution: ${error.message}`);
+  const full = await supabase
+    .from("action_attributions")
+    .upsert(buildAttributionRow(input, true), upsertOptions);
+
+  if (!full.error) return;
+
+  if (isMissingColumnError(full.error.message)) {
+    const core = await supabase
+      .from("action_attributions")
+      .upsert(buildAttributionRow(input, false), upsertOptions);
+
+    if (!core.error) {
+      console.warn(
+        "[attribution] upserted without extended projection columns — apply Supabase migration 018_action_attributions_repair.sql"
+      );
+      return;
+    }
+
+    throw new Error(`Failed to upsert action_attribution: ${core.error.message}`);
+  }
+
+  throw new Error(`Failed to upsert action_attribution: ${full.error.message}`);
 }
 
 export async function getRankSnapshotsInRange(
