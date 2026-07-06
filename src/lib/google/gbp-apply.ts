@@ -219,14 +219,37 @@ export async function applyDescription(
     });
   }
 
+  // The patch already succeeded at this point — a verification read failure
+  // must not flip the result to "failed".
   const [live, refreshedSnapshot] = await Promise.all([
-    getGbpLocationProfile(connection),
+    getGbpLocationProfile(connection).catch(() => null),
     getGoogleUpdatedSnapshot(connection).catch(() => ({
       location: {},
       diffMask: snapshot.diffMask,
       pendingMask: snapshot.pendingMask,
     })),
   ]);
+
+  if (!live) {
+    return {
+      success: true,
+      message:
+        "Description submitted — Google is processing or reviewing it. Live verification was unavailable; confirm the text in Business Profile Manager in a few hours." +
+        (sanitizeNote ? ` ${sanitizeNote}` : ""),
+      applied: {
+        descriptionLength: trimmed.length,
+        verified: false,
+        verificationUnavailable: true,
+        resolvedConflict: preflight.hasConflict,
+        sanitized:
+          sanitized.removedUrls ||
+          sanitized.removedHtml ||
+          sanitized.removedPhoneNumbers ||
+          sanitized.removedInvalidChars,
+        contentPolicyWarnings: sanitized.contentPolicyWarnings,
+      },
+    };
+  }
 
   const descriptionProcessing = maskIncludesField(
     refreshedSnapshot.pendingMask,
@@ -260,7 +283,11 @@ export async function applyDescription(
       diffMask: refreshedSnapshot.diffMask,
       pendingMask: refreshedSnapshot.pendingMask,
       resolvedConflict: preflight.hasConflict,
-      sanitized: sanitized.removedUrls || sanitized.removedHtml || sanitized.removedInvalidChars,
+      sanitized:
+        sanitized.removedUrls ||
+        sanitized.removedHtml ||
+        sanitized.removedPhoneNumbers ||
+        sanitized.removedInvalidChars,
       contentPolicyWarnings: sanitized.contentPolicyWarnings,
     },
   };

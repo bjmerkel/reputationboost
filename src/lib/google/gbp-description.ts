@@ -15,6 +15,14 @@ const URL_PATTERN =
 /** HTML tags Google rejects in plain-text descriptions. */
 const HTML_TAG_PATTERN = /<[^>]+>/g;
 
+/**
+ * Phone numbers Google's guidelines disallow in descriptions — they belong in
+ * the dedicated phoneNumbers field. Matches US formats like (703) 820-5400,
+ * 703-820-5400, 703.820.5400, +1 703 820 5400, and generic +country numbers.
+ */
+const PHONE_PATTERN =
+  /(?:\+?1[\s.-]?)?(?:\(\d{3}\)\s*|\b\d{3}[\s.-])\d{3}[\s.-]\d{4}\b|\+\d{1,3}(?:[\s.-]?\d{2,4}){2,4}\b/g;
+
 /** Control chars and odd Unicode format chars that often trigger INVALID_CHARACTERS. */
 const INVALID_CHAR_PATTERN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\uFEFF]/g;
 
@@ -30,10 +38,17 @@ const PROMOTIONAL_PHRASE_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
   { pattern: /\b(#1|number one|top rated)\b/i, label: "unverifiable ranking claims" },
 ];
 
+/** "Call us at <number>" lead-ins removed together with the number so the sentence still reads naturally. */
+const PHONE_LEAD_IN_PATTERN = new RegExp(
+  String.raw`\b(?:at|on)[\s:]+(?:${PHONE_PATTERN.source})`,
+  "gi"
+);
+
 export interface GbpDescriptionSanitizeResult {
   text: string;
   removedUrls: boolean;
   removedHtml: boolean;
+  removedPhoneNumbers: boolean;
   removedInvalidChars: boolean;
   normalizedPunctuation: boolean;
   contentPolicyWarnings: string[];
@@ -64,8 +79,17 @@ export function sanitizeGbpDescriptionForPublish(text: string): GbpDescriptionSa
 
   const withoutHtml = working.replace(HTML_TAG_PATTERN, " ");
   const withoutUrls = withoutHtml.replace(URL_PATTERN, "");
-  const withoutInvalid = withoutUrls.replace(INVALID_CHAR_PATTERN, "");
-  const removedInvalidChars = withoutInvalid !== withoutUrls;
+
+  // Google's guidelines put phone numbers in the dedicated phone field, never
+  // in the description. Strip "at <number>" lead-ins first so "Call us at
+  // (703) 820-5400 to schedule" becomes "Call us to schedule".
+  const withoutPhones = withoutUrls
+    .replace(PHONE_LEAD_IN_PATTERN, "")
+    .replace(PHONE_PATTERN, "");
+  const removedPhoneNumbers = withoutPhones !== withoutUrls;
+
+  const withoutInvalid = withoutPhones.replace(INVALID_CHAR_PATTERN, "");
+  const removedInvalidChars = withoutInvalid !== withoutPhones;
 
   const punctBefore = withoutInvalid;
   const withoutExcessPunctuation = withoutInvalid.replace(EXCESS_PUNCTUATION_PATTERN, "$1");
@@ -81,10 +105,19 @@ export function sanitizeGbpDescriptionForPublish(text: string): GbpDescriptionSa
     text: truncated,
     removedUrls: hadUrls,
     removedHtml: hadHtml,
+    removedPhoneNumbers,
     removedInvalidChars,
     normalizedPunctuation,
     contentPolicyWarnings: detectDescriptionContentPolicyWarnings(truncated),
   };
+}
+
+/**
+ * Clean a generated description draft before it is shown or stored, so users
+ * never see (and Google never receives) phone numbers, URLs, or HTML.
+ */
+export function sanitizeGbpDescriptionDraft(text: string): string {
+  return sanitizeGbpDescriptionForPublish(text).text;
 }
 
 export function buildDescriptionSanitizeNote(result: GbpDescriptionSanitizeResult): string | null {
@@ -94,6 +127,11 @@ export function buildDescriptionSanitizeNote(result: GbpDescriptionSanitizeResul
   }
   if (result.removedHtml) {
     notes.push("HTML tags were removed — use plain text only");
+  }
+  if (result.removedPhoneNumbers) {
+    notes.push(
+      "phone numbers were removed — Google only allows them in the dedicated phone field"
+    );
   }
   if (result.removedInvalidChars) {
     notes.push("unsupported characters were removed");

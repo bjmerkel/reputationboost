@@ -320,7 +320,14 @@ async function biFetch<T>(
   });
   const data = (await res.json()) as T & { error?: { message?: string } };
   if (!res.ok) {
-    throw new Error(apiErrorMessage(data, `Business Information API failed (${res.status})`));
+    const message = apiErrorMessage(data, `Business Information API failed (${res.status})`);
+    if (message === "Request contains an invalid argument.") {
+      const endpoint = path.split("?")[0];
+      throw new Error(
+        `Google rejected the request to ${endpoint} (INVALID_ARGUMENT). This is usually an unsupported field in the request, not a problem with your profile data.`
+      );
+    }
+    throw new Error(message);
   }
   return data;
 }
@@ -638,31 +645,34 @@ function formatOpeningDate(
   return `${date.year}-${month}-${day}`;
 }
 
+/**
+ * Valid readMask paths for locations.get. `attributes` is NOT a Location field
+ * in the v1 Business Information API (it lives at locations/{id}/attributes) —
+ * including it makes the whole request fail with INVALID_ARGUMENT.
+ */
+export const LOCATION_PROFILE_READ_MASK = [
+  "name",
+  "title",
+  "profile",
+  "phoneNumbers",
+  "websiteUri",
+  "storefrontAddress",
+  "categories",
+  "serviceItems",
+  "regularHours",
+  "specialHours",
+  "moreHours",
+  "openInfo",
+  "metadata",
+] as const;
+
 /** locations.get — full location profile. */
 export async function getGbpLocationProfile(
   connection: GbpConnection
 ): Promise<GbpLocationProfile> {
   const resource = locationResourceName(connection.locationId);
   const params = new URLSearchParams();
-  params.set(
-    "readMask",
-    [
-      "name",
-      "title",
-      "profile",
-      "phoneNumbers",
-      "websiteUri",
-      "storefrontAddress",
-      "categories",
-      "serviceItems",
-      "attributes",
-      "regularHours",
-      "specialHours",
-      "moreHours",
-      "openInfo",
-      "metadata",
-    ].join(",")
-  );
+  params.set("readMask", LOCATION_PROFILE_READ_MASK.join(","));
 
   const data = await biFetch<LocationApi>(connection, `${resource}?${params.toString()}`);
 
@@ -870,7 +880,7 @@ export interface GbpGoogleUpdatedSnapshot {
   pendingMask: string;
 }
 
-const GOOGLE_UPDATED_READ_MASK = [
+export const GOOGLE_UPDATED_READ_MASK = [
   "name",
   "title",
   "profile",

@@ -140,6 +140,41 @@ describe("gbp-description", () => {
     assert.doesNotMatch(result.text, /</);
   });
 
+  it("strips phone numbers and keeps the sentence readable", () => {
+    const result = sanitizeGbpDescriptionForPublish(
+      "Car Spa Auto Electronics in Arlington, VA, specializes in top-quality car electronics services. " +
+        "Call us at (703) 820-5400 to schedule your appointment today!"
+    );
+    assert.equal(result.removedPhoneNumbers, true);
+    assert.doesNotMatch(result.text, /820|5400|\(\d{3}\)/);
+    assert.match(result.text, /Call us to schedule your appointment today!/);
+  });
+
+  it("strips phone numbers in dashed, dotted, and international formats", () => {
+    for (const phone of ["703-820-5400", "703.820.5400", "+1 703 820 5400", "+44 20 7946 0958"]) {
+      const result = sanitizeGbpDescriptionForPublish(`Reach our team on ${phone} anytime.`);
+      assert.equal(result.removedPhoneNumbers, true, `should strip "${phone}"`);
+      assert.doesNotMatch(result.text, /\d{3}[\s.-]\d{4}|\d{4}\b.*\d{4}/);
+    }
+  });
+
+  it("does not treat years or fractions as phone numbers", () => {
+    const result = sanitizeGbpDescriptionForPublish(
+      "Serving Arlington since 1998 with 24/7 emergency availability and 100% satisfaction focus."
+    );
+    assert.equal(result.removedPhoneNumbers, false);
+    assert.match(result.text, /since 1998/);
+    assert.match(result.text, /24\/7/);
+  });
+
+  it("notes phone removal in the sanitize summary", () => {
+    const result = sanitizeGbpDescriptionForPublish("Call us at (703) 820-5400 today.");
+    assert.match(
+      buildDescriptionSanitizeNote(result) ?? "",
+      /phone numbers were removed/i
+    );
+  });
+
   it("blocks publish when profile.description is processing on Google", () => {
     const preflight = preflightDescriptionPublish({
       pendingMask: GBP_DESCRIPTION_FIELD,
