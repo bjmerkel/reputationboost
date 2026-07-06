@@ -16,6 +16,7 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
   return [
     "google_post",
     "review_response",
+    "review_request",
     "social_post",
     "gbp_description",
     "gbp_primary_category",

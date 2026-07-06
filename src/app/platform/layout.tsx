@@ -31,6 +31,12 @@ export default async function PlatformLayout({
               Dashboard
             </Link>
             <Link
+              href="/platform/customers"
+              className="hidden text-sm text-[#5f6368] hover:text-[#202124] sm:inline"
+            >
+              Customers
+            </Link>
+            <Link
               href="/platform/settings"
               className="hidden text-sm text-[#5f6368] hover:text-[#202124] sm:inline"
             >
