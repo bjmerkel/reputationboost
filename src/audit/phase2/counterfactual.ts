@@ -69,7 +69,9 @@ function buildOptimizedDescription(audit: Phase1AuditPayload): string {
   const reviews = audit.gbp.engagement.reviewCount;
   const rating = audit.gbp.engagement.averageRating;
 
-  return `${audit.clientName} provides professional ${category} throughout ${city} and surrounding areas. We specialize in ${kwList}. With ${reviews}+ Google reviews (${rating}★), ${audit.clientName} delivers reliable service, clean vehicles, punctual arrivals, and professional staff. Call ${audit.gbp.identity.phone} for 24/7 availability.`;
+  // Mirrors the description template: no phone numbers, URLs, or sales CTAs
+  // (Google's guidelines keep contact details in dedicated profile fields).
+  return `${audit.clientName} provides professional ${category} throughout ${city} and surrounding areas. We specialize in ${kwList}. With ${reviews}+ Google reviews (${rating}★), ${audit.clientName} delivers reliable service, clean vehicles, punctual arrivals, and professional staff, with 24/7 availability.`;
 }
 
 function bumpCompleteness(audit: Phase1AuditPayload): void {

@@ -241,7 +241,11 @@ export async function applyDescription(
         verified: false,
         verificationUnavailable: true,
         resolvedConflict: preflight.hasConflict,
-        sanitized: sanitized.removedUrls || sanitized.removedHtml || sanitized.removedInvalidChars,
+        sanitized:
+          sanitized.removedUrls ||
+          sanitized.removedHtml ||
+          sanitized.removedPhoneNumbers ||
+          sanitized.removedInvalidChars,
         contentPolicyWarnings: sanitized.contentPolicyWarnings,
       },
     };
@@ -279,7 +283,11 @@ export async function applyDescription(
       diffMask: refreshedSnapshot.diffMask,
       pendingMask: refreshedSnapshot.pendingMask,
       resolvedConflict: preflight.hasConflict,
-      sanitized: sanitized.removedUrls || sanitized.removedHtml || sanitized.removedInvalidChars,
+      sanitized:
+        sanitized.removedUrls ||
+        sanitized.removedHtml ||
+        sanitized.removedPhoneNumbers ||
+        sanitized.removedInvalidChars,
       contentPolicyWarnings: sanitized.contentPolicyWarnings,
     },
   };

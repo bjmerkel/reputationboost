@@ -88,6 +88,7 @@ INSTRUCTIONS:
 3. Prefer steps with higher revenueImpact when available, else outcomeScoreImpact, else driverScoreImpact — use linkedGapIds and linkedKeywords to justify rank-focused work.
 4. Include selectionRationale on each step explaining why it matters for THIS business.
 5. For steps 3, 4, 5, and 9 include copyBlocks with paste-ready text when selected.
+   For step 3 (business description): 600-750 characters of plain text. NEVER include a phone number, email, URL, or "Call us at ..." CTA — Google's guidelines require contact details in dedicated profile fields, and the API rejects descriptions containing them. Put the same clean text in actionData.description.
 6. Do NOT include copyBlocks for step 11 (review responses are AI-drafted per review).
 7. Optionally add up to 3 customActions for business-specific GBP work not covered by standard steps. Each customAction must include title, instruction, rationale, and may include copyBlocks with paste-ready text.
 8. Skip low-impact steps (all impact fields 0) unless outcomes data shows they worked before — always include steps linked to rank-outside-pack gaps when unsatisfied.

@@ -5,6 +5,7 @@ import {
   generateReviewRequestSms as templateReviewRequestSms,
   generateReviewResponses as templateReviewResponses,
 } from "@/audit/phase3/content";
+import { sanitizeGbpDescriptionDraft } from "@/lib/google/gbp-description";
 import { buildContentContext } from "./audit-context";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
@@ -40,9 +41,10 @@ interface LlmContentResponse {
 }
 
 const CONTENT_SYSTEM = `You are a local marketing copywriter for Google Business Profile.
-Write publish-ready copy: specific, local, trustworthy. Use the business name, city, phone, and real review themes.
-Google Posts: max 1500 chars each, include a clear CTA. Use 1 emoji max per post.
+Write publish-ready copy: specific, local, trustworthy. Use the business name, city, and real review themes.
+Google Posts: max 1500 chars each, include a clear CTA. The phone number may appear in posts. Use 1 emoji max per post.
 GBP description: 600-750 characters, keyword-rich but natural. Plain text only — no URLs, HTML, sales pitches, discount claims, or superlatives like "cheapest" or "#1".
+CRITICAL for the GBP description: NEVER include a phone number, email address, or "Call us at ..." style CTA. Google's guidelines require contact details to live in their dedicated profile fields, and descriptions containing them get rejected. End the description with what makes the business trustworthy, not a call to action.
 Return valid JSON only.`;
 
 export function buildTemplateContent(audit: FullAuditPayload): AuditGeneratedContent {
@@ -108,7 +110,9 @@ Each googlePosts entry must be a string, not an object.`,
 
     return {
       googlePosts: googlePosts.length >= 4 ? googlePosts.slice(0, 4) : fallback.googlePosts,
-      gbpDescription: normalizeOptionalText(llm.gbpDescription, fallback.gbpDescription),
+      gbpDescription: sanitizeGbpDescriptionDraft(
+        normalizeOptionalText(llm.gbpDescription, fallback.gbpDescription)
+      ),
       reviewResponses,
       reviewRequestSms: normalizeOptionalText(llm.reviewRequestSms, fallback.reviewRequestSms),
       qaAnswer: normalizeOptionalText(llm.qaAnswer, fallback.qaAnswer),

@@ -19,11 +19,13 @@ export function generateGooglePosts(audit: FullAuditPayload): string[] {
   ];
 }
 
+// Google's description guidelines: no phone numbers, URLs, or sales CTAs —
+// those belong in dedicated profile fields.
 export function generateGbpDescription(audit: FullAuditPayload): string {
   const themes = audit.reviews.sentiment.positiveThemes.slice(0, 3).join(", ");
   return `${audit.clientName} is a trusted ${audit.gbp.identity.primaryCategory} serving ${audit.gbp.identity.address}. ` +
     `With ${audit.gbp.engagement.reviewCount} Google reviews (${audit.gbp.engagement.averageRating}★), we specialize in local projects customers praise for ${themes || "quality and professionalism"}. ` +
-    `Book online or call ${audit.gbp.identity.phone} for fast, reliable service.`;
+    `Our experienced team delivers fast, reliable service on every visit.`;
 }
 
 export function generateReviewResponses(audit: FullAuditPayload): Array<{
