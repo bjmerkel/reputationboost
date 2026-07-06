@@ -7,6 +7,7 @@ import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { getUser } from "@/lib/supabase/server";
+import { parseJsonBody } from "@/lib/http/parse-json-body";
 
 export async function POST(request: Request) {
   const user = await getUser();
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as { customerId?: string };
+    const body = await parseJsonBody<{ customerId?: string }>(request);
     const { total: eligibleCount } = await listCustomers(user.id, business.businessId, {
       eligibleOnly: true,
       limit: 1,
