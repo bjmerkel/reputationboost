@@ -8,6 +8,7 @@ interface WebhookSettings {
   autoSend: boolean;
   delayHours: number;
   triggerEvents: string[];
+  auditHasReviewGap?: boolean;
   samplePayload: Record<string, unknown>;
 }
 
@@ -110,6 +111,20 @@ export default function WebhookIntegrationPanel() {
         </label>
       </div>
 
+      {settings.auditHasReviewGap === false && (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Your audit shows review count is healthy. Auto-send will stay off unless you enable
+          it manually or set <code className="text-xs">sendReviewRequest: true</code> in the
+          webhook payload.
+        </div>
+      )}
+
+      {settings.auditHasReviewGap && (
+        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          Audit recommends more Google reviews — auto-send is a good fit when enabled.
+        </div>
+      )}
+
       {error && (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
@@ -132,6 +147,29 @@ export default function WebhookIntegrationPanel() {
             >
               {copied === "url" ? "Copied" : "Copy URL"}
             </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">
+            Send delay
+          </label>
+          <div className="mt-1 flex items-center gap-3">
+            <select
+              value={settings.delayHours}
+              disabled={saving}
+              onChange={(e) => void updateSettings({ delayHours: Number(e.target.value) })}
+              className="rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
+            >
+              <option value={0}>Send immediately</option>
+              <option value={1}>1 hour after event</option>
+              <option value={2}>2 hours after event</option>
+              <option value={4}>4 hours after event</option>
+              <option value={24}>24 hours after event</option>
+            </select>
+            <span className="text-sm text-[#5f6368]">
+              Delayed sends improve conversion — customers reply better after the job sinks in.
+            </span>
           </div>
         </div>
 

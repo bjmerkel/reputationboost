@@ -3,9 +3,15 @@ import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin"
 import { upsertCustomerAdmin } from "@/lib/customers/storage-admin";
 import type { CustomerRecord } from "@/lib/customers/types";
 import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
+import {
+  auditHasReviewGap,
+  evaluateReviewRequestEligibility,
+  ineligibilityMessage,
+} from "@/lib/review-requests/eligibility";
+import { scheduleReviewRequestForCustomer } from "@/lib/review-requests/scheduled-sms";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendReviewRequests } from "@/lib/sms/send-review-requests";
-import { isTriggerEvent, normalizeWebhookPayload } from "./normalize-webhook-payload";
+import { normalizeWebhookPayload } from "./normalize-webhook-payload";
 import {
   getBusinessConfigForWebhook,
   getWebhookBusinessByToken,
@@ -14,6 +20,17 @@ import type { WebhookProcessResult } from "./webhook-types";
 
 function buildDefaultTemplate(businessName: string): string {
   return `Hi [FIRST_NAME]! Thanks for choosing ${businessName} for [SERVICE]. We'd love your feedback on Google — it helps neighbors find us: [REVIEW_LINK]`;
+}
+
+function readSentiment(
+  payload: Record<string, unknown>
+): "positive" | "neutral" | "negative" | undefined {
+  const raw = payload.sentiment ?? payload.customerSentiment ?? payload.rating_sentiment;
+  if (typeof raw !== "string") return undefined;
+  const value = raw.trim().toLowerCase();
+  if (value === "positive" || value === "neutral" || value === "negative") return value;
+  if (value === "bad" || value === "unhappy") return "negative";
+  return undefined;
 }
 
 async function logCustomerEvent(input: {
@@ -26,6 +43,7 @@ async function logCustomerEvent(input: {
   payload: Record<string, unknown>;
   occurredAt?: string;
   reviewRequestSent: boolean;
+  reviewRequestScheduled: boolean;
 }): Promise<string> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -37,7 +55,10 @@ async function logCustomerEvent(input: {
       event_type: input.eventType,
       source: input.source,
       external_id: input.externalId ?? null,
-      payload: input.payload,
+      payload: {
+        ...input.payload,
+        reviewRequestScheduled: input.reviewRequestScheduled,
+      },
       occurred_at: input.occurredAt ?? new Date().toISOString(),
       review_request_sent: input.reviewRequestSent,
     })
@@ -74,32 +95,6 @@ async function updateCustomerEventMetadata(
 
   if (error) throw new Error(error.message);
   return data as CustomerRecord;
-}
-
-function shouldSendReviewRequest(options: {
-  payloadSendReviewRequest?: boolean;
-  autoSend: boolean;
-  eventType: string;
-  triggerEvents: string[];
-  customer: CustomerRecord;
-}): { send: boolean; reason?: string } {
-  if (options.customer.opted_out) {
-    return { send: false, reason: "customer_opted_out" };
-  }
-
-  if (options.customer.review_requested_at) {
-    return { send: false, reason: "already_requested" };
-  }
-
-  const explicitSend = options.payloadSendReviewRequest === true;
-  const autoSend =
-    options.autoSend && isTriggerEvent(options.eventType, options.triggerEvents);
-
-  if (!explicitSend && !autoSend) {
-    return { send: false, reason: "auto_send_disabled" };
-  }
-
-  return { send: true };
 }
 
 export async function processInboundWebhook(
@@ -143,40 +138,70 @@ export async function processInboundWebhook(
     payload.source ?? "webhook"
   );
 
-  const sendDecision = shouldSendReviewRequest({
-    payloadSendReviewRequest: payload.sendReviewRequest,
-    autoSend: settings.autoSend,
-    eventType: payload.event,
-    triggerEvents: settings.triggerEvents,
+  const rawAudit = await loadLatestAuditForBusinessAdmin(
+    settings.userId,
+    settings.businessId,
+    business.id,
+    business.name
+  );
+  const audit = rawAudit ? ensureStrategy(rawAudit) : null;
+  const hasReviewGap = auditHasReviewGap(audit);
+
+  const eligibility = evaluateReviewRequestEligibility({
     customer,
+    eventType: payload.event,
+    explicitSend: payload.sendReviewRequest,
+    autoSend: settings.autoSend,
+    triggerEvents: settings.triggerEvents,
+    auditHasReviewGap: hasReviewGap,
+    sentiment: readSentiment(payload as unknown as Record<string, unknown>),
   });
 
   let reviewRequestSent = false;
-  let reviewRequestSkippedReason = sendDecision.reason;
+  let reviewRequestScheduled = false;
+  let scheduledAt: string | undefined;
+  let scheduledSmsId: string | undefined;
+  let reviewRequestSkippedReason = eligibility.reason
+    ? ineligibilityMessage(eligibility.reason)
+    : undefined;
 
-  if (sendDecision.send) {
-    const rawAudit = await loadLatestAuditForBusinessAdmin(
-      settings.userId,
-      settings.businessId,
-      business.id,
-      business.name
-    );
-    const audit = rawAudit ? ensureStrategy(rawAudit) : null;
+  if (eligibility.eligible) {
     const template = audit
       ? await generateReviewRequestMessage(audit, customer)
       : buildDefaultTemplate(business.name);
 
-    const result = await sendReviewRequests({
-      userId: settings.userId,
-      business,
-      template,
-      customerIds: [customer.id],
-      serviceRole: true,
-    });
+    if (settings.delayHours > 0) {
+      const scheduled = await scheduleReviewRequestForCustomer({
+        userId: settings.userId,
+        business,
+        customer,
+        template,
+        delayHours: settings.delayHours,
+      });
 
-    reviewRequestSent = result.sent > 0;
-    if (!reviewRequestSent) {
-      reviewRequestSkippedReason = result.messages[0]?.error ?? "send_failed";
+      if (scheduled.scheduled) {
+        reviewRequestScheduled = true;
+        scheduledAt = scheduled.scheduledAt;
+        scheduledSmsId = scheduled.smsId;
+        reviewRequestSkippedReason = undefined;
+      } else {
+        reviewRequestSkippedReason = scheduled.reason ?? "schedule_failed";
+      }
+    } else {
+      const result = await sendReviewRequests({
+        userId: settings.userId,
+        business,
+        template,
+        customerIds: [customer.id],
+        serviceRole: true,
+      });
+
+      reviewRequestSent = result.sent > 0;
+      if (!reviewRequestSent) {
+        reviewRequestSkippedReason = result.messages[0]?.error ?? "send_failed";
+      } else {
+        reviewRequestSkippedReason = undefined;
+      }
     }
   }
 
@@ -190,6 +215,7 @@ export async function processInboundWebhook(
     payload: payload as unknown as Record<string, unknown>,
     occurredAt: payload.serviceDate,
     reviewRequestSent,
+    reviewRequestScheduled,
   });
 
   return {
@@ -198,6 +224,10 @@ export async function processInboundWebhook(
     eventId,
     eventType: payload.event,
     reviewRequestSent,
+    reviewRequestScheduled,
+    scheduledAt,
+    scheduledSmsId,
+    auditHasReviewGap: hasReviewGap,
     reviewRequestSkippedReason,
   };
 }

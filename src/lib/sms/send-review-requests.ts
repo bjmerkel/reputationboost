@@ -11,6 +11,10 @@ import {
   markCustomersReviewRequestedAdmin,
 } from "@/lib/customers/storage-admin";
 import type { CustomerRecord } from "@/lib/customers/types";
+import {
+  evaluateReviewRequestEligibility,
+  ineligibilityMessage,
+} from "@/lib/review-requests/eligibility";
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isTwilioConfigured, sendSms } from "@/lib/sms/twilio";
@@ -25,6 +29,9 @@ export interface SendReviewRequestsInput {
   dryRun?: boolean;
   /** Use service-role client (for inbound webhooks without a user session). */
   serviceRole?: boolean;
+  /** Skip audit-gap checks for explicit UI sends. Defaults to true for manual sends. */
+  manualSend?: boolean;
+  auditHasReviewGap?: boolean;
 }
 
 export interface SendReviewRequestsResult {
@@ -39,6 +46,7 @@ export interface SendReviewRequestsResult {
     body: string;
     status: "sent" | "failed" | "skipped" | "simulated";
     error?: string;
+    skipReason?: string;
   }>;
 }
 
@@ -107,16 +115,25 @@ export async function sendReviewRequests(
   };
 
   const sentCustomerIds: string[] = [];
+  const manualSend = input.manualSend !== false;
+  const hasReviewGap = input.auditHasReviewGap ?? true;
 
   for (const customer of customers) {
-    if (customer.opted_out) {
+    const eligibility = evaluateReviewRequestEligibility({
+      customer,
+      manualSend,
+      auditHasReviewGap: hasReviewGap,
+    });
+
+    if (!eligibility.eligible) {
       result.skipped++;
       result.messages.push({
         customerId: customer.id,
         phone: customer.phone,
         body: "",
         status: "skipped",
-        error: "Customer opted out",
+        error: eligibility.reason ? ineligibilityMessage(eligibility.reason) : "Not eligible",
+        skipReason: eligibility.reason,
       });
       continue;
     }
