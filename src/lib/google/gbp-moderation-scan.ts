@@ -63,8 +63,8 @@ async function scanGoogleUpdates(
         eventType: "GOOGLE_UPDATE",
         title: "Google profile conflict",
         message: `Google suggested a different value for ${field.label}. Resolve in Take Action.`,
-        externalId: `nightly:conflict:${field.apiPath}`,
-        payload: { apiPath: field.apiPath, label: field.label },
+        externalId: `nightly:conflict:${field.field}`,
+        payload: { field: field.field, label: field.label },
       })
     );
   }
@@ -76,8 +76,8 @@ async function scanGoogleUpdates(
         severity: "info",
         title: "Google is processing an edit",
         message: `${field.label} is still processing on Google. Check back soon or review in Take Action.`,
-        externalId: `nightly:pending:${field.apiPath}`,
-        payload: { apiPath: field.apiPath, label: field.label, pending: true },
+        externalId: `nightly:pending:${field.field}`,
+        payload: { field: field.field, label: field.label, pending: true },
       })
     );
   }
