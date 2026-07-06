@@ -9,6 +9,8 @@ import {
 } from "@/lib/review-requests/attribution";
 import { recordGbpGoogleUpdateEvent } from "@/lib/google/gbp-update-events";
 import { syncGoogleUpdatesForBusiness } from "@/lib/google/gbp-update-sync";
+import { buildPubSubGbpEvent } from "@/lib/google/gbp-event-factory";
+import { recordGbpEventAdmin } from "@/audit/storage-gbp-events";
 import { isAdminSupabaseConfigured } from "@/lib/supabase/admin";
 
 interface PubSubPushEnvelope {
@@ -82,6 +84,7 @@ export async function POST(request: Request) {
   let reviewRating: number | undefined;
   let googleUpdateBusinessId: string | null = null;
   let googleUpdateSynced = false;
+  let gbpEventId: string | null = null;
 
   if (
     isGoogleUpdateNotification(payload?.notificationType) &&
@@ -105,6 +108,36 @@ export async function POST(request: Request) {
     }
   }
 
+  if (payload?.locationName && isAdminSupabaseConfigured()) {
+    try {
+      const businessRecord = await findBusinessRecordByGbpLocation(payload.locationName);
+      if (businessRecord) {
+        const reviewId = payload.reviewName
+          ? parseReviewIdFromReviewName(payload.reviewName)
+          : null;
+
+        if (reviewId) {
+          try {
+            const connection = await getValidGbpConnectionForRecord(businessRecord);
+            if (connection) {
+              const review = await getGbpReview(connection, reviewId);
+              if (!review.isAnonymous && review.reviewer) {
+                reviewAuthor = review.reviewer;
+              }
+              if (review.rating > 0) {
+                reviewRating = review.rating;
+              }
+            }
+          } catch (error) {
+            console.warn("[gbp-pubsub] review fetch failed:", error);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn("[gbp-pubsub] review prefetch failed:", error);
+    }
+  }
+
   if (
     isReviewNotification(payload?.notificationType) &&
     payload?.locationName &&
@@ -117,7 +150,7 @@ export async function POST(request: Request) {
           ? parseReviewIdFromReviewName(payload.reviewName)
           : null;
 
-        if (reviewId) {
+        if (reviewId && reviewAuthor == null && reviewRating == null) {
           try {
             const connection = await getValidGbpConnectionForRecord(businessRecord);
             if (connection) {
@@ -149,6 +182,31 @@ export async function POST(request: Request) {
     }
   }
 
+  if (payload?.locationName && isAdminSupabaseConfigured()) {
+    try {
+      const businessRecord = await findBusinessRecordByGbpLocation(payload.locationName);
+      if (businessRecord) {
+        const pubsubEvent = buildPubSubGbpEvent({
+          businessId: businessRecord.id,
+          userId: businessRecord.user_id,
+          notificationType: payload.notificationType ?? "unknown",
+          eventId,
+          detectedAt: envelope.message?.publishTime ?? new Date().toISOString(),
+          reviewRating,
+          reviewAuthor,
+          mediaItemName: payload.mediaItemName,
+        });
+
+        if (pubsubEvent) {
+          const saved = await recordGbpEventAdmin(pubsubEvent);
+          gbpEventId = saved?.id ?? null;
+        }
+      }
+    } catch (error) {
+      console.warn("[gbp-pubsub] gbp event persistence failed:", error);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     eventId,
@@ -158,6 +216,7 @@ export async function POST(request: Request) {
     reviewRating: reviewRating ?? null,
     googleUpdateBusinessId,
     googleUpdateSynced,
+    gbpEventId,
   });
 }
 

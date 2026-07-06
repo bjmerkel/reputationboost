@@ -5,6 +5,8 @@ import type { ExecutionTask, FullAuditPayload, GbpLocationInventory, GbpLocation
 import { enrichInventoryWithPlanLinks } from "@/lib/google/gbp-field-plan-links";
 import { enrichLocationInventoryScores } from "@/lib/google/gbp-field-score-impact";
 import ProfilePerformanceTrends from "@/components/audit/ProfilePerformanceTrends";
+import ProfileAlertsPanel from "@/components/audit/ProfileAlertsPanel";
+import { useGbpAlerts } from "@/hooks/useGbpAlerts";
 import type { FieldAttributionCalibration } from "@/audit/phase2/field-attribution-calibration";
 
 const SECTION_LABELS: Record<GbpLocationInventoryField["section"], string> = {
@@ -60,6 +62,9 @@ export default function ProfileCommandCenter({
 }) {
   const isLight = variant === "light";
   const baseInventory = audit.gbp.locationInventory;
+
+  const { events: alerts, loading: alertsLoading, error: alertsError, acknowledge } =
+    useGbpAlerts(clientId);
 
   const inventory = useMemo<GbpLocationInventory | null>(() => {
     if (!baseInventory) return null;
@@ -127,6 +132,31 @@ export default function ProfileCommandCenter({
           ) : null}
         </div>
       </div>
+
+      {clientId && (
+        <div className="mt-4">
+          <h3
+            className={`text-xs font-semibold uppercase tracking-wide ${
+              isLight ? "text-[#80868b]" : "text-slate-500"
+            }`}
+          >
+            Active alerts
+            {alerts.length > 0 ? ` (${alerts.length})` : ""}
+          </h3>
+          <div className="mt-2">
+            <ProfileAlertsPanel
+              events={alerts}
+              loading={alertsLoading}
+              error={alertsError}
+              variant={variant}
+              onNavigateToPlan={onNavigateToPlan}
+              onDismiss={(eventId) => {
+                void acknowledge(eventId).catch(() => undefined);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {clientId && <ProfilePerformanceTrends clientId={clientId} variant={variant} />}
 

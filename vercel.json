@@ -5,6 +5,10 @@
   "installCommand": "npm install",
   "crons": [
     {
+      "path": "/api/cron/ingest-profile-alerts",
+      "schedule": "0 5 * * *"
+    },
+    {
       "path": "/api/cron/ingest-daily",
       "schedule": "0 6 * * *"
     },
