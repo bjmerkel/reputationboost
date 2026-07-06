@@ -11,6 +11,16 @@ function rowToRecord(row: Record<string, unknown>): CustomerRecord {
   return row as unknown as CustomerRecord;
 }
 
+function formatCustomerStorageError(message: string): string {
+  if (
+    message.includes("Could not find the table") ||
+    message.includes('relation "public.customers" does not exist')
+  ) {
+    return "Customers table not found. Run migration 019_customers_and_sms.sql in Supabase.";
+  }
+  return message;
+}
+
 export async function listCustomers(
   userId: string,
   businessId: string,
@@ -34,7 +44,7 @@ export async function listCustomers(
   }
 
   const { data, error, count } = await query;
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(formatCustomerStorageError(error.message));
 
   return {
     customers: (data ?? []).map(rowToRecord),
@@ -71,7 +81,7 @@ export async function createCustomer(
     .select()
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(formatCustomerStorageError(error.message));
   return rowToRecord(data);
 }
 
@@ -133,7 +143,7 @@ export async function deleteCustomer(
     .eq("user_id", userId)
     .eq("business_id", businessId);
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(formatCustomerStorageError(error.message));
 }
 
 export async function getCustomersByIds(
@@ -151,7 +161,7 @@ export async function getCustomersByIds(
     .eq("business_id", businessId)
     .in("id", customerIds);
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(formatCustomerStorageError(error.message));
   return (data ?? []).map(rowToRecord);
 }
 
@@ -185,7 +195,7 @@ export async function markCustomersReviewRequested(
     .eq("business_id", businessId)
     .in("id", customerIds);
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(formatCustomerStorageError(error.message));
 }
 
 export interface SmsMessageInput {
@@ -217,5 +227,5 @@ export async function logSmsMessage(
     sent_at: input.status === "sent" || input.status === "simulated" ? new Date().toISOString() : null,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(formatCustomerStorageError(error.message));
 }

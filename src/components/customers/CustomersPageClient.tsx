@@ -88,7 +88,11 @@ export default function CustomersPageClient({
 
   const loadMessageTemplate = useCallback(async () => {
     try {
-      const res = await fetch("/api/review-requests/generate", { method: "POST" });
+      const res = await fetch("/api/review-requests/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
       const data = await parseJsonResponse<{
         template: string;
         preview: string;
