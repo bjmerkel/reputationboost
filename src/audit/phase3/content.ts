@@ -73,7 +73,7 @@ function buildTemplateReviewResponse(
 }
 
 export function generateReviewRequestSms(audit: FullAuditPayload): string {
-  return `Hi! Thanks for choosing ${audit.clientName}. We'd love your feedback — it helps us on Google Maps. Leave a quick review here: [REVIEW_LINK]`;
+  return `Hi [FIRST_NAME]! Thanks for choosing ${audit.clientName}. We'd love your feedback — it helps neighbors find us on Google. Leave a quick review here: [REVIEW_LINK]`;
 }
 
 export function mapActionToExecutionType(actionId: string): ExecutionType | null {

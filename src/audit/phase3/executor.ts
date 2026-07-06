@@ -1,4 +1,4 @@
-import type { ExecutionTask, GbpConnection } from "../types";
+import type { ExecutionTask, GbpConnection, ClientConfig } from "../types";
 import { applyGbpAction, applyMediaFromBytes, applyMediaFromDraft } from "@/lib/google/gbp-apply";
 import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
 import type { NapDriftFieldName } from "@/lib/google/nap-drift";
@@ -6,7 +6,13 @@ import type { GbpMediaCategory, GbpMediaFormat } from "@/lib/google/gbp-media";
 import { syncRecommendedGbpNotifications } from "@/lib/google/gbp-notifications";
 import { createGbpPlaceActionLink, type GbpPlaceActionType } from "@/lib/google/gbp-place-actions";
 import { generateGbpPhotoImage } from "@/lib/llm/gbp-photos";
+import { sendReviewRequests } from "@/lib/sms/send-review-requests";
 import { isValidReviewId } from "./plan-task-utils";
+
+export interface ExecuteTaskContext {
+  userId: string;
+  business: ClientConfig;
+}
 
 function dataUrlToBytes(dataUrl: string): { bytes: ArrayBuffer; contentType: string } {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -23,9 +29,43 @@ function dataUrlToBytes(dataUrl: string): { bytes: ArrayBuffer; contentType: str
  */
 export async function executeTask(
   task: ExecutionTask,
-  connection?: GbpConnection | null
+  connection?: GbpConnection | null,
+  context?: ExecuteTaskContext
 ): Promise<ExecutionTask> {
   const now = new Date().toISOString();
+
+  if (task.type === "review_request" && context) {
+    try {
+      const result = await sendReviewRequests({
+        userId: context.userId,
+        business: context.business,
+        template: task.draftContent,
+        customerIds: Array.isArray(task.payload.customerIds)
+          ? (task.payload.customerIds as string[])
+          : undefined,
+        batchSize: Number(task.payload.batchSize) || 15,
+        executionTaskId: task.id,
+      });
+
+      const mode = result.simulated ? "simulated" : "sent";
+      const summary = `${mode === "simulated" ? "Simulated" : "Sent"} ${result.sent} SMS review request${result.sent === 1 ? "" : "s"}${result.failed > 0 ? ` (${result.failed} failed)` : ""}.`;
+
+      return {
+        ...task,
+        status: result.failed > 0 && result.sent === 0 ? "failed" : "completed",
+        completedAt: now,
+        result: summary,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "SMS send failed";
+      return {
+        ...task,
+        status: "failed",
+        completedAt: now,
+        result: message,
+      };
+    }
+  }
 
   if (connection) {
     try {

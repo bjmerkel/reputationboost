@@ -64,12 +64,20 @@ export async function POST(
   }
 
   const business = await getPrimaryBusiness(user.id);
+  if (task.type === "review_request" && !business) {
+    return NextResponse.json({ error: "No business configured" }, { status: 400 });
+  }
+
   const connection =
     business?.gbpConnection
       ? await getValidGbpConnection(user.id, business)
       : null;
 
-  const executed = await executeTask(task, connection);
+  const executed = await executeTask(
+    task,
+    connection,
+    business ? { userId: user.id, business } : undefined
+  );
   const saved = await updateExecutionTask(user.id, taskId, {
     status: executed.status,
     completedAt: executed.completedAt,
