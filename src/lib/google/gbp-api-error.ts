@@ -51,6 +51,27 @@ const ERROR_MESSAGES: Record<string, (metadata?: Record<string, string>) => stri
   },
   THROTTLED:
     () => "Google is temporarily blocking description updates. Try again in a few hours.",
+  INVALID_SERVICE_ITEM:
+    () => "A service entry was malformed (missing structured or free-form data). Refresh and try again.",
+  SERVICE_ITEM_LABEL_NO_DISPLAY_NAME:
+    () => "A service is missing its name. Give every service a display name and republish.",
+  SERVICE_ITEM_LABEL_DUPLICATE_DISPLAY_NAME:
+    () =>
+      "Two services have the same name. Service names must be unique — rename the duplicate and republish.",
+  SERVICE_ITEM_LABEL_INVALID_UTF8:
+    () => "A service name or description contains unsupported characters. Use plain text and republish.",
+  FREE_FORM_SERVICE_ITEM_WITH_NO_CATEGORY_ID:
+    () => "A custom service is missing its category. Set a primary category and republish.",
+  FREE_FORM_SERVICE_ITEM_WITH_NO_LABEL:
+    () => "A custom service is missing its name and description. Fill them in and republish.",
+  SERVICE_ITEM_WITH_NO_SERVICE_TYPE_ID:
+    () => "A structured service is missing its Google service type. Refresh and try again.",
+  SERVICE_TYPE_ID_DUPLICATE:
+    () => "The same Google service type is listed twice. Remove the duplicate service and republish.",
+  PRICE_CURRENCY_MISSING:
+    () => "A service price is missing its currency. Add a currency (e.g. USD) or remove the price.",
+  PRICE_CURRENCY_INVALID:
+    () => "A service price has an invalid currency code. Use an ISO code like USD.",
 };
 
 function extractErrorCode(detail: GbpErrorDetail): string | null {
@@ -83,5 +104,5 @@ export function formatGbpApiError(data: GbpApiErrorBody, fallbackStatus?: number
     return message;
   }
 
-  return "Google rejected the update. Use plain text only (no URLs or HTML), stay under 750 characters, and resolve any description conflicts in Take Action → Google Updates.";
+  return "Google rejected the update (invalid argument). Use plain text only — no URLs, HTML, or phone numbers — keep within the field's length limit, and resolve any pending conflicts in Take Action → Google Updates.";
 }
