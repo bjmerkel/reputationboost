@@ -4,6 +4,9 @@ import type {
   GbpLocationInventoryField,
   ScoreComponent,
 } from "@/audit/types";
+import type { CalibrationConfidence } from "@/audit/phase2/attribution-calibration";
+import type { FieldAttributionCalibration } from "@/audit/phase2/field-attribution-calibration";
+import { revenueScaleForField } from "@/audit/phase2/field-attribution-calibration";
 
 /** Max driver-score points if this field moves from worst → good. */
 export interface FieldScoreWeight {
@@ -51,17 +54,26 @@ const STATUS_MULTIPLIER: Record<GbpLocationFieldStatus, number> = {
 
 export function scoreImpactForField(
   apiPath: string,
-  status: GbpLocationFieldStatus
-): { scoreImpact: number; scoreComponent?: ScoreComponent } {
+  status: GbpLocationFieldStatus,
+  fieldCalibration?: FieldAttributionCalibration
+): {
+  scoreImpact: number;
+  scoreComponent?: ScoreComponent;
+  calibrationConfidence?: CalibrationConfidence;
+} {
   const weight = GBP_FIELD_SCORE_WEIGHTS[apiPath];
   if (!weight) return { scoreImpact: 0 };
 
+  const fieldCal = fieldCalibration?.[apiPath];
+  const maxImpact = fieldCal?.calibratedMaxImpact ?? weight.maxImpact;
   const multiplier = STATUS_MULTIPLIER[status] ?? 0;
-  const scoreImpact = Math.round(weight.maxImpact * multiplier * 10) / 10;
+  const scoreImpact = Math.round(maxImpact * multiplier * 10) / 10;
 
   return {
     scoreImpact,
     scoreComponent: scoreImpact > 0 ? weight.component : undefined,
+    calibrationConfidence:
+      fieldCal && fieldCal.confidence !== "default" ? fieldCal.confidence : undefined,
   };
 }
 
@@ -69,19 +81,25 @@ export interface EnrichInventoryScoreOptions {
   /** Monthly calls + directions + website clicks from Performance API */
   monthlyActions?: number;
   avgCustomerValue?: number | null;
+  fieldCalibration?: FieldAttributionCalibration;
 }
 
 /** Estimate monthly revenue lift from closing a field gap. */
 export function estimateFieldRevenueImpact(
   scoreImpact: number,
-  options: EnrichInventoryScoreOptions
+  options: EnrichInventoryScoreOptions,
+  apiPath?: string
 ): number | null {
-  const { monthlyActions = 0, avgCustomerValue } = options;
+  const { monthlyActions = 0, avgCustomerValue, fieldCalibration } = options;
   if (!avgCustomerValue || avgCustomerValue <= 0 || scoreImpact <= 0) return null;
 
   const actionBaseline = Math.max(monthlyActions, 10);
   const actionLift = (scoreImpact / 40) * actionBaseline * 0.12;
-  return Math.round(actionLift * avgCustomerValue * 0.15);
+  const base = Math.round(actionLift * avgCustomerValue * 0.15);
+  if (!apiPath) return base;
+
+  const revenueScale = revenueScaleForField(apiPath, fieldCalibration);
+  return Math.round(base * revenueScale);
 }
 
 export function enrichLocationInventoryScores(
@@ -92,8 +110,12 @@ export function enrichLocationInventoryScores(
   let potentialRevenueGain = 0;
 
   const fields: GbpLocationInventoryField[] = inventory.fields.map((field) => {
-    const { scoreImpact, scoreComponent } = scoreImpactForField(field.apiPath, field.status);
-    const revenueImpact = estimateFieldRevenueImpact(scoreImpact, options);
+    const { scoreImpact, scoreComponent, calibrationConfidence } = scoreImpactForField(
+      field.apiPath,
+      field.status,
+      options.fieldCalibration
+    );
+    const revenueImpact = estimateFieldRevenueImpact(scoreImpact, options, field.apiPath);
 
     potentialScoreGain += scoreImpact;
     if (revenueImpact) potentialRevenueGain += revenueImpact;
@@ -103,6 +125,7 @@ export function enrichLocationInventoryScores(
       scoreImpact,
       scoreComponent,
       revenueImpact: revenueImpact ?? undefined,
+      calibrationConfidence,
     };
   });
 

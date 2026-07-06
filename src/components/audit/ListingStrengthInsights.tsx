@@ -5,6 +5,7 @@ import type { FullAuditPayload, Plan } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import { buildAttributionCalibration, buildGapAttributionCalibration, mergeCalibrations } from "@/audit/phase2/attribution-calibration";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
+import { buildFieldAttributionCalibration } from "@/audit/phase2/field-attribution-calibration";
 import { computeKeywordScores } from "@/audit/phase2/keyword-scores";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { buildPlan } from "@/audit/phase3/build-plan";
@@ -15,6 +16,7 @@ import ProfileCommandCenter from "@/components/audit/ProfileCommandCenter";
 
 export default function ListingStrengthInsights({
   audit,
+  clientId,
   tasks = [],
   attributions = [],
   avgCustomerValue,
@@ -24,6 +26,7 @@ export default function ListingStrengthInsights({
   onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
+  clientId?: string;
   tasks?: Parameters<typeof buildPlan>[1];
   attributions?: ActionAttribution[];
   avgCustomerValue?: number | null;
@@ -45,6 +48,11 @@ export default function ListingStrengthInsights({
   const calibration = useMemo(
     () => mergeCalibrations(businessCalibration, globalCalibration),
     [businessCalibration, globalCalibration]
+  );
+
+  const fieldCalibration = useMemo(
+    () => buildFieldAttributionCalibration(calibration),
+    [calibration]
   );
 
   const plan = useMemo(
@@ -75,10 +83,12 @@ export default function ListingStrengthInsights({
       <PathToHealthyPanel path={path} currency={currency} />
       <ProfileCommandCenter
         audit={audit}
+        clientId={clientId}
         tasks={tasks}
         avgCustomerValue={avgCustomerValue}
         currency={currency}
         variant="light"
+        fieldCalibration={fieldCalibration}
         onNavigateToPlan={onNavigateToPlan}
       />
       <GapsPanel audit={audit} avgCustomerValue={avgCustomerValue} currency={currency} />

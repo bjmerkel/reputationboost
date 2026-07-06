@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import type { ExecutionTask, FullAuditPayload, GbpLocationInventory, GbpLocationInventoryField } from "@/audit/types";
 import { enrichInventoryWithPlanLinks } from "@/lib/google/gbp-field-plan-links";
 import { enrichLocationInventoryScores } from "@/lib/google/gbp-field-score-impact";
+import ProfilePerformanceTrends from "@/components/audit/ProfilePerformanceTrends";
+import type { FieldAttributionCalibration } from "@/audit/phase2/field-attribution-calibration";
 
 const SECTION_LABELS: Record<GbpLocationInventoryField["section"], string> = {
   identity: "Identity & categories",
@@ -39,17 +41,21 @@ function formatCurrency(amount: number, currency: string): string {
 
 export default function ProfileCommandCenter({
   audit,
+  clientId,
   tasks = [],
   avgCustomerValue,
   currency = "USD",
   variant = "light",
+  fieldCalibration,
   onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
+  clientId?: string;
   tasks?: ExecutionTask[];
   avgCustomerValue?: number | null;
   currency?: string;
   variant?: "light" | "dark";
+  fieldCalibration?: FieldAttributionCalibration;
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: GbpLocationInventoryField["planScrollTarget"]) => void;
 }) {
   const isLight = variant === "light";
@@ -59,7 +65,9 @@ export default function ProfileCommandCenter({
     if (!baseInventory) return null;
 
     const withPlanLinks = enrichInventoryWithPlanLinks(baseInventory, tasks);
-    if (!avgCustomerValue) return withPlanLinks;
+    if (!avgCustomerValue) {
+      return enrichLocationInventoryScores(withPlanLinks, { fieldCalibration });
+    }
 
     const monthlyActions =
       audit.gbp.performance.calls +
@@ -69,8 +77,9 @@ export default function ProfileCommandCenter({
     return enrichLocationInventoryScores(withPlanLinks, {
       monthlyActions,
       avgCustomerValue,
+      fieldCalibration,
     });
-  }, [audit.gbp.performance, avgCustomerValue, baseInventory, tasks]);
+  }, [audit.gbp.performance, avgCustomerValue, baseInventory, fieldCalibration, tasks]);
 
   if (!inventory) {
     return (
@@ -118,6 +127,8 @@ export default function ProfileCommandCenter({
           ) : null}
         </div>
       </div>
+
+      {clientId && <ProfilePerformanceTrends clientId={clientId} variant={variant} />}
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
         <SummaryPill label="Good" value={inventory.summary.good} tone="good" isLight={isLight} />
@@ -276,6 +287,9 @@ function FieldRow({
                 Read-only
               </span>
             )}
+            {field.calibrationConfidence && (
+              <CalibrationBadge confidence={field.calibrationConfidence} isLight={isLight} />
+            )}
           </div>
           <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
             {field.apiPath}
@@ -306,6 +320,40 @@ function FieldRow({
         </p>
       )}
     </div>
+  );
+}
+
+function CalibrationBadge({
+  confidence,
+  isLight,
+}: {
+  confidence: NonNullable<GbpLocationInventoryField["calibrationConfidence"]>;
+  isLight: boolean;
+}) {
+  const label =
+    confidence === "high"
+      ? "Calibrated"
+      : confidence === "medium"
+        ? "Calibrated"
+        : "Learning";
+
+  const toneClass =
+    confidence === "high"
+      ? isLight
+        ? "bg-[#e6f4ea] text-[#137333]"
+        : "bg-emerald-500/10 text-emerald-300"
+      : confidence === "medium"
+        ? isLight
+          ? "bg-[#e8f0fe] text-[#1a73e8]"
+          : "bg-blue-500/10 text-blue-300"
+        : isLight
+          ? "bg-[#fef7e0] text-[#b06000]"
+          : "bg-amber-500/10 text-amber-200";
+
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${toneClass}`}>
+      {label}
+    </span>
   );
 }
 

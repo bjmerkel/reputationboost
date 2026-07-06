@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   ExecutionTask,
   FullAuditPayload,
@@ -18,6 +18,13 @@ import ExternalImage from "@/components/ExternalImage";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import TrendsPanel from "@/components/attribution/TrendsPanel";
 import ProfileCommandCenter from "@/components/audit/ProfileCommandCenter";
+import {
+  buildAttributionCalibration,
+  mergeCalibrations,
+  type AttributionCalibration,
+} from "@/audit/phase2/attribution-calibration";
+import { buildFieldAttributionCalibration } from "@/audit/phase2/field-attribution-calibration";
+import type { ActionAttribution } from "@/audit/types/timeseries";
 import { formatCustomerAttribution } from "@/lib/google/gbp-media-display";
 import { buildMediaHealthReport } from "@/lib/google/gbp-media-health";
 import { buildPerformanceHealthReport } from "@/lib/google/gbp-performance-health";
@@ -46,6 +53,8 @@ export default function AuditDataPanel({
   variant = "dark",
   gbpConnected = false,
   onNavigateToPlan,
+  attributions = [],
+  globalCalibration = {},
 }: {
   audit: FullAuditPayload;
   clientId: string;
@@ -56,8 +65,17 @@ export default function AuditDataPanel({
   variant?: "dark" | "light";
   gbpConnected?: boolean;
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
+  attributions?: ActionAttribution[];
+  globalCalibration?: AttributionCalibration;
 }) {
   const isLight = variant === "light";
+  const fieldCalibration = useMemo(() => {
+    const calibration = mergeCalibrations(
+      buildAttributionCalibration(attributions),
+      globalCalibration
+    );
+    return buildFieldAttributionCalibration(calibration);
+  }, [attributions, globalCalibration]);
   const [tab, setTab] = useState<DataTab>("profile");
   const [liveMedia, setLiveMedia] = useState<GbpMediaPreview[] | null>(null);
 
@@ -161,8 +179,10 @@ export default function AuditDataPanel({
           {audit.gbp.locationInventory && (
             <ProfileCommandCenter
               audit={audit}
+              clientId={clientId}
               tasks={tasks}
               variant={isLight ? "light" : "dark"}
+              fieldCalibration={fieldCalibration}
               onNavigateToPlan={onNavigateToPlan}
             />
           )}

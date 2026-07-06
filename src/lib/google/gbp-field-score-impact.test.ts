@@ -71,6 +71,28 @@ describe("gbp-field-score-impact", () => {
     assert.ok(enriched.fields.some((f) => f.revenueImpact != null));
   });
 
+  it("applies field calibration to score impacts", () => {
+    const fieldCalibration = {
+      "profile.description": {
+        apiPath: "profile.description",
+        priorMaxImpact: 5,
+        calibratedMaxImpact: 6,
+        scaleFactor: 1.2,
+        confidence: "medium" as const,
+        sourceStepNumber: 3,
+        sampleSize: 3,
+      },
+    };
+
+    const enriched = enrichLocationInventoryScores(sampleInventory, {
+      fieldCalibration,
+    });
+
+    const description = enriched.fields.find((f) => f.apiPath === "profile.description");
+    assert.equal(description?.calibrationConfidence, "medium");
+    assert.ok((description?.scoreImpact ?? 0) > 0);
+  });
+
   it("estimates revenue when customer value is provided", () => {
     const revenue = estimateFieldRevenueImpact(4, {
       monthlyActions: 40,

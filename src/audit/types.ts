@@ -363,6 +363,8 @@ export interface GbpLocationInventoryField {
   scoreComponent?: ScoreComponent;
   /** Estimated monthly revenue lift when avg job value is known */
   revenueImpact?: number;
+  /** Confidence when field weight is calibrated from attribution */
+  calibrationConfidence?: import("./phase2/attribution-calibration").CalibrationConfidence;
   /** Take Action plan step that fixes this field */
   planStepNumber?: number;
   planTaskId?: string;

@@ -19,6 +19,7 @@ export default function ResultsView({
   onKeywordChange,
   gbpConnected = false,
   onNavigateToPlan,
+  globalCalibration = {},
 }: {
   audit: FullAuditPayload;
   clientId: string;
@@ -30,6 +31,7 @@ export default function ResultsView({
   onKeywordChange: (keyword: string) => void;
   gbpConnected?: boolean;
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
+  globalCalibration?: import("@/audit/phase2/attribution-calibration").AttributionCalibration;
 }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
@@ -78,6 +80,8 @@ export default function ResultsView({
               variant="light"
               gbpConnected={gbpConnected}
               onNavigateToPlan={onNavigateToPlan}
+              attributions={attributions}
+              globalCalibration={globalCalibration}
             />
           </div>
         )}

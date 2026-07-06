@@ -346,6 +346,7 @@ export default function AuditDashboard({
               globalCalibration={scoreHistory.globalCalibration}
               onReviewPending={openBatchReview}
               onNavigateToPlan={openPlanStep}
+              clientId={clientId}
             />
           )}
 
@@ -399,6 +400,7 @@ export default function AuditDashboard({
               onKeywordChange={setActiveKeyword}
               gbpConnected={gbpConnected}
               onNavigateToPlan={openPlanStep}
+              globalCalibration={scoreHistory.globalCalibration}
             />
           )}
         </PlaceCard>
