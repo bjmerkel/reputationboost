@@ -8,6 +8,7 @@ import {
   parseReviewIdFromReviewName,
 } from "@/lib/review-requests/attribution";
 import { recordGbpGoogleUpdateEvent } from "@/lib/google/gbp-update-events";
+import { isAdminSupabaseConfigured } from "@/lib/supabase/admin";
 
 interface PubSubPushEnvelope {
   message?: {
