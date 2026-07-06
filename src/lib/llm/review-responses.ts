@@ -29,6 +29,22 @@ function needsReviewResponse(review: ReviewRecord): boolean {
   return review.replyState === "REJECTED";
 }
 
+/** Cap LLM review drafts during audits so content generation stays within time limits. */
+const MAX_LLM_REVIEW_RESPONSES = 10;
+
+function reviewResponsePriority(review: ReviewRecord): number {
+  if (review.rating <= 2) return 0;
+  if (review.rating === 3) return 1;
+  return 2;
+}
+
+function selectReviewsForLlm(reviews: ReviewRecord[]): ReviewRecord[] {
+  return [...reviews]
+    .filter(needsReviewResponse)
+    .sort((a, b) => reviewResponsePriority(a) - reviewResponsePriority(b))
+    .slice(0, MAX_LLM_REVIEW_RESPONSES);
+}
+
 async function generateOneReviewResponse(
   audit: FullAuditPayload,
   review: ReviewRecord
@@ -77,7 +93,7 @@ Return JSON: { "response": "..." }`,
 export async function generateReviewResponsesLlm(
   audit: FullAuditPayload
 ): Promise<GeneratedReviewResponse[]> {
-  const pending = audit.reviews.reviews.filter(needsReviewResponse);
+  const pending = selectReviewsForLlm(audit.reviews.reviews);
 
   if (pending.length === 0) return [];
 

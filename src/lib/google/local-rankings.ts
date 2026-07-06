@@ -1,5 +1,6 @@
 import type { ClientConfig } from "@/audit/types";
 import type { CompetitorProfile, CompetitorSnapshot, GeoGridPoint, KeywordRankSnapshot, RankSnapshot } from "@/audit/types";
+import { mapWithConcurrency } from "@/lib/async/map-with-concurrency";
 import {
   geocodeAddress,
   milesToMeters,
@@ -13,6 +14,8 @@ import { collectKeywordGeoGrid } from "./geo-grid";
 import { gridProfileForCollection } from "@/lib/feature-flags";
 
 const TOP_COMPETITORS = 5;
+/** Keywords collected in parallel during audits (each keyword still batches its own grid). */
+const KEYWORD_COLLECTION_CONCURRENCY = 2;
 /** Radii tried when harvesting competitors (ranking still uses all four). */
 const COMPETITOR_SEARCH_RADII: SearchRadiusMiles[] = [1, 3, 5];
 
@@ -248,8 +251,14 @@ export async function searchKeywordAtAllRadii(
   const ranksByRadius = {} as Record<SearchRadiusMiles, number | null>;
   const resultsByRadius = {} as Record<SearchRadiusMiles, PlaceResult[]>;
 
-  for (const miles of SEARCH_RADII_MILES) {
-    const results = await searchPlaces(keyword, location, milesToMeters(miles), mode);
+  const radiusResults = await Promise.all(
+    SEARCH_RADII_MILES.map(async (miles) => {
+      const results = await searchPlaces(keyword, location, milesToMeters(miles), mode);
+      return { miles, results };
+    })
+  );
+
+  for (const { miles, results } of radiusResults) {
     resultsByRadius[miles] = results;
     ranksByRadius[miles] = findBusinessRank(results, matchOptions);
   }
@@ -299,43 +308,54 @@ export async function collectPlacesRankData(client: ClientConfig): Promise<{
   const keywords: KeywordRankSnapshot[] = [];
   const competitorSnapshots: CompetitorSnapshot[] = [];
 
-  for (const keyword of client.keywords) {
-    const { ranksByRadius, resultsByRadius } = await searchKeywordAtAllRadii(
-      keyword,
-      location,
-      matchOptions,
-      "nearby"
-    );
+  const keywordResults = await mapWithConcurrency(
+    client.keywords,
+    KEYWORD_COLLECTION_CONCURRENCY,
+    async (keyword) => {
+      const { ranksByRadius, resultsByRadius } = await searchKeywordAtAllRadii(
+        keyword,
+        location,
+        matchOptions,
+        "nearby"
+      );
 
-    const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions, {
-      profile: gridProfileForCollection("audit", client.heatmapProfile),
-      includeLocalPack: true,
-    });
+      const [geoGrid, competitorPlaces] = await Promise.all([
+        collectKeywordGeoGrid(keyword, location, matchOptions, {
+          profile: gridProfileForCollection("audit", client.heatmapProfile),
+          includeLocalPack: true,
+        }),
+        resolveCompetitorResults(keyword, location, matchOptions, {
+          limit: TOP_COMPETITORS,
+          initialResults: resultsByRadius[1],
+          locationLabel: `${client.location.city}, ${client.location.state}`,
+        }),
+      ]);
 
-    keywords.push(
-      buildKeywordSnapshot(
+      return {
         keyword,
         ranksByRadius,
-        resultsByRadius[1],
+        resultsByRadius,
+        geoGrid,
+        competitorPlaces,
+      };
+    }
+  );
+
+  for (const result of keywordResults) {
+    keywords.push(
+      buildKeywordSnapshot(
+        result.keyword,
+        result.ranksByRadius,
+        result.resultsByRadius[1],
         matchOptions,
-        geoGrid
+        result.geoGrid
       )
     );
 
-    const competitorPlaces = await resolveCompetitorResults(
-      keyword,
-      location,
-      matchOptions,
-      {
-        limit: TOP_COMPETITORS,
-        initialResults: resultsByRadius[1],
-        locationLabel: `${client.location.city}, ${client.location.state}`,
-      }
-    );
     competitorSnapshots.push({
       collectedAt: now,
-      keyword,
-      competitors: competitorPlaces.map((p) => toCompetitorProfile(p, keyword)),
+      keyword: result.keyword,
+      competitors: result.competitorPlaces.map((p) => toCompetitorProfile(p, result.keyword)),
     });
   }
 

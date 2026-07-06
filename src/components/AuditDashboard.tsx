@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
+import { parseJsonResponse } from "@/lib/http/parse-json-response";
 import type { GridDiff } from "@/audit/geo/grid-diff";
 import { analyzeCompetitorDominance, topCompetitorThreat } from "@/audit/geo/competitor-dominance";
 import { buildVisibilitySummary } from "@/audit/geo";
@@ -182,8 +183,9 @@ export default function AuditDashboard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId, trigger: "manual" }),
       });
-      const data = await res.json();
+      const data = await parseJsonResponse<{ error?: string; audit?: FullAuditPayload }>(res);
       if (!res.ok) throw new Error(data.error ?? "Audit failed");
+      if (!data.audit) throw new Error("Audit completed but returned no data.");
       const nextAudit = ensureStrategy(data.audit);
       setAudit(nextAudit);
       if (nextAudit.rankings.keywords[0]) {

@@ -1,4 +1,5 @@
 import type { GeoGridLocalPackEntry, GeoGridPoint } from "@/audit/types";
+import { mapWithConcurrency } from "@/lib/async/map-with-concurrency";
 import {
   extractCompetitors,
   findBusinessRank,
@@ -20,6 +21,8 @@ export const GEO_GRID_SIZE = GRID_PROFILES.compact.size;
 export const GEO_GRID_SPACING_MILES = GRID_PROFILES.compact.spacing;
 
 const GRID_SEARCH_RADIUS_MILES = 1;
+/** Parallel Places searches per keyword grid (balance speed vs rate limits). */
+const GRID_SEARCH_CONCURRENCY = 6;
 
 export interface GridOffset {
   northMiles: number;
@@ -95,9 +98,8 @@ export async function collectKeywordGeoGrid(
   const offsets = buildGeoGridOffsets(size, spacing);
   const searchRadius = milesToMeters(GRID_SEARCH_RADIUS_MILES);
   const includeLocalPack = options.includeLocalPack !== false;
-  const grid: GeoGridPoint[] = [];
 
-  for (const { northMiles, eastMiles } of offsets) {
+  return mapWithConcurrency(offsets, GRID_SEARCH_CONCURRENCY, async ({ northMiles, eastMiles }) => {
     const point = offsetLocation(center, northMiles, eastMiles);
     const results = await searchPlaces(keyword, point, searchRadius, "nearby");
     const rank = findBusinessRank(results, matchOptions);
@@ -115,10 +117,8 @@ export async function collectKeywordGeoGrid(
       cell.localPack = toLocalPackEntries(results, matchOptions);
     }
 
-    grid.push(cell);
-  }
-
-  return grid;
+    return cell;
+  });
 }
 
 const DEMO_COMPETITORS = [

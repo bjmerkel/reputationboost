@@ -5,6 +5,9 @@ import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { getUser } from "@/lib/supabase/server";
 import type { AuditTrigger } from "@/audit/types";
 
+/** Vercel Pro serverless limit; audits should finish well under this after perf tuning. */
+export const maxDuration = 300;
+
 export async function GET() {
   const user = await getUser();
   if (!user) {
