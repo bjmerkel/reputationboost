@@ -8,6 +8,15 @@ import TaskOutcomeBadge from "@/components/attribution/TaskOutcomeBadge";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
 import { needsGbpDescriptionRepublish, GBP_DESCRIPTION_MAX_LENGTH } from "@/lib/google/gbp-description";
+import { editStatusFromPayload, type GbpEditStatus } from "@/lib/google/gbp-edit-status";
+
+const EDIT_STATUS_STYLES: Record<GbpEditStatus, string> = {
+  accepted: "bg-[#e6f4ea] text-[#137333]",
+  pending: "bg-[#fef7e0] text-[#e37400]",
+  not_approved: "bg-[#fce8e6] text-[#c5221f]",
+  conflict: "bg-[#fce8e6] text-[#c5221f]",
+  unknown: "bg-[#f1f3f4] text-[#5f6368]",
+};
 
 const TYPE_LABELS: Partial<Record<ExecutionTask["type"], string>> = {
   google_post: "Google post",
@@ -54,6 +63,11 @@ export default function PlanStepTaskRow({
 
   const needsRepublish = gbpConnected && needsGbpDescriptionRepublish(task);
   const isDescriptionTask = task.type === "gbp_description";
+  const editStatus = isDescriptionTask ? editStatusFromPayload(task.payload) : null;
+  const canCheckEditStatus =
+    gbpConnected &&
+    isDescriptionTask &&
+    (task.status === "completed" || task.status === "failed");
   const descriptionLength = (editing ? draft : task.draftContent).length;
   const descriptionOverLimit = isDescriptionTask && descriptionLength > GBP_DESCRIPTION_MAX_LENGTH;
 
@@ -137,6 +151,40 @@ export default function PlanStepTaskRow({
         <p className={`mt-2 text-sm ${task.status === "failed" ? "text-[#d93025]" : "text-[#137333]"}`}>
           {task.status === "failed" ? "✗" : "✓"} {task.result}
         </p>
+      )}
+
+      {editStatus && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              EDIT_STATUS_STYLES[editStatus.status] ?? EDIT_STATUS_STYLES.unknown
+            }`}
+          >
+            Google edit: {editStatus.label}
+          </span>
+          <span className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+            checked {new Date(editStatus.checkedAt).toLocaleString()}
+          </span>
+        </div>
+      )}
+
+      {canCheckEditStatus && (
+        <div className="mt-3">
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void actions.checkEditStatus(task.id)}
+            className={`rounded-full border px-4 py-1.5 text-xs font-medium disabled:opacity-50 ${
+              isLight ? "border-[#dadce0] text-[#3c4043]" : "border-white/10 text-slate-300"
+            }`}
+          >
+            {loading ? "Checking…" : "Check Google status"}
+          </button>
+          <p className={`mt-1.5 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+            Google reviews profile edits before they go live — usually within 10 minutes, but
+            sometimes up to 30 days. Check whether this edit is Accepted, Pending, or Not approved.
+          </p>
+        </div>
       )}
 
       {task.status === "completed" && <TaskOutcomeBadge attribution={attribution} />}

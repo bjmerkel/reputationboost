@@ -49,6 +49,15 @@ export async function executeExecutionTask(
   return data.task as ExecutionTask;
 }
 
+export async function checkTaskEditStatus(taskId: string): Promise<ExecutionTask> {
+  const res = await fetch(`/api/execution/${taskId}/check-status`, {
+    method: "POST",
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Status check failed");
+  return data.task as ExecutionTask;
+}
+
 export async function publishPhotoTask(
   taskId: string,
   previewDataUrl?: string
