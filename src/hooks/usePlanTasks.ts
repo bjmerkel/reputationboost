@@ -5,6 +5,7 @@ import type { ExecutionTask, FullAuditPayload, Plan } from "@/audit/types";
 import {
   approveAllRoutineTasks,
   approveAndPublishTask,
+  checkTaskEditStatus,
   fetchExecutionState,
   patchExecutionTask,
   publishPhotoFile,
@@ -99,6 +100,12 @@ export function usePlanTasks({
   const updateDraft = useCallback(
     (taskId: string, draftContent: string) =>
       runWithLoading(taskId, () => patchExecutionTask(taskId, { draftContent }).then(() => undefined)),
+    [runWithLoading]
+  );
+
+  const checkEditStatus = useCallback(
+    (taskId: string) =>
+      runWithLoading(taskId, () => checkTaskEditStatus(taskId).then(() => undefined)),
     [runWithLoading]
   );
 
@@ -201,6 +208,7 @@ export function usePlanTasks({
     approveAndPublish,
     rejectTask,
     updateDraft,
+    checkEditStatus,
     publishPhoto,
     uploadPhotoFile,
     uploadVideoFile,
@@ -217,6 +225,7 @@ export type PlanTaskActions = Pick<
   | "approveAndPublish"
   | "rejectTask"
   | "updateDraft"
+  | "checkEditStatus"
   | "publishPhoto"
   | "uploadPhotoFile"
   | "uploadVideoFile"
