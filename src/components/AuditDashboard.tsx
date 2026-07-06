@@ -79,6 +79,10 @@ export default function AuditDashboard({
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [gridDiff, setGridDiff] = useState<GridDiff | null>(null);
   const [diffActive, setDiffActive] = useState(false);
+  const [focusPlanStep, setFocusPlanStep] = useState<number | null>(null);
+  const [focusPlanScrollTarget, setFocusPlanScrollTarget] = useState<
+    "google-updates" | null
+  >(null);
 
   const reviewParam = searchParams.get("review");
 
@@ -176,6 +180,15 @@ export default function AuditDashboard({
   const openPlan = useCallback(() => {
     setView("strategy");
   }, [setView]);
+
+  const openPlanStep = useCallback(
+    (stepNumber: number, scrollTarget?: "google-updates") => {
+      setFocusPlanStep(stepNumber);
+      setFocusPlanScrollTarget(scrollTarget ?? null);
+      setView("strategy");
+    },
+    [setView]
+  );
 
   async function runAudit() {
     setLoading(true);
@@ -332,6 +345,7 @@ export default function AuditDashboard({
               scoreChangelog={scoreHistory.changelog}
               globalCalibration={scoreHistory.globalCalibration}
               onReviewPending={openBatchReview}
+              onNavigateToPlan={openPlanStep}
             />
           )}
 
@@ -364,6 +378,12 @@ export default function AuditDashboard({
               onAuditUpdated={setAudit}
               avgCustomerValue={avgCustomerValue}
               currency={avgCustomerValueCurrency}
+              focusStep={focusPlanStep}
+              focusScrollTarget={focusPlanScrollTarget}
+              onFocusHandled={() => {
+                setFocusPlanStep(null);
+                setFocusPlanScrollTarget(null);
+              }}
             />
           )}
 
@@ -378,6 +398,7 @@ export default function AuditDashboard({
               activeKeyword={activeKeyword}
               onKeywordChange={setActiveKeyword}
               gbpConnected={gbpConnected}
+              onNavigateToPlan={openPlanStep}
             />
           )}
         </PlaceCard>

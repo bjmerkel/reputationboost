@@ -5,6 +5,7 @@ import type { FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
+import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 import { usePlanTasks } from "@/hooks/usePlanTasks";
 import GoogleUpdatesPanel from "./GoogleUpdatesPanel";
 import PlanPhaseSection from "./PlanPhaseSection";
@@ -21,6 +22,9 @@ export default function PlanView({
   onAuditUpdated,
   avgCustomerValue,
   currency = "USD",
+  focusStep = null,
+  focusScrollTarget = null,
+  onFocusHandled,
 }: {
   audit: FullAuditPayload;
   clientId: string;
@@ -32,6 +36,9 @@ export default function PlanView({
   onAuditUpdated?: (audit: FullAuditPayload) => void;
   avgCustomerValue?: number | null;
   currency?: string;
+  focusStep?: number | null;
+  focusScrollTarget?: "google-updates" | null;
+  onFocusHandled?: () => void;
 }) {
   const isLight = variant === "light";
   const [syncingGoogleUpdates, setSyncingGoogleUpdates] = useState(false);
@@ -102,10 +109,27 @@ export default function PlanView({
   }, [onAuditUpdated, syncGoogleUpdates]);
 
   const defaultExpandedStep = useMemo(() => {
+    if (focusStep != null) return focusStep;
     if (!plan) return undefined;
     const needs = plan.steps.find((s) => s.status === "needs_approval");
     return needs?.stepNumber ?? plan.steps.find((s) => s.status === "pending")?.stepNumber;
-  }, [plan]);
+  }, [focusStep, plan]);
+
+  useEffect(() => {
+    if (focusStep == null || loading) return;
+
+    const elementId = planScrollElementId(focusStep, focusScrollTarget ?? undefined);
+    const scrollToTarget = () => {
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+        onFocusHandled?.();
+      }
+    };
+
+    const timer = window.setTimeout(scrollToTarget, 150);
+    return () => window.clearTimeout(timer);
+  }, [focusScrollTarget, focusStep, loading, onFocusHandled]);
 
   const path = useMemo(
     () => buildPathToHealthy(audit, plan, { avgCustomerValue, currency }),
@@ -188,6 +212,7 @@ export default function PlanView({
             attributionByTaskId={attributionByTaskId}
             mediaCoverage={audit.gbp.content.mediaCoverage}
             defaultExpandedStep={defaultExpandedStep}
+            focusStep={focusStep}
             variant={variant}
             currency={currency}
           />

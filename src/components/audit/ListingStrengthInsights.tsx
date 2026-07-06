@@ -21,6 +21,7 @@ export default function ListingStrengthInsights({
   currency = "USD",
   globalCalibration = {},
   showKeywords = true,
+  onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
   tasks?: Parameters<typeof buildPlan>[1];
@@ -29,6 +30,7 @@ export default function ListingStrengthInsights({
   currency?: string;
   globalCalibration?: AttributionCalibration;
   showKeywords?: boolean;
+  onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
 }) {
   const businessCalibration = useMemo(
     () => buildAttributionCalibration(attributions),
@@ -73,9 +75,11 @@ export default function ListingStrengthInsights({
       <PathToHealthyPanel path={path} currency={currency} />
       <ProfileCommandCenter
         audit={audit}
+        tasks={tasks}
         avgCustomerValue={avgCustomerValue}
         currency={currency}
         variant="light"
+        onNavigateToPlan={onNavigateToPlan}
       />
       <GapsPanel audit={audit} avgCustomerValue={avgCustomerValue} currency={currency} />
       {showKeywords && (

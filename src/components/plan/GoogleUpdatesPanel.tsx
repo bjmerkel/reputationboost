@@ -40,6 +40,7 @@ export default function GoogleUpdatesPanel({
 
   return (
     <section
+      id="google-updates-panel"
       className={`rounded-xl border p-5 ${
         isLight ? "border-[#feefc3] bg-[#fef7e0]" : "border-amber-500/20 bg-amber-500/5"
       }`}

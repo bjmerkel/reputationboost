@@ -23,6 +23,7 @@ export default function HomeView({
   scoreChangelog = [],
   globalCalibration = {},
   onReviewPending,
+  onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
   tasks: ExecutionTask[];
@@ -36,6 +37,7 @@ export default function HomeView({
   scoreChangelog?: ScoreChangelogEntry[];
   globalCalibration?: AttributionCalibration;
   onReviewPending: () => void;
+  onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
 }) {
   const batchableCount = pendingBatchTasks(tasks).length;
   const totalPending = tasks.filter((t) => t.status === "pending_approval").length;
@@ -61,6 +63,7 @@ export default function HomeView({
         avgCustomerValue={avgCustomerValue}
         currency={avgCustomerValueCurrency}
         globalCalibration={globalCalibration}
+        onNavigateToPlan={onNavigateToPlan}
       />
 
       <ActionAttributionFeed

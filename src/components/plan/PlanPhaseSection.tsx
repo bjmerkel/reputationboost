@@ -14,6 +14,7 @@ export default function PlanPhaseSection({
   attributionByTaskId,
   mediaCoverage,
   defaultExpandedStep,
+  focusStep,
   variant = "light",
   currency = "USD",
 }: {
@@ -25,6 +26,7 @@ export default function PlanPhaseSection({
   attributionByTaskId: Record<string, ActionAttribution>;
   mediaCoverage?: GbpMediaCoverage;
   defaultExpandedStep?: number;
+  focusStep?: number | null;
   currency?: string;
   variant?: "light" | "dark";
 }) {
@@ -61,7 +63,9 @@ export default function PlanPhaseSection({
             actions={actions}
             attributionByTaskId={attributionByTaskId}
             mediaCoverage={mediaCoverage}
-            defaultExpanded={step.stepNumber === defaultExpandedStep}
+            defaultExpanded={
+              step.stepNumber === defaultExpandedStep || step.stepNumber === focusStep
+            }
             variant={variant}
             currency={currency}
           />

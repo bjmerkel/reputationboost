@@ -18,6 +18,7 @@ export default function ResultsView({
   activeKeyword,
   onKeywordChange,
   gbpConnected = false,
+  onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
   clientId: string;
@@ -28,6 +29,7 @@ export default function ResultsView({
   activeKeyword: string;
   onKeywordChange: (keyword: string) => void;
   gbpConnected?: boolean;
+  onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
 }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
@@ -69,11 +71,13 @@ export default function ResultsView({
             <AuditDataPanel
               audit={audit}
               clientId={clientId}
+              tasks={tasks}
               activeKeyword={activeKeyword}
               onKeywordChange={onKeywordChange}
               embedded
               variant="light"
               gbpConnected={gbpConnected}
+              onNavigateToPlan={onNavigateToPlan}
             />
           </div>
         )}

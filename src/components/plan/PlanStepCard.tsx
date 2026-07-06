@@ -61,6 +61,7 @@ export default function PlanStepCard({
 
   return (
     <article
+      id={`plan-step-${step.stepNumber}`}
       className={`rounded-xl border ${isLight ? statusStyle : "border-white/8 bg-white/[0.02]"}`}
     >
       <button

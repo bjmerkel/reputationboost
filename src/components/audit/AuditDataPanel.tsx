@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type {
+  ExecutionTask,
   FullAuditPayload,
   GbpLocalPostCoverage,
   GbpMediaCoverage,
@@ -38,19 +39,23 @@ const DATA_TABS: { id: DataTab; label: string }[] = [
 export default function AuditDataPanel({
   audit,
   clientId,
+  tasks = [],
   activeKeyword,
   onKeywordChange,
   embedded = false,
   variant = "dark",
   gbpConnected = false,
+  onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
   clientId: string;
+  tasks?: ExecutionTask[];
   activeKeyword: string;
   onKeywordChange: (keyword: string) => void;
   embedded?: boolean;
   variant?: "dark" | "light";
   gbpConnected?: boolean;
+  onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
 }) {
   const isLight = variant === "light";
   const [tab, setTab] = useState<DataTab>("profile");
@@ -154,7 +159,12 @@ export default function AuditDataPanel({
       {tab === "profile" && (
         <div className="space-y-4">
           {audit.gbp.locationInventory && (
-            <ProfileCommandCenter audit={audit} variant={isLight ? "light" : "dark"} />
+            <ProfileCommandCenter
+              audit={audit}
+              tasks={tasks}
+              variant={isLight ? "light" : "dark"}
+              onNavigateToPlan={onNavigateToPlan}
+            />
           )}
           <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-3">

@@ -363,6 +363,12 @@ export interface GbpLocationInventoryField {
   scoreComponent?: ScoreComponent;
   /** Estimated monthly revenue lift when avg job value is known */
   revenueImpact?: number;
+  /** Take Action plan step that fixes this field */
+  planStepNumber?: number;
+  planTaskId?: string;
+  planTaskStatus?: ExecutionStatus;
+  planFixLabel?: string;
+  planScrollTarget?: "google-updates";
 }
 
 export interface GbpLocationInventory {

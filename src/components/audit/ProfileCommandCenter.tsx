@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import type { FullAuditPayload, GbpLocationInventory, GbpLocationInventoryField } from "@/audit/types";
+import type { ExecutionTask, FullAuditPayload, GbpLocationInventory, GbpLocationInventoryField } from "@/audit/types";
+import { enrichInventoryWithPlanLinks } from "@/lib/google/gbp-field-plan-links";
 import { enrichLocationInventoryScores } from "@/lib/google/gbp-field-score-impact";
 
 const SECTION_LABELS: Record<GbpLocationInventoryField["section"], string> = {
@@ -38,32 +39,38 @@ function formatCurrency(amount: number, currency: string): string {
 
 export default function ProfileCommandCenter({
   audit,
+  tasks = [],
   avgCustomerValue,
   currency = "USD",
   variant = "light",
+  onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
+  tasks?: ExecutionTask[];
   avgCustomerValue?: number | null;
   currency?: string;
   variant?: "light" | "dark";
+  onNavigateToPlan?: (stepNumber: number, scrollTarget?: GbpLocationInventoryField["planScrollTarget"]) => void;
 }) {
   const isLight = variant === "light";
   const baseInventory = audit.gbp.locationInventory;
 
   const inventory = useMemo<GbpLocationInventory | null>(() => {
     if (!baseInventory) return null;
-    if (!avgCustomerValue) return baseInventory;
+
+    const withPlanLinks = enrichInventoryWithPlanLinks(baseInventory, tasks);
+    if (!avgCustomerValue) return withPlanLinks;
 
     const monthlyActions =
       audit.gbp.performance.calls +
       audit.gbp.performance.directionRequests +
       audit.gbp.performance.websiteClicks;
 
-    return enrichLocationInventoryScores(baseInventory, {
+    return enrichLocationInventoryScores(withPlanLinks, {
       monthlyActions,
       avgCustomerValue,
     });
-  }, [audit.gbp.performance, avgCustomerValue, baseInventory]);
+  }, [audit.gbp.performance, avgCustomerValue, baseInventory, tasks]);
 
   if (!inventory) {
     return (
@@ -147,11 +154,20 @@ export default function ProfileCommandCenter({
                     {field.apiPath}
                   </span>
                 </span>
-                <span className={`text-xs font-medium ${isLight ? "text-[#137333]" : "text-emerald-300"}`}>
-                  +{field.scoreImpact} pts
-                  {field.revenueImpact
-                    ? ` · ${formatCurrency(field.revenueImpact, currency)}/mo`
-                    : ""}
+                <span className="flex items-center gap-2">
+                  <span className={`text-xs font-medium ${isLight ? "text-[#137333]" : "text-emerald-300"}`}>
+                    +{field.scoreImpact} pts
+                    {field.revenueImpact
+                      ? ` · ${formatCurrency(field.revenueImpact, currency)}/mo`
+                      : ""}
+                  </span>
+                  {field.planStepNumber != null && onNavigateToPlan && (
+                    <FixButton
+                      field={field}
+                      isLight={isLight}
+                      onNavigateToPlan={onNavigateToPlan}
+                    />
+                  )}
                 </span>
               </li>
             ))}
@@ -180,6 +196,7 @@ export default function ProfileCommandCenter({
                     field={field}
                     currency={currency}
                     isLight={isLight}
+                    onNavigateToPlan={onNavigateToPlan}
                   />
                 ))}
               </div>
@@ -226,10 +243,12 @@ function FieldRow({
   field,
   currency,
   isLight,
+  onNavigateToPlan,
 }: {
   field: GbpLocationInventoryField;
   currency: string;
   isLight: boolean;
+  onNavigateToPlan?: (stepNumber: number, scrollTarget?: GbpLocationInventoryField["planScrollTarget"]) => void;
 }) {
   const status = STATUS_STYLES[field.status];
 
@@ -274,6 +293,9 @@ function FieldRow({
             ) : null}
           </div>
         )}
+        {field.planStepNumber != null && onNavigateToPlan && (
+          <FixButton field={field} isLight={isLight} onNavigateToPlan={onNavigateToPlan} />
+        )}
       </div>
       <p className={`mt-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
         {field.current}
@@ -284,5 +306,31 @@ function FieldRow({
         </p>
       )}
     </div>
+  );
+}
+
+function FixButton({
+  field,
+  isLight,
+  onNavigateToPlan,
+}: {
+  field: GbpLocationInventoryField;
+  isLight: boolean;
+  onNavigateToPlan: (stepNumber: number, scrollTarget?: GbpLocationInventoryField["planScrollTarget"]) => void;
+}) {
+  if (field.planStepNumber == null) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigateToPlan(field.planStepNumber!, field.planScrollTarget)}
+      className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${
+        isLight
+          ? "bg-[#1a73e8] text-white hover:bg-[#1765cc]"
+          : "bg-blue-500 text-white hover:bg-blue-600"
+      }`}
+    >
+      {field.planFixLabel ?? "Fix in plan"}
+    </button>
   );
 }
