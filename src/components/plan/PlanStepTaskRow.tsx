@@ -6,6 +6,7 @@ import type { ActionAttribution } from "@/audit/types/timeseries";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import TaskOutcomeBadge from "@/components/attribution/TaskOutcomeBadge";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
+import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
 
 const TYPE_LABELS: Partial<Record<ExecutionTask["type"], string>> = {
   google_post: "Google post",
@@ -45,7 +46,8 @@ export default function PlanStepTaskRow({
   const canPublish =
     gbpConnected &&
     (task.status === "pending_approval" || task.status === "approved") &&
-    task.type !== "gbp_photo";
+    task.type !== "gbp_photo" &&
+    (task.type !== "review_response" || isValidReviewId(task.payload.reviewId));
 
   const isPhotoWithoutPreview =
     task.type === "gbp_photo" && typeof task.payload.previewDataUrl !== "string";
@@ -187,6 +189,15 @@ export default function PlanStepTaskRow({
           Connect Google Business Profile to publish changes.
         </p>
       )}
+
+      {task.type === "review_response" &&
+        !isValidReviewId(task.payload.reviewId) &&
+        task.status !== "completed" && (
+          <p className={`mt-3 text-xs ${isLight ? "text-[#c5221f]" : "text-red-400"}`}>
+            Open the Reviews tab to reply to specific customers, or refresh your audit to
+            regenerate review reply tasks.
+          </p>
+        )}
 
       {isPhotoWithoutPreview && task.status !== "completed" && (
         <p className={`mt-2 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>

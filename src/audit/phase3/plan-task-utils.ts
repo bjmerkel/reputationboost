@@ -11,6 +11,11 @@ export function resolvePlanStepNumber(task: ExecutionTask): number | null {
   return match ? Number.parseInt(match[1], 10) : null;
 }
 
+export function isValidReviewId(reviewId: unknown): boolean {
+  const id = String(reviewId ?? "").trim();
+  return id.length > 0 && id !== "null" && id !== "undefined";
+}
+
 export function backfillTaskPlanFields(task: ExecutionTask): ExecutionTask {
   const planStepNumber = resolvePlanStepNumber(task);
   const planPhaseId =

@@ -6,6 +6,7 @@ import type { GbpMediaCategory, GbpMediaFormat } from "@/lib/google/gbp-media";
 import { syncRecommendedGbpNotifications } from "@/lib/google/gbp-notifications";
 import { createGbpPlaceActionLink, type GbpPlaceActionType } from "@/lib/google/gbp-place-actions";
 import { generateGbpPhotoImage } from "@/lib/llm/gbp-photos";
+import { isValidReviewId } from "./plan-task-utils";
 
 function dataUrlToBytes(dataUrl: string): { bytes: ArrayBuffer; contentType: string } {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -251,7 +252,16 @@ async function executeTaskLive(
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
     case "review_response": {
-      const reviewId = String(task.payload.reviewId ?? "");
+      const reviewId = String(task.payload.reviewId ?? "").trim();
+      if (!isValidReviewId(reviewId)) {
+        return {
+          ...task,
+          status: "failed",
+          completedAt: now,
+          result:
+            "No review linked to this task — open the Reviews tab to reply to specific customers.",
+        };
+      }
       const result = await applyGbpAction(connection, "reply_review", {
         reviewId,
         reviewReply: task.draftContent,

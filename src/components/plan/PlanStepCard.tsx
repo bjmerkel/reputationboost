@@ -22,6 +22,8 @@ const STATUS_STYLES = {
 export default function PlanStepCard({
   step,
   totalSteps,
+  displayIndex,
+  displayTotal,
   gbpConnected,
   actions,
   attributionByTaskId,
@@ -32,6 +34,8 @@ export default function PlanStepCard({
 }: {
   step: PlanStep;
   totalSteps: number;
+  displayIndex?: number;
+  displayTotal?: number;
   gbpConnected: boolean;
   actions: PlanTaskActions;
   attributionByTaskId: Record<string, ActionAttribution>;
@@ -66,7 +70,9 @@ export default function PlanStepCard({
       >
         <div className="min-w-0 flex-1">
           <p className={`text-xs font-medium ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
-            Step {step.stepNumber} of {totalSteps}
+            {displayIndex != null && displayTotal != null
+              ? `Step ${displayIndex} of ${displayTotal}`
+              : `Step ${step.stepNumber} of ${totalSteps}`}
           </p>
           <h4 className={`mt-0.5 text-base font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
             {step.title}

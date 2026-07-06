@@ -8,7 +8,7 @@ import type {
 import type { AuditGeneratedContent } from "@/lib/llm/content";
 import { buildTemplateContent } from "@/lib/llm/content";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
-import { mapActionToExecutionType } from "./content";
+import { generateReviewResponses, mapActionToExecutionType } from "./content";
 import { SUPPLEMENTARY_GAP_IDS, tasksFromGbpPlan, tasksFromGoogleSuggestions, tasksFromMediaMaintenance, tasksFromNapDrift, tasksFromNotificationGaps, tasksFromPlaceActionGaps, tasksFromVideoGaps } from "./gbp-plan-tasks";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
 
@@ -87,18 +87,21 @@ function tasksFromReviewResponses(
   action: ActionItem,
   responses: AuditGeneratedContent["reviewResponses"]
 ): ExecutionTask[] {
-  if (responses.length === 0) {
+  const drafts = responses.length > 0 ? responses : generateReviewResponses(audit);
+
+  if (drafts.length === 0) {
     return [
       buildTask(
         audit,
         action,
-        "review_response",
-        action.draftCopy ?? "No pending reviews to respond to.",
-        { reviewId: null }
+        "gbp_checklist",
+        action.draftCopy ?? "Respond to reviews in the Reviews tab when new ones arrive.",
+        { manual: true }
       ),
     ];
   }
-  return responses.map((r) => {
+
+  return drafts.map((r) => {
     const review = audit.reviews.reviews.find((rev) => rev.id === r.reviewId);
     const author = review?.author?.split(" ")[0] ?? "customer";
     const isRedraft = review?.replyState === "REJECTED";
