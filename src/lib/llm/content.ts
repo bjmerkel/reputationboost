@@ -42,7 +42,7 @@ interface LlmContentResponse {
 const CONTENT_SYSTEM = `You are a local marketing copywriter for Google Business Profile.
 Write publish-ready copy: specific, local, trustworthy. Use the business name, city, phone, and real review themes.
 Google Posts: max 1500 chars each, include a clear CTA. Use 1 emoji max per post.
-GBP description: 600-750 characters, keyword-rich but natural.
+GBP description: 600-750 characters, keyword-rich but natural. Do not include URLs or website links.
 Return valid JSON only.`;
 
 export function buildTemplateContent(audit: FullAuditPayload): AuditGeneratedContent {

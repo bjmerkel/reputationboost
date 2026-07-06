@@ -3,8 +3,55 @@ export const GBP_DESCRIPTION_MAX_LENGTH = 750;
 
 const SIMULATED_RESULT = "Updated GBP business description.";
 
+/** Matches http(s) URLs and bare www. domains Google rejects in descriptions. */
+const URL_PATTERN =
+  /\bhttps?:\/\/[^\s<>"']+|\bwww\.[a-z0-9][-a-z0-9]*(?:\.[a-z0-9][-a-z0-9]*)+[^\s<>"',.]*/gi;
+
+/** Control chars and odd Unicode format chars that often trigger INVALID_CHARACTERS. */
+const INVALID_CHAR_PATTERN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\uFEFF]/g;
+
+export interface GbpDescriptionSanitizeResult {
+  text: string;
+  removedUrls: boolean;
+  removedInvalidChars: boolean;
+}
+
 export function normalizeGbpDescription(text: string): string {
   return text.trim().replace(/\s+/g, " ");
+}
+
+/** Prepare description text for Google's profile.description field. */
+export function sanitizeGbpDescriptionForPublish(text: string): GbpDescriptionSanitizeResult {
+  const working = text.replace(/\r\n/g, "\n").trim();
+  const hadUrls = URL_PATTERN.test(working);
+  URL_PATTERN.lastIndex = 0;
+  const withoutUrls = working.replace(URL_PATTERN, "");
+  const withoutInvalid = withoutUrls.replace(INVALID_CHAR_PATTERN, "");
+  const removedInvalidChars = withoutInvalid !== withoutUrls;
+
+  const normalized = normalizeGbpDescription(withoutInvalid);
+  const truncated =
+    normalized.length > GBP_DESCRIPTION_MAX_LENGTH
+      ? normalized.slice(0, GBP_DESCRIPTION_MAX_LENGTH).trim()
+      : normalized;
+
+  return {
+    text: truncated,
+    removedUrls: hadUrls,
+    removedInvalidChars,
+  };
+}
+
+export function buildDescriptionSanitizeNote(result: GbpDescriptionSanitizeResult): string | null {
+  const notes: string[] = [];
+  if (result.removedUrls) {
+    notes.push("URLs were removed because Google does not allow links in descriptions");
+  }
+  if (result.removedInvalidChars) {
+    notes.push("unsupported characters were removed");
+  }
+  if (notes.length === 0) return null;
+  return `${notes.join("; ")}.`;
 }
 
 /** Compare sent vs live description, allowing for Google's 750-char cap. */

@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildDescriptionApplyMessage,
+  buildDescriptionSanitizeNote,
   descriptionsMatch,
   GBP_DESCRIPTION_MAX_LENGTH,
   isGbpDescriptionLiveSync,
   needsGbpDescriptionRepublish,
   normalizeGbpDescription,
+  sanitizeGbpDescriptionForPublish,
   wasGbpDescriptionSimulated,
 } from "./gbp-description";
 
@@ -118,5 +120,13 @@ describe("gbp-description", () => {
     );
     assert.equal(outcome.success, false);
     assert.match(outcome.message, /different description/i);
+  });
+
+  it("strips URLs before publish", () => {
+    const result = sanitizeGbpDescriptionForPublish(
+      "Trusted auto shop. Book at https://shop.example/repairs now."
+    );
+    assert.equal(result.removedUrls, true);
+    assert.doesNotMatch(result.text, /https?:\/\//);
   });
 });

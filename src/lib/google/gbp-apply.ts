@@ -28,8 +28,10 @@ import {
 } from "./gbp-google-updated";
 import {
   buildDescriptionApplyMessage,
+  buildDescriptionSanitizeNote,
   descriptionsMatch,
   GBP_DESCRIPTION_MAX_LENGTH,
+  sanitizeGbpDescriptionForPublish,
 } from "./gbp-description";
 import { patchGbpLocationValidated } from "./gbp-patch";
 import type { NapCanonical, NapDriftFieldName } from "./nap-drift";
@@ -160,51 +162,89 @@ export async function applyDescription(
   connection: GbpConnection,
   description: string
 ): Promise<GbpApplyResult> {
-  const trimmed = description.trim();
-  if (!trimmed) throw new Error("Description cannot be empty.");
+  const sanitized = sanitizeGbpDescriptionForPublish(description);
+  const trimmed = sanitized.text;
+  if (!trimmed) {
+    throw new Error(
+      "Description cannot be empty. Google does not allow URLs in descriptions — remove links and try again."
+    );
+  }
   if (trimmed.length > GBP_DESCRIPTION_MAX_LENGTH) {
     throw new Error(
       `Description is ${trimmed.length} characters. Google allows at most ${GBP_DESCRIPTION_MAX_LENGTH}.`
     );
   }
 
-  await patchGbpLocationValidated(connection, "profile.description", {
-    profile: { description: trimmed },
-  });
+  const sanitizeNote = buildDescriptionSanitizeNote(sanitized);
+  const snapshot = await getGoogleUpdatedSnapshot(connection).catch(() => ({
+    location: {},
+    diffMask: "",
+    pendingMask: "",
+  }));
+  const descriptionConflict = maskIncludesField(snapshot.diffMask, "profile.description");
 
-  const [live, snapshot] = await Promise.all([
+  if (descriptionConflict) {
+    const conflictResult = await rejectGoogleSuggestion(
+      connection,
+      "profile.description",
+      trimmed
+    );
+    if (!conflictResult.success) {
+      return {
+        ...conflictResult,
+        message: sanitizeNote
+          ? `${conflictResult.message} ${sanitizeNote}`
+          : conflictResult.message,
+      };
+    }
+  } else {
+    await patchGbpLocationValidated(connection, "profile.description", {
+      profile: { description: trimmed },
+    });
+  }
+
+  const [live, refreshedSnapshot] = await Promise.all([
     getGbpLocationProfile(connection),
     getGoogleUpdatedSnapshot(connection).catch(() => ({
       location: {},
-      diffMask: "",
-      pendingMask: "",
+      diffMask: snapshot.diffMask,
+      pendingMask: snapshot.pendingMask,
     })),
   ]);
 
-  const descriptionProcessing = maskIncludesField(snapshot.pendingMask, "profile.description");
-  const descriptionConflict = maskIncludesField(snapshot.diffMask, "profile.description");
+  const descriptionProcessing = maskIncludesField(
+    refreshedSnapshot.pendingMask,
+    "profile.description"
+  );
+  const descriptionStillConflict = maskIncludesField(
+    refreshedSnapshot.diffMask,
+    "profile.description"
+  );
 
   const verification = {
     verified: descriptionsMatch(trimmed, live.description),
     hasPendingEdits: live.hasPendingEdits,
     liveDescription: live.description,
     isProcessing: descriptionProcessing,
-    hasDiff: descriptionConflict,
+    hasDiff: descriptionStillConflict,
   };
   const outcome = buildDescriptionApplyMessage(verification, trimmed.length);
+  const message = sanitizeNote ? `${outcome.message} ${sanitizeNote}` : outcome.message;
 
   return {
     success: outcome.success,
-    message: outcome.message,
+    message,
     applied: {
       descriptionLength: trimmed.length,
       liveDescriptionLength: live.description.length,
       verified: verification.verified,
       hasPendingEdits: live.hasPendingEdits,
       isProcessing: descriptionProcessing,
-      hasDiff: descriptionConflict,
-      diffMask: snapshot.diffMask,
-      pendingMask: snapshot.pendingMask,
+      hasDiff: descriptionStillConflict,
+      diffMask: refreshedSnapshot.diffMask,
+      pendingMask: refreshedSnapshot.pendingMask,
+      resolvedConflict: descriptionConflict,
+      sanitized: sanitized.removedUrls || sanitized.removedInvalidChars,
     },
   };
 }

@@ -1,5 +1,6 @@
 import type { GbpConnection } from "@/audit/types";
 import type { GbpGoogleSuggestion, GbpGoogleUpdateState } from "@/audit/types";
+import { formatGbpApiError } from "./gbp-api-error";
 import { authHeadersForConnection } from "./auth-headers";
 import {
   diffGoogleUpdatedAttributes,
@@ -1130,9 +1131,9 @@ export async function patchGbpLocation(
     body: JSON.stringify(body),
   });
 
-  const data = (await res.json()) as { error?: { message?: string } };
+  const data = (await res.json()) as Parameters<typeof formatGbpApiError>[0];
   if (!res.ok) {
-    throw new Error(data.error?.message ?? `GBP update failed (${res.status})`);
+    throw new Error(formatGbpApiError(data, res.status));
   }
 }
 
