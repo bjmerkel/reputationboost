@@ -49,6 +49,11 @@ import {
 import { createGbpLocalPost } from "./gbp-local-posts";
 import { buildPostSanitizeNote, sanitizeGbpPostSummary } from "./gbp-post-content";
 import {
+  buildServiceItemsPatch,
+  liveServiceNameSet,
+  type ServiceAddition,
+} from "./gbp-service-items";
+import {
   applyReviewReply as postReviewReply,
   deleteReviewReply,
   formatPolicyViolation,
@@ -349,38 +354,97 @@ export async function applyPhone(
   };
 }
 
-function buildStructuredServiceItem(serviceTypeId: string, description: string): Record<string, unknown> {
+export async function applyServiceItems(
+  connection: GbpConnection,
+  services: Array<{ name: string; description: string }>
+): Promise<GbpApplyResult> {
+  const requested = services
+    .map((s) => ({ name: s.name.trim(), description: s.description.trim() }))
+    .filter((s) => s.name);
+  if (requested.length === 0) throw new Error("Service name is required.");
+
+  const current = await getGbpLocationProfile(connection);
+  if (!current.primaryCategory?.name) {
+    throw new Error("Set a primary category before adding services.");
+  }
+  if (!current.canModifyServiceList) {
+    throw new Error(
+      "Google does not allow editing the service list for this location (it may be managed by a chain or restricted category). Add services in Business Profile Manager instead."
+    );
+  }
+
+  const categoryName = current.primaryCategory.name;
+
+  // Prefer Google's structured service types when a name matches one.
+  const additions: ServiceAddition[] = [];
+  for (const service of requested) {
+    const structured = await lookupServiceTypeForDisplayName(
+      connection,
+      categoryName,
+      service.name
+    ).catch(() => null);
+    additions.push({
+      name: structured?.displayName ?? service.name,
+      description: service.description,
+      serviceTypeId: structured?.serviceTypeId ?? null,
+    });
+  }
+
+  const existingRaw = current.serviceItems
+    .map((s) => s.raw)
+    .filter((raw): raw is Record<string, unknown> => Boolean(raw));
+
+  const patch = buildServiceItemsPatch({
+    existingRaw,
+    primaryCategoryName: categoryName,
+    additions,
+  });
+
+  if (patch.added.length === 0) {
+    return {
+      success: true,
+      message: `Service${requested.length === 1 ? "" : "s"} already on your profile: ${patch.skipped.join(", ")}.`,
+      applied: { added: [], skipped: patch.skipped },
+    };
+  }
+
+  // Google requires replacing the entire serviceItems list on every patch.
+  await patchGbpLocationValidated(connection, "serviceItems", {
+    serviceItems: patch.serviceItems,
+  });
+
+  // Verify the new services are actually on the live profile.
+  const refreshed = await getGbpLocationProfile(connection).catch(() => null);
+  const liveNames = refreshed
+    ? liveServiceNameSet(refreshed.serviceItems)
+    : null;
+  const verified = liveNames
+    ? patch.added.filter(
+        (name) =>
+          liveNames.has(name.toLowerCase()) ||
+          // Structured items surface as serviceTypeIds until labels resolve.
+          refreshed!.serviceItems.length >= patch.serviceItems.length
+      )
+    : [];
+
+  const addedList = patch.added.join(", ");
+  const message =
+    verified.length === patch.added.length || !refreshed
+      ? `Added ${patch.added.length} service${patch.added.length === 1 ? "" : "s"} to your Google Business Profile: ${addedList}.`
+      : `Submitted ${patch.added.length} service${patch.added.length === 1 ? "" : "s"} (${addedList}) — Google is processing the update. Check the Services section in Business Profile Manager shortly.`;
+
   return {
-    structuredServiceItem: {
-      serviceTypeId,
-      description: description.slice(0, 300),
+    success: true,
+    message: patch.skipped.length
+      ? `${message} Already present: ${patch.skipped.join(", ")}.`
+      : message,
+    applied: {
+      added: patch.added,
+      skipped: patch.skipped,
+      totalServices: patch.serviceItems.length,
+      verified: refreshed ? verified.length === patch.added.length : null,
     },
   };
-}
-
-function buildFreeFormServiceItem(
-  categoryName: string,
-  name: string,
-  description: string
-): Record<string, unknown> {
-  return {
-    freeFormServiceItem: {
-      category: categoryName,
-      label: {
-        displayName: name.slice(0, 140),
-        description: description.slice(0, 250),
-        languageCode: "en",
-      },
-    },
-  };
-}
-
-function serviceItemForPatch(
-  item: { name: string; description: string; raw?: Record<string, unknown> },
-  categoryName: string
-): Record<string, unknown> {
-  if (item.raw) return item.raw;
-  return buildFreeFormServiceItem(categoryName, item.name, item.description);
 }
 
 export async function applyServiceItem(
@@ -388,49 +452,9 @@ export async function applyServiceItem(
   serviceName: string,
   serviceDescription: string
 ): Promise<GbpApplyResult> {
-  const name = serviceName.trim();
-  const description = serviceDescription.trim();
-  if (!name) throw new Error("Service name is required.");
-
-  const current = await getGbpLocationProfile(connection);
-  if (!current.primaryCategory?.name) {
-    throw new Error("Set a primary category before adding services.");
-  }
-
-  const exists = current.serviceItems.some(
-    (s) => s.name.toLowerCase() === name.toLowerCase()
-  );
-  if (exists) {
-    return {
-      success: true,
-      message: `Service "${name}" is already on your profile.`,
-      applied: { serviceName: name, skipped: true },
-    };
-  }
-
-  const categoryName = current.primaryCategory.name;
-  const structured = await lookupServiceTypeForDisplayName(connection, categoryName, name);
-  const newServiceItem = structured
-    ? buildStructuredServiceItem(structured.serviceTypeId, description)
-    : buildFreeFormServiceItem(categoryName, name, description);
-
-  const serviceItems = [
-    ...current.serviceItems.map((s) => serviceItemForPatch(s, categoryName)),
-    newServiceItem,
-  ];
-
-  await patchGbpLocationValidated(connection, "serviceItems", { serviceItems });
-
-  return {
-    success: true,
-    message: structured
-      ? `Added structured service "${structured.displayName}" to your Google Business Profile.`
-      : `Added service "${name}" to your Google Business Profile.`,
-    applied: {
-      serviceName: structured?.displayName ?? name,
-      structured: Boolean(structured),
-    },
-  };
+  return applyServiceItems(connection, [
+    { name: serviceName, description: serviceDescription },
+  ]);
 }
 
 export async function applyAttributes(
@@ -1030,6 +1054,7 @@ export type GbpApplyAction =
   | "update_website"
   | "update_phone"
   | "add_service_item"
+  | "add_service_items"
   | "update_attributes"
   | "enable_recommended_attributes"
   | "update_regular_hours"
@@ -1057,6 +1082,7 @@ export async function applyGbpAction(
     primaryPhone?: string;
     serviceName?: string;
     serviceDescription?: string;
+    services?: Array<{ name: string; description: string }>;
     attributes?: GbpAttributeUpdate[];
     sourceUrl?: string;
     mediaFormat?: GbpMediaFormat;
@@ -1098,6 +1124,9 @@ export async function applyGbpAction(
         payload.serviceName,
         payload.serviceDescription ?? ""
       );
+    case "add_service_items":
+      if (!payload.services?.length) throw new Error("services are required");
+      return applyServiceItems(connection, payload.services);
     case "update_attributes":
       if (!payload.attributes?.length) throw new Error("attributes are required");
       return applyAttributes(connection, payload.attributes);

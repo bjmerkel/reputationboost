@@ -1,5 +1,6 @@
 import type { GbpConnection } from "@/audit/types";
 import { batchGetGbpCategoriesWithToken } from "./gbp-location";
+import { categoryStableId } from "./gbp-service-items";
 import { resolveGbpChainLabels } from "./gbp-chains";
 import { authHeadersForConnection } from "./token-store";
 
@@ -34,10 +35,9 @@ function extractId(resourceName: string, segment: string): string {
   return idx >= 0 ? parts[idx + 1] : resourceName;
 }
 
+/** Normalize to the v1 API's stable category ID format ("gcid:x"). */
 function normalizeCategoryResourceName(name: string): string {
-  if (name.startsWith("categories/")) return name;
-  if (name.startsWith("gcid:")) return `categories/${name}`;
-  return `categories/gcid:${name.replace(/^gcid:/, "")}`;
+  return categoryStableId(name);
 }
 
 interface LocationListItem {
