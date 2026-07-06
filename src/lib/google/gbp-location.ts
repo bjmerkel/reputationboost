@@ -1,6 +1,7 @@
 import type { GbpConnection } from "@/audit/types";
 import type { GbpGoogleSuggestion, GbpGoogleUpdateState } from "@/audit/types";
 import { formatGbpApiError } from "./gbp-api-error";
+import { categoryStableId } from "./gbp-service-items";
 import { authHeadersForConnection } from "./auth-headers";
 import {
   diffGoogleUpdatedAttributes,
@@ -163,10 +164,14 @@ function locationAttributesResourceName(locationId: string): string {
   return `${loc}/attributes`;
 }
 
+/**
+ * Canonical category format for the Business Information v1 API: the bare
+ * stable ID ("gcid:car_repair"). Location.categories, categories.list,
+ * categories:batchGet, and freeFormServiceItem.category all use this form —
+ * only attributes.list's categoryName expects a "categories/" prefix.
+ */
 function normalizeCategoryName(name: string): string {
-  if (name.startsWith("categories/")) return name;
-  if (name.startsWith("gcid:")) return `categories/${name}`;
-  return `categories/gcid:${name.replace(/^gcid:/, "")}`;
+  return categoryStableId(name);
 }
 
 function formatStorefrontAddress(
@@ -375,7 +380,8 @@ async function batchGetCategoriesRaw(
   params.set("languageCode", "en");
   params.set("view", "FULL");
   for (const name of categoryNames) {
-    params.append("names", normalizeCategoryName(name));
+    // categories:batchGet expects bare stable IDs (gcid:x), not categories/gcid:x.
+    params.append("names", categoryStableId(name));
   }
 
   const res = await fetch(`${BI_BASE}/categories:batchGet?${params.toString()}`, {
@@ -793,7 +799,9 @@ export async function listAvailableAttributes(
   if (options?.parent) {
     baseParams.set("parent", options.parent);
   } else if (options?.categoryName) {
-    baseParams.set("categoryName", normalizeCategoryName(options.categoryName));
+    // attributes.list is the one endpoint that requires the resource-name
+    // format "categories/{category_id}" rather than the bare stable ID.
+    baseParams.set("categoryName", `categories/${categoryStableId(options.categoryName)}`);
     baseParams.set("regionCode", options.regionCode ?? "US");
     baseParams.set("languageCode", options.languageCode ?? "en");
   } else {
