@@ -83,5 +83,5 @@ export function formatGbpApiError(data: GbpApiErrorBody, fallbackStatus?: number
     return message;
   }
 
-  return "Google rejected the update. Check the description for URLs, special characters, or unresolved profile conflicts in Take Action.";
+  return "Google rejected the update. Use plain text only (no URLs or HTML), stay under 750 characters, and resolve any description conflicts in Take Action → Google Updates.";
 }

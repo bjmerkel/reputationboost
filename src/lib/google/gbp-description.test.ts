@@ -105,7 +105,7 @@ describe("gbp-description", () => {
       500
     );
     assert.equal(outcome.success, true);
-    assert.match(outcome.message, /processing/i);
+    assert.match(outcome.message, /processing|reviewing/i);
   });
 
   it("builds diff conflict failure message", () => {
@@ -128,5 +128,13 @@ describe("gbp-description", () => {
     );
     assert.equal(result.removedUrls, true);
     assert.doesNotMatch(result.text, /https?:\/\//);
+  });
+
+  it("strips HTML before publish", () => {
+    const result = sanitizeGbpDescriptionForPublish(
+      "<p>Family-owned <strong>auto repair</strong> shop.</p>"
+    );
+    assert.equal(result.removedHtml, true);
+    assert.doesNotMatch(result.text, /</);
   });
 });

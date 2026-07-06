@@ -244,7 +244,8 @@ export async function applyDescription(
       diffMask: refreshedSnapshot.diffMask,
       pendingMask: refreshedSnapshot.pendingMask,
       resolvedConflict: descriptionConflict,
-      sanitized: sanitized.removedUrls || sanitized.removedInvalidChars,
+      sanitized: sanitized.removedUrls || sanitized.removedHtml || sanitized.removedInvalidChars,
+      contentPolicyWarnings: sanitized.contentPolicyWarnings,
     },
   };
 }

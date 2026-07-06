@@ -7,17 +7,46 @@ const SIMULATED_RESULT = "Updated GBP business description.";
 const URL_PATTERN =
   /\bhttps?:\/\/[^\s<>"']+|\bwww\.[a-z0-9][-a-z0-9]*(?:\.[a-z0-9][-a-z0-9]*)+[^\s<>"',.]*/gi;
 
+/** HTML tags Google rejects in plain-text descriptions. */
+const HTML_TAG_PATTERN = /<[^>]+>/g;
+
 /** Control chars and odd Unicode format chars that often trigger INVALID_CHARACTERS. */
 const INVALID_CHAR_PATTERN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\uFEFF]/g;
+
+/** Collapse runs of punctuation Google often flags (e.g. "!!!", "???"). */
+const EXCESS_PUNCTUATION_PATTERN = /([!?.]){2,}/g;
+
+/** Promotional phrasing Google may silently block or hold in moderation. */
+const PROMOTIONAL_PHRASE_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /\b\d+\s*%\s*off\b/i, label: "percentage discounts" },
+  { pattern: /\b(cheapest|lowest price|best price|lowest rates)\b/i, label: "superlative pricing claims" },
+  { pattern: /\b(sale|clearance|limited time offer|act now|hurry)\b/i, label: "sales urgency language" },
+  { pattern: /\b(free estimate|free quote)\b/i, label: "free-offer phrasing" },
+  { pattern: /\b(#1|number one|top rated)\b/i, label: "unverifiable ranking claims" },
+];
 
 export interface GbpDescriptionSanitizeResult {
   text: string;
   removedUrls: boolean;
+  removedHtml: boolean;
   removedInvalidChars: boolean;
+  normalizedPunctuation: boolean;
+  contentPolicyWarnings: string[];
 }
 
 export function normalizeGbpDescription(text: string): string {
   return text.trim().replace(/\s+/g, " ");
+}
+
+export function detectDescriptionContentPolicyWarnings(text: string): string[] {
+  const warnings: string[] = [];
+  for (const { pattern, label } of PROMOTIONAL_PHRASE_PATTERNS) {
+    if (pattern.test(text)) {
+      warnings.push(label);
+    }
+    pattern.lastIndex = 0;
+  }
+  return warnings;
 }
 
 /** Prepare description text for Google's profile.description field. */
@@ -25,11 +54,19 @@ export function sanitizeGbpDescriptionForPublish(text: string): GbpDescriptionSa
   const working = text.replace(/\r\n/g, "\n").trim();
   const hadUrls = URL_PATTERN.test(working);
   URL_PATTERN.lastIndex = 0;
-  const withoutUrls = working.replace(URL_PATTERN, "");
+  const hadHtml = HTML_TAG_PATTERN.test(working);
+  HTML_TAG_PATTERN.lastIndex = 0;
+
+  const withoutHtml = working.replace(HTML_TAG_PATTERN, " ");
+  const withoutUrls = withoutHtml.replace(URL_PATTERN, "");
   const withoutInvalid = withoutUrls.replace(INVALID_CHAR_PATTERN, "");
   const removedInvalidChars = withoutInvalid !== withoutUrls;
 
-  const normalized = normalizeGbpDescription(withoutInvalid);
+  const punctBefore = withoutInvalid;
+  const withoutExcessPunctuation = withoutInvalid.replace(EXCESS_PUNCTUATION_PATTERN, "$1");
+  const normalizedPunctuation = withoutExcessPunctuation !== punctBefore;
+
+  const normalized = normalizeGbpDescription(withoutExcessPunctuation);
   const truncated =
     normalized.length > GBP_DESCRIPTION_MAX_LENGTH
       ? normalized.slice(0, GBP_DESCRIPTION_MAX_LENGTH).trim()
@@ -38,7 +75,10 @@ export function sanitizeGbpDescriptionForPublish(text: string): GbpDescriptionSa
   return {
     text: truncated,
     removedUrls: hadUrls,
+    removedHtml: hadHtml,
     removedInvalidChars,
+    normalizedPunctuation,
+    contentPolicyWarnings: detectDescriptionContentPolicyWarnings(truncated),
   };
 }
 
@@ -47,8 +87,19 @@ export function buildDescriptionSanitizeNote(result: GbpDescriptionSanitizeResul
   if (result.removedUrls) {
     notes.push("URLs were removed because Google does not allow links in descriptions");
   }
+  if (result.removedHtml) {
+    notes.push("HTML tags were removed — use plain text only");
+  }
   if (result.removedInvalidChars) {
     notes.push("unsupported characters were removed");
+  }
+  if (result.normalizedPunctuation) {
+    notes.push("repeated punctuation was simplified");
+  }
+  if (result.contentPolicyWarnings.length > 0) {
+    notes.push(
+      `Google may delay or reject descriptions with ${result.contentPolicyWarnings.join(", ")} — consider rephrasing`
+    );
   }
   if (notes.length === 0) return null;
   return `${notes.join("; ")}.`;
@@ -78,7 +129,8 @@ export function isGbpDescriptionLiveSync(result?: string | null): boolean {
   if (wasGbpDescriptionSimulated(result)) return false;
   return (
     result.includes("Description verified on Google Business Profile") ||
-    result.includes("Description submitted — Google is processing")
+    result.includes("Description submitted — Google is processing") ||
+    result.includes("Description submitted — Google is processing or reviewing")
   );
 }
 
@@ -121,7 +173,7 @@ export function buildDescriptionApplyMessage(
     return {
       success: true,
       message:
-        "Description submitted — Google is processing. It can take a few hours to appear on Maps and Search; no action needed.",
+        "Description submitted — Google is processing or reviewing it. Content policy checks can take a few hours before it appears on Maps and Search.",
     };
   }
 
@@ -129,7 +181,7 @@ export function buildDescriptionApplyMessage(
     return {
       success: false,
       message:
-        "Google is showing a different description than what you submitted. Accept or reject Google's version in Take Action to resolve the conflict.",
+        "Google is showing a different description than what you submitted. Use Take Action → Google Updates to accept or reject Google's version before your description can go live.",
     };
   }
 
@@ -137,7 +189,7 @@ export function buildDescriptionApplyMessage(
     return {
       success: false,
       message:
-        "Description sent to Google but is not live yet. Google has pending edits on your profile — open Business Profile Manager and accept or reject suggested changes.",
+        "Description sent to Google but is not live yet. Google has pending edits or moderation holds on your profile — resolve them in Business Profile Manager or Take Action → Google Updates.",
     };
   }
 
@@ -145,7 +197,7 @@ export function buildDescriptionApplyMessage(
     return {
       success: false,
       message:
-        "Google accepted the update but the description is not showing on your profile yet. Check Business Profile Manager; it can take a few hours to appear on Maps and Search.",
+        "Google accepted the update but the description is not showing yet. It may be in Google's moderation queue, or your profile may have a verification hold — check Business Profile Manager.",
     };
   }
 

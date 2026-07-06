@@ -46,7 +46,7 @@ describe("gbp-api-error", () => {
     const message = formatGbpApiError({
       error: { message: "Request contains an invalid argument." },
     });
-    assert.match(message, /unresolved profile conflicts/i);
+    assert.match(message, /plain text only/i);
   });
 });
 
@@ -57,6 +57,28 @@ describe("sanitizeGbpDescriptionForPublish", () => {
     );
     assert.equal(result.text, "Best car repair near me. Visit today.");
     assert.equal(result.removedUrls, true);
+  });
+
+  it("removes HTML tags", () => {
+    const result = sanitizeGbpDescriptionForPublish(
+      "Trusted <b>auto shop</b> serving Dallas."
+    );
+    assert.equal(result.text, "Trusted auto shop serving Dallas.");
+    assert.equal(result.removedHtml, true);
+  });
+
+  it("simplifies excessive punctuation", () => {
+    const result = sanitizeGbpDescriptionForPublish("Great service!!! Call today???");
+    assert.equal(result.text, "Great service! Call today?");
+    assert.equal(result.normalizedPunctuation, true);
+  });
+
+  it("flags promotional phrasing", () => {
+    const result = sanitizeGbpDescriptionForPublish(
+      "Cheapest car repair in town — everything 20% off this week."
+    );
+    assert.ok(result.contentPolicyWarnings.length > 0);
+    assert.match(buildDescriptionSanitizeNote(result) ?? "", /may delay or reject/i);
   });
 
   it("builds a sanitize note when URLs are removed", () => {
