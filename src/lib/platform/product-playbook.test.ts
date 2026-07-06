@@ -42,11 +42,10 @@ function minimalAudit(overrides: Partial<FullAuditPayload> = {}): FullAuditPaylo
       monthlyReport: null,
     },
     execution: {
-      plan: {
-        phases: [],
-        steps: [],
-        progress: { totalSteps: 10, completedSteps: 2, needsApproval: 1, currentHealthScore: 55, projectedHealthScore: 70 },
-      },
+      generatedAt: "2026-07-01T00:00:00.000Z",
+      tasksCreated: 1,
+      pendingApproval: 1,
+      autoApproved: 0,
       tasks: [
         {
           id: "t1",
@@ -58,6 +57,11 @@ function minimalAudit(overrides: Partial<FullAuditPayload> = {}): FullAuditPaylo
           priority: "P1",
           draftContent: "Hello",
           payload: {},
+          scheduledFor: null,
+          approvedAt: null,
+          completedAt: null,
+          result: null,
+          createdAt: "2026-07-01T00:00:00.000Z",
         },
       ],
     },

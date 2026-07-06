@@ -105,11 +105,13 @@ function inferStage(input: PlaybookInput, pendingCount: number): PlaybookStage {
 
   const score = input.audit.strategy?.scores.overall ?? 0;
   const daysOld = daysSince(input.audit.completedAt);
-  const plan = input.audit.execution?.plan;
-  const planComplete =
-    plan != null &&
-    plan.progress.completedSteps >= plan.progress.totalSteps &&
-    plan.progress.totalSteps > 0;
+  const openTasks = input.tasks.filter(
+    (t) =>
+      t.status === "pending_approval" ||
+      t.status === "approved" ||
+      t.status === "scheduled"
+  );
+  const planComplete = input.tasks.length === 0 || openTasks.length === 0;
 
   if (score < 70 || !planComplete) return "grow";
   if (daysOld >= 25) return "maintain";
@@ -130,7 +132,7 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
   const gaps = input.audit?.strategy?.gaps ?? [];
   const topGap = topOpenGap(gaps);
   const path = input.audit
-    ? buildPathToHealthy(input.audit, input.audit.execution?.plan ?? null, {
+    ? buildPathToHealthy(input.audit, null, {
         avgCustomerValue: input.avgCustomerValue,
       })
     : null;
@@ -274,11 +276,11 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
       stage: "grow",
       title: path.steps[0].title,
       description: "Next highest-impact step on your path to a healthy Reputation Boost Score.",
-      why: path.isHealthy
+      why: path.alreadyHealthy
         ? "Your score is healthy — keep executing the plan to stay ahead."
         : `Projected score after key fixes: ${path.projectedScore}/100.`,
       priority: PRIORITY.medium,
-      status: path.isHealthy ? "done" : "pending",
+      status: path.alreadyHealthy ? "done" : "pending",
       action: "open_plan",
       estimatedMinutes: 10,
     });
