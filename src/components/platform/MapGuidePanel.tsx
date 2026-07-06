@@ -141,11 +141,21 @@ export default function MapGuidePanel({
 
           <div className="mb-3">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-[#80868b]">
+              What &ldquo;top 3&rdquo; means
+            </p>
+            <p className="mt-1 text-[10px] leading-relaxed text-[#5f6368]">
+              Google shows three businesses first in Maps search. Green areas mean you&apos;re one
+              of them when someone searches nearby.
+            </p>
+          </div>
+
+          <div className="mb-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#80868b]">
               Heatmap colors
             </p>
             <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
               {[
-                { label: "Top 3 (in pack)", color: rankColor(1) },
+                { label: "Top 3 results", color: rankColor(1) },
                 { label: "4–10", color: rankColor(7) },
                 { label: "11+", color: rankColor(15) },
                 { label: "Not found", color: rankColor(null) },

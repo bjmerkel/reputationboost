@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { GeoZone, VisibilitySummary, ZoneAction } from "@/audit/geo/types";
 import { formatCurrency } from "@/audit/attribution/roi";
 import { ZONE_SEVERITY_COLORS } from "./zone-colors";
+import { formatCoverageDisplay } from "./coverage-labels";
 
 interface VisibilityInsightPanelProps {
   summary: VisibilitySummary;
@@ -26,6 +27,7 @@ export default function VisibilityInsightPanel({
 }: VisibilityInsightPanelProps) {
   const weak = summary.zones.filter((z) => z.severity === "weak" || z.severity === "critical");
   const [expanded, setExpanded] = useState(weak.length > 0);
+  const coverage = formatCoverageDisplay(summary);
 
   if (!summary.hasGridData) {
     return (
@@ -61,7 +63,7 @@ export default function VisibilityInsightPanel({
         <>
           <div className="shrink-0 border-b border-[#e8eaed] px-3 py-2.5">
             <div className="flex flex-wrap gap-2 text-[10px] text-[#5f6368]">
-              <Stat label="In pack" value={`${summary.cellsInPack}/${summary.cellsTotal}`} />
+              <Stat label={coverage.statLabel} value={coverage.statValue} />
               {summary.cellsWeak > 0 && <Stat label="Weak" value={String(summary.cellsWeak)} />}
               {summary.cellsCritical > 0 && (
                 <Stat label="Not found" value={String(summary.cellsCritical)} warn />
@@ -175,7 +177,7 @@ function ZoneCard({
         </span>
       </div>
       <p className="mt-0.5 text-[10px] text-[#5f6368]">
-        {zone.coveragePercent}% in pack
+        {zone.coveragePercent}% of this zone in top 3
         {zone.avgRank != null && ` · avg #${zone.avgRank}`}
       </p>
       {zone.revenueAtRisk != null && zone.revenueAtRisk > 0 && (

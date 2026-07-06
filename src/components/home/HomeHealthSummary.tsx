@@ -4,6 +4,7 @@ import type { FullAuditPayload, MonthlyReport, ScoreChangelogEntry } from "@/aud
 import type { AttributionSummary } from "@/audit/types/timeseries";
 import { aggregateGridCoverage } from "@/audit/geo";
 import { formatCurrency } from "@/audit/attribution/roi";
+import { formatAvgCoverageLabel } from "@/components/platform/heatmap/coverage-labels";
 import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
 import ScoreChangelog from "@/components/audit/ScoreChangelog";
 
@@ -98,7 +99,7 @@ export default function HomeHealthSummary({
           {gridCoverage.keywordsWithGrid > 0 && (
             <p className="mt-1 text-sm text-[#5f6368]">
               <span className="font-medium text-[#202124]">
-                {gridCoverage.avgCoverage}% avg pack coverage
+                {formatAvgCoverageLabel(gridCoverage.avgCoverage)}
               </span>
               {" "}across your service area
               {gridCoverage.avgCoverage < 50 && (
