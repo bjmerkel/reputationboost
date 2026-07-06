@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getPrimaryBusiness, getBusinessRecord } from "@/audit/businesses";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { parseJsonBody } from "@/lib/http/parse-json-body";
@@ -28,6 +28,7 @@ export async function GET(request: Request) {
 
   try {
     const settings = await getWebhookSettings(user.id, business.businessId);
+    const record = await getBusinessRecord(user.id, business.businessId);
     const rawAudit = await loadLatestAuditFromSupabase(user.id, business.id, {
       businessName: business.name,
       businessUuid: business.businessId,
@@ -41,6 +42,14 @@ export async function GET(request: Request) {
       delayHours: settings.delayHours,
       triggerEvents: settings.triggerEvents,
       auditHasReviewGap: hasReviewGap,
+      privateFeedbackUrl: record?.private_feedback_url ?? null,
+      zapierSteps: [
+        "Create a Zap with your CRM trigger (Job Completed or Invoice Paid).",
+        "Add action: Webhooks by Zapier → POST.",
+        "Paste your Reputation Boost webhook URL.",
+        "Map customer phone, name, service, and set event to job.completed.",
+        "Optional: map sentiment as negative to route unhappy customers to private feedback.",
+      ],
       samplePayload: {
         event: "job.completed",
         phone: "214-555-0100",
@@ -76,14 +85,17 @@ export async function PATCH(request: Request) {
       delayHours?: number;
       triggerEvents?: string[];
       rotateToken?: boolean;
+      privateFeedbackUrl?: string | null;
     }>(request);
 
     const settings = await updateWebhookSettings(user.id, business.businessId, body);
+    const record = await getBusinessRecord(user.id, business.businessId);
     return NextResponse.json({
       webhookUrl: buildWebhookUrl(request, settings.webhookToken),
       autoSend: settings.autoSend,
       delayHours: settings.delayHours,
       triggerEvents: settings.triggerEvents,
+      privateFeedbackUrl: record?.private_feedback_url ?? null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update webhook settings";

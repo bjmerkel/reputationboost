@@ -31,11 +31,13 @@ export interface ReviewRequestEligibilityInput {
   /** Manual sends from the UI bypass audit gap checks. */
   manualSend?: boolean;
   sentiment?: "positive" | "neutral" | "negative";
+  hasPrivateFeedbackUrl?: boolean;
 }
 
 export interface ReviewRequestEligibilityResult {
   eligible: boolean;
   reason?: IneligibilityReason;
+  usePrivateFeedback?: boolean;
 }
 
 export function auditHasReviewGap(audit: FullAuditPayload | null): boolean {
@@ -64,6 +66,9 @@ export function evaluateReviewRequestEligibility(
   }
 
   if (input.sentiment === "negative") {
+    if (input.hasPrivateFeedbackUrl) {
+      return { eligible: true, usePrivateFeedback: true };
+    }
     return { eligible: false, reason: "negative_sentiment" };
   }
 
@@ -108,7 +113,7 @@ export function ineligibilityMessage(reason: IneligibilityReason): string {
     case "no_review_gap":
       return "Audit shows review count is healthy — auto-send skipped.";
     case "negative_sentiment":
-      return "Negative customer sentiment — review request skipped.";
+      return "Negative customer sentiment — Google review request skipped.";
     default:
       return "Customer is not eligible for a review request.";
   }

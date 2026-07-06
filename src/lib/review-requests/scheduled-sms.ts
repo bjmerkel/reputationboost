@@ -94,6 +94,7 @@ export async function scheduleReviewRequestForCustomer(input: {
   template: string;
   delayHours: number;
   customerEventId?: string;
+  reviewUrlOverride?: string;
 }): Promise<{ scheduled: boolean; scheduledAt?: string; smsId?: string; reason?: string }> {
   const businessId = input.business.businessId;
   if (!businessId) throw new Error("Business ID is required");
@@ -107,12 +108,14 @@ export async function scheduleReviewRequestForCustomer(input: {
     .filter(Boolean)
     .join(", ");
 
-  const reviewUrl = googleReviewUrlForBusiness({
-    placeId: input.business.gbpPlaceId,
-    mapsUrl: input.business.gbpMapsUrl,
-    name: input.business.name,
-    address,
-  });
+  const reviewUrl =
+    input.reviewUrlOverride ??
+    googleReviewUrlForBusiness({
+      placeId: input.business.gbpPlaceId,
+      mapsUrl: input.business.gbpMapsUrl,
+      name: input.business.name,
+      address,
+    });
 
   if (!reviewUrl) {
     return { scheduled: false, reason: "missing_review_url" };

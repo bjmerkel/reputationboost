@@ -88,6 +88,7 @@ export async function updateWebhookSettings(
     delayHours?: number;
     triggerEvents?: string[];
     rotateToken?: boolean;
+    privateFeedbackUrl?: string | null;
   }
 ): Promise<WebhookBusinessSettings> {
   const supabase = await createClient();
@@ -99,6 +100,9 @@ export async function updateWebhookSettings(
   if (patch.delayHours !== undefined) update.webhook_delay_hours = patch.delayHours;
   if (patch.triggerEvents !== undefined) update.webhook_trigger_events = patch.triggerEvents;
   if (patch.rotateToken) update.webhook_token = generateWebhookToken();
+  if (patch.privateFeedbackUrl !== undefined) {
+    update.private_feedback_url = patch.privateFeedbackUrl?.trim() || null;
+  }
 
   const { data, error } = await supabase
     .from("businesses")

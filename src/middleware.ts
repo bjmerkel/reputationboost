@@ -13,6 +13,7 @@ export const config = {
     "/api/places/:path*",
     "/api/business",
     "/api/customers",
+    "/api/customers/activity",
     "/api/customers/import",
     "/api/review-requests/generate",
     "/api/review-requests/send",

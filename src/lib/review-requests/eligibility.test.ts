@@ -79,6 +79,17 @@ describe("evaluateReviewRequestEligibility", () => {
     assert.equal(result.eligible, false);
     assert.equal(result.reason, "blocked_event_type");
   });
+
+  it("routes negative sentiment to private feedback when configured", () => {
+    const result = evaluateReviewRequestEligibility({
+      customer: customer(),
+      sentiment: "negative",
+      hasPrivateFeedbackUrl: true,
+      explicitSend: true,
+    });
+    assert.equal(result.eligible, true);
+    assert.equal(result.usePrivateFeedback, true);
+  });
 });
 
 describe("auditHasReviewGap", () => {
