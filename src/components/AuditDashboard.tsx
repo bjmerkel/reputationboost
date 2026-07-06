@@ -21,6 +21,7 @@ import ViewAsCustomerModal from "@/components/platform/ViewAsCustomerModal";
 import HomeView from "@/components/home/HomeView";
 import BatchReviewSession from "@/components/plan/BatchReviewSession";
 import PlanView from "@/components/plan/PlanView";
+import ProductPlaybookWizard from "@/components/platform/ProductPlaybookWizard";
 import { useAttributionDashboard } from "@/hooks/useAttributionDashboard";
 import { useScoreHistory } from "@/hooks/useScoreHistory";
 
@@ -228,6 +229,18 @@ export default function AuditDashboard({
           )}
           {error && <p className="mt-4 text-sm text-[#d93025]">{error}</p>}
         </div>
+
+        <ProductPlaybookWizard
+          gbpConnected={gbpConnected}
+          businessId={businessId}
+          audit={null}
+          tasks={initialExecutionTasks}
+          avgCustomerValue={avgCustomerValue}
+          onRunAudit={runAudit}
+          onOpenReview={openBatchReview}
+          onSetView={setView}
+          auditLoading={loading}
+        />
       </div>
     );
   }
@@ -393,6 +406,18 @@ export default function AuditDashboard({
         gbpConnected={gbpConnected}
         initialTasks={tasks}
         attributionByTaskId={attributionData.attributionByTaskId}
+      />
+
+      <ProductPlaybookWizard
+        gbpConnected={gbpConnected}
+        businessId={businessId}
+        audit={audit}
+        tasks={tasks}
+        avgCustomerValue={avgCustomerValue}
+        onRunAudit={runAudit}
+        onOpenReview={openBatchReview}
+        onSetView={setView}
+        auditLoading={loading}
       />
     </div>
   );
