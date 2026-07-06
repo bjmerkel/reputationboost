@@ -136,7 +136,12 @@ export function buildGbpLocationInventory(
   const description =
     profile?.description ?? liveProfile?.description ?? "";
   const services = profile?.serviceItems ?? liveProfile?.services ?? [];
-  const attributes = profile?.attributes ?? liveProfile?.attributes ?? [];
+  // Attributes come from the dedicated locations/{id}/attributes endpoint
+  // (surfaced via liveProfile), not from locations.get, so prefer the
+  // non-empty source instead of nullish fallback.
+  const attributes = profile?.attributes?.length
+    ? profile.attributes
+    : (liveProfile?.attributes ?? []);
   const secondary =
     profile?.additionalCategories.map((c) => c.displayName) ??
     identity.secondaryCategories;
