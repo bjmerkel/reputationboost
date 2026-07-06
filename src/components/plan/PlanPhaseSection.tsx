@@ -50,11 +50,13 @@ export default function PlanPhaseSection({
       </div>
 
       <div className="space-y-3">
-        {visibleSteps.map((step) => (
+        {visibleSteps.map((step, index) => (
           <PlanStepCard
             key={step.stepNumber}
             step={step}
             totalSteps={totalSteps}
+            displayIndex={index + 1}
+            displayTotal={visibleSteps.length}
             gbpConnected={gbpConnected}
             actions={actions}
             attributionByTaskId={attributionByTaskId}

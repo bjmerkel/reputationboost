@@ -1,4 +1,5 @@
 import type { ExecutionTask, Plan } from "@/audit/types";
+import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
 import { pendingRoutineTasks } from "./pending-tasks";
 
 export async function fetchExecutionState(
@@ -104,8 +105,13 @@ export async function publishPhotoBatch(
   return { uploaded: data.uploaded ?? 0, total: data.total ?? files.length };
 }
 
-/** Approve (if needed) then publish to Google in one flow. */
 export async function approveAndPublishTask(task: ExecutionTask): Promise<ExecutionTask> {
+  if (task.type === "review_response" && !isValidReviewId(task.payload.reviewId)) {
+    throw new Error(
+      "This review reply is not linked to a specific review. Open the Reviews tab to respond to customers."
+    );
+  }
+
   if (task.type === "gbp_photo") {
     const preview =
       typeof task.payload.previewDataUrl === "string" ? task.payload.previewDataUrl : undefined;

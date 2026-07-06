@@ -18,6 +18,7 @@ import { buildMediaMaintenanceActions } from "@/lib/google/gbp-media-maintenance
 import { mediaCategoryLabel } from "@/lib/google/gbp-media-coverage";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
+import { generateReviewResponses } from "@/audit/phase3/content";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
 import { getPhaseForStep } from "./plan-phases";
@@ -452,7 +453,10 @@ export function tasksFromGbpPlanStep(
   }
 
   if (step.stepNumber === 11) {
-    const responses = content.reviewResponses;
+    const responses =
+      content.reviewResponses.length > 0
+        ? content.reviewResponses
+        : generateReviewResponses(audit);
     const rejectedDeletes = audit.reviews.reviews
       .filter((r) => r.replyState === "REJECTED" && r.replyText)
       .map((r) =>
@@ -490,9 +494,13 @@ export function tasksFromGbpPlanStep(
       });
       return [...rejectedDeletes, ...replyTasks];
     }
+
     const template =
       step.copyBlocks?.[0]?.content ?? "Respond to all reviews within 24 hours.";
-    return [buildGbpTask(audit, step, "review_response", step.title, template, { reviewId: null })];
+    return [
+      ...rejectedDeletes,
+      buildGbpTask(audit, step, "gbp_checklist", step.title, template, { manual: true }),
+    ];
   }
 
   if (step.stepNumber === 5) {
