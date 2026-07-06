@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import CustomersPageClient from "@/components/customers/CustomersPageClient";
+import WebhookIntegrationPanel from "@/components/customers/WebhookIntegrationPanel";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isTwilioConfigured } from "@/lib/sms/twilio";
 import { getUser } from "@/lib/supabase/server";
@@ -59,6 +60,8 @@ export default async function CustomersPage() {
             the fastest path to more 5-star reviews.
           </p>
         </div>
+
+        <WebhookIntegrationPanel />
 
         <CustomersPageClient
           businessName={business.name}

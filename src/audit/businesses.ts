@@ -25,6 +25,10 @@ export interface BusinessRecord {
   heatmap_profile: string;
   website: string | null;
   phone: string | null;
+  webhook_token: string | null;
+  webhook_auto_send: boolean;
+  webhook_delay_hours: number;
+  webhook_trigger_events: string[];
   created_at: string;
   updated_at: string;
 }

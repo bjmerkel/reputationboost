@@ -16,6 +16,7 @@ export const config = {
     "/api/customers/import",
     "/api/review-requests/generate",
     "/api/review-requests/send",
+    "/api/integrations/settings",
     "/api/keywords/:path*",
     "/api/google/gbp/connect",
     "/api/google/gbp/disconnect",

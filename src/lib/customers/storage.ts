@@ -14,8 +14,12 @@ function rowToRecord(row: Record<string, unknown>): CustomerRecord {
 function formatCustomerStorageError(message: string): string {
   if (
     message.includes("Could not find the table") ||
-    message.includes('relation "public.customers" does not exist')
+    message.includes('relation "public.customers" does not exist') ||
+    message.includes("webhook_token")
   ) {
+    if (message.includes("webhook_token")) {
+      return "Webhook columns not found. Run migration 020_webhook_integrations.sql in Supabase.";
+    }
     return "Customers table not found. Run migration 019_customers_and_sms.sql in Supabase.";
   }
   return message;

@@ -5,6 +5,11 @@ import {
   logSmsMessage,
   markCustomersReviewRequested,
 } from "@/lib/customers/storage";
+import {
+  getCustomersByIdsAdmin,
+  logSmsMessageAdmin,
+  markCustomersReviewRequestedAdmin,
+} from "@/lib/customers/storage-admin";
 import type { CustomerRecord } from "@/lib/customers/types";
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
@@ -18,6 +23,8 @@ export interface SendReviewRequestsInput {
   batchSize?: number;
   executionTaskId?: string;
   dryRun?: boolean;
+  /** Use service-role client (for inbound webhooks without a user session). */
+  serviceRole?: boolean;
 }
 
 export interface SendReviewRequestsResult {
@@ -57,9 +64,11 @@ async function resolveCustomers(
   userId: string,
   businessId: string,
   customerIds?: string[],
-  batchSize = 15
+  batchSize = 15,
+  serviceRole = false
 ): Promise<CustomerRecord[]> {
   if (customerIds && customerIds.length > 0) {
+    if (serviceRole) return getCustomersByIdsAdmin(businessId, customerIds);
     return getCustomersByIds(userId, businessId, customerIds);
   }
   return getEligibleCustomers(userId, businessId, batchSize);
@@ -84,7 +93,8 @@ export async function sendReviewRequests(
     input.userId,
     businessId,
     input.customerIds,
-    input.batchSize ?? 15
+    input.batchSize ?? 15,
+    input.serviceRole
   );
 
   const result: SendReviewRequestsResult = {
@@ -129,7 +139,8 @@ export async function sendReviewRequests(
     }
 
     if (!isTwilioConfigured()) {
-      await logSmsMessage(input.userId, {
+      const logMessage = input.serviceRole ? logSmsMessageAdmin : logSmsMessage;
+      await logMessage(input.userId, {
         businessId,
         customerId: customer.id,
         executionTaskId: input.executionTaskId,
@@ -151,7 +162,8 @@ export async function sendReviewRequests(
     const sms = await sendSms(customer.phone, body);
 
     if (sms.success) {
-      await logSmsMessage(input.userId, {
+      const logMessage = input.serviceRole ? logSmsMessageAdmin : logSmsMessage;
+      await logMessage(input.userId, {
         businessId,
         customerId: customer.id,
         executionTaskId: input.executionTaskId,
@@ -169,7 +181,8 @@ export async function sendReviewRequests(
         status: "sent",
       });
     } else {
-      await logSmsMessage(input.userId, {
+      const logMessage = input.serviceRole ? logSmsMessageAdmin : logSmsMessage;
+      await logMessage(input.userId, {
         businessId,
         customerId: customer.id,
         executionTaskId: input.executionTaskId,
@@ -190,7 +203,11 @@ export async function sendReviewRequests(
   }
 
   if (!input.dryRun && sentCustomerIds.length > 0) {
-    await markCustomersReviewRequested(input.userId, businessId, sentCustomerIds);
+    if (input.serviceRole) {
+      await markCustomersReviewRequestedAdmin(businessId, sentCustomerIds);
+    } else {
+      await markCustomersReviewRequested(input.userId, businessId, sentCustomerIds);
+    }
   }
 
   return result;

@@ -7,6 +7,8 @@ const PROTECTED_PREFIXES = [
   "/api/execution",
   "/api/places",
   "/api/business",
+  "/api/customers",
+  "/api/integrations/settings",
   "/api/keywords",
   "/api/google/gbp/connect",
   "/api/google/gbp/disconnect",

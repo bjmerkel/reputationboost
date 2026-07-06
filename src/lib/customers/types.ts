@@ -11,6 +11,9 @@ export interface CustomerRecord {
   source: string;
   opted_out: boolean;
   review_requested_at: string | null;
+  external_ids?: Record<string, string>;
+  last_event_at?: string | null;
+  last_event_type?: string | null;
   created_at: string;
   updated_at: string;
 }
