@@ -54,6 +54,23 @@ export interface GbpDescriptionSanitizeResult {
   contentPolicyWarnings: string[];
 }
 
+/** Strip http(s)/www URLs. Shared by the description and local-post sanitizers. */
+export function stripUrlsFromText(text: string): { text: string; removed: boolean } {
+  const removed = URL_PATTERN.test(text);
+  URL_PATTERN.lastIndex = 0;
+  return { text: removed ? text.replace(URL_PATTERN, "") : text, removed };
+}
+
+/**
+ * Strip phone numbers, removing "at <number>" lead-ins first so "Call us at
+ * (703) 820-5400 to schedule" reads as "Call us to schedule".
+ * Shared by the description and local-post sanitizers.
+ */
+export function stripPhoneNumbersFromText(text: string): { text: string; removed: boolean } {
+  const cleaned = text.replace(PHONE_LEAD_IN_PATTERN, "").replace(PHONE_PATTERN, "");
+  return { text: cleaned, removed: cleaned !== text };
+}
+
 export function normalizeGbpDescription(text: string): string {
   return text.trim().replace(/\s+/g, " ");
 }
@@ -81,12 +98,9 @@ export function sanitizeGbpDescriptionForPublish(text: string): GbpDescriptionSa
   const withoutUrls = withoutHtml.replace(URL_PATTERN, "");
 
   // Google's guidelines put phone numbers in the dedicated phone field, never
-  // in the description. Strip "at <number>" lead-ins first so "Call us at
-  // (703) 820-5400 to schedule" becomes "Call us to schedule".
-  const withoutPhones = withoutUrls
-    .replace(PHONE_LEAD_IN_PATTERN, "")
-    .replace(PHONE_PATTERN, "");
-  const removedPhoneNumbers = withoutPhones !== withoutUrls;
+  // in the description.
+  const { text: withoutPhones, removed: removedPhoneNumbers } =
+    stripPhoneNumbersFromText(withoutUrls);
 
   const withoutInvalid = withoutPhones.replace(INVALID_CHAR_PATTERN, "");
   const removedInvalidChars = withoutInvalid !== withoutPhones;
