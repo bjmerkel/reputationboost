@@ -7,6 +7,7 @@ import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import TaskOutcomeBadge from "@/components/attribution/TaskOutcomeBadge";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
+import { needsGbpDescriptionRepublish } from "@/lib/google/gbp-description";
 
 const TYPE_LABELS: Partial<Record<ExecutionTask["type"], string>> = {
   google_post: "Google post",
@@ -48,6 +49,8 @@ export default function PlanStepTaskRow({
     (task.status === "pending_approval" || task.status === "approved") &&
     task.type !== "gbp_photo" &&
     (task.type !== "review_response" || isValidReviewId(task.payload.reviewId));
+
+  const needsRepublish = gbpConnected && needsGbpDescriptionRepublish(task);
 
   const isPhotoWithoutPreview =
     task.type === "gbp_photo" && typeof task.payload.previewDataUrl !== "string";
@@ -151,7 +154,7 @@ export default function PlanStepTaskRow({
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={() => void actions.approveAndPublish(task)}
+                  onClick={() => void actions.approveAndPublish(task, { draftContent: draft })}
                   className="btn-primary rounded-full px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
                   {loading ? "Publishing…" : "Approve & publish"}
@@ -182,6 +185,80 @@ export default function PlanStepTaskRow({
             </>
           )}
         </div>
+      )}
+
+      {needsRepublish && editing && (
+        <div className="mt-3">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={5}
+            className={`w-full rounded-lg border p-3 text-sm ${
+              isLight ? "border-[#dadce0] bg-white text-[#3c4043]" : "border-white/10 bg-slate-900 text-slate-200"
+            }`}
+          />
+        </div>
+      )}
+
+      {needsRepublish && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {editing ? (
+            <>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => {
+                  void actions
+                    .approveAndPublish(task, { draftContent: draft, retry: true })
+                    .then(() => setEditing(false));
+                }}
+                className="btn-primary rounded-full px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                {loading ? "Publishing…" : "Save & re-publish"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(task.draftContent);
+                  setEditing(false);
+                }}
+                className={`rounded-full px-4 py-1.5 text-xs font-medium ${
+                  isLight ? "text-[#5f6368] hover:bg-[#f1f3f4]" : "text-slate-400 hover:bg-white/5"
+                }`}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => void actions.approveAndPublish(task, { draftContent: draft, retry: true })}
+                className="btn-primary rounded-full px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                {loading ? "Publishing…" : "Re-publish to Google"}
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setEditing(true)}
+                className={`rounded-full border px-4 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                  isLight ? "border-[#dadce0] text-[#3c4043]" : "border-white/10 text-slate-300"
+                }`}
+              >
+                Edit
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {needsRepublish && (
+        <p className={`mt-2 text-xs ${isLight ? "text-[#c5221f]" : "text-red-400"}`}>
+          This description was not verified on Google. Review replies use a different API and can
+          appear before profile fields like the business description.
+        </p>
       )}
 
       {!gbpConnected && task.status === "pending_approval" && task.type !== "gbp_photo" && (

@@ -84,8 +84,10 @@ export function usePlanTasks({
   );
 
   const approveAndPublish = useCallback(
-    (task: ExecutionTask) =>
-      runWithLoading(task.id, () => approveAndPublishTask(task).then(() => undefined)),
+    (task: ExecutionTask, options?: { draftContent?: string; retry?: boolean }) =>
+      runWithLoading(task.id, () =>
+        approveAndPublishTask(task, options).then(() => undefined)
+      ),
     [runWithLoading]
   );
 

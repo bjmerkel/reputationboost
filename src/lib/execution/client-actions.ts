@@ -1,5 +1,6 @@
 import type { ExecutionTask, Plan } from "@/audit/types";
 import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
+import { needsGbpDescriptionRepublish } from "@/lib/google/gbp-description";
 import { pendingRoutineTasks } from "./pending-tasks";
 
 export async function fetchExecutionState(
@@ -34,8 +35,15 @@ export async function patchExecutionTask(
   return data.task as ExecutionTask;
 }
 
-export async function executeExecutionTask(taskId: string): Promise<ExecutionTask> {
-  const res = await fetch(`/api/execution/${taskId}`, { method: "POST" });
+export async function executeExecutionTask(
+  taskId: string,
+  options?: { retry?: boolean }
+): Promise<ExecutionTask> {
+  const res = await fetch(`/api/execution/${taskId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(options ?? {}),
+  });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Publish failed");
   return data.task as ExecutionTask;
@@ -105,7 +113,10 @@ export async function publishPhotoBatch(
   return { uploaded: data.uploaded ?? 0, total: data.total ?? files.length };
 }
 
-export async function approveAndPublishTask(task: ExecutionTask): Promise<ExecutionTask> {
+export async function approveAndPublishTask(
+  task: ExecutionTask,
+  options?: { draftContent?: string; retry?: boolean }
+): Promise<ExecutionTask> {
   if (task.type === "review_response" && !isValidReviewId(task.payload.reviewId)) {
     throw new Error(
       "This review reply is not linked to a specific review. Open the Reviews tab to respond to customers."
@@ -119,6 +130,17 @@ export async function approveAndPublishTask(task: ExecutionTask): Promise<Execut
       throw new Error("Generate or upload a photo preview before publishing.");
     }
     return publishPhotoTask(task.id, preview);
+  }
+
+  const draftContent = options?.draftContent?.trim();
+  const retry = options?.retry ?? needsGbpDescriptionRepublish(task);
+
+  if (draftContent && draftContent !== task.draftContent) {
+    await patchExecutionTask(task.id, { draftContent });
+  }
+
+  if (retry && task.status === "completed") {
+    return executeExecutionTask(task.id, { retry: true });
   }
 
   if (task.status === "pending_approval") {
