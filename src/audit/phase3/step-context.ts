@@ -81,7 +81,7 @@ function resolveCurrentDescriptionValue(
   const current = step.current?.trim();
   if (!current) return undefined;
 
-  const templateMatch = current.match(/^\d+ characters:\s*"(.*)"$/s);
+  const templateMatch = current.match(/^\d+ characters:\s*"([\s\S]*)"$'/);
   if (templateMatch) {
     const parsed = templateMatch[1].replace(/…$/, "").trim();
     return parsed || current;
