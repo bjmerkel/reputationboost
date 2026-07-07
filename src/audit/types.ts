@@ -898,6 +898,12 @@ export interface GbpPlanActionData {
   serviceDescription?: string;
   sourceUrl?: string;
   mediaCategory?: string;
+  attributes?: Array<{
+    name: string;
+    boolValue?: boolean;
+    uri?: string;
+    enumValues?: string[];
+  }>;
 }
 
 export interface GbpPlanStep {
