@@ -30,6 +30,10 @@ import { matchKeywordsInText } from "@/audit/attribution/keywords";
 import { getPhaseForStep } from "./plan-phases";
 import { isCustomPlanStep } from "./plan-custom-steps";
 import { buildTaskPayloadContext } from "./step-context";
+import {
+  isReviewRequestPlanStep,
+  isReviewResponsePlanStep,
+} from "./gbp-plan-step-intent";
 
 function mediaUploadDraft(hint: string, category: GbpMediaCategory): string {
   return [
@@ -212,6 +216,67 @@ export function buildAttributeExecutionTasks(
   ];
 }
 
+export function buildReviewResponseTasks(
+  audit: FullAuditPayload,
+  step: GbpPlanStep,
+  content: AuditGeneratedContent
+): ExecutionTask[] {
+  const responses =
+    content.reviewResponses.length > 0
+      ? content.reviewResponses
+      : generateReviewResponses(audit);
+  const customPayload = isCustomPlanStep(step.stepNumber) ? { customAction: true } : {};
+
+  const rejectedDeletes = audit.reviews.reviews
+    .filter((r) => r.replyState === "REJECTED" && r.replyText)
+    .map((r) =>
+      buildGbpTask(
+        audit,
+        step,
+        "review_delete_reply",
+        `Remove rejected reply for ${r.author.split(" ")[0] ?? "customer"}`,
+        `Remove the rejected reply before posting a new one for review ${r.id}.`,
+        { reviewId: r.id, reviewAuthor: r.author, replyState: r.replyState, ...customPayload }
+      )
+    );
+
+  if (responses.length > 0) {
+    const replyTasks = responses.map((r) => {
+      const review = audit.reviews.reviews.find((rev) => rev.id === r.reviewId);
+      const author = review?.author?.split(" ")[0] ?? "customer";
+      const isRedraft = review?.replyState === "REJECTED";
+      return buildGbpTask(
+        audit,
+        step,
+        "review_response",
+        isRedraft
+          ? `Rewrite rejected reply for ${author} (${r.rating}★)`
+          : `Respond to ${author} (${r.rating}★)`,
+        r.response,
+        {
+          ...reviewPayload(audit, r.reviewId, r.rating),
+          targetKeywords: matchKeywordsInText(
+            `${r.response} ${review?.text ?? ""}`,
+            audit.rankings.keywords.map((k) => k.keyword)
+          ),
+          ...customPayload,
+        }
+      );
+    });
+    return [...rejectedDeletes, ...replyTasks];
+  }
+
+  const template =
+    step.copyBlocks?.[0]?.content ?? "Respond to all reviews within 24 hours.";
+  return [
+    ...rejectedDeletes,
+    buildGbpTask(audit, step, "gbp_checklist", step.title, template, {
+      manual: true,
+      ...customPayload,
+    }),
+  ];
+}
+
 export function buildPhotoExecutionTasks(
   audit: FullAuditPayload,
   content: AuditGeneratedContent,
@@ -271,6 +336,20 @@ export function tasksFromGbpPlanStep(
     : buildTemplateGbpPlan(audit).steps.find((s) => s.stepNumber === step.stepNumber);
   const resolvedAction = resolvePlanStepAction(step, templateStep);
   const resolvedStep: GbpPlanStep = { ...step, gbpAction: resolvedAction };
+
+  if (isReviewResponsePlanStep(resolvedStep)) {
+    return buildReviewResponseTasks(audit, resolvedStep, content);
+  }
+
+  if (isReviewRequestPlanStep(resolvedStep)) {
+    return [
+      buildGbpTask(audit, resolvedStep, "review_request", resolvedStep.title, content.reviewRequestSms, {
+        channel: "sms",
+        batchSize: 15,
+        ...(isCustomPlanStep(resolvedStep.stepNumber) ? { customAction: true } : {}),
+      }),
+    ];
+  }
 
   if (isCustomPlanStep(resolvedStep.stepNumber) && resolvedAction === "manual") {
     if (resolvedStep.copyBlocks?.length) {
@@ -534,54 +613,7 @@ export function tasksFromGbpPlanStep(
   }
 
   if (step.stepNumber === 11) {
-    const responses =
-      content.reviewResponses.length > 0
-        ? content.reviewResponses
-        : generateReviewResponses(audit);
-    const rejectedDeletes = audit.reviews.reviews
-      .filter((r) => r.replyState === "REJECTED" && r.replyText)
-      .map((r) =>
-        buildGbpTask(
-          audit,
-          step,
-          "review_delete_reply",
-          `Remove rejected reply for ${r.author.split(" ")[0] ?? "customer"}`,
-          `Remove the rejected reply before posting a new one for review ${r.id}.`,
-          { reviewId: r.id, reviewAuthor: r.author, replyState: r.replyState }
-        )
-      );
-
-    if (responses.length > 0) {
-      const replyTasks = responses.map((r) => {
-        const review = audit.reviews.reviews.find((rev) => rev.id === r.reviewId);
-        const author = review?.author?.split(" ")[0] ?? "customer";
-        const isRedraft = review?.replyState === "REJECTED";
-        return buildGbpTask(
-          audit,
-          step,
-          "review_response",
-          isRedraft
-            ? `Rewrite rejected reply for ${author} (${r.rating}★)`
-            : `Respond to ${author} (${r.rating}★)`,
-          r.response,
-          {
-            ...reviewPayload(audit, r.reviewId, r.rating),
-            targetKeywords: matchKeywordsInText(
-              `${r.response} ${review?.text ?? ""}`,
-              audit.rankings.keywords.map((k) => k.keyword)
-            ),
-          }
-        );
-      });
-      return [...rejectedDeletes, ...replyTasks];
-    }
-
-    const template =
-      step.copyBlocks?.[0]?.content ?? "Respond to all reviews within 24 hours.";
-    return [
-      ...rejectedDeletes,
-      buildGbpTask(audit, step, "gbp_checklist", step.title, template, { manual: true }),
-    ];
+    return buildReviewResponseTasks(audit, step, content);
   }
 
   if (step.stepNumber === 5) {

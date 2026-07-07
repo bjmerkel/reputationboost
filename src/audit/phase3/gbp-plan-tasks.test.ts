@@ -73,6 +73,58 @@ describe("tasksFromGbpPlanStep custom actions", () => {
     assert.match(tasks[1].title, /Upload checklist/);
   });
 
+  it("creates per-review response tasks for custom review-response steps", () => {
+    const auditWithReviews = {
+      ...audit,
+      reviews: {
+        ...audit.reviews,
+        reviews: [
+          {
+            id: "rev-1",
+            rating: 5,
+            text: "Great CarPlay install!",
+            author: "Jane Smith",
+            publishedAt: "2026-06-01T00:00:00.000Z",
+            responded: false,
+            responseTimeHours: null,
+            sentiment: "positive" as const,
+          },
+          {
+            id: "rev-2",
+            rating: 2,
+            text: "Parking sensors were installed incorrectly.",
+            author: "Bob Jones",
+            publishedAt: "2026-06-15T00:00:00.000Z",
+            responded: false,
+            responseTimeHours: null,
+            sentiment: "negative" as const,
+          },
+        ],
+      },
+    };
+
+    const tasks = tasksFromGbpPlanStep(
+      auditWithReviews,
+      {
+        stepNumber: 17,
+        title: "Increase Review Response Rate",
+        instruction:
+          "Respond to all reviews, especially negative ones, within 24 hours to improve response rates and customer trust.\n\nWhy this step: Improving the review response rate is critical to enhancing customer trust and engagement.",
+        gbpAction: "upload_photo",
+      },
+      content
+    );
+
+    assert.ok(tasks.length >= 2);
+    assert.ok(tasks.every((t) => t.type === "review_response"));
+    assert.ok(tasks.every((t) => t.payload.customAction === true));
+    assert.ok(tasks.every((t) => t.payload.isCustomPlanStep === true));
+    assert.ok(tasks.every((t) => t.planStepNumber === 17));
+    assert.ok(tasks.some((t) => t.title.includes("Jane")));
+    assert.ok(tasks.some((t) => t.title.includes("Bob")));
+    assert.ok(tasks.every((t) => t.type !== "gbp_photo"));
+  });
+
   it("supports multiple custom steps with distinct action item ids", () => {
     const step18 = customStep({
       stepNumber: 18,
