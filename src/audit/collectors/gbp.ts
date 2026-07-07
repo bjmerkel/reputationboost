@@ -26,7 +26,9 @@ import {
   fetchGoogleUpdateState,
   getGbpEnabledAttributeLabels,
   getGbpLocationProfile,
+  listAvailableAttributes,
 } from "@/lib/google/gbp-location";
+import { buildAttributeCoverage } from "@/lib/google/gbp-attribute-recommendations";
 import { buildGbpLocationInventory } from "@/lib/google/gbp-location-inventory";
 import {
   fetchPlaceDetails,
@@ -141,6 +143,8 @@ async function collectGbpFromApi(
     profile: liveProfileResult,
   }).catch(() => ({ labels: [], details: [] }));
 
+  const availableAttributes = await listAvailableAttributes(connection).catch(() => []);
+
   const googleSuggestions = liveProfileResult
     ? await fetchAllGoogleSuggestions(connection, liveProfileResult).catch(() => [])
     : [];
@@ -215,6 +219,13 @@ async function collectGbpFromApi(
   const website = place?.website || client.website || "";
   const placeId = connection.placeId ?? client.gbpPlaceId ?? place?.placeId;
   const mapsUrl = place?.mapsUrl || client.gbpMapsUrl;
+
+  const attributeCoverage =
+    availableAttributes.length > 0
+      ? buildAttributeCoverage(availableAttributes, attributeSummary.details, {
+          websiteUri: website,
+        })
+      : undefined;
 
   const canonicalAddress = formatAddress(client);
   const napDrift =
@@ -388,6 +399,7 @@ async function collectGbpFromApi(
     localPosts,
     reviewCoverage,
     napDrift,
+    attributeCoverage,
   };
 }
 

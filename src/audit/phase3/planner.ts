@@ -283,12 +283,25 @@ function createTaskForAction(
     case "gbp_notifications":
     case "gbp_place_action":
       return [];
-    case "gbp_attributes":
+    case "gbp_attributes": {
+      const coverage = audit.gbp.attributeCoverage;
+      const draft =
+        coverage && coverage.missingCount > 0
+          ? [
+              `Enable ${coverage.autoUpdates.length} attribute${coverage.autoUpdates.length === 1 ? "" : "s"} on Google:`,
+              ...coverage.missing
+                .filter((item) => item.autoApplicable)
+                .slice(0, 8)
+                .map((item) => `• ${item.displayName}`),
+            ].join("\n")
+          : action.draftCopy ?? action.description;
       return [
-        buildTask(audit, action, "gbp_attributes", action.draftCopy ?? action.description, {
-          enableRecommended: true,
+        buildTask(audit, action, "gbp_attributes", draft, {
+          ...(coverage?.autoUpdates.length ? { attributes: coverage.autoUpdates } : {}),
+          enableRecommended: !coverage?.autoUpdates.length,
         }),
       ];
+    }
     case "gbp_title":
     case "gbp_address":
     case "gbp_phone":

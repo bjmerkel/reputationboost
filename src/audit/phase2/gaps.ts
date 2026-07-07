@@ -413,7 +413,23 @@ export function detectGaps(
     );
   }
 
-  if (audit.gbp.completeness.attributeCount < 5) {
+  const attributeCoverage = audit.gbp.attributeCoverage;
+  if (attributeCoverage && attributeCoverage.availableCount > 0 && attributeCoverage.missingCount > 0) {
+    gaps.push(
+      gap(
+        "low-attributes",
+        "P2",
+        "gbp_profile",
+        "Business attributes incomplete",
+        `Missing ${attributeCoverage.missingCount} of ${attributeCoverage.availableCount} available attributes (e.g. ${attributeCoverage.missing
+          .slice(0, 2)
+          .map((item) => item.displayName)
+          .join(", ")}). Enable them to strengthen profile completeness and your Reputation Boost Score.`,
+        6,
+        2
+      )
+    );
+  } else if (audit.gbp.completeness.attributeCount < 5) {
     gaps.push(
       gap(
         "low-attributes",

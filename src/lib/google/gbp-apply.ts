@@ -1,6 +1,6 @@
 import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
-import { recommendAttributeUpdates, recommendBookingAttributes } from "./gbp-attribute-recommendations";
+import { buildAttributeCoverage, recommendBookingAttributes } from "./gbp-attribute-recommendations";
 import type { BusinessHours } from "./gbp-hours";
 import {
   defaultUsHolidayHours,
@@ -476,8 +476,7 @@ export async function applyAttributes(
 
 /** Enable BOOL attributes that are available but not yet set on the profile. */
 export async function applyRecommendedAttributes(
-  connection: GbpConnection,
-  limit = 12
+  connection: GbpConnection
 ): Promise<GbpApplyResult> {
   const [available, current, profile] = await Promise.all([
     listAvailableAttributes(connection),
@@ -485,10 +484,9 @@ export async function applyRecommendedAttributes(
     getGbpLocationProfile(connection),
   ]);
 
-  const updates = recommendAttributeUpdates(available, current, {
+  const updates = buildAttributeCoverage(available, current, {
     websiteUri: profile.website,
-    limit,
-  });
+  }).autoUpdates;
 
   if (updates.length === 0) {
     return {

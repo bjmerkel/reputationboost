@@ -19,6 +19,10 @@ import { mediaCategoryLabel } from "@/lib/google/gbp-media-coverage";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { sanitizeGbpDescriptionDraft } from "@/lib/google/gbp-description";
 import { sanitizeGbpPostDraft } from "@/lib/google/gbp-post-content";
+import {
+  attributeDisplayName,
+  chunkAttributeUpdates,
+} from "@/lib/google/gbp-attribute-recommendations";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { generateReviewResponses } from "@/audit/phase3/content";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
@@ -131,6 +135,81 @@ function checklistContent(step: GbpPlanStep): string {
     parts.push("", "Checklist:", ...step.bullets.map((b) => `• ${b}`));
   }
   return parts.join("\n");
+}
+
+export function buildAttributeExecutionTasks(
+  audit: FullAuditPayload,
+  step: GbpPlanStep
+): ExecutionTask[] {
+  const coverage = audit.gbp.attributeCoverage;
+  const payloadUpdates =
+    (step.actionData?.attributes as Array<{ name: string; boolValue?: boolean; uri?: string }> | undefined) ??
+    coverage?.autoUpdates ??
+    [];
+  const manualMissing = coverage?.missing.filter((item) => !item.autoApplicable) ?? [];
+  const tasks: ExecutionTask[] = [];
+
+  if (payloadUpdates.length > 0) {
+    const batches = chunkAttributeUpdates(payloadUpdates);
+    for (const [index, batch] of batches.entries()) {
+      const labels = batch.map((update) =>
+        coverage ? attributeDisplayName(coverage, update.name) : update.name
+      );
+      const title =
+        batches.length > 1
+          ? `${step.title} (${index + 1} of ${batches.length})`
+          : step.title;
+
+      tasks.push(
+        buildGbpTask(
+          audit,
+          step,
+          "gbp_attributes",
+          title,
+          [
+            `Approve to enable ${batch.length} attribute${batch.length === 1 ? "" : "s"} on your Google Business Profile:`,
+            ...labels.map((label) => `• ${label}`),
+          ].join("\n"),
+          { attributes: batch }
+        )
+      );
+    }
+  }
+
+  if (manualMissing.length > 0) {
+    tasks.push(
+      buildGbpTask(
+        audit,
+        step,
+        "gbp_checklist",
+        "Set remaining GBP attributes",
+        [
+          "These attributes must be set manually in Google Business Profile:",
+          ...manualMissing.map(
+            (item) =>
+              `• ${item.displayName}${item.groupDisplayName ? ` (${item.groupDisplayName})` : ""}`
+          ),
+        ].join("\n"),
+        { manual: true, attributeChecklist: manualMissing.map((item) => item.displayName) }
+      )
+    );
+  }
+
+  if (tasks.length > 0) return tasks;
+
+  if (coverage?.missingCount === 0) {
+    return [
+      buildGbpTask(audit, step, "gbp_checklist", step.title, checklistContent(step), {
+        manual: true,
+      }),
+    ];
+  }
+
+  return [
+    buildGbpTask(audit, step, "gbp_attributes", step.title, step.instruction, {
+      enableRecommended: true,
+    }),
+  ];
 }
 
 export function buildPhotoExecutionTasks(
@@ -281,16 +360,7 @@ export function tasksFromGbpPlanStep(
       ];
     }
     case "update_attributes":
-      return [
-        buildGbpTask(
-          audit,
-          step,
-          "gbp_attributes",
-          step.title,
-          step.instruction,
-          { enableRecommended: true }
-        ),
-      ];
+      return buildAttributeExecutionTasks(audit, step);
     case "update_hours": {
       const needsRegular = !audit.gbp.completeness.hasHours;
       const needsHoliday = !audit.gbp.completeness.hasHolidayHours;

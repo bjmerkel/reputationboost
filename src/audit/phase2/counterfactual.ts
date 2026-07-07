@@ -287,8 +287,13 @@ export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): 
         gbp.completeness.hasFullWeekHours &&
         gbp.completeness.hasHolidayHours
       );
-    case 13:
+    case 13: {
+      const coverage = gbp.attributeCoverage;
+      if (coverage && coverage.availableCount > 0) {
+        return coverage.missingCount === 0;
+      }
       return gbp.completeness.attributeCount >= 5;
+    }
     case 14:
     case 15:
       return false;
@@ -404,18 +409,35 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
       audit.gbp.completeness.hasFullWeekHours = true;
       bumpCompleteness(audit);
       break;
-    case 13:
-      audit.gbp.completeness.attributeCount = Math.max(5, audit.gbp.completeness.attributeCount);
+    case 13: {
+      const coverage = audit.gbp.attributeCoverage;
       ensureLiveProfile(audit);
-      if (audit.gbp.liveProfile!.attributes.length < 5) {
-        audit.gbp.liveProfile!.attributes.push(
-          "Online appointments",
-          "Wheelchair accessible",
-          "Accepts credit cards"
+      if (coverage) {
+        audit.gbp.completeness.attributeCount = Math.max(
+          coverage.enabledCount + coverage.autoUpdates.length,
+          audit.gbp.completeness.attributeCount
         );
+        const labels = new Set(audit.gbp.liveProfile!.attributes);
+        for (const item of coverage.enabled) {
+          labels.add(item.displayName);
+        }
+        for (const item of coverage.missing.filter((entry) => entry.autoApplicable)) {
+          labels.add(item.displayName);
+        }
+        audit.gbp.liveProfile!.attributes = [...labels];
+      } else {
+        audit.gbp.completeness.attributeCount = Math.max(5, audit.gbp.completeness.attributeCount);
+        if (audit.gbp.liveProfile!.attributes.length < 5) {
+          audit.gbp.liveProfile!.attributes.push(
+            "Online appointments",
+            "Wheelchair accessible",
+            "Accepts credit cards"
+          );
+        }
       }
       bumpCompleteness(audit);
       break;
+    }
     case 14:
     case 15:
       break;

@@ -148,8 +148,26 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
         : "Maintain 100% review response rate with keyword-aware replies.";
     case 12:
       return "Keep hours accurate — inconsistent hours hurt rankings and customer trust.";
-    case 13:
-      return "Enable applicable attributes to strengthen relevance and trust signals.";
+    case 13: {
+      const coverage = audit.gbp.attributeCoverage;
+      if (!coverage || coverage.availableCount === 0) {
+        return audit.gbp.completeness.attributeCount < 5
+          ? `Only ${audit.gbp.completeness.attributeCount} attributes enabled — add at least 5 to strengthen profile completeness.`
+          : "Enable applicable attributes to strengthen relevance and trust signals.";
+      }
+      if (coverage.missingCount === 0) {
+        return `All ${coverage.availableCount} available attributes are enabled on your profile.`;
+      }
+      const autoCount = coverage.missing.filter((item) => item.autoApplicable).length;
+      const manualCount = coverage.missing.length - autoCount;
+      if (autoCount > 0 && manualCount > 0) {
+        return `Your profile is missing ${coverage.missingCount} of ${coverage.availableCount} available attributes — approve ${autoCount} now and set ${manualCount} manually in Google to improve your Reputation Boost Score.`;
+      }
+      if (manualCount > 0) {
+        return `Your profile is missing ${manualCount} attribute${manualCount === 1 ? "" : "s"} that must be set manually in Google Business Profile.`;
+      }
+      return `Your profile is missing ${coverage.missingCount} of ${coverage.availableCount} available attributes — enabling them improves completeness and your Reputation Boost Score.`;
+    }
     case 14:
       return "Enable messaging and respond quickly to increase engagement signals.";
     case 15:
