@@ -1,6 +1,32 @@
 import type { ExecutionTask } from "@/audit/types";
 
-/** Match business keywords mentioned in text (case-insensitive). */
+const KEYWORD_STOP_WORDS = new Set(["near", "best", "local"]);
+
+/** Significant tokens from a keyword phrase (drops short words and stop words). */
+export function significantKeywordTokens(keyword: string): string[] {
+  return keyword
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word.length > 3 && !KEYWORD_STOP_WORDS.has(word));
+}
+
+/**
+ * Whether text covers a keyword's concepts — token overlap, not exact phrase match.
+ * "CarPlay installations in Arlington" matches "carplay installation arlington va".
+ */
+export function textContainsKeyword(text: string, keyword: string): boolean {
+  const tokens = significantKeywordTokens(keyword);
+  const lower = text.toLowerCase();
+  if (tokens.length === 0) return lower.includes(keyword.toLowerCase());
+  return tokens.some((token) => lower.includes(token));
+}
+
+/** Keywords whose concepts are not represented in text (smart token matching). */
+export function keywordsMissingFromText(text: string, keywords: string[]): string[] {
+  return keywords.filter((keyword) => !textContainsKeyword(text, keyword));
+}
+
+/** Match business keywords mentioned in text (case-insensitive exact phrase). */
 export function matchKeywordsInText(text: string, keywords: string[]): string[] {
   const lower = text.toLowerCase();
   return keywords.filter((keyword) => lower.includes(keyword.toLowerCase()));

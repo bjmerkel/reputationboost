@@ -1,7 +1,14 @@
 import type { FullAuditPayload, GbpPlanStep, PlanStepContext } from "../types";
 import type { AttributionCalibration } from "../phase2/attribution-calibration";
+import { keywordsMissingFromText } from "@/audit/attribution/keywords";
 import { estimateStepHealthImpact, estimateStepOutcomeImpact, estimateStepRevenueImpact } from "../phase2/score-impact";
 import { isCustomPlanStep } from "./plan-custom-steps";
+
+/** Mirrors counterfactual step-3 satisfaction threshold. */
+const DESCRIPTION_MIN_LENGTH = 400;
+
+const DESCRIPTION_RECOMMENDED_PLACEHOLDER =
+  "Updated description below — includes all target keywords";
 
 function targetKeywords(audit: FullAuditPayload, step: GbpPlanStep): string[] {
   const fromPlan = audit.strategy.gbpPlan?.targetKeywords ?? [];
@@ -14,9 +21,88 @@ function keywordsOutsidePack(audit: FullAuditPayload): string[] {
   return rankings.filter((r) => !r.inLocalPack).map((r) => r.keyword);
 }
 
-function missingKeywordsInText(text: string, keywords: string[]): string[] {
-  const lower = text.toLowerCase();
-  return keywords.filter((kw) => !lower.includes(kw.toLowerCase()));
+function liveDescription(audit: FullAuditPayload): string {
+  return audit.gbp.liveProfile?.description?.trim() ?? "";
+}
+
+function formatKeywordExamples(keywords: string[]): string {
+  return keywords
+    .slice(0, 2)
+    .map((keyword) => `"${keyword}"`)
+    .join(" and ");
+}
+
+function buildDescriptionExpectedEffect(
+  audit: FullAuditPayload,
+  keywords: string[]
+): string {
+  const current = liveDescription(audit);
+  const missing = keywordsMissingFromText(current, keywords);
+  const rankings = audit.strategy.gbpPlan?.keywordRankings ?? [];
+
+  if (!current) {
+    return "Add a business description that weaves in your target keywords and local trust signals.";
+  }
+
+  if (current.length < DESCRIPTION_MIN_LENGTH) {
+    if (missing.length > 0) {
+      const examples = formatKeywordExamples(missing);
+      return `Your description is ${current.length} characters — expand it while adding keywords like ${examples}.`;
+    }
+    return `Expand your description from ${current.length} to ${DESCRIPTION_MIN_LENGTH}+ characters with trust signals and local details.`;
+  }
+
+  if (missing.length === 0) {
+    return "Your description already covers your target keywords — refine wording to emphasize terms where you're outside the 3-Pack.";
+  }
+
+  if (missing.length <= 2) {
+    const examples = formatKeywordExamples(missing);
+    return `Almost there — weave in ${missing.length === 1 ? "one more target keyword" : "a couple more target keywords"} like ${examples} to match competitors.`;
+  }
+
+  const outsideMissing = missing.filter((keyword) => {
+    const ranking = rankings.find((row) => row.keyword.toLowerCase() === keyword.toLowerCase());
+    return ranking ? !ranking.inLocalPack : true;
+  });
+  const priorityMissing = outsideMissing.length > 0 ? outsideMissing : missing;
+  const examples = formatKeywordExamples(priorityMissing);
+
+  return `Your description doesn't cover ${missing.length} of ${keywords.length} target keywords${examples ? ` (e.g. ${examples})` : ""}; competitors ranking above you include them.`;
+}
+
+function resolveCurrentDescriptionValue(
+  audit: FullAuditPayload,
+  step: GbpPlanStep
+): string | undefined {
+  const live = liveDescription(audit);
+  if (live) return live;
+
+  const current = step.current?.trim();
+  if (!current) return undefined;
+
+  const templateMatch = current.match(/^\d+ characters:\s*"(.*)"$/s);
+  if (templateMatch) {
+    const parsed = templateMatch[1].replace(/…$/, "").trim();
+    return parsed || current;
+  }
+
+  return current;
+}
+
+function resolveRecommendedDescriptionValue(step: GbpPlanStep): string | undefined {
+  const fromAction = step.actionData?.description?.trim();
+  if (fromAction) return fromAction;
+
+  const fromCopyBlock = step.copyBlocks?.[0]?.content?.trim();
+  if (fromCopyBlock) return fromCopyBlock;
+
+  const recommended = step.recommended?.trim();
+  if (recommended && recommended !== DESCRIPTION_RECOMMENDED_PLACEHOLDER) {
+    return recommended;
+  }
+
+  return recommended || fromCopyBlock;
 }
 
 function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string {
@@ -31,18 +117,8 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
       return outsidePack.length > 0
         ? `Expand category coverage for related searches like "${outsidePack.slice(0, 2).join('", "')}".`
         : "Add secondary categories that match services you actively offer.";
-    case 3: {
-      const draft =
-        step.recommended ??
-        step.copyBlocks?.[0]?.content ??
-        audit.gbp.liveProfile?.description ??
-        "";
-      const missing = missingKeywordsInText(draft, keywords);
-      if (missing.length > 0) {
-        return `Your description doesn't mention ${missing.length} of ${keywords.length} target keywords; competitors ranking above you include them.`;
-      }
-      return "Strengthen keyword coverage in your business description.";
-    }
+    case 3:
+      return buildDescriptionExpectedEffect(audit, keywords);
     case 4:
       return "Add dedicated GBP services for keywords you're not yet ranking for.";
     case 5:
@@ -107,8 +183,14 @@ export function buildStepContext(
     targetKeywords: keywords,
     primaryKeyword,
     expectedEffect: buildExpectedEffect(audit, step),
-    currentValue: step.current,
-    recommendedValue: step.recommended,
+    currentValue:
+      step.stepNumber === 3
+        ? resolveCurrentDescriptionValue(audit, step)
+        : step.current,
+    recommendedValue:
+      step.stepNumber === 3
+        ? resolveRecommendedDescriptionValue(step)
+        : step.recommended,
     healthScoreImpact: isCustom
       ? undefined
       : estimateStepHealthImpact(audit, step.stepNumber, calibration),
