@@ -4,7 +4,7 @@ import type {
   GbpLocationInventory,
   GbpLocationInventoryField,
 } from "@/audit/types";
-import { GOOGLE_UPDATES_STEP_NUMBER } from "./gbp-update-helpers";
+import { GOOGLE_UPDATES_STEP_NUMBER } from "./gbp-field-plan-map";
 import { resolvePlanStepNumber } from "@/audit/phase3/plan-task-utils";
 
 export interface GbpFieldPlanLink {
@@ -21,41 +21,72 @@ const FIELD_PLAN_LINKS: Record<string, GbpFieldPlanLink> = {
   "phoneNumbers.primaryPhone": {
     planStepNumber: GOOGLE_UPDATES_STEP_NUMBER,
     taskTypes: ["gbp_phone"],
+    fixLabel: "Review updates",
   },
   "phoneNumbers.additionalPhones": {
     planStepNumber: GOOGLE_UPDATES_STEP_NUMBER,
     taskTypes: ["gbp_phone"],
+    fixLabel: "Review updates",
   },
   storefrontAddress: {
     planStepNumber: GOOGLE_UPDATES_STEP_NUMBER,
     taskTypes: ["gbp_address"],
+    fixLabel: "Review updates",
   },
-  websiteUri: { planStepNumber: GOOGLE_UPDATES_STEP_NUMBER, taskTypes: ["gbp_website"] },
+  websiteUri: {
+    planStepNumber: GOOGLE_UPDATES_STEP_NUMBER,
+    taskTypes: ["gbp_website"],
+    fixLabel: "Review updates",
+  },
   "categories.primaryCategory": {
     planStepNumber: 1,
     taskTypes: ["gbp_primary_category"],
+    fixLabel: "Update category",
   },
   "categories.additionalCategories": {
     planStepNumber: 2,
     taskTypes: ["gbp_secondary_categories"],
+    fixLabel: "Add categories",
   },
-  "profile.description": { planStepNumber: 3, taskTypes: ["gbp_description"] },
-  serviceItems: { planStepNumber: 4, taskTypes: ["gbp_services"] },
-  regularHours: { planStepNumber: 12, taskTypes: ["gbp_hours"] },
-  specialHours: { planStepNumber: 12, taskTypes: ["gbp_hours"] },
-  moreHours: { planStepNumber: 12, taskTypes: ["gbp_hours"] },
-  attributes: { planStepNumber: 13, taskTypes: ["gbp_attributes"] },
+  "profile.description": {
+    planStepNumber: 3,
+    taskTypes: ["gbp_description"],
+    fixLabel: "Rewrite description",
+  },
+  serviceItems: {
+    planStepNumber: 4,
+    taskTypes: ["gbp_services"],
+    fixLabel: "Add services",
+  },
+  regularHours: { planStepNumber: 12, taskTypes: ["gbp_hours"], fixLabel: "Update hours" },
+  specialHours: { planStepNumber: 12, taskTypes: ["gbp_hours"], fixLabel: "Update hours" },
+  moreHours: { planStepNumber: 12, taskTypes: ["gbp_hours"], fixLabel: "Update hours" },
+  attributes: {
+    planStepNumber: 13,
+    taskTypes: ["gbp_attributes"],
+    fixLabel: "Enable attributes",
+  },
   "content.photos": {
     planStepNumber: 6,
     taskTypes: ["gbp_photo", "gbp_media_recategorize", "gbp_media_delete"],
+    fixLabel: "Add photos",
   },
-  "content.posts": { planStepNumber: 8, taskTypes: ["google_post"] },
-  "content.qa": { planStepNumber: 9, taskTypes: ["qa_answer"] },
+  "content.posts": {
+    planStepNumber: 8,
+    taskTypes: ["google_post"],
+    fixLabel: "Create post",
+  },
+  "content.qa": {
+    planStepNumber: 9,
+    taskTypes: ["qa_answer"],
+    fixLabel: "Answer Q&A",
+  },
   "engagement.reviews": {
     planStepNumber: 11,
     taskTypes: ["review_response", "review_delete_reply"],
     alternateStepNumber: 10,
     alternateTaskTypes: ["review_request"],
+    fixLabel: "Respond to reviews",
   },
   "metadata.hasGoogleUpdated": {
     planStepNumber: GOOGLE_UPDATES_STEP_NUMBER,
@@ -104,7 +135,8 @@ function findTaskForStep(
 
 function resolveFieldPlanLink(
   field: GbpLocationInventoryField,
-  tasks: ExecutionTask[]
+  tasks: ExecutionTask[],
+  planStepNumbers?: Set<number>
 ): Pick<
   GbpLocationInventoryField,
   "planStepNumber" | "planTaskId" | "planTaskStatus" | "planFixLabel" | "planScrollTarget"
@@ -156,11 +188,17 @@ function resolveFieldPlanLink(
     return {};
   }
 
+  if (planStepNumbers && !planStepNumbers.has(planStepNumber)) {
+    return {};
+  }
+
   return {
     planStepNumber,
     planTaskId: task?.id,
     planTaskStatus: task?.status,
-    planFixLabel: config.fixLabel ?? fixLabelForTask(task),
+    planFixLabel: task
+      ? fixLabelForTask(task)
+      : config.fixLabel ?? "Fix in plan",
     planScrollTarget: config.scrollTarget,
   };
 }
@@ -175,11 +213,12 @@ function fixLabelForTask(task?: ExecutionTask): string {
 
 export function enrichInventoryWithPlanLinks(
   inventory: GbpLocationInventory,
-  tasks: ExecutionTask[]
+  tasks: ExecutionTask[],
+  options?: { planStepNumbers?: Set<number> }
 ): GbpLocationInventory {
   const fields = inventory.fields.map((field) => ({
     ...field,
-    ...resolveFieldPlanLink(field, tasks),
+    ...resolveFieldPlanLink(field, tasks, options?.planStepNumbers),
   }));
 
   return { ...inventory, fields };

@@ -41,6 +41,30 @@ function formatCurrency(amount: number, currency: string): string {
   }).format(amount);
 }
 
+function fieldSummary(field: GbpLocationInventoryField): string {
+  if (field.constraint) return field.constraint;
+  const current = field.current.trim();
+  if (!current) return "";
+  return current.length > 96 ? `${current.slice(0, 96)}…` : current;
+}
+
+function planStepNumbersFromAudit(
+  audit: FullAuditPayload,
+  tasks: ExecutionTask[]
+): Set<number> {
+  const stepNumbers = new Set(
+    (audit.strategy.gbpPlan?.steps ?? []).map((step) => step.stepNumber)
+  );
+
+  for (const task of tasks) {
+    if (task.planStepNumber != null) {
+      stepNumbers.add(task.planStepNumber);
+    }
+  }
+
+  return stepNumbers;
+}
+
 export default function ProfileCommandCenter({
   audit,
   clientId,
@@ -69,7 +93,10 @@ export default function ProfileCommandCenter({
   const inventory = useMemo<GbpLocationInventory | null>(() => {
     if (!baseInventory) return null;
 
-    const withPlanLinks = enrichInventoryWithPlanLinks(baseInventory, tasks);
+    const planStepNumbers = planStepNumbersFromAudit(audit, tasks);
+    const withPlanLinks = enrichInventoryWithPlanLinks(baseInventory, tasks, {
+      planStepNumbers,
+    });
     if (!avgCustomerValue) {
       return enrichLocationInventoryScores(withPlanLinks, { fieldCalibration });
     }
@@ -84,7 +111,7 @@ export default function ProfileCommandCenter({
       avgCustomerValue,
       fieldCalibration,
     });
-  }, [audit.gbp.performance, avgCustomerValue, baseInventory, fieldCalibration, tasks]);
+  }, [audit, audit.gbp.performance, audit.strategy.gbpPlan?.steps, avgCustomerValue, baseInventory, fieldCalibration, tasks]);
 
   if (!inventory) {
     return (
@@ -189,12 +216,16 @@ export default function ProfileCommandCenter({
           <ul className={`mt-2 space-y-1 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
             {actionable.slice(0, 5).map((field) => (
               <li key={field.apiPath} className="flex flex-wrap items-center justify-between gap-2">
-                <span>
-                  {field.label}
-                  <span className={`ml-2 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
-                    {field.apiPath}
-                  </span>
-                </span>
+                <div className="min-w-0 flex-1">
+                  <p className={`font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
+                    {field.label}
+                  </p>
+                  {fieldSummary(field) && (
+                    <p className={`mt-0.5 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                      {fieldSummary(field)}
+                    </p>
+                  )}
+                </div>
                 <span className="flex items-center gap-2">
                   <span className={`text-xs font-medium ${isLight ? "text-[#137333]" : "text-emerald-300"}`}>
                     +{field.scoreImpact} pts
@@ -321,8 +352,8 @@ function FieldRow({
               <CalibrationBadge confidence={field.calibrationConfidence} isLight={isLight} />
             )}
           </div>
-          <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
-            {field.apiPath}
+          <p className={`mt-1 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+            {fieldSummary(field)}
           </p>
         </div>
         {(field.scoreImpact ?? 0) > 0 && (

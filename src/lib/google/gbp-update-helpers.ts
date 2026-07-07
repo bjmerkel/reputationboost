@@ -1,7 +1,8 @@
 import { tasksFromGoogleSuggestions } from "@/audit/phase3/gbp-plan-tasks";
 import type { ExecutionTask, FullAuditPayload, GbpGoogleSuggestion } from "@/audit/types";
+import { GOOGLE_UPDATES_STEP_NUMBER } from "./gbp-field-plan-map";
 
-export const GOOGLE_UPDATES_STEP_NUMBER = 0;
+export { GOOGLE_UPDATES_STEP_NUMBER };
 
 export function getGoogleDiffFields(audit: FullAuditPayload): GbpGoogleSuggestion[] {
   return (

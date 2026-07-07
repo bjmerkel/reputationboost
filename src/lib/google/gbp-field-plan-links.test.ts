@@ -6,6 +6,7 @@ import {
   planLinkForApiPath,
   planScrollElementId,
 } from "./gbp-field-plan-links";
+import { planStepsRequiredByInventory } from "./gbp-field-plan-map";
 
 const baseInventory: GbpLocationInventory = {
   collectedAt: "2026-07-06T12:00:00.000Z",
@@ -121,5 +122,46 @@ describe("gbp-field-plan-links", () => {
   it("builds scroll element ids", () => {
     assert.equal(planScrollElementId(3), "plan-step-3");
     assert.equal(planScrollElementId(0, "google-updates"), "google-updates-panel");
+  });
+
+  it("omits plan links when the target step is not in the current plan", () => {
+    const enriched = enrichInventoryWithPlanLinks(
+      baseInventory,
+      [
+        task({
+          id: "desc-task",
+          type: "gbp_description",
+          status: "pending_approval",
+          planStepNumber: 3,
+        }),
+      ],
+      { planStepNumbers: new Set([3]) }
+    );
+
+    const description = enriched.fields.find((f) => f.apiPath === "profile.description");
+    const reviews = enriched.fields.find((f) => f.apiPath === "engagement.reviews");
+
+    assert.equal(description?.planStepNumber, 3);
+    assert.equal(reviews?.planStepNumber, undefined);
+  });
+
+  it("flags inventory fields that require plan steps", () => {
+    const required = planStepsRequiredByInventory({
+      ...baseInventory,
+      fields: [
+        ...baseInventory.fields,
+        {
+          apiPath: "categories.additionalCategories",
+          label: "Secondary categories",
+          section: "identity",
+          current: "One category",
+          status: "needs_work",
+          editable: true,
+        },
+      ],
+    });
+
+    assert.equal(required.has(2), true);
+    assert.equal(required.has(3), true);
   });
 });

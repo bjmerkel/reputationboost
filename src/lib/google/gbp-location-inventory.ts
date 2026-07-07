@@ -173,13 +173,10 @@ export function buildGbpLocationInventory(
       section: "identity",
       current: profile?.additionalPhones?.length
         ? profile.additionalPhones.join(", ")
-        : "None",
-      status: fieldStatus(
-        (profile?.additionalPhones?.length ?? 0) > 0,
-        (profile?.additionalPhones?.length ?? 0) > 0
-      ),
-      constraint: "Up to two additional numbers",
-      editable: true,
+        : "None (optional)",
+      status: "good",
+      constraint: "Optional — up to two additional numbers",
+      editable: false,
     },
     inventoryField({
       apiPath: "storefrontAddress",

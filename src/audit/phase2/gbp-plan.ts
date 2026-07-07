@@ -1,5 +1,6 @@
 import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "../types";
 import { isStepSatisfied } from "./counterfactual";
+import { planStepsRequiredByInventory } from "@/lib/google/gbp-field-plan-map";
 import {
   buildAttributePlanContent,
   buildGbpCurrentState,
@@ -10,6 +11,20 @@ import {
 
 function keywords(audit: Phase1AuditPayload): string[] {
   return audit.rankings.keywords.map((k) => k.keyword);
+}
+
+export function selectGbpPlanSteps(
+  audit: Phase1AuditPayload,
+  allSteps: GbpPlanStep[]
+): GbpPlanStep[] {
+  const inventoryRequired = audit.gbp.locationInventory
+    ? planStepsRequiredByInventory(audit.gbp.locationInventory)
+    : new Set<number>();
+
+  return allSteps.filter(
+    (step) =>
+      !isStepSatisfied(audit, step.stepNumber) || inventoryRequired.has(step.stepNumber)
+  );
 }
 
 function cityFromAddress(address: string): string {
@@ -316,7 +331,7 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
   const currentState = buildGbpCurrentState(audit);
   const keywordRankings = buildKeywordRankAnalysis(audit);
   const allSteps = buildAllGbpPlanSteps(audit);
-  const steps = allSteps.filter((step) => !isStepSatisfied(audit, step.stepNumber));
+  const steps = selectGbpPlanSteps(audit, allSteps);
 
   const outsidePack = keywordRankings.filter((k) => !k.inLocalPack).length;
 

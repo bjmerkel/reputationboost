@@ -1,6 +1,7 @@
 import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "@/audit/types";
 import type { PlanStepCandidate } from "@/audit/phase2/plan-candidates";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
+import { planStepsRequiredByInventory } from "@/lib/google/gbp-field-plan-map";
 import { resolvePlanStepAction } from "@/audit/phase3/gbp-plan-actions";
 
 const VALID_GBP_ACTIONS = new Set([
@@ -243,6 +244,19 @@ export function mergeLlmGbpPlan(
     steps.push(customActionToStep(action, customStepNumber));
     customStepNumber += 1;
   }
+
+  const inventoryRequired = audit.gbp.locationInventory
+    ? planStepsRequiredByInventory(audit.gbp.locationInventory)
+    : new Set<number>();
+
+  for (const stepNumber of inventoryRequired) {
+    if (steps.some((step) => step.stepNumber === stepNumber)) continue;
+    const candidate = candidateByStep.get(stepNumber);
+    if (!candidate) continue;
+    steps.push(candidate.templateStep);
+  }
+
+  steps.sort((a, b) => a.stepNumber - b.stepNumber);
 
   if (steps.length < 3) {
     return fallback;

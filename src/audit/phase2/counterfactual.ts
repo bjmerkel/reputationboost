@@ -239,15 +239,15 @@ export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): 
     case 1:
       return resolveKeywordRelevance(audit).every((r) => r.categoryFit >= 75);
     case 2: {
+      const secondary =
+        gbp.liveProfile?.secondaryCategories ?? gbp.identity.secondaryCategories;
+      if (secondary.length < 2) return false;
+
       const recommended = inferRecommendedSecondaryCategories(audit).filter(
         (c) => !c.toLowerCase().includes("keep as primary")
       );
       if (recommended.length === 0) return true;
-      const existing = new Set(
-        (gbp.liveProfile?.secondaryCategories ?? gbp.identity.secondaryCategories).map((c) =>
-          c.toLowerCase()
-        )
-      );
+      const existing = new Set(secondary.map((c) => c.toLowerCase()));
       return recommended.every((c) => existing.has(c.toLowerCase()));
     }
     case 3: {
