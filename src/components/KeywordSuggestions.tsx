@@ -18,6 +18,7 @@ interface KeywordSuggestionsProps {
   selected: string[];
   onChange: (keywords: string[]) => void;
   disabled?: boolean;
+  theme?: "light" | "dark";
 }
 
 export function KeywordSuggestions({
@@ -31,7 +32,9 @@ export function KeywordSuggestions({
   selected,
   onChange,
   disabled,
+  theme = "dark",
 }: KeywordSuggestionsProps) {
+  const isLight = theme === "light";
   const [suggestions, setSuggestions] = useState<KeywordSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,31 +114,51 @@ export function KeywordSuggestions({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <label className="text-sm font-medium text-slate-300">Target keywords</label>
+        <label
+          className={`text-sm font-medium ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}
+        >
+          Target keywords
+        </label>
         <button
           type="button"
           onClick={fetchSuggestions}
           disabled={disabled || loading || !businessName.trim()}
-          className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-emerald-500/40 hover:text-white disabled:opacity-50"
+          className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
+            isLight
+              ? "border-[#dadce0] bg-white text-[#3c4043] hover:border-[#1a73e8] hover:text-[#1a73e8]"
+              : "border-white/10 bg-white/5 text-slate-300 hover:border-emerald-500/40 hover:text-white"
+          }`}
         >
           {loading ? "Analyzing…" : "Regenerate"}
         </button>
       </div>
 
-      <p className="text-xs text-slate-500">
+      <p className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
         {source === "llm"
           ? "AI-picked local SEO keywords for rank tracking. Select at least 3."
           : "Suggested keywords for rank tracking. Select at least 3."}
       </p>
 
       {loading && suggestions.length === 0 && (
-        <div className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-slate-400">
+        <div
+          className={`rounded-xl border border-dashed p-4 text-sm ${
+            isLight
+              ? "border-[#dadce0] text-[#5f6368]"
+              : "border-white/10 text-slate-400"
+          }`}
+        >
           Analyzing your business and suggesting keywords…
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            isLight
+              ? "border-[#f6aea9] bg-[#fce8e6] text-[#c5221f]"
+              : "border-red-500/30 bg-red-500/10 text-red-300"
+          }`}
+        >
           {error}
         </div>
       )}
@@ -152,16 +175,24 @@ export function KeywordSuggestions({
                 onClick={() => toggleKeyword(s.keyword)}
                 className={`w-full rounded-xl border p-3 text-left transition disabled:opacity-50 ${
                   isSelected
-                    ? "border-emerald-500/50 bg-emerald-500/10"
-                    : "border-white/10 bg-white/[0.03] hover:border-emerald-500/30 hover:bg-white/[0.05]"
+                    ? isLight
+                      ? "border-[#1a73e8]/50 bg-[#e8f0fe]"
+                      : "border-emerald-500/50 bg-emerald-500/10"
+                    : isLight
+                      ? "border-[#dadce0] bg-white hover:border-[#1a73e8]/40 hover:bg-[#f8f9fa]"
+                      : "border-white/10 bg-white/[0.03] hover:border-emerald-500/30 hover:bg-white/[0.05]"
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <div
                     className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                       isSelected
-                        ? "border-emerald-400 bg-emerald-400 text-slate-900"
-                        : "border-slate-500"
+                        ? isLight
+                          ? "border-[#1a73e8] bg-[#1a73e8] text-white"
+                          : "border-emerald-400 bg-emerald-400 text-slate-900"
+                        : isLight
+                          ? "border-[#80868b]"
+                          : "border-slate-500"
                     }`}
                   >
                     {isSelected && (
@@ -177,8 +208,20 @@ export function KeywordSuggestions({
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-white">{s.keyword}</p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{s.reason}</p>
+                    <p
+                      className={`text-sm font-medium ${
+                        isLight ? "text-[#202124]" : "text-white"
+                      }`}
+                    >
+                      {s.keyword}
+                    </p>
+                    <p
+                      className={`mt-0.5 text-xs leading-relaxed ${
+                        isLight ? "text-[#5f6368]" : "text-slate-400"
+                      }`}
+                    >
+                      {s.reason}
+                    </p>
                   </div>
                 </div>
               </button>
@@ -199,19 +242,27 @@ export function KeywordSuggestions({
           }}
           disabled={disabled}
           placeholder="Add a custom keyword"
-          className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:outline-none"
+          className={`flex-1 rounded-xl border px-4 py-2.5 text-sm focus:outline-none ${
+            isLight
+              ? "border-[#dadce0] bg-white text-[#202124] placeholder:text-[#80868b] focus:border-[#1a73e8]"
+              : "border-white/10 bg-white/5 text-white placeholder:text-slate-500 focus:border-emerald-500/50"
+          }`}
         />
         <button
           type="button"
           onClick={addCustomKeyword}
           disabled={disabled || !customKeyword.trim()}
-          className="rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/15 disabled:opacity-50"
+          className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition disabled:opacity-50 ${
+            isLight
+              ? "border-[#dadce0] bg-white text-[#3c4043] hover:border-[#1a73e8] hover:text-[#1a73e8]"
+              : "border-white/10 bg-white/10 text-white hover:bg-white/15"
+          }`}
         >
           Add
         </button>
       </div>
 
-      <p className="text-xs text-slate-500">
+      <p className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
         {selected.length} selected
         {selected.length < 3 && " — select at least 3 to continue"}
       </p>

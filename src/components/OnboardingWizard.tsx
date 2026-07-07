@@ -276,6 +276,7 @@ export default function OnboardingWizard({
               </div>
 
               <KeywordSuggestions
+                theme={theme}
                 businessName={name}
                 industry={industry}
                 address={address}
@@ -311,7 +312,7 @@ export default function OnboardingWizard({
                     placeholder="e.g. 350"
                     className={`w-full rounded-lg border py-2.5 pl-7 pr-3 text-sm outline-none ${
                       isLight
-                        ? "border-[#dadce0] text-[#202124] focus:border-[#1a73e8] focus:ring-2 focus:ring-[#1a73e8]/20"
+                        ? "border-[#dadce0] bg-white text-[#202124] placeholder:text-[#80868b] focus:border-[#1a73e8] focus:ring-2 focus:ring-[#1a73e8]/20"
                         : "border-white/10 bg-white/5 text-white focus:border-emerald-400"
                     }`}
                   />
