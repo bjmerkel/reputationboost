@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
@@ -83,6 +83,7 @@ export default function AuditDashboard({
   const [focusPlanScrollTarget, setFocusPlanScrollTarget] = useState<
     "google-updates" | null
   >(null);
+  const autoAuditStartedRef = useRef(false);
 
   const reviewParam = searchParams.get("review");
 
@@ -190,46 +191,67 @@ export default function AuditDashboard({
     [setView]
   );
 
-  async function runAudit() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/audit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, trigger: "manual" }),
-      });
-      const data = await parseJsonResponse<{ error?: string; audit?: FullAuditPayload }>(res);
-      if (!res.ok) throw new Error(data.error ?? "Audit failed");
-      if (!data.audit) throw new Error("Audit completed but returned no data.");
-      const nextAudit = ensureStrategy(data.audit);
-      setAudit(nextAudit);
-      if (nextAudit.rankings.keywords[0]) {
-        setActiveKeyword(nextAudit.rankings.keywords[0].keyword);
+  const runAudit = useCallback(
+    async (trigger: "manual" | "onboarding" = "manual") => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/audit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId, trigger }),
+        });
+        const data = await parseJsonResponse<{ error?: string; audit?: FullAuditPayload }>(res);
+        if (!res.ok) throw new Error(data.error ?? "Audit failed");
+        if (!data.audit) throw new Error("Audit completed but returned no data.");
+        const nextAudit = ensureStrategy(data.audit);
+        setAudit(nextAudit);
+        if (nextAudit.rankings.keywords[0]) {
+          setActiveKeyword(nextAudit.rankings.keywords[0].keyword);
+        }
+        setView("report");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Audit failed");
+      } finally {
+        setLoading(false);
       }
-      setView("report");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Audit failed");
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+    [clientId, setView]
+  );
+
+  useEffect(() => {
+    const justOnboarded = searchParams.get("onboarded") === "1";
+    if (audit || !gbpConnected || !justOnboarded || autoAuditStartedRef.current) return;
+
+    autoAuditStartedRef.current = true;
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("onboarded");
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `?${nextQuery}` : "?", { scroll: false });
+
+    void runAudit("onboarding");
+  }, [audit, gbpConnected, router, runAudit, searchParams]);
 
   if (!audit) {
     return (
       <div className="space-y-4">
         {!gbpConnected && <GbpConnectBanner businessId={businessId} />}
         <div className="rounded-xl border border-[#dadce0] bg-white p-12 text-center shadow-[var(--platform-shadow)]">
-          <p className="text-lg font-medium text-[#202124]">Ready to see where you stand?</p>
+          <p className="text-lg font-medium text-[#202124]">
+            {loading ? "Running your first audit…" : "Ready to see where you stand?"}
+          </p>
           <p className="mt-2 text-sm text-[#5f6368]">
-            {gbpConnected
-              ? "Run your first audit to see your listing on the map, performance metrics, and optimization plan."
-              : "Connect Google Business Profile to run your first live audit."}
+            {loading
+              ? "Pulling your listing, rankings, and performance metrics from Google."
+              : gbpConnected
+                ? "Run your first audit to see your listing on the map, performance metrics, and optimization plan."
+                : "Connect Google Business Profile to run your first live audit."}
           </p>
           {gbpConnected ? (
             <button
               type="button"
-              onClick={runAudit}
+              onClick={() => runAudit()}
               disabled={loading}
               className="btn-primary mt-6 rounded-full px-8 py-3 text-sm font-semibold text-white disabled:opacity-50"
             >
