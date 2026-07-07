@@ -247,6 +247,7 @@ export default function OnboardingWizard({
           </p>
 
           <GoogleBusinessAutocomplete
+            theme={theme}
             onSelect={handlePlaceSelect}
             onClear={handlePlaceClear}
           />
