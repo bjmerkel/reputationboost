@@ -1,6 +1,7 @@
 import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "../types";
 import { isStepSatisfied } from "./counterfactual";
 import {
+  buildAttributePlanContent,
   buildGbpCurrentState,
   buildKeywordRankAnalysis,
   inferRecommendedSecondaryCategories,
@@ -262,17 +263,9 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
     {
       stepNumber: 13,
       title: "Attributes",
-      instruction: "Enable every applicable attribute to strengthen relevance and trust.",
-      current:
-        (audit.gbp.liveProfile?.attributes ?? []).length > 0
-          ? (audit.gbp.liveProfile?.attributes ?? []).join(", ")
-          : "No attributes detected",
-      recommended: "Enable all applicable business attributes",
-      bullets: [
-        "Online appointments / booking",
-        "Accessibility, ownership, and identity attributes where applicable",
-        `Currently ${audit.gbp.completeness.attributeCount} attributes on profile`,
-      ],
+      instruction:
+        "Enable every applicable attribute to strengthen relevance and trust. Google exposes category-specific attributes — fill out all that apply to your business.",
+      ...buildAttributePlanContent(audit),
       gbpAction: "update_attributes",
     },
     {

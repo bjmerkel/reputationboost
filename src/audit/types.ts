@@ -235,6 +235,28 @@ export interface GbpLiveProfile {
   source: "oauth" | "places";
 }
 
+export interface GbpAttributeCoverageItem {
+  name: string;
+  displayName: string;
+  groupDisplayName: string;
+  valueType: string;
+  autoApplicable: boolean;
+}
+
+export interface GbpAttributeCoverage {
+  enabledCount: number;
+  availableCount: number;
+  missingCount: number;
+  enabled: GbpAttributeCoverageItem[];
+  missing: GbpAttributeCoverageItem[];
+  autoUpdates: Array<{
+    name: string;
+    boolValue?: boolean;
+    uri?: string;
+    enumValues?: string[];
+  }>;
+}
+
 export interface GbpNotificationCoverage {
   configured: boolean;
   pubsubTopic: string | null;
@@ -418,6 +440,7 @@ export interface GbpSnapshot {
     canonical: string;
     live: string;
   }>;
+  attributeCoverage?: GbpAttributeCoverage;
 }
 
 export interface GeoRankPoint {

@@ -254,3 +254,98 @@ export function inferRecommendedSecondaryCategories(audit: Phase1AuditPayload): 
 export function missingKeywordsForServices(audit: Phase1AuditPayload): string[] {
   return missingServiceKeywords(audit);
 }
+
+export function buildAttributePlanContent(audit: Phase1AuditPayload): {
+  current: string;
+  recommended: string;
+  bullets?: string[];
+  copyBlocks?: Array<{ label: string; content: string }>;
+  actionData?: { attributes: Array<{ name: string; boolValue?: boolean; uri?: string }> };
+} {
+  const coverage = audit.gbp.attributeCoverage;
+  const enabledLabels = audit.gbp.liveProfile?.attributes ?? [];
+
+  if (!coverage || coverage.availableCount === 0) {
+    return {
+      current:
+        enabledLabels.length > 0 ? enabledLabels.join(", ") : "No attributes detected on profile",
+      recommended: "Enable all applicable business attributes",
+      bullets: [
+        "Online appointments / booking",
+        "Accessibility, ownership, and identity attributes where applicable",
+        `Currently ${audit.gbp.completeness.attributeCount} attributes on profile`,
+      ],
+    };
+  }
+
+  const current =
+    coverage.enabledCount > 0
+      ? `${coverage.enabledCount} of ${coverage.availableCount} enabled: ${coverage.enabled
+          .slice(0, 6)
+          .map((item) => item.displayName)
+          .join(", ")}${coverage.enabledCount > 6 ? "…" : ""}`
+      : "No attributes enabled on profile";
+
+  if (coverage.missingCount === 0) {
+    return {
+      current,
+      recommended: "All available attributes are enabled",
+      bullets: coverage.enabled.slice(0, 8).map((item) => `${item.displayName} ✓`),
+    };
+  }
+
+  const autoMissing = coverage.missing.filter((item) => item.autoApplicable);
+  const manualMissing = coverage.missing.filter((item) => !item.autoApplicable);
+
+  const recommended =
+    autoMissing.length > 0
+      ? `Enable ${autoMissing.length} missing attribute${autoMissing.length === 1 ? "" : "s"}${
+          manualMissing.length > 0
+            ? `, then set ${manualMissing.length} more manually in Google`
+            : ""
+        }`
+      : `Set ${manualMissing.length} missing attribute${manualMissing.length === 1 ? "" : "s"} in Google Business Profile`;
+
+  const bullets = [
+    ...coverage.missing.slice(0, 8).map((item) =>
+      item.autoApplicable ? `Enable: ${item.displayName}` : `Set manually: ${item.displayName}`
+    ),
+    ...(coverage.missing.length > 8
+      ? [`+ ${coverage.missing.length - 8} more attribute${coverage.missing.length - 8 === 1 ? "" : "s"}`]
+      : []),
+  ];
+
+  const copyBlocks = [
+    ...(autoMissing.length > 0
+      ? [
+          {
+            label: `One-click attributes (${autoMissing.length})`,
+            content: autoMissing.map((item) => `• ${item.displayName}`).join("\n"),
+          },
+        ]
+      : []),
+    ...(manualMissing.length > 0
+      ? [
+          {
+            label: `Set manually in GBP (${manualMissing.length})`,
+            content: manualMissing
+              .map(
+                (item) =>
+                  `• ${item.displayName}${item.groupDisplayName ? ` (${item.groupDisplayName})` : ""}`
+              )
+              .join("\n"),
+          },
+        ]
+      : []),
+  ];
+
+  return {
+    current,
+    recommended,
+    bullets,
+    copyBlocks,
+    actionData:
+      coverage.autoUpdates.length > 0 ? { attributes: coverage.autoUpdates } : undefined,
+  };
+}
+
