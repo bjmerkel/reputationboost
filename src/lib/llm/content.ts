@@ -93,7 +93,7 @@ Return JSON:
 {
   "googlePosts": ["4 unique monthly Google Posts as plain strings"],
   "gbpDescription": "optimized business description",
-  "reviewRequestSms": "SMS under 300 chars with [REVIEW_LINK], [FIRST_NAME], and [SERVICE] placeholders",
+  "reviewRequestSms": "SMS under 300 chars with [REVIEW_LINK], [FIRST_NAME], [SERVICE], and [BUSINESS] placeholders",
   "socialPost": "1 Facebook/Instagram post as a plain string"
 }
 

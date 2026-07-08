@@ -13,7 +13,7 @@ import { refreshCampaignCompletionsForBusiness } from "@/lib/review-requests/cam
 import { getEligibleCustomers, listCustomers } from "@/lib/customers/storage";
 import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
-import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
+import { previewReviewRequestSms } from "@/lib/sms/personalize";
 import { getUser } from "@/lib/supabase/server";
 import { parseJsonBody } from "@/lib/http/parse-json-body";
 
@@ -108,18 +108,17 @@ export async function POST(request: Request) {
       const firstName = keywordMatchedSample?.first_name?.trim() || "[FIRST_NAME]";
       const service =
         keywordMatchedSample?.service_notes?.trim() || focusKeyword || "[SERVICE]";
-      template = `Hi ${firstName}! Thanks for choosing ${business.name} for ${service}. If your experience was great, a quick Google review would mean a lot: [REVIEW_LINK]`;
+      template = `Hi ${firstName}! Thanks for choosing [BUSINESS] for ${service}. If your experience was great, a quick Google review would mean a lot: [REVIEW_LINK]`;
     }
 
     const previewCustomer = keywordMatchedSample ?? sampleCustomer;
-    const preview = previewCustomer
-      ? personalizeReviewRequestSms({
-          template,
-          customer: previewCustomer,
-          businessName: business.name,
-          reviewUrl: reviewUrl ?? "https://example.com/review",
-        })
-      : template;
+    const preview = previewReviewRequestSms({
+      template,
+      businessName: business.name,
+      reviewUrl: reviewUrl ?? "https://example.com/review",
+      customer: previewCustomer,
+      serviceFallback: focusKeyword,
+    });
 
     return NextResponse.json({
       template,
