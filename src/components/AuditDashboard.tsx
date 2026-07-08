@@ -365,6 +365,9 @@ export default function AuditDashboard({
               liveScoreDate={scoreHistory.latestDate}
               scoreChangelog={scoreHistory.changelog}
               globalCalibration={scoreHistory.globalCalibration}
+              performancePoints={attributionData.performanceSeries}
+              scoreSeries={scoreHistory.series}
+              trendsLoading={attributionLoading || scoreHistoryLoading}
               onReviewPending={openBatchReview}
               onNavigateToPlan={openPlanStep}
               clientId={clientId}

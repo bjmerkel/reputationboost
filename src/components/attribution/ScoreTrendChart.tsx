@@ -1,24 +1,34 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { FullAuditPayload } from "@/audit/types";
 import type { ScoreDailySnapshot } from "@/audit/types/timeseries";
+import { scoreSeriesWithAuditFallback } from "@/lib/metrics/trend-fallbacks";
 import { LineChart } from "@/components/attribution/MiniChart";
 
 export default function ScoreTrendChart({
   clientId,
   days = 30,
   compact = false,
+  series: seriesProp,
+  loading: loadingProp,
+  audit,
 }: {
   clientId: string;
   days?: number;
   compact?: boolean;
+  series?: ScoreDailySnapshot[];
+  loading?: boolean;
+  audit?: FullAuditPayload | null;
 }) {
-  const [series, setSeries] = useState<ScoreDailySnapshot[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [fetchedSeries, setFetchedSeries] = useState<ScoreDailySnapshot[]>([]);
+  const [fetchLoading, setFetchLoading] = useState(seriesProp === undefined);
 
   useEffect(() => {
+    if (seriesProp !== undefined) return;
+
     let cancelled = false;
-    setLoading(true);
+    setFetchLoading(true);
 
     async function load() {
       try {
@@ -27,10 +37,10 @@ export default function ScoreTrendChart({
         );
         const data = await res.json();
         if (!cancelled && res.ok) {
-          setSeries(data.series ?? []);
+          setFetchedSeries(data.series ?? []);
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setFetchLoading(false);
       }
     }
 
@@ -38,7 +48,14 @@ export default function ScoreTrendChart({
     return () => {
       cancelled = true;
     };
-  }, [clientId, days]);
+  }, [clientId, days, seriesProp]);
+
+  const series = useMemo(
+    () => scoreSeriesWithAuditFallback(seriesProp ?? fetchedSeries, audit),
+    [audit, fetchedSeries, seriesProp]
+  );
+
+  const loading = loadingProp ?? fetchLoading;
 
   const chart = useMemo(() => {
     const sorted = [...series].sort((a, b) => a.date.localeCompare(b.date));
@@ -54,18 +71,36 @@ export default function ScoreTrendChart({
     const delta =
       latest && earliest && sorted.length >= 2 ? latest.overall - earliest.overall : null;
 
-    return { labels, values, latest, delta };
+    return { labels, values, latest, delta, sorted };
   }, [series]);
 
   if (loading) {
     return <p className="text-sm text-[#5f6368]">Loading score trend…</p>;
   }
 
-  if (series.length < 2) {
+  if (chart.sorted.length === 0) {
     return (
       <p className="text-sm text-[#5f6368]">
         Score history appears after nightly ingest runs or you complete a few audits.
       </p>
+    );
+  }
+
+  if (chart.sorted.length === 1) {
+    const point = chart.sorted[0]!;
+    return (
+      <div className="space-y-2">
+        <div className="rounded-lg border border-[#e8eaed] bg-white px-4 py-3">
+          <p className="text-2xl font-semibold text-[#202124]">{point.overall}</p>
+          <p className="text-xs text-[#5f6368]">
+            Score on {chart.labels[0]}
+            {point.source === "audit" ? " · from your latest audit" : " · from nightly ingest"}
+          </p>
+        </div>
+        <p className="text-xs text-[#80868b]">
+          Trend line appears after a second nightly ingest run.
+        </p>
+      </div>
     );
   }
 

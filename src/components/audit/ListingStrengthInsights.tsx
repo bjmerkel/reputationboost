@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { FullAuditPayload, Plan } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
+import type { DailyMetricPoint, ScoreDailySnapshot } from "@/audit/types/timeseries";
 import { buildAttributionCalibration, buildGapAttributionCalibration, mergeCalibrations } from "@/audit/phase2/attribution-calibration";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { buildFieldAttributionCalibration } from "@/audit/phase2/field-attribution-calibration";
@@ -23,7 +24,9 @@ export default function ListingStrengthInsights({
   currency = "USD",
   globalCalibration = {},
   showKeywords = true,
-  showPerformanceTrends = true,
+  performancePoints,
+  scoreSeries,
+  trendsLoading = false,
   onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
@@ -34,7 +37,9 @@ export default function ListingStrengthInsights({
   currency?: string;
   globalCalibration?: AttributionCalibration;
   showKeywords?: boolean;
-  showPerformanceTrends?: boolean;
+  performancePoints?: DailyMetricPoint[];
+  scoreSeries?: ScoreDailySnapshot[];
+  trendsLoading?: boolean;
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
 }) {
   const businessCalibration = useMemo(
@@ -90,8 +95,10 @@ export default function ListingStrengthInsights({
         avgCustomerValue={avgCustomerValue}
         currency={currency}
         variant="light"
-        showPerformanceTrends={showPerformanceTrends}
         fieldCalibration={fieldCalibration}
+        performancePoints={performancePoints}
+        scoreSeries={scoreSeries}
+        trendsLoading={trendsLoading}
         onNavigateToPlan={onNavigateToPlan}
       />
       <GapsPanel audit={audit} avgCustomerValue={avgCustomerValue} currency={currency} />

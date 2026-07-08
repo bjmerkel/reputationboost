@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { ExecutionTask, FullAuditPayload, GbpLocationInventory, GbpLocationInventoryField } from "@/audit/types";
+import type { DailyMetricPoint, ScoreDailySnapshot } from "@/audit/types/timeseries";
 import { enrichInventoryWithPlanLinks, planTaskStatusStyle } from "@/lib/google/gbp-field-plan-links";
 import { enrichLocationInventoryScores } from "@/lib/google/gbp-field-score-impact";
 import ProfilePerformanceTrends from "@/components/audit/ProfilePerformanceTrends";
@@ -72,8 +73,10 @@ export default function ProfileCommandCenter({
   avgCustomerValue,
   currency = "USD",
   variant = "light",
-  showPerformanceTrends = true,
   fieldCalibration,
+  performancePoints,
+  scoreSeries,
+  trendsLoading = false,
   onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
@@ -82,8 +85,10 @@ export default function ProfileCommandCenter({
   avgCustomerValue?: number | null;
   currency?: string;
   variant?: "light" | "dark";
-  showPerformanceTrends?: boolean;
   fieldCalibration?: FieldAttributionCalibration;
+  performancePoints?: DailyMetricPoint[];
+  scoreSeries?: ScoreDailySnapshot[];
+  trendsLoading?: boolean;
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: GbpLocationInventoryField["planScrollTarget"]) => void;
 }) {
   const isLight = variant === "light";
@@ -187,8 +192,16 @@ export default function ProfileCommandCenter({
         </div>
       )}
 
-      {clientId && showPerformanceTrends && (
-        <ProfilePerformanceTrends clientId={clientId} variant={variant} />
+      {clientId && (
+        <ProfilePerformanceTrends
+          clientId={clientId}
+          days={30}
+          variant={variant}
+          audit={audit}
+          performancePoints={performancePoints}
+          scoreSeries={scoreSeries}
+          loading={trendsLoading}
+        />
       )}
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">

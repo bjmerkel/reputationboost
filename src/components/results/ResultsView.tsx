@@ -42,7 +42,12 @@ export default function ResultsView({
 
       <RoiSummaryCard summary={summary} loading={attributionLoading} />
 
-      <ProfilePerformanceTrends clientId={clientId} days={30} variant="light" />
+      <ProfilePerformanceTrends
+        clientId={clientId}
+        days={30}
+        variant="light"
+        audit={audit}
+      />
 
       <PlanResultsTimeline
         entries={timelineEntries}

@@ -34,7 +34,7 @@ export function useAttributionDashboard(clientId: string): {
         const [attrRes, summaryRes, perfRes] = await Promise.all([
           fetch(`/api/attribution?clientId=${encodeURIComponent(clientId)}`),
           fetch(`/api/attribution/summary?clientId=${encodeURIComponent(clientId)}&period=30d`),
-          fetch(`/api/metrics/performance?clientId=${encodeURIComponent(clientId)}&days=14`),
+          fetch(`/api/metrics/performance?clientId=${encodeURIComponent(clientId)}&days=30`),
         ]);
 
         const [attrData, summaryData, perfData] = await Promise.all([
