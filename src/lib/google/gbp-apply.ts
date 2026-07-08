@@ -6,6 +6,7 @@ import {
   defaultUsHolidayHours,
   defaultWeekdayHours,
   mergeSpecialHours,
+  normalizeSpecialHoursForApi,
 } from "./gbp-hours";
 import {
   attributeApiToUpdate,
@@ -606,9 +607,8 @@ export async function applyHolidayHours(
   }
 
   const refreshed = await getGbpLocationProfile(connection);
-  const holidays = mergeSpecialHours(
-    refreshed.specialHours,
-    defaultUsHolidayHours()
+  const holidays = normalizeSpecialHoursForApi(
+    mergeSpecialHours(refreshed.specialHours, defaultUsHolidayHours())
   );
 
   await patchGbpLocationValidated(connection, "specialHours", { specialHours: holidays });

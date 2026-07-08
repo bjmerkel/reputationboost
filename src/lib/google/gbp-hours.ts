@@ -30,6 +30,9 @@ export interface SpecialHourPeriod {
   endDate?: { year?: number; month?: number; day?: number };
   openTime?: TimeOfDay | string;
   closeTime?: TimeOfDay | string;
+  /** Business Information API v1 field when the location is closed all day. */
+  closed?: boolean;
+  /** Legacy v4 alias — accepted on read, not written to the API. */
   isClosed?: boolean;
 }
 
@@ -69,6 +72,47 @@ function normalizeTime(value: TimeOfDay | string | undefined): string {
   const h = value.hours ?? 0;
   const m = value.minutes ?? 0;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function parseTimeString(time: string): TimeOfDay {
+  const [hoursPart, minutesPart] = time.split(":");
+  return {
+    hours: Number(hoursPart) || 0,
+    minutes: Number(minutesPart) || 0,
+  };
+}
+
+function toTimeOfDay(value: TimeOfDay | string | undefined): TimeOfDay | undefined {
+  if (value == null) return undefined;
+  return typeof value === "string" ? parseTimeString(value) : value;
+}
+
+/** True when a special hour period marks the location closed for the day. */
+export function isSpecialHourClosed(period: SpecialHourPeriod): boolean {
+  return period.closed === true || period.isClosed === true;
+}
+
+/** Normalize a period to Business Information API v1 shape before PATCH. */
+export function normalizeSpecialHourPeriod(period: SpecialHourPeriod): SpecialHourPeriod {
+  const closed = isSpecialHourClosed(period);
+  const normalized: SpecialHourPeriod = {
+    startDate: period.startDate,
+    endDate: period.endDate ?? period.startDate,
+    closed,
+  };
+
+  if (!closed) {
+    normalized.openTime = toTimeOfDay(period.openTime);
+    normalized.closeTime = toTimeOfDay(period.closeTime);
+  }
+
+  return normalized;
+}
+
+export function normalizeSpecialHoursForApi(specialHours: SpecialHours): SpecialHours {
+  return {
+    specialHourPeriods: (specialHours.specialHourPeriods ?? []).map(normalizeSpecialHourPeriod),
+  };
 }
 
 function periodDateKey(period: SpecialHourPeriod): string {
@@ -167,7 +211,7 @@ export function formatSpecialHourPeriod(period: SpecialHourPeriod): string {
   if (!month || !day) return "Unknown date";
 
   const label = `${MONTH_NAMES[month]} ${day}`;
-  if (period.isClosed) return `${label}: closed`;
+  if (isSpecialHourClosed(period)) return `${label}: closed`;
 
   const open = normalizeTime(period.openTime);
   const close = normalizeTime(period.closeTime);
@@ -218,11 +262,11 @@ function datePeriod(
   const period: SpecialHourPeriod = {
     startDate: { year, month, day },
     endDate: { year, month, day },
-    isClosed: closed,
+    closed,
   };
   if (!closed && open && close) {
-    period.openTime = open;
-    period.closeTime = close;
+    period.openTime = parseTimeString(open);
+    period.closeTime = parseTimeString(close);
   }
   return period;
 }
@@ -264,7 +308,7 @@ export function defaultUsHolidayDescriptions(
   const periods = defaultUsHolidayHours(year).specialHourPeriods ?? [];
   return periods.map((period, index) => ({
     name: DEFAULT_HOLIDAY_NAMES[index] ?? formatSpecialHourPeriod(period),
-    schedule: period.isClosed
+    schedule: isSpecialHourClosed(period)
       ? "Closed"
       : `${normalizeTime(period.openTime)} – ${normalizeTime(period.closeTime)}`,
     period,

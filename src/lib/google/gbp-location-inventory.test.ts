@@ -51,7 +51,7 @@ function mockProfile(overrides: Partial<GbpLocationProfile> = {}): GbpLocationPr
         },
       ],
     },
-    specialHours: { specialHourPeriods: [{ startDate: { year: 2026, month: 12, day: 25 }, isClosed: true }] },
+    specialHours: { specialHourPeriods: [{ startDate: { year: 2026, month: 12, day: 25 }, closed: true }] },
     serviceAreaPlaces: [],
     isServiceAreaBusiness: false,
     businessLatLng: null,

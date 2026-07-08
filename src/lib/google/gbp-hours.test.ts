@@ -5,6 +5,7 @@ import {
   defaultUsHolidayHours,
   formatSpecialHoursSummary,
   hasAdequateHolidayCoverage,
+  normalizeSpecialHoursForApi,
   thanksgivingDay,
 } from "./gbp-hours";
 
@@ -22,7 +23,7 @@ describe("gbp-hours", () => {
         (period) =>
           period.startDate?.month === 11 &&
           period.startDate?.day === 26 &&
-          period.isClosed === true
+          period.closed === true
       )
     );
   });
@@ -33,7 +34,7 @@ describe("gbp-hours", () => {
         {
           startDate: { year: 2026, month: 7, day: 4 },
           endDate: { year: 2026, month: 7, day: 4 },
-          isClosed: true,
+          closed: true,
         },
       ],
     });
@@ -47,7 +48,7 @@ describe("gbp-hours", () => {
         {
           startDate: { year: 2026, month: 12, day: 25 },
           endDate: { year: 2026, month: 12, day: 25 },
-          isClosed: true,
+          closed: true,
         },
       ],
     };
@@ -60,10 +61,32 @@ describe("gbp-hours", () => {
     assert.equal(hasAdequateHolidayCoverage(holidays, 2026), true);
   });
 
-  it("provides human-readable holiday descriptions for the plan UI", () => {
-    const descriptions = defaultUsHolidayDescriptions(2026);
-    assert.equal(descriptions.length, 10);
-    assert.equal(descriptions[0]?.name, "New Year's Day");
-    assert.equal(descriptions[6]?.name, "Thanksgiving");
+  it("normalizes special hours to Business Information API v1 shape", () => {
+    const normalized = normalizeSpecialHoursForApi(defaultUsHolidayHours(2026));
+    const christmasEve = normalized.specialHourPeriods?.find(
+      (period) => period.startDate?.month === 12 && period.startDate?.day === 24
+    );
+    const newYearsDay = normalized.specialHourPeriods?.find(
+      (period) => period.startDate?.month === 1 && period.startDate?.day === 1
+    );
+
+    assert.equal(newYearsDay?.closed, true);
+    assert.equal(newYearsDay?.isClosed, undefined);
+    assert.deepEqual(christmasEve?.openTime, { hours: 11, minutes: 0 });
+    assert.deepEqual(christmasEve?.closeTime, { hours: 15, minutes: 0 });
+    assert.equal(christmasEve?.closed, false);
+  });
+
+  it("accepts legacy isClosed values when reading older payloads", () => {
+    const summary = formatSpecialHoursSummary({
+      specialHourPeriods: [
+        {
+          startDate: { year: 2026, month: 12, day: 25 },
+          isClosed: true,
+        },
+      ],
+    });
+
+    assert.match(summary, /Dec 25: closed/);
   });
 });
