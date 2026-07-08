@@ -7,27 +7,29 @@ export default function PlatformLoading() {
   const { location, businessName } = usePreviewAudit();
 
   return (
-    <div className="platform-theme google-maps-frame relative overflow-hidden bg-white">
-      <div className="border-b border-[#d2e3fc] bg-[#e8f0fe] px-4 py-2.5 text-center text-sm text-[#1a73e8]">
+    <div className="platform-theme google-maps-frame relative flex min-h-[520px] flex-col overflow-hidden bg-white [height:min(88dvh,900px)]">
+      <div className="shrink-0 border-b border-[#d2e3fc] bg-[#e8f0fe] px-4 py-2.5 text-center text-sm text-[#1a73e8]">
         Auditing <span className="font-semibold">{businessName}</span> — pulling Google
         Maps data, AI-picking keywords, checking Local 3-Pack…
       </div>
 
-      <div className="flex h-[min(88vh,900px)] min-h-[520px] flex-col-reverse overflow-hidden lg:flex-row">
-        <div className="w-full shrink-0 border-[#dadce0] bg-white lg:w-[408px] lg:border-r">
-          <div className="space-y-4 p-5">
-            <div className="h-28 animate-pulse rounded-lg bg-[#e8eaed]" />
-            <div className="h-5 w-2/3 animate-pulse rounded bg-[#e8eaed]" />
-            <div className="h-4 w-1/2 animate-pulse rounded bg-[#e8eaed]" />
-            <div className="mt-6 space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-16 animate-pulse rounded-lg bg-[#e8eaed]" />
-              ))}
+      <div className="google-maps-shell flex min-h-0 flex-1 flex-col-reverse overflow-hidden lg:flex-row">
+        <div className="flex min-h-0 flex-[11] flex-col overflow-hidden border-[#dadce0] bg-white lg:h-full lg:w-[408px] lg:flex-none lg:shrink-0 lg:border-r">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
+            <div className="space-y-4 p-5">
+              <div className="h-28 animate-pulse rounded-lg bg-[#e8eaed]" />
+              <div className="h-5 w-2/3 animate-pulse rounded bg-[#e8eaed]" />
+              <div className="h-4 w-1/2 animate-pulse rounded bg-[#e8eaed]" />
+              <div className="mt-6 space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-16 animate-pulse rounded-lg bg-[#e8eaed]" />
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="relative min-h-[280px] flex-1">
+        <div className="relative min-h-0 min-w-0 flex-[9] overflow-hidden lg:h-full lg:min-h-[280px] lg:flex-1">
           <RankingMap
             lat={location.lat}
             lng={location.lng}

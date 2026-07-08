@@ -205,16 +205,16 @@ export default function PlatformDemo({
   }, [audit.competitors, activeKeyword]);
 
   return (
-    <div className="platform-theme google-maps-frame overflow-hidden bg-white">
+    <div className="platform-theme google-maps-frame flex min-h-[520px] flex-col overflow-hidden bg-white [height:min(88dvh,900px)]">
       {isLive && (
-        <div className="border-b border-[#d2e3fc] bg-[#e8f0fe] px-4 py-2 text-center text-sm text-[#1a73e8]">
+        <div className="shrink-0 border-b border-[#d2e3fc] bg-[#e8f0fe] px-4 py-2 text-center text-sm text-[#1a73e8]">
           Live audit for <span className="font-semibold">{businessName}</span>
           {" — "}
           pan the map, switch keywords, open Plan &amp; Results
         </div>
       )}
 
-      <div className="h-[min(88vh,900px)] min-h-[520px]">
+      <div className="min-h-0 flex-1">
         <PlatformShell
           showMapOverlay={view !== "audit"}
           searchBar={

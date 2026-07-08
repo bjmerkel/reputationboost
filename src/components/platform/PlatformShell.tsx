@@ -21,14 +21,14 @@ export default function PlatformShell({
   const map = childArray[1];
 
   return (
-    <div className="google-maps-shell flex min-h-0 flex-1 flex-col-reverse overflow-hidden lg:flex-row">
+    <div className="google-maps-shell flex h-full min-h-0 flex-1 flex-col-reverse overflow-hidden lg:flex-row">
       {/* Left place-card panel — matches Google Maps ~408px sidebar */}
-      <div className="flex h-full min-h-0 w-full shrink-0 flex-col overflow-hidden border-[#dadce0] bg-white lg:w-[408px] lg:border-r">
+      <div className="flex min-h-0 flex-[11] flex-col overflow-hidden border-[#dadce0] bg-white lg:h-full lg:w-[408px] lg:flex-none lg:shrink-0 lg:border-r">
         {panel}
       </div>
 
       {/* Map canvas with optional floating search overlay */}
-      <div className="relative flex h-full min-h-[280px] min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="relative flex min-h-0 min-w-0 flex-[9] flex-col overflow-hidden lg:h-full lg:min-h-[280px] lg:flex-1">
         {showMapOverlay && (searchBar || toolbar) && (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start gap-2 px-3 pt-3 sm:px-4 sm:pt-4">
             {searchBar && (

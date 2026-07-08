@@ -37,7 +37,7 @@ export default function HeroBusinessSearch() {
 
       document.getElementById("platform-explorer")?.scrollIntoView({
         behavior: "smooth",
-        block: "start",
+        block: "nearest",
       });
 
       try {
