@@ -385,6 +385,8 @@ export interface GbpLocationInventoryField {
   planTaskStatus?: ExecutionStatus;
   planFixLabel?: string;
   planScrollTarget?: "google-updates";
+  /** Secondary detail for inventory rows (e.g. attributes not yet enabled). */
+  missingCurrent?: string;
 }
 
 export interface GbpLocationInventory {

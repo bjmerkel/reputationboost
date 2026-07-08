@@ -375,6 +375,11 @@ function FieldRow({
       <p className={`mt-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
         {field.current}
       </p>
+      {field.missingCurrent && (
+        <p className={`mt-2 text-sm ${isLight ? "text-[#b06000]" : "text-amber-200"}`}>
+          {field.missingCurrent}
+        </p>
+      )}
       {field.constraint && field.status !== "good" && (
         <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
           {field.constraint}

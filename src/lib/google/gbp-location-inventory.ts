@@ -1,4 +1,5 @@
 import type {
+  GbpAttributeCoverage,
   GbpGoogleUpdateState,
   GbpLocationInventory,
   GbpLocationInventoryField,
@@ -28,6 +29,7 @@ export interface BuildGbpLocationInventoryInput {
   liveProfile?: GbpSnapshot["liveProfile"];
   monthlyActions?: number;
   avgCustomerValue?: number | null;
+  attributeCoverage?: GbpAttributeCoverage;
 }
 
 function fieldStatus(
@@ -117,6 +119,60 @@ function summarize(fields: GbpLocationInventoryField[]): GbpLocationInventory["s
   return summary;
 }
 
+function buildAttributesInventoryField(
+  attributes: string[],
+  attributeCoverage: GbpAttributeCoverage | undefined,
+  completeness: GbpSnapshot["completeness"]
+): Pick<GbpLocationInventoryField, "current" | "status" | "constraint" | "missingCurrent"> {
+  if (attributeCoverage && attributeCoverage.availableCount > 0) {
+    const { enabledCount, availableCount, enabled, missing, missingCount } = attributeCoverage;
+    const autoMissingCount = missing.filter((item) => item.autoApplicable).length;
+    const manualMissingCount = missingCount - autoMissingCount;
+
+    const current =
+      enabledCount > 0
+        ? `${enabledCount} of ${availableCount} enabled: ${enabled
+            .slice(0, 5)
+            .map((item) => item.displayName)
+            .join(", ")}${enabledCount > 5 ? "…" : ""}`
+        : `0 of ${availableCount} enabled`;
+
+    const missingCurrent =
+      missingCount > 0
+        ? `Not enabled (${missingCount}): ${missing
+            .slice(0, 10)
+            .map((item) => item.displayName)
+            .join(", ")}${missingCount > 10 ? "…" : ""}`
+        : undefined;
+
+    const constraint =
+      missingCount > 0
+        ? autoMissingCount > 0 && manualMissingCount > 0
+          ? `${autoMissingCount} can be enabled from your plan · ${manualMissingCount} need manual setup in Google`
+          : autoMissingCount > 0
+            ? `${autoMissingCount} can be enabled from your plan`
+            : `${manualMissingCount} need manual setup in Google Business Profile`
+        : "Enable booking, payment, and accessibility attributes where available";
+
+    return {
+      current,
+      missingCurrent,
+      constraint,
+      status: fieldStatus(enabledCount > 0, missingCount === 0),
+    };
+  }
+
+  return {
+    current: attributes.length
+      ? `${attributes.length} enabled: ${attributes.slice(0, 5).join(", ")}${
+          attributes.length > 5 ? "…" : ""
+        }`
+      : "None enabled",
+    status: fieldStatus(attributes.length > 0, completeness.attributeCount >= 5),
+    constraint: "Enable booking, payment, and accessibility attributes where available",
+  };
+}
+
 /** Build a field-by-field inventory from a collected GBP snapshot + live profile. */
 export function buildGbpLocationInventory(
   input: BuildGbpLocationInventoryInput
@@ -131,6 +187,7 @@ export function buildGbpLocationInventory(
     issues,
     googleUpdateState,
     liveProfile,
+    attributeCoverage,
   } = input;
 
   const description =
@@ -292,19 +349,13 @@ export function buildGbpLocationInventory(
       constraint: "Add structured services — one per target keyword when possible",
       editable: profile?.canModifyServiceList !== false,
     },
-    {
+    inventoryField({
       apiPath: "attributes",
       label: "Attributes",
       section: "attributes",
-      current: attributes.length
-        ? `${attributes.length} enabled: ${attributes.slice(0, 5).join(", ")}${
-            attributes.length > 5 ? "…" : ""
-          }`
-        : "None enabled",
-      status: fieldStatus(attributes.length > 0, completeness.attributeCount >= 5),
-      constraint: "Enable booking, payment, and accessibility attributes where available",
+      ...buildAttributesInventoryField(attributes, attributeCoverage, completeness),
       editable: true,
-    },
+    }),
     {
       apiPath: "serviceArea",
       label: "Service area",

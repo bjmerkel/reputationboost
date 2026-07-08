@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import type { GbpAttributeCoverage } from "@/audit/types";
 import type { GbpLocationProfile } from "./gbp-location";
+import { buildAttributeCoverage } from "./gbp-attribute-recommendations";
 import { buildGbpLocationInventory } from "./gbp-location-inventory";
 
 function mockProfile(overrides: Partial<GbpLocationProfile> = {}): GbpLocationProfile {
@@ -199,5 +201,67 @@ describe("gbp-location-inventory", () => {
     assert.ok(inventory.summary.missing > 0 || inventory.summary.needsWork > 0);
     assert.equal(inventory.summary.total, inventory.fields.length);
     assert.ok((inventory.summary.potentialScoreGain ?? 0) >= 0);
+  });
+
+  it("lists missing attributes and marks the field as needs_work when coverage has gaps", () => {
+    const available = [
+      {
+        name: "attributes/has_onsite_services",
+        displayName: "Onsite services",
+        groupDisplayName: "Service options",
+        valueType: "BOOL",
+        deprecated: false,
+      },
+      {
+        name: "attributes/identifies_as_women_owned",
+        displayName: "Identifies as women-owned",
+        groupDisplayName: "From the business",
+        valueType: "BOOL",
+        deprecated: false,
+      },
+      {
+        name: "attributes/has_online_appointments",
+        displayName: "Online appointments",
+        groupDisplayName: "Planning",
+        valueType: "BOOL",
+        deprecated: false,
+      },
+      {
+        name: "attributes/payment_options",
+        displayName: "Payment options",
+        groupDisplayName: "Payments",
+        valueType: "REPEATED_ENUM",
+        deprecated: false,
+      },
+    ];
+    const current = [
+      {
+        name: "attributes/has_onsite_services",
+        valueType: "BOOL",
+        values: ["__BOOL_TRUE__"],
+      },
+      {
+        name: "attributes/identifies_as_women_owned",
+        valueType: "BOOL",
+        values: ["__BOOL_TRUE__"],
+      },
+    ];
+    const attributeCoverage: GbpAttributeCoverage = buildAttributeCoverage(available, current);
+
+    const inventory = buildGbpLocationInventory({
+      ...baseInput,
+      profile: mockProfile({
+        attributes: ["Onsite services", "Identifies as women-owned"],
+      }),
+      attributeCoverage,
+    });
+
+    const attributes = inventory.fields.find((field) => field.apiPath === "attributes");
+    assert.equal(attributes?.status, "needs_work");
+    assert.match(attributes?.current ?? "", /2 of 4 enabled/);
+    assert.match(attributes?.missingCurrent ?? "", /Not enabled \(2\):/);
+    assert.match(attributes?.missingCurrent ?? "", /Online appointments/);
+    assert.match(attributes?.missingCurrent ?? "", /Payment options/);
+    assert.match(attributes?.constraint ?? "", /can be enabled from your plan/);
   });
 });
