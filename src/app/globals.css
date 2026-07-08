@@ -651,6 +651,7 @@ body {
   border-radius: 0;
   border-left: none;
   border-right: none;
+  max-width: 100%;
 }
 
 .google-maps-shell {
