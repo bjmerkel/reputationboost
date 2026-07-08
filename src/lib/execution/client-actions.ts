@@ -49,6 +49,20 @@ export async function executeExecutionTask(
   return data.task as ExecutionTask;
 }
 
+export async function regenerateReviewResponseTask(
+  taskId: string,
+  options?: { weaveKeyword?: boolean; keyword?: string }
+): Promise<ExecutionTask> {
+  const res = await fetch(`/api/execution/${taskId}/regenerate-review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(options ?? {}),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Regeneration failed");
+  return data.task as ExecutionTask;
+}
+
 export async function checkTaskEditStatus(taskId: string): Promise<ExecutionTask> {
   const res = await fetch(`/api/execution/${taskId}/check-status`, {
     method: "POST",

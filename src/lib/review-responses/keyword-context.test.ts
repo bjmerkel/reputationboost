@@ -189,6 +189,24 @@ describe("keyword-context", () => {
 
     assert.ok(suggested.length >= 2);
   });
+
+  it("boosts active campaign keywords", () => {
+    const audit = minimalAudit({
+      reviews: {
+        ...minimalAudit().reviews,
+        reviews: [review({ text: "Wonderful staff" })],
+      },
+    });
+
+    const withoutCampaign = resolveReviewResponseKeywordContext(audit, review({ text: "Wonderful staff" }));
+    const withCampaign = resolveReviewResponseKeywordContext(audit, review({ text: "Wonderful staff" }), {
+      activeCampaignKeywords: ["oil change arlington va"],
+    });
+
+    assert.equal(withoutCampaign.suggestedKeyword, null);
+    assert.equal(withCampaign.suggestedKeyword, "oil change arlington va");
+    assert.equal(withCampaign.activeCampaignKeyword, "oil change arlington va");
+  });
 });
 
 describe("keyword-quality", () => {

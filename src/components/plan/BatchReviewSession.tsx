@@ -41,6 +41,7 @@ export default function BatchReviewSession({
     savePhotoPreview,
     ensurePhotoTasks,
     approveAllRoutine,
+    regenerateReviewResponse,
     refresh,
   } = usePlanTasks({ clientId, auditId, initialTasks });
 
@@ -101,6 +102,7 @@ export default function BatchReviewSession({
       savePhotoPreview,
       ensurePhotoTasks,
       approveAllRoutine,
+      regenerateReviewResponse,
       loadingTaskId,
       error,
     }),
@@ -113,6 +115,7 @@ export default function BatchReviewSession({
       savePhotoPreview,
       ensurePhotoTasks,
       approveAllRoutine,
+      regenerateReviewResponse,
       loadingTaskId,
       error,
       advance,
@@ -169,7 +172,16 @@ export default function BatchReviewSession({
             current.type === "gbp_hours" ? (
               <PlanStepHours task={current} gbpConnected={gbpConnected} actions={actions} />
             ) : (
-              <BatchReviewItem task={current} gbpConnected={gbpConnected} />
+              <BatchReviewItem
+                task={current}
+                gbpConnected={gbpConnected}
+                loading={loadingTaskId === current.id}
+                onSuggestKeywordWeave={
+                  current.type === "review_response"
+                    ? () => void regenerateReviewResponse(current, { weaveKeyword: true })
+                    : undefined
+                }
+              />
             )
           ) : null}
 
@@ -195,6 +207,19 @@ export default function BatchReviewSession({
               </div>
             )}
             <div className="flex flex-wrap gap-2">
+              {current.type === "review_response" &&
+                typeof current.payload.suggestedKeyword === "string" &&
+                (!Array.isArray(current.payload.keywordsHit) ||
+                  current.payload.keywordsHit.length === 0) && (
+                  <button
+                    type="button"
+                    disabled={loadingTaskId === current.id}
+                    onClick={() => void regenerateReviewResponse(current, { weaveKeyword: true })}
+                    className="rounded-full border border-[#dadce0] px-5 py-2 text-sm font-medium text-[#1a73e8] hover:bg-[#f8f9fa] disabled:opacity-50"
+                  >
+                    {loadingTaskId === current.id ? "Regenerating…" : "Suggest keyword weave"}
+                  </button>
+                )}
               {current.type !== "gbp_photo" && gbpConnected && (
                 <button
                   type="button"
@@ -249,15 +274,23 @@ export default function BatchReviewSession({
 function BatchReviewItem({
   task,
   gbpConnected,
+  loading = false,
+  onSuggestKeywordWeave,
 }: {
   task: ExecutionTask;
   gbpConnected: boolean;
+  loading?: boolean;
+  onSuggestKeywordWeave?: () => void;
 }) {
   const stepNumber = resolvePlanStepNumber(task);
   const expectedEffect =
     typeof task.payload.expectedEffect === "string" ? task.payload.expectedEffect : null;
   const suggestedKeyword =
     typeof task.payload.suggestedKeyword === "string" ? task.payload.suggestedKeyword : null;
+  const activeCampaignKeyword =
+    typeof task.payload.activeCampaignKeyword === "string"
+      ? task.payload.activeCampaignKeyword
+      : null;
   const keywordsHit = Array.isArray(task.payload.keywordsHit)
     ? task.payload.keywordsHit.filter((value): value is string => typeof value === "string")
     : [];
@@ -276,6 +309,11 @@ function BatchReviewItem({
         </p>
       )}
       <h3 className="text-base font-semibold text-[#202124]">{task.title}</h3>
+      {activeCampaignKeyword && (
+        <p className="text-sm text-[#1a73e8]">
+          Active campaign: collecting &ldquo;{activeCampaignKeyword}&rdquo; reviews
+        </p>
+      )}
       {keywordsHit.length > 0 && (
         <p className="text-sm text-[#188038]">
           Mentions {keywordsHit.map((keyword) => `"${keyword}"`).join(", ")}
@@ -287,6 +325,16 @@ function BatchReviewItem({
       {suggestedKeyword && keywordsHit.length === 0 && !weaveSkipped && (
         <p className="text-sm text-[#5f6368]">
           Could mention: &ldquo;{suggestedKeyword}&rdquo;
+          {onSuggestKeywordWeave && (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={onSuggestKeywordWeave}
+              className="ml-2 text-[#1a73e8] hover:underline disabled:opacity-50"
+            >
+              Try weave
+            </button>
+          )}
         </p>
       )}
       {weaveReason && (

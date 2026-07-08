@@ -3,6 +3,7 @@ export interface ReviewResponseKeywordWeave {
   keywordsHit: string[];
   weaveSkipped: boolean;
   weaveReason: string | null;
+  activeCampaignKeyword?: string | null;
 }
 
 export interface ReviewResponseDraft {

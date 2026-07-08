@@ -28,6 +28,9 @@ export function buildReviewResponseKeywordPayload(
     weaveSkipped: suggested ? weaveSkipped : false,
     weaveReason: weaveReasonLabel(context),
     targetKeywords: keywordsHit.length > 0 ? keywordsHit : suggested ? [suggested] : [],
+    ...(context.activeCampaignKeyword
+      ? { activeCampaignKeyword: context.activeCampaignKeyword }
+      : {}),
   };
 }
 
@@ -58,6 +61,9 @@ export function reviewResponseKeywordFields(
           : precomputed.suggestedKeyword
             ? [precomputed.suggestedKeyword]
             : [],
+      ...(precomputed.activeCampaignKeyword
+        ? { activeCampaignKeyword: precomputed.activeCampaignKeyword }
+        : {}),
     };
   }
 

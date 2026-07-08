@@ -9,13 +9,13 @@ export type ReviewKeywordWeaveReason =
   | "outside_pack_gap"
   | "low_review_mentions"
   | "batch_rotation"
+  | "active_campaign"
   | null;
 
-export type ReviewKeywordSkipReason =
-  | "negative_review"
-  | "already_covered"
-  | "no_natural_hook"
-  | null;
+export interface ReviewResponseKeywordOptions {
+  /** Keywords from active review_keyword_campaigns — boosts scoring +15 each. */
+  activeCampaignKeywords?: string[];
+}
 
 export interface ReviewResponseKeywordContext {
   suggestedKeyword: string | null;
@@ -24,7 +24,15 @@ export interface ReviewResponseKeywordContext {
   serviceTokens: string[];
   areaToken: string | null;
   skipReason: ReviewKeywordSkipReason;
+  /** Set when this opportunity aligns with an active SMS review campaign. */
+  activeCampaignKeyword?: string | null;
 }
+
+export type ReviewKeywordSkipReason =
+  | "negative_review"
+  | "already_covered"
+  | "no_natural_hook"
+  | null;
 
 const SCORE_THRESHOLD = 50;
 const ROTATION_SCORE_THRESHOLD = 35;
@@ -80,10 +88,16 @@ function matchingTokensInText(text: string, keyword: string): string[] {
   return tokens.filter((token) => lower.includes(token));
 }
 
+function isActiveCampaignKeyword(keyword: string, options?: ReviewResponseKeywordOptions): boolean {
+  const campaigns = options?.activeCampaignKeywords ?? [];
+  return campaigns.some((row) => row.toLowerCase() === keyword.toLowerCase());
+}
+
 function scoreKeywordForReview(
   audit: FullAuditPayload,
   review: ReviewRecord,
-  keyword: string
+  keyword: string,
+  options?: ReviewResponseKeywordOptions
 ): { score: number; reason: ReviewKeywordWeaveReason } {
   if (review.rating <= 2) {
     return { score: -100, reason: null };
@@ -106,6 +120,11 @@ function scoreKeywordForReview(
   if (reviewMentionsCount(audit, keyword) < 2) {
     score += 20;
     if (!reason) reason = "low_review_mentions";
+  }
+
+  if (isActiveCampaignKeyword(keyword, options)) {
+    score += 15;
+    if (!reason) reason = "active_campaign";
   }
 
   return { score, reason };
@@ -156,22 +175,48 @@ function buildContextForKeyword(
   audit: FullAuditPayload,
   review: ReviewRecord,
   keyword: string,
-  reason: ReviewKeywordWeaveReason
+  reason: ReviewKeywordWeaveReason,
+  options?: ReviewResponseKeywordOptions
 ): ReviewResponseKeywordContext {
+  const hints = buildWeaveHints(audit, review, keyword);
+  if (isActiveCampaignKeyword(keyword, options)) {
+    hints.push("active SMS review campaign is collecting mentions for this service");
+  }
+
   return {
     suggestedKeyword: keyword,
     reason,
-    weaveHints: buildWeaveHints(audit, review, keyword),
+    weaveHints: hints,
     serviceTokens: extractServiceTokens(keyword),
     areaToken: extractAreaToken(audit.gbp.identity.address),
     skipReason: null,
+    activeCampaignKeyword: isActiveCampaignKeyword(keyword, options) ? keyword : null,
   };
+}
+
+/** Build keyword context when the user explicitly requests a weave attempt. */
+export function buildForcedKeywordContext(
+  audit: FullAuditPayload,
+  review: ReviewRecord,
+  keyword: string,
+  options?: ReviewResponseKeywordOptions
+): ReviewResponseKeywordContext {
+  if (review.rating <= 2) {
+    return emptyContext(audit, review, "negative_review");
+  }
+
+  const reason: ReviewKeywordWeaveReason = isActiveCampaignKeyword(keyword, options)
+    ? "active_campaign"
+    : "batch_rotation";
+
+  return buildContextForKeyword(audit, review, keyword, reason, options);
 }
 
 /** Pick the best optional keyword opportunity for a single review. */
 export function resolveReviewResponseKeywordContext(
   audit: FullAuditPayload,
-  review: ReviewRecord
+  review: ReviewRecord,
+  options?: ReviewResponseKeywordOptions
 ): ReviewResponseKeywordContext {
   if (review.rating <= 2) {
     return emptyContext(audit, review, "negative_review");
@@ -186,7 +231,7 @@ export function resolveReviewResponseKeywordContext(
     null;
 
   for (const keyword of keywords) {
-    const { score, reason } = scoreKeywordForReview(audit, review, keyword);
+    const { score, reason } = scoreKeywordForReview(audit, review, keyword, options);
     if (score < SCORE_THRESHOLD) continue;
 
     if (!best || score > best.score) {
@@ -198,7 +243,7 @@ export function resolveReviewResponseKeywordContext(
     return emptyContext(audit, review);
   }
 
-  return buildContextForKeyword(audit, review, best.keyword, best.reason);
+  return buildContextForKeyword(audit, review, best.keyword, best.reason, options);
 }
 
 function rotationKeywords(audit: FullAuditPayload): string[] {
@@ -218,7 +263,8 @@ function rotationKeywords(audit: FullAuditPayload): string[] {
  */
 export function assignReviewResponseKeywordContexts(
   audit: FullAuditPayload,
-  reviews: ReviewRecord[]
+  reviews: ReviewRecord[],
+  options?: ReviewResponseKeywordOptions
 ): Map<string, ReviewResponseKeywordContext> {
   const contexts = new Map<string, ReviewResponseKeywordContext>();
   const usedKeywords = new Set<string>();
@@ -226,7 +272,7 @@ export function assignReviewResponseKeywordContexts(
   const positiveReviews = reviews.filter((review) => review.rating >= 3);
 
   for (const review of positiveReviews) {
-    const context = resolveReviewResponseKeywordContext(audit, review);
+    const context = resolveReviewResponseKeywordContext(audit, review, options);
     if (context.suggestedKeyword) {
       contexts.set(review.id, context);
       const reviewText = review.text ?? "";
@@ -247,12 +293,12 @@ export function assignReviewResponseKeywordContexts(
       const keyword = rotation[(rotationIndex + attempt) % rotation.length];
       if (usedKeywords.has(keyword.toLowerCase())) continue;
 
-      const { score } = scoreKeywordForReview(audit, review, keyword);
+      const { score } = scoreKeywordForReview(audit, review, keyword, options);
       if (score < ROTATION_SCORE_THRESHOLD) continue;
 
       contexts.set(
         review.id,
-        buildContextForKeyword(audit, review, keyword, "batch_rotation")
+        buildContextForKeyword(audit, review, keyword, "batch_rotation", options)
       );
       usedKeywords.add(keyword.toLowerCase());
       rotationIndex = (rotationIndex + attempt + 1) % rotation.length;
@@ -316,6 +362,8 @@ export function weaveReasonLabel(context: ReviewResponseKeywordContext): string 
       return `Few reviews mention "${context.suggestedKeyword}" — weave in if natural.`;
     case "batch_rotation":
       return `Optional service mention: "${context.suggestedKeyword}".`;
+    case "active_campaign":
+      return `Active review campaign for "${context.suggestedKeyword}" — reinforce if natural.`;
     default:
       return null;
   }

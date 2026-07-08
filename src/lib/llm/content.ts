@@ -22,7 +22,8 @@ import {
   type GbpPhotoJob,
 } from "./gbp-photos";
 
-import type { ReviewResponseKeywordWeave, ReviewResponseDraft } from "@/lib/review-responses/types";
+import type { ReviewResponseDraft } from "@/lib/review-responses/types";
+import type { ReviewResponseGenerationOptions } from "@/lib/llm/review-responses";
 
 export interface AuditGeneratedContent {
   googlePosts: string[];
@@ -66,11 +67,12 @@ function templateContent(audit: FullAuditPayload): AuditGeneratedContent {
 }
 
 export async function generateAuditContent(
-  audit: FullAuditPayload
+  audit: FullAuditPayload,
+  options?: ReviewResponseGenerationOptions
 ): Promise<AuditGeneratedContent> {
   const fallback = templateContent(audit);
   const [reviewResponses, gbpPhotoJobs] = await Promise.all([
-    generateReviewResponsesLlm(audit),
+    generateReviewResponsesLlm(audit, options),
     generateGbpPhotoJobsLlm(audit),
   ]);
 

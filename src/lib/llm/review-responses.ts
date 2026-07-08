@@ -12,6 +12,7 @@ import {
 } from "@/lib/review-responses/keyword-quality";
 import { buildReviewResponseKeywordPayload } from "@/lib/review-responses/payload";
 import type { ReviewResponseKeywordWeave } from "@/lib/review-responses/types";
+import type { ReviewResponseKeywordOptions } from "@/lib/review-responses/keyword-context";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
 import { normalizeOptionalText } from "./normalize-content";
@@ -168,24 +169,52 @@ function toKeywordWeavePayload(
       : [],
     weaveSkipped: payload.weaveSkipped === true,
     weaveReason: typeof payload.weaveReason === "string" ? payload.weaveReason : null,
+    activeCampaignKeyword:
+      typeof payload.activeCampaignKeyword === "string" ? payload.activeCampaignKeyword : null,
+  };
+}
+
+export interface ReviewResponseGenerationOptions extends ReviewResponseKeywordOptions {}
+
+export async function generateReviewResponseDraft(
+  audit: FullAuditPayload,
+  review: ReviewRecord,
+  keywordContext: ReviewResponseKeywordContext
+): Promise<{ response: string; keywordWeave: ReviewResponseKeywordWeave }> {
+  if (!isLlmConfigured()) {
+    const fallback = templateReviewResponses(audit).find((row) => row.reviewId === review.id);
+    const response = fallback?.response ?? "";
+    return {
+      response,
+      keywordWeave: toKeywordWeavePayload(response, review, keywordContext, audit)!,
+    };
+  }
+
+  const response = await generateWithQualityGate(audit, review, keywordContext);
+  return {
+    response,
+    keywordWeave: toKeywordWeavePayload(response, review, keywordContext, audit)!,
   };
 }
 
 export async function generateReviewResponsesLlm(
-  audit: FullAuditPayload
+  audit: FullAuditPayload,
+  options?: ReviewResponseGenerationOptions
 ): Promise<GeneratedReviewResponse[]> {
   const pending = selectReviewsForLlm(audit.reviews.reviews);
 
   if (pending.length === 0) return [];
 
-  const keywordContexts = assignReviewResponseKeywordContexts(audit, pending);
+  const keywordContexts = assignReviewResponseKeywordContexts(audit, pending, options);
 
   if (!isLlmConfigured()) {
     return templateReviewResponses(audit).map((row) => {
       const review = audit.reviews.reviews.find((item) => item.id === row.reviewId);
       const context =
         keywordContexts.get(row.reviewId) ??
-        assignReviewResponseKeywordContexts(audit, review ? [review] : []).get(row.reviewId);
+        assignReviewResponseKeywordContexts(audit, review ? [review] : [], options).get(
+          row.reviewId
+        );
       if (!review || !context) {
         return row;
       }
@@ -200,15 +229,15 @@ export async function generateReviewResponsesLlm(
     pending.map(async (review) => {
       const keywordContext =
         keywordContexts.get(review.id) ??
-        assignReviewResponseKeywordContexts(audit, [review]).get(review.id)!;
+        assignReviewResponseKeywordContexts(audit, [review], options).get(review.id)!;
 
       try {
-        const response = await generateWithQualityGate(audit, review, keywordContext);
+        const draft = await generateReviewResponseDraft(audit, review, keywordContext);
         return {
           reviewId: review.id,
           rating: review.rating,
-          response,
-          keywordWeave: toKeywordWeavePayload(response, review, keywordContext, audit),
+          response: draft.response,
+          keywordWeave: draft.keywordWeave,
         };
       } catch (error) {
         console.error(`[llm] review response failed for ${review.id}:`, error);

@@ -12,6 +12,7 @@ import {
   publishPhotoTask,
   publishVideoFile,
   publishPhotoBatch,
+  regenerateReviewResponseTask,
 } from "@/lib/execution/client-actions";
 
 interface UsePlanTasksOptions {
@@ -198,6 +199,14 @@ export function usePlanTasks({
     return data.audit as FullAuditPayload;
   }, [auditId, clientId, refresh]);
 
+  const regenerateReviewResponse = useCallback(
+    (task: ExecutionTask, options?: { weaveKeyword?: boolean; keyword?: string }) =>
+      runWithLoading(task.id, () =>
+        regenerateReviewResponseTask(task.id, options).then(() => undefined)
+      ),
+    [runWithLoading]
+  );
+
   const approveAllRoutine = useCallback(async () => {
     setError(null);
     try {
@@ -230,6 +239,7 @@ export function usePlanTasks({
     ensurePhotoTasks,
     syncGoogleUpdates,
     approveAllRoutine,
+    regenerateReviewResponse,
   };
 }
 
