@@ -9,6 +9,7 @@ import PlanStepDiff from "./PlanStepDiff";
 import PlanStepPhotos from "./PlanStepPhotos";
 import PlanStepVideos from "./PlanStepVideos";
 import PlanStepTaskRow from "./PlanStepTaskRow";
+import ReviewRequestPanel from "@/components/review-requests/ReviewRequestPanel";
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
 
 const STATUS_STYLES = {
@@ -31,6 +32,9 @@ export default function PlanStepCard({
   defaultExpanded = false,
   variant = "light",
   currency = "USD",
+  businessName,
+  reviewUrl,
+  onReviewRequestSent,
 }: {
   step: PlanStep;
   totalSteps: number;
@@ -43,6 +47,9 @@ export default function PlanStepCard({
   defaultExpanded?: boolean;
   variant?: "light" | "dark";
   currency?: string;
+  businessName?: string;
+  reviewUrl?: string | null;
+  onReviewRequestSent?: () => void;
 }) {
   const isLight = variant === "light";
   const [expanded, setExpanded] = useState(
@@ -51,8 +58,15 @@ export default function PlanStepCard({
 
   const hasPhotoTasks = step.tasks.some((t) => t.type === "gbp_photo");
   const hasVideoTasks = step.tasks.some((t) => t.type === "gbp_video");
+  const reviewRequestTask = step.tasks.find(
+    (t) => t.type === "review_request" && t.status !== "completed"
+  );
   const nonPhotoTasks = step.tasks.filter(
-    (t) => t.type !== "gbp_photo" && t.type !== "gbp_video" && t.status !== "completed"
+    (t) =>
+      t.type !== "gbp_photo" &&
+      t.type !== "gbp_video" &&
+      t.type !== "review_request" &&
+      t.status !== "completed"
   );
   const statusStyle = STATUS_STYLES[step.status] ?? STATUS_STYLES.pending;
   const stepAttribution = step.tasks
@@ -183,6 +197,18 @@ export default function PlanStepCard({
               actions={actions}
               variant={variant}
             />
+          )}
+
+          {reviewRequestTask && businessName && (
+            <div className="mt-4">
+              <ReviewRequestPanel
+                businessName={businessName}
+                reviewUrl={reviewUrl}
+                executionTaskId={reviewRequestTask.id}
+                variant={variant}
+                onSent={() => onReviewRequestSent?.()}
+              />
+            </div>
           )}
 
           {nonPhotoTasks.length > 0 && (

@@ -17,6 +17,9 @@ export default function PlanPhaseSection({
   focusStep,
   variant = "light",
   currency = "USD",
+  businessName,
+  reviewUrl,
+  onReviewRequestSent,
 }: {
   phase: PlanPhase;
   steps: PlanStep[];
@@ -29,6 +32,9 @@ export default function PlanPhaseSection({
   focusStep?: number | null;
   currency?: string;
   variant?: "light" | "dark";
+  businessName?: string;
+  reviewUrl?: string | null;
+  onReviewRequestSent?: () => void;
 }) {
   const isLight = variant === "light";
   const visibleSteps = steps.filter((s) => s.status !== "completed");
@@ -68,6 +74,9 @@ export default function PlanPhaseSection({
             }
             variant={variant}
             currency={currency}
+            businessName={businessName}
+            reviewUrl={reviewUrl}
+            onReviewRequestSent={onReviewRequestSent}
           />
         ))}
       </div>

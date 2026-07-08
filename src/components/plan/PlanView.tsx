@@ -6,6 +6,7 @@ import type { ActionAttribution } from "@/audit/types/timeseries";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
+import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { usePlanTasks } from "@/hooks/usePlanTasks";
 import GoogleUpdatesPanel from "./GoogleUpdatesPanel";
 import PlanPhaseSection from "./PlanPhaseSection";
@@ -60,6 +61,7 @@ export default function PlanView({
     syncGoogleUpdates,
     approveAllRoutine,
     loadingTaskId,
+    refresh,
   } = usePlanTasks({
     clientId,
     auditId: audit.auditId,
@@ -138,6 +140,21 @@ export default function PlanView({
     () => buildPathToHealthy(audit, plan, { avgCustomerValue, currency }),
     [audit, plan, avgCustomerValue, currency]
   );
+
+  const reviewUrl = useMemo(
+    () =>
+      googleReviewUrlForBusiness({
+        placeId: audit.gbp.identity.placeId,
+        mapsUrl: audit.gbp.identity.mapsUrl,
+        name: audit.clientName,
+        address: audit.gbp.identity.address,
+      }),
+    [audit.clientName, audit.gbp.identity.address, audit.gbp.identity.mapsUrl, audit.gbp.identity.placeId]
+  );
+
+  const handleReviewRequestSent = useCallback(() => {
+    void refresh();
+  }, [refresh]);
 
   useEffect(() => {
     if (!gbpConnected || !plan) return;
@@ -218,6 +235,9 @@ export default function PlanView({
             focusStep={focusStep}
             variant={variant}
             currency={currency}
+            businessName={audit.clientName}
+            reviewUrl={reviewUrl}
+            onReviewRequestSent={handleReviewRequestSent}
           />
         );
       })}
