@@ -23,6 +23,7 @@ export default function ListingStrengthInsights({
   currency = "USD",
   globalCalibration = {},
   showKeywords = true,
+  showPerformanceTrends = true,
   onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
@@ -33,6 +34,7 @@ export default function ListingStrengthInsights({
   currency?: string;
   globalCalibration?: AttributionCalibration;
   showKeywords?: boolean;
+  showPerformanceTrends?: boolean;
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
 }) {
   const businessCalibration = useMemo(
@@ -88,6 +90,7 @@ export default function ListingStrengthInsights({
         avgCustomerValue={avgCustomerValue}
         currency={currency}
         variant="light"
+        showPerformanceTrends={showPerformanceTrends}
         fieldCalibration={fieldCalibration}
         onNavigateToPlan={onNavigateToPlan}
       />
