@@ -4,14 +4,18 @@ import { createTestAudit } from "../phase3/test-fixtures";
 import type { GapFlag } from "../types";
 import { buildTemplateGbpPlan } from "./gbp-plan";
 import {
+  applyOutcomeGapMutation,
+  cloneAudit,
   isStepSatisfied,
+  keywordNeedsOutcomeWork,
+  projectKeywordToRank1,
   projectOutcomeScoresFromActions,
   simulateActionMarginalImpact,
   simulateGapDriverImpact,
   simulateStepDriverImpact,
   projectHealthScoresFromStepNumbers,
 } from "./counterfactual";
-import { computeHealthScores } from "./scoring";
+import { computeHealthScores, detectPackFragility } from "./scoring";
 import { estimateStepHealthImpact } from "./score-impact";
 import { buildPathToHealthy } from "./path-to-healthy";
 import { detectGaps } from "./gaps";
@@ -273,5 +277,54 @@ describe("counterfactual score simulation", () => {
     assert.ok(marginal.outcomeGain > 0);
     assert.ok(marginal.revenueGain != null);
     assert.ok(marginal.revenueGain! > 0);
+  });
+
+  it("flags pack-fragile in-pack keywords as needing outcome work", () => {
+    const audit = createTestAudit();
+    const fragile = audit.rankings.keywords.find((k) => k.keyword === "plumber near me");
+    assert.ok(fragile);
+    assert.ok(fragile!.inLocalPack);
+    assert.ok(keywordNeedsOutcomeWork(fragile!));
+    assert.ok(detectPackFragility(fragile!).fragile);
+  });
+
+  it("projectKeywordToRank1 sets rank 1 at every search radius", () => {
+    const audit = createTestAudit();
+    const fragile = audit.rankings.keywords.find((k) => k.keyword === "plumber near me");
+    assert.ok(fragile);
+
+    const projected = projectKeywordToRank1(fragile!);
+    for (const g of projected.geoRanks) {
+      assert.equal(g.rank, 1);
+      assert.equal(g.inLocalPack, true);
+    }
+    assert.equal(projected.localPackPosition, 1);
+  });
+
+  it("projects pack-fragility gaps into wider-radius pack positions", () => {
+    const audit = createTestAudit();
+    const gaps = detectGaps(audit);
+    const fragileGap = gaps.find((g) => g.id === "pack-fragility-plumber near me");
+    assert.ok(fragileGap);
+    assert.match(fragileGap!.description, /1 mi:.*3 mi:/);
+
+    const mutated = cloneAudit(audit);
+    applyOutcomeGapMutation(mutated, fragileGap!);
+    const kw = mutated.rankings.keywords.find((k) => k.keyword === "plumber near me");
+    assert.ok(kw);
+    assert.equal(kw!.geoRanks.find((g) => g.distanceMiles === 3)?.rank, 3);
+    assert.equal(kw!.geoRanks.find((g) => g.distanceMiles === 5)?.rank, 3);
+    assert.equal(detectPackFragility(kw!).fragile, false);
+  });
+
+  it("prioritizes pack-fragile keywords in GBP plan posts", () => {
+    const audit = createTestAudit();
+    const plan = buildTemplateGbpPlan(audit);
+    const postsStep = plan.steps.find((s) => s.stepNumber === 8);
+    assert.ok(postsStep);
+    assert.ok(postsStep!.bullets?.some((b) => b.includes("plumber near me")));
+    const fragilePriority = plan.keywordPriority.find((k) => k.keyword === "plumber near me");
+    assert.ok(fragilePriority);
+    assert.match(fragilePriority!.reason, /fragile|service-area/i);
   });
 });

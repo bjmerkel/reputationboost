@@ -949,6 +949,9 @@ export interface KeywordRankAnalysis {
   clientReviews: number;
   reviewGap: number;
   gbpUpdates: string[];
+  /** In pack at 1 mi but drops off at wider search radii */
+  packFragile: boolean;
+  weakestRadiusMiles: number | null;
 }
 
 export interface GbpOptimizationPlan {

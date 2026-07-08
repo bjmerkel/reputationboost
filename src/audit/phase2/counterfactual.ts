@@ -17,6 +17,8 @@ import {
   resolveBlendWeights,
 } from "./path-optimization";
 import { computeKeywordScores } from "./keyword-scores";
+import { detectPackFragility, resolveKeywordPositionAtRadius } from "./scoring";
+import { SEARCH_RADII_MILES, type SearchRadiusMiles } from "@/lib/google/places";
 
 const PHOTO_TARGET = 60;
 const POST_FRESH_DAYS = 14;
@@ -753,6 +755,44 @@ function numericRankAtOneMile(kw: KeywordRankSnapshot): number {
   return 20;
 }
 
+function syncKeywordPackFields(kw: KeywordRankSnapshot): KeywordRankSnapshot {
+  const rank1mi =
+    kw.geoRanks.find((g) => g.distanceMiles === 1)?.rank ?? numericRankAtOneMile(kw);
+  const inLocalPack = rank1mi <= 3;
+  return {
+    ...kw,
+    inLocalPack,
+    localPackPosition: inLocalPack ? (rank1mi as 1 | 2 | 3) : ("not_in_pack" as const),
+  };
+}
+
+/** Keywords that need ranking-outcome work: outside 1mi pack or pack-fragile at wider radii. */
+export function keywordNeedsOutcomeWork(kw: KeywordRankSnapshot): boolean {
+  if (!kw.inLocalPack) return true;
+  return detectPackFragility(kw).fragile;
+}
+
+function improveKeywordRankAtRadius(
+  kw: KeywordRankSnapshot,
+  miles: SearchRadiusMiles,
+  rankDelta: number
+): KeywordRankSnapshot {
+  const improvedGeoRanks = kw.geoRanks.map((g) => {
+    if (g.distanceMiles !== miles) return g;
+    const current = g.rank ?? 20;
+    const improved = Math.max(1, current - rankDelta);
+    return { ...g, rank: improved, inLocalPack: improved <= 3 };
+  });
+
+  return syncKeywordPackFields({
+    ...kw,
+    geoRanks:
+      improvedGeoRanks.length > 0
+        ? improvedGeoRanks
+        : [{ distanceMiles: miles, rank: Math.max(1, numericRankAtOneMile(kw) - rankDelta), inLocalPack: true }],
+  });
+}
+
 function improveKeywordRank(kw: KeywordRankSnapshot, rankDelta: number): KeywordRankSnapshot {
   const improvedGeoRanks = kw.geoRanks.map((g) => {
     const current = g.rank ?? 20;
@@ -769,7 +809,7 @@ function improveKeywordRank(kw: KeywordRankSnapshot, rankDelta: number): Keyword
     ? (improved1mi as 1 | 2 | 3)
     : ("not_in_pack" as const);
 
-  return {
+  return syncKeywordPackFields({
     ...kw,
     inLocalPack,
     localPackPosition,
@@ -777,7 +817,46 @@ function improveKeywordRank(kw: KeywordRankSnapshot, rankDelta: number): Keyword
       improvedGeoRanks.length > 0
         ? improvedGeoRanks
         : [{ distanceMiles: 1, rank: improved1mi, inLocalPack }],
-  };
+  });
+}
+
+/** Simulate rank #1 at every search radius (full service-area dominance). */
+export function projectKeywordToRank1(kw: KeywordRankSnapshot): KeywordRankSnapshot {
+  let result = kw;
+  for (const miles of SEARCH_RADII_MILES) {
+    const rank = resolveKeywordPositionAtRadius(result, miles);
+    if (typeof rank === "number" && rank > 1) {
+      result = improveKeywordRankAtRadius(result, miles, rank - 1);
+    }
+  }
+  return syncKeywordPackFields({
+    ...result,
+    inLocalPack: true,
+    localPackPosition: 1,
+    geoRanks: result.geoRanks.map((g) => ({
+      ...g,
+      rank: 1,
+      inLocalPack: true,
+    })),
+  });
+}
+
+/** Bring failing radii into the pack starting at the weakest service-area point. */
+export function improveKeywordRankForFragility(kw: KeywordRankSnapshot): KeywordRankSnapshot {
+  const fragility = detectPackFragility(kw);
+  if (!fragility.fragile || fragility.weakestRadiusMiles == null) {
+    return improveKeywordRank(kw, DEFAULT_RANK_IMPROVEMENT);
+  }
+
+  let result = kw;
+  for (const miles of SEARCH_RADII_MILES) {
+    if (miles < fragility.weakestRadiusMiles) continue;
+    const rank = resolveKeywordPositionAtRadius(result, miles);
+    if (typeof rank === "number" && rank > 3) {
+      result = improveKeywordRankAtRadius(result, miles, rank - 3);
+    }
+  }
+  return syncKeywordPackFields(result);
 }
 
 function refreshRankingAggregates(audit: Phase1AuditPayload): void {
@@ -813,25 +892,32 @@ function rankDeltaForStep(
 
 function keywordsTargetedByStep(audit: Phase1AuditPayload, stepNumber: number): string[] {
   const keywords = audit.rankings.keywords;
+  const needsWork = keywords
+    .filter((k) => keywordNeedsOutcomeWork(k))
+    .map((k) => k.keyword);
   const outsidePack = keywords.filter((k) => !k.inLocalPack).map((k) => k.keyword);
 
   switch (stepNumber) {
     case 3:
     case 4:
     case 8:
-      return outsidePack.length > 0 ? outsidePack : keywords.map((k) => k.keyword);
+      return needsWork.length > 0 ? needsWork : keywords.map((k) => k.keyword);
     case 5:
       return outsidePack;
     case 10:
     case 11:
       return keywords
-        .filter((k) => !k.inLocalPack || k.localPackPosition === 3)
+        .filter(
+          (k) =>
+            keywordNeedsOutcomeWork(k) ||
+            (k.inLocalPack && typeof k.localPackPosition === "number" && k.localPackPosition === 3)
+        )
         .map((k) => k.keyword);
     case 6:
     case 7:
-      return outsidePack.slice(0, 2);
+      return needsWork.slice(0, 2);
     default:
-      return outsidePack.slice(0, 1);
+      return needsWork.slice(0, 1);
   }
 }
 
@@ -892,7 +978,7 @@ export function applyOutcomeGapMutation(
     const keyword = gap.id.replace("pack-fragility-", "");
     audit.rankings.keywords = audit.rankings.keywords.map((kw) => {
       if (kw.keyword.toLowerCase() !== keyword.toLowerCase()) return kw;
-      return improveKeywordRank(kw, 3);
+      return improveKeywordRankForFragility(kw);
     });
     refreshRankingAggregates(audit);
     return;

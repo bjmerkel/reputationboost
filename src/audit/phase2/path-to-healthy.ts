@@ -62,9 +62,10 @@ function gapToPoolCandidate(
 ): PoolCandidate {
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
   const floor = impressionWeightFloor(searchKeywords);
-  const keyword = gap.id.startsWith("rank-outside-pack-")
-    ? gap.id.replace("rank-outside-pack-", "")
-    : undefined;
+  const keyword =
+    gap.id.startsWith("rank-outside-pack-") || gap.id.startsWith("pack-fragility-")
+      ? gap.id.replace(/^rank-outside-pack-|^pack-fragility-/, "")
+      : undefined;
   const driver = gapDriverScoreImpact(gap, audit);
   const outcome = gapOutcomeScoreImpact(gap, audit);
   const revenue = gapRevenueImpact(gap, audit, options.avgCustomerValue);

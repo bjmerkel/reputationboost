@@ -1,4 +1,4 @@
-import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "../types";
+import type { GbpOptimizationPlan, GbpPlanStep, KeywordRankAnalysis, Phase1AuditPayload } from "../types";
 import { isStepSatisfied } from "./counterfactual";
 import { planStepsRequiredByInventory } from "@/lib/google/gbp-field-plan-map";
 import {
@@ -11,6 +11,11 @@ import {
 
 function keywords(audit: Phase1AuditPayload): string[] {
   return audit.rankings.keywords.map((k) => k.keyword);
+}
+
+/** Keywords outside the 3-Pack or pack-fragile at wider radii — highest plan priority. */
+function outcomePriorityRankings(keywordRankings: KeywordRankAnalysis[]): KeywordRankAnalysis[] {
+  return keywordRankings.filter((k) => !k.inLocalPack || k.packFragile);
 }
 
 export function selectGbpPlanSteps(
@@ -149,15 +154,14 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       stepNumber: 5,
       title: "Products Section",
       instruction:
-        "Most local businesses ignore Products. Create one product per core keyword to reinforce relevance for keywords outside the 3-Pack.",
+        "Most local businesses ignore Products. Create one product per core keyword to reinforce relevance for keywords outside the 3-Pack or fragile at wider search radii.",
       current: "Check Products tab in GBP — not synced via API",
-      recommended: `Create products for: ${targetKeywords.filter((k) => !keywordRankings.find((r) => r.keyword === k)?.inLocalPack).join(", ") || targetKeywords[0]}`,
-      copyBlocks: targetKeywords
-        .filter((kw) => !keywordRankings.find((r) => r.keyword === kw)?.inLocalPack)
+      recommended: `Create products for: ${outcomePriorityRankings(keywordRankings).map((k) => k.keyword).join(", ") || targetKeywords[0]}`,
+      copyBlocks: outcomePriorityRankings(keywordRankings)
         .slice(0, 5)
         .map((kw) => ({
-          label: `Product: ${kw}`,
-          content: `Create a product titled "${kw}" with a starting price, photo, and a 2-sentence description focused on ${city} customers.`,
+          label: `Product: ${kw.keyword}`,
+          content: `Create a product titled "${kw.keyword}" with a starting price, photo, and a 2-sentence description focused on ${city} customers.`,
         })),
     },
     {
@@ -169,10 +173,9 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       bullets: [
         "Exterior & storefront: 10 photos",
         "Interior / team / fleet shots: 20+ photos",
-        ...targetKeywords
-          .filter((kw) => !keywordRankings.find((r) => r.keyword === kw)?.inLocalPack)
+        ...outcomePriorityRankings(keywordRankings)
           .slice(0, 4)
-          .map((kw) => `Add photos for "${kw}" service`),
+          .map((k) => `Add photos for "${k.keyword}" service (${k.position})`),
         "Upload 5+ new photos every week",
       ],
       gbpAction: "upload_photo",
@@ -193,11 +196,10 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       stepNumber: 8,
       title: "Weekly Google Posts",
       instruction:
-        "Post every week. Rotate posts around keywords where you're outside the 3-Pack — include a photo, 150-300 words, and a call button.",
+        "Post every week. Rotate posts around keywords outside the 3-Pack or pack-fragile at wider radii — include a photo, 150-300 words, and a call button.",
       current: currentPosts(audit),
-      recommended: "1 post per week, prioritizing keywords not in the 3-Pack",
-      bullets: keywordRankings
-        .filter((k) => !k.inLocalPack)
+      recommended: "1 post per week, prioritizing outside-pack and service-area-fragile keywords",
+      bullets: outcomePriorityRankings(keywordRankings)
         .slice(0, 6)
         .map((k, i) => `Week ${i + 1}: Post targeting "${k.keyword}" (${k.position})`),
       gbpAction: "create_post",
@@ -301,8 +303,7 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       bullets: [
         "Weekly: 5 new photos, 2 videos, 1 Google Post, respond to all reviews",
         "Monthly: add 3-5 services, add new products, upload event photos, refresh descriptions",
-        ...keywordRankings
-          .filter((k) => !k.inLocalPack)
+        ...outcomePriorityRankings(keywordRankings)
           .slice(0, 3)
           .map((k) => `Priority keyword: "${k.keyword}" — ${k.position}`),
       ],
@@ -318,27 +319,46 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
   const steps = selectGbpPlanSteps(audit, allSteps);
 
   const outsidePack = keywordRankings.filter((k) => !k.inLocalPack).length;
+  const fragilePack = keywordRankings.filter((k) => k.packFragile).length;
+
+  const objectiveFocus =
+    outsidePack > 0 && fragilePack > 0
+      ? `the ${outsidePack} keyword(s) outside the 3-Pack and ${fragilePack} pack-fragile at wider radii`
+      : outsidePack > 0
+        ? `the ${outsidePack} keyword(s) outside the 3-Pack`
+        : fragilePack > 0
+          ? `${fragilePack} keyword(s) that drop out of the pack beyond 1 mi`
+          : "all target keywords";
 
   return {
     title: "Google Business Profile Optimization Report",
     businessName: audit.clientName,
     address: audit.gbp.identity.address,
-    objective: `${audit.clientName} is in the 3-Pack for ${audit.rankings.keywordsInPack} of ${audit.rankings.totalKeywords} keywords (${audit.rankings.shareOfVoice}% share of voice). This plan uses your live GBP profile data and current rankings to recommend specific profile updates that improve visibility for ${outsidePack > 0 ? `the ${outsidePack} keyword(s) outside the 3-Pack` : "all target keywords"}.`,
+    objective: `${audit.clientName} is in the 3-Pack for ${audit.rankings.keywordsInPack} of ${audit.rankings.totalKeywords} keywords (${audit.rankings.shareOfVoice}% share of voice). This plan uses your live GBP profile data and multi-radius rankings to recommend profile updates that improve visibility for ${objectiveFocus}.`,
     targetKeywords,
     currentState,
     keywordRankings,
     steps,
-    keywordPriority: keywordRankings.map((kr, i) => ({
+    keywordPriority: keywordRankings
+      .slice()
+      .sort((a, b) => {
+        const score = (k: KeywordRankAnalysis) =>
+          (!k.inLocalPack ? 2 : 0) + (k.packFragile ? 1 : 0);
+        return score(b) - score(a);
+      })
+      .map((kr, i) => ({
       rank: i + 1,
       keyword: kr.keyword,
-      reason: kr.inLocalPack
-        ? `In 3-Pack at ${kr.position} — defend and strengthen profile relevance.`
-        : `${kr.position} — ${kr.gbpUpdates[0] ?? "Optimize GBP for this keyword."}`,
+      reason: kr.packFragile
+        ? `${kr.position} — strengthen service-area visibility with posts and reviews.`
+        : kr.inLocalPack
+          ? `In 3-Pack at ${kr.position} — defend and strengthen profile relevance.`
+          : `${kr.position} — ${kr.gbpUpdates[0] ?? "Optimize GBP for this keyword."}`,
     })),
     weeklyCadence: [
       "5 new photos",
       "2 videos",
-      "1 Google Post (rotate keywords outside 3-Pack)",
+      "1 Google Post (rotate outside-pack and pack-fragile keywords)",
       "Respond to all new reviews",
     ],
     monthlyCadence: [

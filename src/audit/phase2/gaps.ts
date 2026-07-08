@@ -2,10 +2,12 @@ import type {
   ActionCategory,
   ActionPriority,
   GapFlag,
+  KeywordRankSnapshot,
   Phase1AuditPayload,
 } from "../types";
 import type { OutcomesContext } from "../outcomes/types";
-import { detectPackFragility } from "./scoring";
+import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { detectPackFragility, resolveKeywordPositionAtRadius } from "./scoring";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
 import { gapScoreComponent, gapScoreImpact } from "./score-impact";
 import { napDriftGapId } from "@/lib/google/nap-drift";
@@ -17,6 +19,14 @@ function daysSince(iso: string | null): number {
 
 function impactScore(impact: number, effort: number) {
   return impact * (11 - effort);
+}
+
+function formatRadiusRankSummary(kw: KeywordRankSnapshot): string {
+  return SEARCH_RADII_MILES.map((miles) => {
+    const rank = resolveKeywordPositionAtRadius(kw, miles);
+    const label = rank === "not_in_pack" ? "outside pack" : `#${rank}`;
+    return `${miles} mi: ${label}`;
+  }).join(" · ");
 }
 
 function gap(
@@ -116,7 +126,7 @@ export function detectGaps(
         "P1",
         "rankings",
         `Pack fragile on "${kw.keyword}"`,
-        `You rank in the Local 3-Pack within 1 mi but drop off by ${fragility.weakestRadiusMiles} mi. Customers searching farther out see competitors first — strengthen posts and reviews for this keyword.`,
+        `You rank in the Local 3-Pack within 1 mi but drop off by ${fragility.weakestRadiusMiles} mi (${formatRadiusRankSummary(kw)}). Customers searching farther out see competitors first — strengthen posts and reviews for this keyword.`,
         8,
         5
       )
