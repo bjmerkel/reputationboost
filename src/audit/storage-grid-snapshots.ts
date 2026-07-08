@@ -191,6 +191,43 @@ export async function loadGridForDateForUser(
   return loadGridForDateAdmin(businessId, keyword, date, center);
 }
 
+/** Latest geo-grid per keyword on or before a date — for daily score overlay. */
+export async function loadLatestKeywordGridsAdmin(
+  businessId: string,
+  keywords: string[],
+  onOrBeforeDate: string
+): Promise<Map<string, GeoGridPoint[]>> {
+  const result = new Map<string, GeoGridPoint[]>();
+  if (keywords.length === 0) return result;
+
+  const supabase = createAdminClient();
+
+  for (const keyword of keywords) {
+    const { data, error } = await supabase
+      .from("grid_snapshots")
+      .select("date, cells_total")
+      .eq("business_id", businessId)
+      .eq("keyword", keyword)
+      .lte("date", onOrBeforeDate)
+      .gt("cells_total", 1)
+      .order("date", { ascending: false })
+      .limit(1);
+
+    if (error || !data?.[0]?.date) continue;
+
+    const grid = await loadGridForDateAdmin(
+      businessId,
+      keyword,
+      data[0].date as string
+    );
+    if (grid.length > 0) {
+      result.set(keyword, grid);
+    }
+  }
+
+  return result;
+}
+
 export async function listCoverageTrendForUser(
   userId: string,
   businessSlug: string,

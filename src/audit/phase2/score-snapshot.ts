@@ -1,4 +1,4 @@
-import type { FullAuditPayload, Phase1AuditPayload } from "../types";
+import type { FullAuditPayload, GeoGridPoint, Phase1AuditPayload } from "../types";
 import type { RankSnapshotRow, ScoreDailySnapshot } from "../types/timeseries";
 import type { LearnedScoreModel } from "./score-learning";
 import { DEFAULT_LEARNED_SCORE_MODEL } from "./score-learning";
@@ -10,6 +10,38 @@ function shareOfVoice(keywords: Phase1AuditPayload["rankings"]["keywords"]): num
   return Math.round((inPack / keywords.length) * 100);
 }
 
+function packPositionFromSnapshot(
+  snap: RankSnapshotRow
+): Phase1AuditPayload["rankings"]["keywords"][number]["localPackPosition"] {
+  if (snap.inLocalPack && snap.localPackPosition != null) {
+    return snap.localPackPosition as 1 | 2 | 3;
+  }
+  if (snap.inLocalPack && snap.rank != null && snap.rank <= 3) {
+    return snap.rank as 1 | 2 | 3;
+  }
+  return "not_in_pack";
+}
+
+function groupCenterSnapshotsByKeyword(
+  snapshots: RankSnapshotRow[]
+): Map<string, RankSnapshotRow[]> {
+  const byKeyword = new Map<string, RankSnapshotRow[]>();
+
+  for (const snap of snapshots) {
+    if (!isCenterSnapshot(snap)) continue;
+    const key = snap.keyword.toLowerCase();
+    const list = byKeyword.get(key) ?? [];
+    list.push(snap);
+    byKeyword.set(key, list);
+  }
+
+  return byKeyword;
+}
+
+function isCenterSnapshot(snap: RankSnapshotRow): boolean {
+  return snap.gridNorth === 0 && snap.gridEast === 0;
+}
+
 /** Overlay daily rank snapshots onto a stored audit for live score computation. */
 export function applyRankSnapshotsToAudit(
   audit: FullAuditPayload,
@@ -17,28 +49,28 @@ export function applyRankSnapshotsToAudit(
 ): FullAuditPayload {
   if (snapshots.length === 0) return audit;
 
-  const byKeyword = new Map(snapshots.map((s) => [s.keyword.toLowerCase(), s]));
+  const byKeyword = groupCenterSnapshotsByKeyword(snapshots);
 
   const keywords = audit.rankings.keywords.map((kw) => {
-    const snap = byKeyword.get(kw.keyword.toLowerCase());
-    if (!snap) return kw;
+    const snaps = byKeyword.get(kw.keyword.toLowerCase());
+    if (!snaps?.length) return kw;
 
-    const packPos =
-      snap.inLocalPack && snap.localPackPosition != null
-        ? (snap.localPackPosition as 1 | 2 | 3)
-        : snap.inLocalPack && snap.rank != null && snap.rank <= 3
-          ? (snap.rank as 1 | 2 | 3)
-          : ("not_in_pack" as const);
+    const snapByRadius = new Map(snaps.map((s) => [s.distanceMiles, s]));
+    const snap1mi = snapByRadius.get(1);
 
     return {
       ...kw,
-      localPackPosition: packPos,
-      inLocalPack: snap.inLocalPack,
-      geoRanks: kw.geoRanks.map((g) =>
-        g.distanceMiles === 1
-          ? { ...g, rank: snap.rank, inLocalPack: snap.inLocalPack }
-          : g
-      ),
+      localPackPosition: snap1mi ? packPositionFromSnapshot(snap1mi) : kw.localPackPosition,
+      inLocalPack: snap1mi ? snap1mi.inLocalPack : kw.inLocalPack,
+      geoRanks: kw.geoRanks.map((g) => {
+        const snap = snapByRadius.get(g.distanceMiles);
+        if (!snap) return g;
+        return {
+          ...g,
+          rank: snap.rank,
+          inLocalPack: snap.inLocalPack,
+        };
+      }),
     };
   });
 
@@ -52,6 +84,29 @@ export function applyRankSnapshotsToAudit(
       keywordsInPack,
       totalKeywords: keywords.length,
       shareOfVoice: shareOfVoice(keywords),
+    },
+  };
+}
+
+/** Replace audit geo-grids with the latest weekly/task grid snapshots. */
+export function applyGridSnapshotsToAudit(
+  audit: FullAuditPayload,
+  gridsByKeyword: Map<string, GeoGridPoint[]>
+): FullAuditPayload {
+  if (gridsByKeyword.size === 0) return audit;
+
+  const keywords = audit.rankings.keywords.map((kw) => {
+    const grid =
+      gridsByKeyword.get(kw.keyword) ?? gridsByKeyword.get(kw.keyword.toLowerCase());
+    if (!grid?.length) return kw;
+    return { ...kw, geoGrid: grid };
+  });
+
+  return {
+    ...audit,
+    rankings: {
+      ...audit.rankings,
+      keywords,
     },
   };
 }

@@ -7,6 +7,7 @@ import {
 } from "@/audit/storage-timeseries";
 import { persistKeywordGridFromCollection } from "@/audit/storage-grid-snapshots";
 import type { IngestRunResult } from "@/audit/types/timeseries";
+import { ingestScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
 import { gridProfileForCollection } from "@/lib/feature-flags";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { collectKeywordGeoGrid } from "@/lib/google/geo-grid";
@@ -85,6 +86,17 @@ async function ingestGridForBusiness(
         message: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  try {
+    const saved = await ingestScoreDailyForBusiness(row.id, targetDate);
+    if (saved) result.scoreRowsUpserted += 1;
+  } catch (error) {
+    result.errors.push({
+      businessId: row.id,
+      step: "score_daily",
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 
   result.businessesProcessed += 1;

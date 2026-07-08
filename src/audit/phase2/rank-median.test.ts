@@ -81,19 +81,48 @@ describe("medianRankSnapshotForKeyword", () => {
 });
 
 describe("smoothRankSnapshotsForDate", () => {
-  it("returns one smoothed row per keyword", () => {
+  it("returns one smoothed row per keyword at 1 mi", () => {
     const snapshots: RankSnapshotRow[] = [
       snap({ keyword: "plumber", date: "2026-07-07", rank: 5 }),
       snap({ keyword: "drain cleaning", date: "2026-07-07", rank: 11 }),
     ];
 
-    const rows = smoothRankSnapshotsForDate(snapshots, "2026-07-07", [
-      "plumber",
-      "drain cleaning",
-    ]);
+    const rows = smoothRankSnapshotsForDate(
+      snapshots,
+      "2026-07-07",
+      ["plumber", "drain cleaning"],
+      DEFAULT_RANK_MEDIAN_WINDOW_DAYS,
+      { multiRadius: false }
+    );
 
     assert.equal(rows.length, 2);
     assert.equal(rows[0].keyword, "plumber");
     assert.equal(rows[1].keyword, "drain cleaning");
+  });
+
+  it("smooths each search radius when multiRadius is enabled", () => {
+    const snapshots: RankSnapshotRow[] = [
+      snap({ keyword: "plumber", date: "2026-07-05", rank: 2, distanceMiles: 1 }),
+      snap({ keyword: "plumber", date: "2026-07-06", rank: 3, distanceMiles: 1 }),
+      snap({ keyword: "plumber", date: "2026-07-07", rank: 2, distanceMiles: 1 }),
+      snap({ keyword: "plumber", date: "2026-07-05", rank: 8, distanceMiles: 5 }),
+      snap({ keyword: "plumber", date: "2026-07-06", rank: 9, distanceMiles: 5 }),
+      snap({ keyword: "plumber", date: "2026-07-07", rank: 7, distanceMiles: 5 }),
+    ];
+
+    const rows = smoothRankSnapshotsForDate(
+      snapshots,
+      "2026-07-07",
+      ["plumber"],
+      3,
+      { multiRadius: true }
+    );
+
+    assert.equal(rows.length, 2);
+    const oneMi = rows.find((r) => r.distanceMiles === 1);
+    const fiveMi = rows.find((r) => r.distanceMiles === 5);
+    assert.equal(oneMi?.rank, 2);
+    assert.equal(fiveMi?.rank, 8);
+    assert.equal(fiveMi?.inLocalPack, false);
   });
 });

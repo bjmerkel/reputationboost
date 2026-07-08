@@ -114,6 +114,42 @@ describe("applyRankSnapshotsToAudit", () => {
     assert.equal(kw?.localPackPosition, 3);
     assert.ok(updated.rankings.keywordsInPack >= 2);
   });
+
+  it("updates all geoRanks radii from multi-radius daily snapshots", () => {
+    const audit = createTestAudit();
+    const updated = applyRankSnapshotsToAudit(audit, [
+      {
+        businessId: "biz",
+        keyword: "plumber near me",
+        date: "2026-07-02",
+        distanceMiles: 1,
+        gridNorth: 0,
+        gridEast: 0,
+        rank: 2,
+        inLocalPack: true,
+        localPackPosition: 2,
+        source: "api",
+      },
+      {
+        businessId: "biz",
+        keyword: "plumber near me",
+        date: "2026-07-02",
+        distanceMiles: 5,
+        gridNorth: 0,
+        gridEast: 0,
+        rank: 9,
+        inLocalPack: false,
+        localPackPosition: null,
+        source: "api",
+      },
+    ]);
+
+    const kw = updated.rankings.keywords.find((k) => k.keyword === "plumber near me");
+    assert.ok(kw);
+    assert.equal(kw?.geoRanks.find((g) => g.distanceMiles === 1)?.rank, 2);
+    assert.equal(kw?.geoRanks.find((g) => g.distanceMiles === 5)?.rank, 9);
+    assert.equal(kw?.geoRanks.find((g) => g.distanceMiles === 5)?.inLocalPack, false);
+  });
 });
 
 describe("mergeCalibrations", () => {

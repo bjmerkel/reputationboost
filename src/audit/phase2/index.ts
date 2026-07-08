@@ -10,7 +10,8 @@ export {
 } from "./radius-profiles";
 export type { RadiusProfileKey, RadiusWeights } from "./radius-profiles";
 export { extractKeywordRelevanceHeuristic, resolveKeywordRelevance, relevanceByKeyword } from "./relevance-heuristic";
-export { DEFAULT_RANK_MEDIAN_WINDOW_DAYS, medianOf, medianRankSnapshotForKeyword, smoothRankSnapshotsForDate } from "./rank-median";
+export { DEFAULT_RANK_MEDIAN_WINDOW_DAYS, medianOf, medianRankSnapshotForKeyword, smoothRankSnapshotsForDate, isCenterSnapshot } from "./rank-median";
+export type { SmoothRankSnapshotOptions } from "./rank-median";
 export { compareRanksAtOneMile, summarizeRankValidation, compareSearchModesAtOneMile, validateKeywordRanks } from "./rank-validation";
 export { DEFAULT_BACKTEST_HORIZON_DAYS, buildBacktestSamples, evaluateBacktestMetrics } from "./score-backtest";
 export {
@@ -52,7 +53,7 @@ export {
   rankDeltaForGap,
   resolveCalibrationConfidence,
 } from "./attribution-calibration";
-export { applyRankSnapshotsToAudit, computeScoreDailySnapshot } from "./score-snapshot";
+export { applyRankSnapshotsToAudit, applyGridSnapshotsToAudit, computeScoreDailySnapshot } from "./score-snapshot";
 export { buildScoreChangelogFromSnapshots, buildScoreChangelogFromHealthScores, buildRankMovementsFromSnapshots } from "./score-changelog";
 export { ingestScoreDailyForBusiness } from "./score-ingest";
 export { detectGaps } from "./gaps";

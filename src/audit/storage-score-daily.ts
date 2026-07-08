@@ -3,6 +3,15 @@ import type { RankSnapshotRow, ScoreDailySnapshot } from "@/audit/types/timeseri
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
+import { HEATMAP_FLAGS } from "@/lib/feature-flags";
+import { SEARCH_RADII_MILES } from "@/lib/google/places";
+
+export interface RankSnapshotQueryOptions {
+  /** Business pin only (grid 0,0) — excludes spatial geo-grid cells */
+  centerPointOnly?: boolean;
+  /** When true, include 1/3/5/10 mi center ranks. When false, 1 mi only. */
+  multiRadius?: boolean;
+}
 
 function rowToSnapshot(row: Record<string, unknown>): ScoreDailySnapshot {
   return {
@@ -67,29 +76,42 @@ export async function listScoreDailyForUser(
 
 export async function listRankSnapshotsForBusinessDate(
   businessId: string,
-  date: string
+  date: string,
+  options?: RankSnapshotQueryOptions
 ): Promise<RankSnapshotRow[]> {
-  return listRankSnapshotsForBusinessRange(businessId, date, date);
+  return listRankSnapshotsForBusinessRange(businessId, date, date, options);
 }
 
 export async function listRankSnapshotsForBusinessRange(
   businessId: string,
   startDate: string,
-  endDate: string
+  endDate: string,
+  options: RankSnapshotQueryOptions = {}
 ): Promise<RankSnapshotRow[]> {
+  const centerPointOnly = options.centerPointOnly ?? true;
+  const multiRadius = options.multiRadius ?? HEATMAP_FLAGS.dailyMultiRadius;
+
   const supabase = createAdminClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("rank_snapshots")
     .select(
       "business_id, keyword, date, distance_miles, grid_north, grid_east, rank, in_local_pack, local_pack_position, source"
     )
     .eq("business_id", businessId)
     .gte("date", startDate)
-    .lte("date", endDate)
-    .eq("distance_miles", 1)
-    .eq("grid_north", 0)
-    .eq("grid_east", 0)
-    .order("date", { ascending: true });
+    .lte("date", endDate);
+
+  if (centerPointOnly) {
+    query = query.eq("grid_north", 0).eq("grid_east", 0);
+  }
+
+  if (!multiRadius) {
+    query = query.eq("distance_miles", 1);
+  } else if (centerPointOnly) {
+    query = query.in("distance_miles", [...SEARCH_RADII_MILES]);
+  }
+
+  const { data, error } = await query.order("date", { ascending: true });
 
   if (error || !data) return [];
 

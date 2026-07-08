@@ -1,4 +1,6 @@
 import type { RankSnapshotRow } from "../types/timeseries";
+import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 
 export const DEFAULT_RANK_MEDIAN_WINDOW_DAYS = 7;
 
@@ -12,8 +14,9 @@ export function medianOf(values: number[]): number | null {
     : sorted[mid];
 }
 
-function isCenterSnapshot(row: RankSnapshotRow): boolean {
-  return row.distanceMiles === 1 && row.gridNorth === 0 && row.gridEast === 0;
+/** Business-pin snapshots (excludes geo-grid spatial cells). */
+export function isCenterSnapshot(row: RankSnapshotRow): boolean {
+  return row.gridNorth === 0 && row.gridEast === 0;
 }
 
 function windowStartDate(endDate: string, windowDays: number): string {
@@ -22,12 +25,13 @@ function windowStartDate(endDate: string, windowDays: number): string {
   return end.toISOString().slice(0, 10);
 }
 
-/** Rolling median rank for one keyword at a target date (center-point snapshots only). */
+/** Rolling median rank for one keyword at a target date and search radius. */
 export function medianRankSnapshotForKeyword(
   snapshots: RankSnapshotRow[],
   keyword: string,
   targetDate: string,
-  windowDays = DEFAULT_RANK_MEDIAN_WINDOW_DAYS
+  windowDays = DEFAULT_RANK_MEDIAN_WINDOW_DAYS,
+  distanceMiles = 1
 ): RankSnapshotRow | null {
   const startDate = windowStartDate(targetDate, windowDays);
   const lower = keyword.toLowerCase();
@@ -37,7 +41,8 @@ export function medianRankSnapshotForKeyword(
       s.keyword.toLowerCase() === lower &&
       s.date >= startDate &&
       s.date <= targetDate &&
-      isCenterSnapshot(s)
+      isCenterSnapshot(s) &&
+      s.distanceMiles === distanceMiles
   );
 
   if (windowSnaps.length === 0) return null;
@@ -53,7 +58,7 @@ export function medianRankSnapshotForKeyword(
     businessId: windowSnaps[0].businessId,
     keyword: windowSnaps[0].keyword,
     date: targetDate,
-    distanceMiles: 1,
+    distanceMiles,
     gridNorth: 0,
     gridEast: 0,
     rank: medianRank,
@@ -63,16 +68,35 @@ export function medianRankSnapshotForKeyword(
   };
 }
 
+export interface SmoothRankSnapshotOptions {
+  /** When true, smooth center-point ranks at 1/3/5/10 mi */
+  multiRadius?: boolean;
+}
+
 /** Smooth daily center-point rank snapshots with a rolling median per keyword. */
 export function smoothRankSnapshotsForDate(
   snapshots: RankSnapshotRow[],
   targetDate: string,
   keywords: string[],
-  windowDays = DEFAULT_RANK_MEDIAN_WINDOW_DAYS
+  windowDays = DEFAULT_RANK_MEDIAN_WINDOW_DAYS,
+  options: SmoothRankSnapshotOptions = {}
 ): RankSnapshotRow[] {
-  return keywords
-    .map((keyword) =>
-      medianRankSnapshotForKeyword(snapshots, keyword, targetDate, windowDays)
-    )
-    .filter((row): row is RankSnapshotRow => row != null);
+  const multiRadius = options.multiRadius ?? HEATMAP_FLAGS.dailyMultiRadius;
+  const radii = multiRadius ? [...SEARCH_RADII_MILES] : [1];
+  const rows: RankSnapshotRow[] = [];
+
+  for (const keyword of keywords) {
+    for (const distanceMiles of radii) {
+      const smoothed = medianRankSnapshotForKeyword(
+        snapshots,
+        keyword,
+        targetDate,
+        windowDays,
+        distanceMiles
+      );
+      if (smoothed) rows.push(smoothed);
+    }
+  }
+
+  return rows;
 }
