@@ -315,6 +315,80 @@ export function defaultUsHolidayDescriptions(
   }));
 }
 
+export interface EditableHolidayPeriod {
+  name: string;
+  enabled: boolean;
+  closed: boolean;
+  openTime: string;
+  closeTime: string;
+  year: number;
+  month: number;
+  day: number;
+}
+
+export function defaultEditableHolidayPeriods(year = new Date().getFullYear()): EditableHolidayPeriod[] {
+  return defaultUsHolidayDescriptions(year).map((holiday) => ({
+    name: holiday.name,
+    enabled: true,
+    closed: isSpecialHourClosed(holiday.period),
+    openTime: normalizeTime(holiday.period.openTime) || "09:00",
+    closeTime: normalizeTime(holiday.period.closeTime) || "17:00",
+    year: holiday.period.startDate?.year ?? year,
+    month: holiday.period.startDate?.month ?? 1,
+    day: holiday.period.startDate?.day ?? 1,
+  }));
+}
+
+function isEditableHolidayRecord(value: unknown): value is EditableHolidayPeriod {
+  if (!value || typeof value !== "object") return false;
+  const record = value as EditableHolidayPeriod;
+  return (
+    typeof record.name === "string" &&
+    typeof record.enabled === "boolean" &&
+    typeof record.closed === "boolean" &&
+    typeof record.openTime === "string" &&
+    typeof record.closeTime === "string" &&
+    typeof record.year === "number" &&
+    typeof record.month === "number" &&
+    typeof record.day === "number"
+  );
+}
+
+export function parseEditableHolidayPeriods(
+  raw: unknown,
+  year = new Date().getFullYear()
+): EditableHolidayPeriod[] {
+  if (!Array.isArray(raw) || !raw.every(isEditableHolidayRecord)) {
+    return defaultEditableHolidayPeriods(year);
+  }
+  return raw;
+}
+
+export function specialHoursFromEditablePeriods(periods: EditableHolidayPeriod[]): SpecialHours {
+  return {
+    specialHourPeriods: periods
+      .filter((period) => period.enabled)
+      .map((period) => {
+        const mapped: SpecialHourPeriod = {
+          startDate: { year: period.year, month: period.month, day: period.day },
+          endDate: { year: period.year, month: period.month, day: period.day },
+          closed: period.closed,
+        };
+        if (!period.closed) {
+          mapped.openTime = parseTimeString(period.openTime);
+          mapped.closeTime = parseTimeString(period.closeTime);
+        }
+        return mapped;
+      }),
+  };
+}
+
+export function formatEditableHolidaySchedule(period: EditableHolidayPeriod): string {
+  if (!period.enabled) return "Skipped";
+  if (period.closed) return "Closed";
+  return `${period.openTime} – ${period.closeTime}`;
+}
+
 export function mergeSpecialHours(
   existing: SpecialHours | null | undefined,
   additions: SpecialHours

@@ -4,6 +4,11 @@ import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
 import type { NapDriftFieldName } from "@/lib/google/nap-drift";
 import type { GbpMediaCategory, GbpMediaFormat } from "@/lib/google/gbp-media";
 import { dataUrlToBytes } from "@/lib/google/gbp-media";
+import type { BusinessHours } from "@/lib/google/gbp-hours";
+import {
+  parseEditableHolidayPeriods,
+  specialHoursFromEditablePeriods,
+} from "@/lib/google/gbp-hours";
 import { syncRecommendedGbpNotifications } from "@/lib/google/gbp-notifications";
 import { createGbpPlaceActionLink, type GbpPlaceActionType } from "@/lib/google/gbp-place-actions";
 import { generateGbpPhotoImage } from "@/lib/llm/gbp-photos";
@@ -286,10 +291,22 @@ async function executeTaskLive(
     }
     case "gbp_hours": {
       const hoursAction = String(task.payload.hoursAction ?? "update_holiday_hours");
-      const result =
-        hoursAction === "update_regular_hours"
-          ? await applyGbpAction(connection, "update_regular_hours", {})
-          : await applyGbpAction(connection, "update_holiday_hours", {});
+      if (hoursAction === "update_regular_hours") {
+        const regularHours =
+          task.payload.regularHours && typeof task.payload.regularHours === "object"
+            ? (task.payload.regularHours as BusinessHours)
+            : undefined;
+        const result = await applyGbpAction(connection, "update_regular_hours", { regularHours });
+        return { ...task, status: "completed", completedAt: now, result: result.message };
+      }
+
+      const year =
+        typeof task.payload.holidayYear === "number"
+          ? task.payload.holidayYear
+          : new Date().getFullYear();
+      const holidayEdits = parseEditableHolidayPeriods(task.payload.holidayEdits, year);
+      const specialHours = specialHoursFromEditablePeriods(holidayEdits);
+      const result = await applyGbpAction(connection, "update_holiday_hours", { specialHours });
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
     case "gbp_accept_suggestion": {

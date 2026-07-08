@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  defaultEditableHolidayPeriods,
   defaultUsHolidayDescriptions,
   defaultUsHolidayHours,
   formatSpecialHoursSummary,
   hasAdequateHolidayCoverage,
   normalizeSpecialHoursForApi,
+  parseEditableHolidayPeriods,
+  specialHoursFromEditablePeriods,
   thanksgivingDay,
 } from "./gbp-hours";
 
@@ -75,6 +78,35 @@ describe("gbp-hours", () => {
     assert.deepEqual(christmasEve?.openTime, { hours: 11, minutes: 0 });
     assert.deepEqual(christmasEve?.closeTime, { hours: 15, minutes: 0 });
     assert.equal(christmasEve?.closed, false);
+  });
+
+  it("builds API special hours from editable holiday periods", () => {
+    const periods = defaultEditableHolidayPeriods(2026).map((period) =>
+      period.name === "Christmas Eve"
+        ? { ...period, closed: false, openTime: "10:00", closeTime: "14:00" }
+        : period.name === "New Year's Eve"
+          ? { ...period, enabled: false }
+          : period
+    );
+
+    const specialHours = specialHoursFromEditablePeriods(periods);
+    const christmasEve = specialHours.specialHourPeriods?.find(
+      (period) => period.startDate?.month === 12 && period.startDate?.day === 24
+    );
+    const newYearsEve = specialHours.specialHourPeriods?.find(
+      (period) => period.startDate?.month === 12 && period.startDate?.day === 31
+    );
+
+    assert.deepEqual(christmasEve?.openTime, { hours: 10, minutes: 0 });
+    assert.deepEqual(christmasEve?.closeTime, { hours: 14, minutes: 0 });
+    assert.equal(newYearsEve, undefined);
+    assert.equal(specialHours.specialHourPeriods?.length, 9);
+  });
+
+  it("falls back to defaults when holiday edits are invalid", () => {
+    const parsed = parseEditableHolidayPeriods([{ name: "Bad row" }], 2026);
+    assert.equal(parsed.length, 10);
+    assert.equal(parsed[0]?.name, "New Year's Day");
   });
 
   it("accepts legacy isClosed values when reading older payloads", () => {

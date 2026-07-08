@@ -1,7 +1,7 @@
 import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
 import { buildAttributeCoverage, recommendBookingAttributes } from "./gbp-attribute-recommendations";
-import type { BusinessHours } from "./gbp-hours";
+import type { BusinessHours, SpecialHours } from "./gbp-hours";
 import {
   defaultUsHolidayHours,
   defaultWeekdayHours,
@@ -598,7 +598,8 @@ export async function applyRegularHours(
 }
 
 export async function applyHolidayHours(
-  connection: GbpConnection
+  connection: GbpConnection,
+  additions?: SpecialHours
 ): Promise<GbpApplyResult> {
   const current = await getGbpLocationProfile(connection);
 
@@ -607,8 +608,9 @@ export async function applyHolidayHours(
   }
 
   const refreshed = await getGbpLocationProfile(connection);
+  const template = additions ?? defaultUsHolidayHours();
   const holidays = normalizeSpecialHoursForApi(
-    mergeSpecialHours(refreshed.specialHours, defaultUsHolidayHours())
+    mergeSpecialHours(refreshed.specialHours, template)
   );
 
   await patchGbpLocationValidated(connection, "specialHours", { specialHours: holidays });
@@ -1091,6 +1093,7 @@ export async function applyGbpAction(
     suggestionField?: string;
     preferredValue?: string;
     regularHours?: BusinessHours;
+    specialHours?: SpecialHours;
     napField?: NapDriftFieldName;
     napCanonical?: NapCanonical;
     bookingUri?: string;
@@ -1133,7 +1136,7 @@ export async function applyGbpAction(
     case "update_regular_hours":
       return applyRegularHours(connection, payload.regularHours);
     case "update_holiday_hours":
-      return applyHolidayHours(connection);
+      return applyHolidayHours(connection, payload.specialHours);
     case "accept_google_suggestion":
       if (!payload.suggestionField) throw new Error("suggestionField is required");
       return applyGoogleSuggestion(connection, payload.suggestionField);

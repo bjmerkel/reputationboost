@@ -75,8 +75,11 @@ export default function BatchReviewSession({
 
   const actions = useMemo(
     () => ({
-      approveAndPublish: async (task: ExecutionTask) => {
-        await approveAndPublish(task);
+      approveAndPublish: async (
+        task: ExecutionTask,
+        options?: { draftContent?: string; retry?: boolean; payload?: Record<string, unknown> }
+      ) => {
+        await approveAndPublish(task, options);
         advance();
       },
       rejectTask: async (taskId: string) => {

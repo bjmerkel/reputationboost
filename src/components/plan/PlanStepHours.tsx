@@ -1,22 +1,98 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import type { ExecutionTask } from "@/audit/types";
 import {
-  defaultUsHolidayDescriptions,
+  defaultEditableHolidayPeriods,
   defaultWeekdayHours,
+  formatEditableHolidaySchedule,
   formatRegularHoursSummary,
+  parseEditableHolidayPeriods,
+  type EditableHolidayPeriod,
 } from "@/lib/google/gbp-hours";
+import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 
-type HoursTaskActions = {
-  loadingTaskId: string | null;
-  approveAndPublish: (task: ExecutionTask) => Promise<unknown>;
-  rejectTask: (taskId: string) => Promise<unknown>;
-};
+type HoursTaskActions = Pick<PlanTaskActions, "approveAndPublish" | "rejectTask" | "loadingTaskId">;
 
 function hoursAction(task: ExecutionTask): "update_regular_hours" | "update_holiday_hours" {
   return task.payload.hoursAction === "update_regular_hours"
     ? "update_regular_hours"
     : "update_holiday_hours";
+}
+
+function HolidayEditorRow({
+  period,
+  editable,
+  isLight,
+  onChange,
+}: {
+  period: EditableHolidayPeriod;
+  editable: boolean;
+  isLight: boolean;
+  onChange: (patch: Partial<EditableHolidayPeriod>) => void;
+}) {
+  const labelClass = isLight ? "text-[#202124]" : "text-white";
+  const mutedClass = isLight ? "text-[#5f6368]" : "text-slate-400";
+  const inputClass = isLight
+    ? "rounded border border-[#dadce0] bg-white px-2 py-1 text-xs text-[#3c4043]"
+    : "rounded border border-white/10 bg-black/20 px-2 py-1 text-xs text-slate-200";
+
+  if (!editable) {
+    return (
+      <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1">
+        <span className={labelClass}>{period.name}</span>
+        <span className={`text-right text-xs ${mutedClass}`}>
+          {formatEditableHolidaySchedule(period)}
+        </span>
+      </li>
+    );
+  }
+
+  return (
+    <li
+      className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-md px-1 py-1 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] ${
+        period.enabled ? "" : "opacity-60"
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={period.enabled}
+        onChange={(event) => onChange({ enabled: event.target.checked })}
+        aria-label={`Include ${period.name}`}
+        className="h-4 w-4 shrink-0 rounded border-[#dadce0]"
+      />
+      <span className={`min-w-0 text-sm ${labelClass}`}>{period.name}</span>
+      <label className={`flex items-center gap-1.5 text-xs ${mutedClass}`}>
+        <input
+          type="checkbox"
+          checked={period.closed}
+          disabled={!period.enabled}
+          onChange={(event) => onChange({ closed: event.target.checked })}
+        />
+        Closed
+      </label>
+      {!period.closed && (
+        <>
+          <input
+            type="time"
+            value={period.openTime}
+            disabled={!period.enabled}
+            onChange={(event) => onChange({ openTime: event.target.value })}
+            className={inputClass}
+            aria-label={`${period.name} open time`}
+          />
+          <input
+            type="time"
+            value={period.closeTime}
+            disabled={!period.enabled}
+            onChange={(event) => onChange({ closeTime: event.target.value })}
+            className={inputClass}
+            aria-label={`${period.name} close time`}
+          />
+        </>
+      )}
+    </li>
+  );
 }
 
 export default function PlanStepHours({
@@ -37,11 +113,42 @@ export default function PlanStepHours({
     typeof task.payload.holidayYear === "number"
       ? task.payload.holidayYear
       : new Date().getFullYear();
-  const holidays = defaultUsHolidayDescriptions(year);
   const regularHours = defaultWeekdayHours();
+
+  const initialHolidayEdits = useMemo(
+    () => parseEditableHolidayPeriods(task.payload.holidayEdits, year),
+    [task.payload.holidayEdits, year]
+  );
+  const [holidayEdits, setHolidayEdits] = useState<EditableHolidayPeriod[]>(initialHolidayEdits);
+
+  useEffect(() => {
+    setHolidayEdits(parseEditableHolidayPeriods(task.payload.holidayEdits, year));
+  }, [task.id, task.payload.holidayEdits, year]);
 
   const canPublish =
     gbpConnected && (task.status === "pending_approval" || task.status === "approved");
+  const holidayEditable = action === "update_holiday_hours" && canPublish;
+  const enabledHolidayCount = holidayEdits.filter((period) => period.enabled).length;
+
+  function updateHoliday(index: number, patch: Partial<EditableHolidayPeriod>) {
+    setHolidayEdits((current) =>
+      current.map((period, itemIndex) => (itemIndex === index ? { ...period, ...patch } : period))
+    );
+  }
+
+  async function handlePublish() {
+    if (action === "update_holiday_hours") {
+      await actions.approveAndPublish(task, {
+        payload: {
+          ...task.payload,
+          holidayEdits,
+        },
+      });
+      return;
+    }
+
+    await actions.approveAndPublish(task);
+  }
 
   return (
     <div
@@ -76,9 +183,11 @@ export default function PlanStepHours({
       <p className={`mt-3 text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
         {action === "update_regular_hours"
           ? "Approve to publish the regular weekly schedule below. Adjust in Google Business Profile later if your hours differ."
-          : task.payload.refresh === true
-            ? "Approve to merge major US holiday hours into your profile. Existing special hours for the same dates are preserved."
-            : "Approve to add major US holiday hours for the year. Existing special hours for the same dates are preserved."}
+          : holidayEditable
+            ? "Review each holiday below. Uncheck any you want to skip, toggle closed days, or set open hours before publishing. Existing special hours for the same dates are preserved."
+            : task.payload.refresh === true
+              ? "Major US holiday hours were merged into your profile. Existing special hours for the same dates were preserved."
+              : "Major US holiday hours were added for the year. Existing special hours for the same dates were preserved."}
       </p>
 
       {action === "update_regular_hours" ? (
@@ -91,19 +200,28 @@ export default function PlanStepHours({
         </div>
       ) : (
         <ul
-          className={`mt-4 space-y-2 rounded-lg border px-3 py-3 text-sm ${
-            isLight ? "border-[#dadce0] bg-white text-[#3c4043]" : "border-white/10 bg-black/20 text-slate-200"
+          className={`mt-4 space-y-1 rounded-lg border px-3 py-3 ${
+            isLight ? "border-[#dadce0] bg-white" : "border-white/10 bg-black/20"
           }`}
         >
-          {holidays.map((holiday) => (
-            <li key={holiday.name} className="flex items-start justify-between gap-3">
-              <span className={isLight ? "text-[#202124]" : "text-white"}>{holiday.name}</span>
-              <span className={`shrink-0 ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-                {holiday.schedule}
-              </span>
-            </li>
-          ))}
+          {(holidayEditable ? holidayEdits : defaultEditableHolidayPeriods(year)).map(
+            (period, index) => (
+              <HolidayEditorRow
+                key={`${period.name}-${period.month}-${period.day}`}
+                period={period}
+                editable={holidayEditable}
+                isLight={isLight}
+                onChange={(patch) => updateHoliday(index, patch)}
+              />
+            )
+          )}
         </ul>
+      )}
+
+      {action === "update_holiday_hours" && holidayEditable && (
+        <p className={`mt-2 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+          {enabledHolidayCount} of {holidayEdits.length} holidays selected
+        </p>
       )}
 
       {task.result && (
@@ -116,8 +234,8 @@ export default function PlanStepHours({
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={loading}
-            onClick={() => void actions.approveAndPublish(task)}
+            disabled={loading || (action === "update_holiday_hours" && enabledHolidayCount === 0)}
+            onClick={() => void handlePublish()}
             className="btn-primary rounded-full px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
           >
             {loading ? "Publishing…" : "Approve & publish"}
