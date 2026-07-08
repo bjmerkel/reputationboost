@@ -33,7 +33,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the site.
 Live users sign in and connect their own Google Business Profile:
 
 1. **Sign up / sign in** at `/login`
-2. **Add business** at `/platform/onboard` — name, address, industry, keywords
+2. **Add business** at `/platform/onboard` — search Google Maps (including service-area businesses without a storefront), confirm details, industry, keywords
 3. **Connect Google** — OAuth with `business.manage` scope
 4. **Select location** — if the account has multiple GBP locations
 5. **Run audit** at `/platform/audit` — live GBP data, rankings, AI strategy, execution queue
@@ -67,7 +67,7 @@ NEXT_PUBLIC_SITE_URL=https://your-domain.vercel.app
 | Variable | Used for | APIs to enable |
 |----------|----------|----------------|
 | `GOOGLE_MAPS_API_KEY` | Server: rankings, geocoding | Places API, Geocoding API |
-| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Client: onboarding autocomplete | **Maps JavaScript API**, Places API |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Client: onboarding autocomplete | **Maps JavaScript API**, **Places API (New)** |
 
 `ApiNotActivatedMapError` means **Maps JavaScript API** is not enabled — enable it in [Google Cloud Console → APIs & Services → Library](https://console.cloud.google.com/apis/library), then redeploy.
 
