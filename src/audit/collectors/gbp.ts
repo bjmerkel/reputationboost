@@ -354,6 +354,7 @@ async function collectGbpFromApi(
       },
       monthlyActions:
         performance.calls + performance.directionRequests + performance.websiteClicks,
+      attributeCoverage,
     }),
     liveProfile: {
       primaryCategory,
