@@ -95,7 +95,7 @@ export default function PlaceCard({
           planPendingCount={planPendingCount}
         />
 
-        <div className={`maps-panel-light ${minimalChrome ? "px-3 py-4" : "px-4 py-5"}`}>
+        <div className={`maps-panel-light min-w-0 ${minimalChrome ? "px-3 py-4" : "px-4 py-5"}`}>
           {children}
         </div>
       </div>

@@ -26,7 +26,7 @@ export default function HomeReviewInbox({
 
   if (reviews.reviews.length === 0) {
     return (
-      <section className="rounded-xl border border-[#dadce0] bg-white p-4 shadow-sm">
+      <section className="min-w-0 overflow-hidden rounded-xl border border-[#dadce0] bg-white p-4 shadow-sm">
         <InboxHeader />
         <p className="mt-3 text-sm text-[#5f6368]">
           No reviews collected yet. Re-run audit after connecting GBP.
@@ -36,10 +36,10 @@ export default function HomeReviewInbox({
   }
 
   return (
-    <section className="rounded-xl border border-[#dadce0] bg-white p-4 shadow-sm">
+    <section className="min-w-0 overflow-hidden rounded-xl border border-[#dadce0] bg-white p-4 shadow-sm">
       <InboxHeader />
 
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat
           label="Unresponded"
           value={String(reviews.unrespondedNegative)}
@@ -47,11 +47,7 @@ export default function HomeReviewInbox({
         />
         <Stat
           label="Avg response"
-          value={
-            reviews.avgResponseTimeHours != null
-              ? `${reviews.avgResponseTimeHours}h`
-              : "—"
-          }
+          value={formatResponseTime(reviews.avgResponseTimeHours)}
         />
         <Stat label="Pending replies" value={String(reviews.pendingReplies)} />
         <Stat label="Total reviews" value={String(reviews.reviews.length)} />
@@ -63,7 +59,7 @@ export default function HomeReviewInbox({
             <button
               type="button"
               onClick={onReviewPending}
-              className="w-full rounded-lg border border-[#fdd663] bg-[#fef7e0] px-4 py-3 text-left text-sm text-[#3c4043] hover:bg-[#fef0c7]"
+              className="w-full rounded-lg border border-[#fdd663] bg-[#fef7e0] px-4 py-3 text-left text-sm leading-relaxed text-[#3c4043] hover:bg-[#fef0c7]"
             >
               <span className="font-medium">{pendingReplyCount} review repl{pendingReplyCount === 1 ? "y" : "ies"}</span>{" "}
               waiting for approval — review now →
@@ -74,7 +70,7 @@ export default function HomeReviewInbox({
             <button
               type="button"
               onClick={onNavigateToPlan}
-              className="w-full rounded-lg border border-[#fdd663] bg-[#fef7e0] px-4 py-3 text-left text-sm text-[#3c4043] hover:bg-[#fef0c7]"
+              className="w-full rounded-lg border border-[#fdd663] bg-[#fef7e0] px-4 py-3 text-left text-sm leading-relaxed text-[#3c4043] hover:bg-[#fef0c7]"
             >
               <span className="font-medium">{reviews.unrespondedNegative} negative review{reviews.unrespondedNegative === 1 ? "" : "s"}</span>{" "}
               need replies — open Plan →
@@ -85,7 +81,7 @@ export default function HomeReviewInbox({
             <button
               type="button"
               onClick={onNavigateToPlan}
-              className="w-full rounded-lg border border-[#fce8e6] bg-[#fef7f6] px-4 py-2.5 text-left text-sm text-[#c5221f] hover:bg-[#fce8e6]"
+              className="w-full rounded-lg border border-[#fce8e6] bg-[#fef7f6] px-4 py-2.5 text-left text-sm leading-relaxed text-[#c5221f] hover:bg-[#fce8e6]"
             >
               {reviews.rejectedReplies} repl{reviews.rejectedReplies === 1 ? "y was" : "ies were"} rejected by Google — fix in Plan →
             </button>
@@ -142,15 +138,22 @@ export default function HomeReviewInbox({
 
 function InboxHeader() {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-xs font-semibold uppercase tracking-wider text-[#80868b]">
         Review inbox
       </p>
-      <p className="mt-1 text-sm text-[#5f6368]">
+      <p className="mt-1 break-words text-sm leading-relaxed text-[#5f6368]">
         Urgent reviews and reply queue — approve drafts from Home or Plan.
       </p>
     </div>
   );
+}
+
+function formatResponseTime(hours: number | null): string {
+  if (hours == null || !Number.isFinite(hours)) return "—";
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))}m`;
+  if (hours < 48) return `${Math.round(hours)}h`;
+  return `${Math.round(hours / 24)}d`;
 }
 
 function selectUrgentReviews(reviews: ReviewRecord[], limit: number): ReviewRecord[] {
@@ -170,12 +173,13 @@ function Stat({
   warn?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-[#dadce0] bg-[#f8f9fa] px-3 py-2">
-      <p className="text-[10px] uppercase tracking-wide text-[#80868b]">{label}</p>
+    <div className="min-w-0 rounded-lg border border-[#dadce0] bg-[#f8f9fa] px-3 py-2">
+      <p className="truncate text-[10px] uppercase tracking-wide text-[#80868b]">{label}</p>
       <p
-        className={`text-lg font-semibold ${
-          warn && value !== "0" ? "text-[#d93025]" : "text-[#202124]"
+        className={`truncate text-lg font-semibold tabular-nums ${
+          warn && value !== "0" && value !== "—" ? "text-[#d93025]" : "text-[#202124]"
         }`}
+        title={value}
       >
         {value}
       </p>
