@@ -60,12 +60,20 @@ export async function checkTaskEditStatus(taskId: string): Promise<ExecutionTask
 
 export async function publishPhotoTask(
   taskId: string,
-  previewDataUrl?: string
+  previewDataUrl?: string,
+  category = "ADDITIONAL"
 ): Promise<ExecutionTask> {
+  if (previewDataUrl?.startsWith("data:")) {
+    const blob = await (await fetch(previewDataUrl)).blob();
+    const ext = blob.type.includes("png") ? "png" : "jpg";
+    const file = new File([blob], `photo.${ext}`, { type: blob.type || "image/png" });
+    return publishPhotoFile(taskId, file, category);
+  }
+
   const res = await fetch(`/api/execution/${taskId}/publish-photo`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ previewDataUrl }),
+    body: JSON.stringify({}),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Photo upload failed");

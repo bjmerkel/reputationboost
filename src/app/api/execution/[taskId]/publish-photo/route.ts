@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { getPrimaryBusiness } from "@/audit/businesses";
-import { executeTask } from "@/audit/phase3/executor";
 import { getExecutionTask, updateExecutionTask } from "@/audit/storage-execution";
 import { computeAttributionAfterTaskCompletion } from "@/audit/attribution";
 import {
   dataUrlToBytes,
-  uploadGbpMediaFile,
+  uploadGbpMediaPreview,
   type GbpMediaCategory,
 } from "@/lib/google/gbp-media";
 import { getValidGbpConnection } from "@/lib/google/token-store";
@@ -14,6 +13,22 @@ import { getUser } from "@/lib/supabase/server";
 function previewFromTask(task: Awaited<ReturnType<typeof getExecutionTask>>): string | undefined {
   const preview = task?.payload.previewDataUrl;
   return typeof preview === "string" && preview.startsWith("data:") ? preview : undefined;
+}
+
+async function persistPreviewOnTask(
+  userId: string,
+  taskId: string,
+  task: NonNullable<Awaited<ReturnType<typeof getExecutionTask>>>,
+  previewDataUrl: string
+) {
+  if (previewDataUrl === task.payload.previewDataUrl) return task;
+  const merged = await updateExecutionTask(userId, taskId, {
+    payload: { ...task.payload, previewDataUrl },
+  });
+  if (!merged) {
+    throw new Error("Failed to save photo preview before publishing to Google.");
+  }
+  return merged;
 }
 
 /** One-click: save preview (optional), approve, and upload photo to Google. */
@@ -64,10 +79,14 @@ export async function POST(
         form.get("category") ?? task.payload.category ?? "ADDITIONAL"
       ) as GbpMediaCategory);
       const bytes = await file.arrayBuffer();
+      const imageType = file.type || "image/jpeg";
+      const previewDataUrl = `data:${imageType};base64,${Buffer.from(bytes).toString("base64")}`;
+      task = await persistPreviewOnTask(user.id, taskId, task, previewDataUrl);
 
-      const item = await uploadGbpMediaFile(
+      const item = await uploadGbpMediaPreview(
         connection,
-        { bytes, contentType: file.type || "image/jpeg" },
+        taskId,
+        { bytes, contentType: imageType },
         {
           mediaFormat: "PHOTO",
           category,
@@ -101,12 +120,14 @@ export async function POST(
     }
 
     const previewDataUrl = body.previewDataUrl ?? previewFromTask(task);
-    if (previewDataUrl && previewDataUrl !== task.payload.previewDataUrl) {
-      const merged = await updateExecutionTask(user.id, taskId, {
-        payload: { ...task.payload, previewDataUrl },
-      });
-      if (merged) task = merged;
+    if (!previewDataUrl) {
+      return NextResponse.json(
+        { error: "Generate or upload a photo preview before publishing." },
+        { status: 400 }
+      );
     }
+
+    task = await persistPreviewOnTask(user.id, taskId, task, previewDataUrl);
 
     if (task.status === "pending_approval" || task.status === "rejected") {
       const approved = await updateExecutionTask(user.id, taskId, {
@@ -118,57 +139,35 @@ export async function POST(
 
     const category = (task.payload.category as GbpMediaCategory) ?? "ADDITIONAL";
     const description = (task.payload.hint as string) || task.title;
+    const { bytes, contentType: imageType } = dataUrlToBytes(previewDataUrl);
 
-    if (previewDataUrl) {
-      const { bytes, contentType: imageType } = dataUrlToBytes(previewDataUrl);
-      const item = await uploadGbpMediaFile(
-        connection,
-        { bytes, contentType: imageType },
-        {
-          mediaFormat: "PHOTO",
-          category,
-          description,
-        }
-      );
+    const item = await uploadGbpMediaPreview(
+      connection,
+      taskId,
+      { bytes, contentType: imageType },
+      {
+        mediaFormat: "PHOTO",
+        category,
+        description,
+      }
+    );
 
-      const now = new Date().toISOString();
-      const saved = await updateExecutionTask(user.id, taskId, {
-        status: "completed",
-        completedAt: now,
-        result: `Photo uploaded to Google (${category}).`,
-        payload: {
-          ...task.payload,
-          previewDataUrl: undefined,
-          uploadedMediaName: item.name,
-          uploadedGoogleUrl: item.googleUrl,
-        },
-      });
-
-      void computeAttributionAfterTaskCompletion(user.id, taskId);
-
-      return NextResponse.json({ task: saved, message: saved?.result });
-    }
-
-    const executed = await executeTask(task, connection);
+    const now = new Date().toISOString();
     const saved = await updateExecutionTask(user.id, taskId, {
-      status: executed.status,
-      completedAt: executed.completedAt,
-      result: executed.result,
+      status: "completed",
+      completedAt: now,
+      result: `Photo uploaded to Google (${category}).`,
       payload: {
         ...task.payload,
         previewDataUrl: undefined,
+        uploadedMediaName: item.name,
+        uploadedGoogleUrl: item.googleUrl,
       },
     });
 
-    if (saved?.status === "completed") {
-      void computeAttributionAfterTaskCompletion(user.id, taskId);
-      return NextResponse.json({ task: saved, message: saved?.result });
-    }
+    void computeAttributionAfterTaskCompletion(user.id, taskId);
 
-    return NextResponse.json(
-      { error: saved?.result ?? "Photo upload failed", task: saved },
-      { status: 500 }
-    );
+    return NextResponse.json({ task: saved, message: saved?.result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Photo upload failed";
     return NextResponse.json({ error: message }, { status: 500 });

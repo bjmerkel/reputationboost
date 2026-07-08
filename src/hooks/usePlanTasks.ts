@@ -114,7 +114,8 @@ export function usePlanTasks({
       runWithLoading(task.id, () =>
         publishPhotoTask(
           task.id,
-          previewDataUrl ?? (typeof task.payload.previewDataUrl === "string" ? task.payload.previewDataUrl : undefined)
+          previewDataUrl ?? (typeof task.payload.previewDataUrl === "string" ? task.payload.previewDataUrl : undefined),
+          String(task.payload.category ?? "ADDITIONAL")
         ).then(() => undefined)
       ),
     [runWithLoading]

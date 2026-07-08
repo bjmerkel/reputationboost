@@ -1,6 +1,10 @@
 import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
 import {
+  buildMediaHostUrl,
+  createMediaHostToken,
+} from "./gbp-media-host";
+import {
   validateMediaImageDimensions,
   validateMediaUploadBytes,
   validateMediaVideoUpload,
@@ -134,14 +138,8 @@ export function dataUrlToBytes(dataUrl: string): { bytes: ArrayBuffer; contentTy
 }
 
 function mediaUploadUrl(resourceName: string): string {
-  const encoded = resourceName
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-  const url = new URL(`${GBP_UPLOAD}/media/${encoded}`);
-  url.searchParams.set("uploadType", "media");
-  url.searchParams.set("upload_type", "media");
-  return url.toString();
+  const trimmed = resourceName.trim().replace(/^\//, "");
+  return `${GBP_UPLOAD}/media/${trimmed}?upload_type=media`;
 }
 
 export function buildGbpMediaUploadUrl(resourceName: string): string {
@@ -297,6 +295,16 @@ export async function fetchGbpMediaSummary(
   return summarizeGbpMedia(listed.items, listed.totalMediaItemCount);
 }
 
+function formatMediaApiError(
+  data: { error?: { message?: string; details?: Array<{ errorDetails?: Array<{ message?: string; code?: number }> }> } },
+  fallback: string
+): string {
+  const nested = data.error?.details?.flatMap((detail) => detail.errorDetails ?? []) ?? [];
+  const nestedMessage = nested.find((item) => item.message?.trim())?.message;
+  if (nestedMessage) return nestedMessage;
+  return data.error?.message ?? fallback;
+}
+
 /** accounts.locations.media.create via public sourceUrl */
 export async function createGbpMediaFromUrl(
   connection: GbpConnection,
@@ -331,9 +339,9 @@ export async function createGbpMediaFromUrl(
     body: JSON.stringify(body),
   });
 
-  const data = (await res.json()) as MediaApiItem & { error?: { message?: string } };
+  const data = (await res.json()) as MediaApiItem & { error?: { message?: string; details?: Array<{ errorDetails?: Array<{ message?: string }> }> } };
   if (!res.ok) {
-    throw new Error(data.error?.message ?? `Media upload failed (${res.status})`);
+    throw new Error(formatMediaApiError(data, `Media upload failed (${res.status})`));
   }
 
   return mapMediaItem({
@@ -352,10 +360,7 @@ export async function startGbpMediaUpload(
 
   const res = await fetch(url, {
     method: "POST",
-    headers: {
-      ...authHeadersForConnection(connection),
-      "Content-Length": "0",
-    },
+    headers: authHeadersForConnection(connection),
   });
 
   const data = (await res.json()) as {
@@ -384,7 +389,6 @@ export async function uploadGbpMediaBytes(
     headers: {
       ...authHeadersForConnection(connection),
       "Content-Type": contentType || "application/octet-stream",
-      "Content-Length": String(bytes.byteLength),
     },
     body: bytes,
   });
@@ -394,7 +398,6 @@ export async function uploadGbpMediaBytes(
     throw new Error(data.error?.message ?? `Media byte upload failed (${res.status})`);
   }
 
-  // Google returns { resourceName } on success; step 3 still uses the startUpload ref.
   await res.text().catch(() => "");
 }
 
@@ -427,13 +430,13 @@ export async function createGbpMediaFromUpload(
     body: JSON.stringify(body),
   });
 
-  const data = (await res.json()) as MediaApiItem & { error?: { message?: string } };
+  const data = (await res.json()) as MediaApiItem & { error?: { message?: string; details?: Array<{ errorDetails?: Array<{ message?: string }> }> } };
   if (!res.ok) {
-    throw new Error(data.error?.message ?? `Media create failed (${res.status})`);
+    throw new Error(formatMediaApiError(data, `Media create failed (${res.status})`));
   }
 
-  if (!data.name) {
-    throw new Error("Google accepted the upload but did not return a media item name.");
+  if (!data.name && !data.googleUrl) {
+    throw new Error("Google accepted the upload but did not return a media item.");
   }
 
   return mapMediaItem({
@@ -477,6 +480,53 @@ export async function uploadGbpMediaFile(
     resourceName,
     ...options,
   });
+}
+
+/**
+ * Upload a generated preview to GBP.
+ * Prefers sourceUrl (Google fetches a short-lived public URL) because byte upload
+ * is unreliable on the legacy v4 media API, then falls back to bytes.
+ */
+export async function uploadGbpMediaPreview(
+  connection: GbpConnection,
+  taskId: string,
+  file: { bytes: ArrayBuffer; contentType: string },
+  options: {
+    mediaFormat: GbpMediaFormat;
+    category: GbpMediaCategory;
+    description?: string;
+  }
+): Promise<GbpMediaItem> {
+  if (options.mediaFormat === "PHOTO") {
+    const sizeCheck = validateMediaUploadBytes(file.bytes);
+    if (!sizeCheck.valid) {
+      throw new Error(sizeCheck.reason ?? "Media file is too small.");
+    }
+
+    const dimensionCheck = await validateMediaImageDimensions(file.bytes, file.contentType);
+    if (!dimensionCheck.valid) {
+      throw new Error(dimensionCheck.reason ?? "Media dimensions are too small.");
+    }
+
+    const token = createMediaHostToken(taskId);
+    const sourceUrl = buildMediaHostUrl(taskId, token);
+
+    try {
+      return await createGbpMediaFromUrl(connection, {
+        sourceUrl,
+        mediaFormat: options.mediaFormat,
+        category: options.category,
+        description: options.description,
+      });
+    } catch (urlError) {
+      const message = urlError instanceof Error ? urlError.message : String(urlError);
+      const shouldFallback =
+        /fetching image failed|cannot access|failed to fetch|404|403/i.test(message);
+      if (!shouldFallback) throw urlError;
+    }
+  }
+
+  return uploadGbpMediaFile(connection, file, options);
 }
 
 /** accounts.locations.media.delete */

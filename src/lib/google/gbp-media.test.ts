@@ -31,14 +31,15 @@ describe("buildGbpMediaUploadUrl", () => {
     const url = buildGbpMediaUploadUrl("media/AGj0abc123");
     assert.equal(
       url,
-      "https://mybusiness.googleapis.com/upload/v1/media/media/AGj0abc123?uploadType=media&upload_type=media"
+      "https://mybusiness.googleapis.com/upload/v1/media/media/AGj0abc123?upload_type=media"
     );
   });
 
-  it("encodes special characters in resource names", () => {
-    const url = buildGbpMediaUploadUrl("media/name with spaces");
-    assert.match(url, /\/media\/name%20with%20spaces\?/);
-    assert.match(url, /uploadType=media/);
-    assert.match(url, /upload_type=media/);
+  it("trims leading slashes from resource names", () => {
+    const url = buildGbpMediaUploadUrl("/media/AGj0abc123");
+    assert.equal(
+      url,
+      "https://mybusiness.googleapis.com/upload/v1/media/media/AGj0abc123?upload_type=media"
+    );
   });
 });

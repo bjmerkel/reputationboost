@@ -212,3 +212,16 @@ export async function getExecutionTask(
   if (error || !data) return null;
   return rowToTask(data);
 }
+
+export async function getExecutionTaskAdmin(taskId: string): Promise<ExecutionTask | null> {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("execution_tasks")
+    .select("*")
+    .eq("id", taskId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return rowToTask(data);
+}
