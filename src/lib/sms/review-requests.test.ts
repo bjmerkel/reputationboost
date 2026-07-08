@@ -98,10 +98,12 @@ describe("previewReviewRequestSms", () => {
         "Hi [FIRST_NAME], it was a pleasure having your child in our [SERVICE]! [REVIEW_LINK]",
       businessName: "Northshore Learning Center",
       reviewUrl: "https://example.com/review",
-      serviceFallback: "after school programs",
+      focusKeyword: "enrichment programs las vegas",
+      location: { city: "Las Vegas", state: "NV" },
     });
     assert.match(preview, /Northshore Learning Center/);
-    assert.match(preview, /after school programs/);
+    assert.match(preview, /enrichment programs/);
+    assert.doesNotMatch(preview, /enrichment programs las vegas/i);
     assert.doesNotMatch(preview, /\[BUSINESS\]/);
   });
 });

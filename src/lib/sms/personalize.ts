@@ -1,4 +1,8 @@
 import type { CustomerRecord } from "@/lib/customers/types";
+import {
+  resolveServiceForSms,
+  type ServicePhraseLocation,
+} from "@/lib/review-requests/service-phrase";
 import { substituteReviewLink } from "./review-link";
 
 export interface PersonalizeSmsOptions {
@@ -6,6 +10,8 @@ export interface PersonalizeSmsOptions {
   customer: Pick<CustomerRecord, "first_name" | "last_name" | "service_notes">;
   businessName: string;
   reviewUrl: string;
+  focusKeyword?: string | null;
+  location?: ServicePhraseLocation;
 }
 
 export function customerDisplayName(
@@ -24,9 +30,13 @@ export function customerFirstName(
 }
 
 export function personalizeReviewRequestSms(options: PersonalizeSmsOptions): string {
-  const { template, customer, businessName, reviewUrl } = options;
+  const { template, customer, businessName, reviewUrl, focusKeyword, location } = options;
   const firstName = customerFirstName(customer);
-  const service = customer.service_notes?.trim() || "your recent visit";
+  const service = resolveServiceForSms({
+    serviceNotes: customer.service_notes,
+    focusKeyword,
+    location,
+  });
 
   return substituteReviewLink(ensureBusinessInTemplate(template, businessName), reviewUrl, {
     FIRST_NAME: firstName,
@@ -60,8 +70,11 @@ export function previewReviewRequestSms(options: {
   reviewUrl: string;
   customer?: Pick<CustomerRecord, "first_name" | "last_name" | "service_notes"> | null;
   serviceFallback?: string | null;
+  focusKeyword?: string | null;
+  location?: ServicePhraseLocation;
 }): string {
-  const { template, businessName, reviewUrl, customer, serviceFallback } = options;
+  const { template, businessName, reviewUrl, customer, serviceFallback, focusKeyword, location } =
+    options;
   const resolvedTemplate = ensureBusinessInTemplate(template, businessName);
 
   if (customer) {
@@ -70,13 +83,20 @@ export function previewReviewRequestSms(options: {
       customer,
       businessName,
       reviewUrl,
+      focusKeyword,
+      location,
     });
   }
+
+  const service = resolveServiceForSms({
+    focusKeyword: focusKeyword ?? serviceFallback,
+    location,
+  });
 
   return substituteReviewLink(resolvedTemplate, reviewUrl, {
     FIRST_NAME: "[FIRST_NAME]",
     NAME: "[NAME]",
     BUSINESS: businessName,
-    SERVICE: serviceFallback?.trim() || "[SERVICE]",
+    SERVICE: service,
   });
 }

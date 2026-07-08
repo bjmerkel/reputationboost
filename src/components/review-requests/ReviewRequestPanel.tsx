@@ -193,7 +193,7 @@ export default function ReviewRequestPanel({
           Personalized per customer with{" "}
           <code className="text-xs">[FIRST_NAME]</code>,{" "}
           <code className="text-xs">[BUSINESS]</code>,{" "}
-          <code className="text-xs">[SERVICE]</code> (set on each customer), and{" "}
+          <code className="text-xs">[SERVICE]</code> (short program name on each customer — not the full SEO keyword), and{" "}
           <code className="text-xs">[REVIEW_LINK]</code>.
           {focusKeyword ? (
             <>
