@@ -1,5 +1,7 @@
 "use client";
 
+import type { FullAuditPayload } from "@/audit/types";
+import type { DailyMetricPoint, ScoreDailySnapshot } from "@/audit/types/timeseries";
 import EngagementTrendChart from "@/components/attribution/EngagementTrendChart";
 import ScoreTrendChart from "@/components/attribution/ScoreTrendChart";
 
@@ -7,10 +9,18 @@ export default function ProfilePerformanceTrends({
   clientId,
   days = 14,
   variant = "light",
+  audit,
+  performancePoints,
+  scoreSeries,
+  loading = false,
 }: {
   clientId: string;
   days?: number;
   variant?: "light" | "dark";
+  audit?: FullAuditPayload | null;
+  performancePoints?: DailyMetricPoint[];
+  scoreSeries?: ScoreDailySnapshot[];
+  loading?: boolean;
 }) {
   const isLight = variant === "light";
 
@@ -34,13 +44,26 @@ export default function ProfilePerformanceTrends({
           <p className={`mb-2 text-xs font-medium ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
             Customer actions
           </p>
-          <EngagementTrendChart clientId={clientId} days={days} />
+          <EngagementTrendChart
+            clientId={clientId}
+            days={days}
+            points={performancePoints}
+            loading={loading}
+            audit={audit}
+          />
         </div>
         <div>
           <p className={`mb-2 text-xs font-medium ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
             Reputation Boost Score
           </p>
-          <ScoreTrendChart clientId={clientId} days={days} compact />
+          <ScoreTrendChart
+            clientId={clientId}
+            days={days}
+            compact
+            series={scoreSeries}
+            loading={loading}
+            audit={audit}
+          />
         </div>
       </div>
     </div>

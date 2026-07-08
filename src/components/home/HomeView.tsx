@@ -1,11 +1,10 @@
 "use client";
 
 import type { ExecutionTask, FullAuditPayload, ScoreChangelogEntry } from "@/audit/types";
-import type { ActionAttribution, AttributionSummary } from "@/audit/types/timeseries";
+import type { ActionAttribution, AttributionSummary, DailyMetricPoint, ScoreDailySnapshot } from "@/audit/types/timeseries";
 import { estimateTotalMonthlyRevenue } from "@/audit/phase2/counterfactual";
 import ActionAttributionFeed from "@/components/attribution/ActionAttributionFeed";
 import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
-import ProfilePerformanceTrends from "@/components/audit/ProfilePerformanceTrends";
 import ListingStrengthInsights from "@/components/audit/ListingStrengthInsights";
 import HomeApprovalCTA from "@/components/home/HomeApprovalCTA";
 import HomeHealthSummary from "@/components/home/HomeHealthSummary";
@@ -25,6 +24,9 @@ export default function HomeView({
   liveScoreDate,
   scoreChangelog = [],
   globalCalibration = {},
+  performancePoints = [],
+  scoreSeries = [],
+  trendsLoading = false,
   onReviewPending,
   onNavigateToPlan,
   clientId,
@@ -40,6 +42,9 @@ export default function HomeView({
   liveScoreDate?: string | null;
   scoreChangelog?: ScoreChangelogEntry[];
   globalCalibration?: AttributionCalibration;
+  performancePoints?: DailyMetricPoint[];
+  scoreSeries?: ScoreDailySnapshot[];
+  trendsLoading?: boolean;
   onReviewPending: () => void;
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
   clientId: string;
@@ -72,8 +77,6 @@ export default function HomeView({
 
       <RoiSummaryCard summary={summary} loading={attributionLoading} />
 
-      <ProfilePerformanceTrends clientId={clientId} days={30} variant="light" />
-
       <ListingStrengthInsights
         audit={audit}
         clientId={clientId}
@@ -82,7 +85,9 @@ export default function HomeView({
         avgCustomerValue={avgCustomerValue}
         currency={avgCustomerValueCurrency}
         globalCalibration={globalCalibration}
-        showPerformanceTrends={false}
+        performancePoints={performancePoints}
+        scoreSeries={scoreSeries}
+        trendsLoading={trendsLoading}
         onNavigateToPlan={onNavigateToPlan}
       />
 
