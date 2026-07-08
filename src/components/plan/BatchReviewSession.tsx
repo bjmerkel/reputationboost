@@ -256,8 +256,14 @@ function BatchReviewItem({
   const stepNumber = resolvePlanStepNumber(task);
   const expectedEffect =
     typeof task.payload.expectedEffect === "string" ? task.payload.expectedEffect : null;
-  const primaryKeyword =
-    typeof task.payload.primaryKeyword === "string" ? task.payload.primaryKeyword : null;
+  const suggestedKeyword =
+    typeof task.payload.suggestedKeyword === "string" ? task.payload.suggestedKeyword : null;
+  const keywordsHit = Array.isArray(task.payload.keywordsHit)
+    ? task.payload.keywordsHit.filter((value): value is string => typeof value === "string")
+    : [];
+  const weaveSkipped = task.payload.weaveSkipped === true;
+  const weaveReason =
+    typeof task.payload.weaveReason === "string" ? task.payload.weaveReason : null;
 
   return (
     <div className="space-y-3">
@@ -270,10 +276,26 @@ function BatchReviewItem({
         </p>
       )}
       <h3 className="text-base font-semibold text-[#202124]">{task.title}</h3>
-      {primaryKeyword && (
-        <p className="text-sm text-[#1a73e8]">Targets &ldquo;{primaryKeyword}&rdquo;</p>
+      {keywordsHit.length > 0 && (
+        <p className="text-sm text-[#188038]">
+          Mentions {keywordsHit.map((keyword) => `"${keyword}"`).join(", ")}
+        </p>
       )}
-      {expectedEffect && (
+      {suggestedKeyword && keywordsHit.length === 0 && weaveSkipped && (
+        <p className="text-sm text-[#80868b]">No keyword added — reply stays natural.</p>
+      )}
+      {suggestedKeyword && keywordsHit.length === 0 && !weaveSkipped && (
+        <p className="text-sm text-[#5f6368]">
+          Could mention: &ldquo;{suggestedKeyword}&rdquo;
+        </p>
+      )}
+      {weaveReason && (
+        <p className="text-sm text-[#3c4043]">
+          <span className="font-medium">Why: </span>
+          {weaveReason}
+        </p>
+      )}
+      {expectedEffect && !weaveReason && (
         <p className="text-sm text-[#3c4043]">
           <span className="font-medium">Why: </span>
           {expectedEffect}

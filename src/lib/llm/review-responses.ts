@@ -1,6 +1,17 @@
 import type { FullAuditPayload, ReviewRecord } from "@/audit/types";
 import { generateReviewResponses as templateReviewResponses } from "@/audit/phase3/content";
 import { formatPolicyViolation } from "@/lib/google/gbp-reviews";
+import {
+  assignReviewResponseKeywordContexts,
+  buildKeywordPromptBlock,
+  type ReviewResponseKeywordContext,
+} from "@/lib/review-responses/keyword-context";
+import {
+  assessKeywordWeaveQuality,
+  STRICT_KEYWORD_WEAVE_APPEND,
+} from "@/lib/review-responses/keyword-quality";
+import { buildReviewResponseKeywordPayload } from "@/lib/review-responses/payload";
+import type { ReviewResponseKeywordWeave } from "@/lib/review-responses/types";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
 import { normalizeOptionalText } from "./normalize-content";
@@ -9,6 +20,7 @@ export interface GeneratedReviewResponse {
   reviewId: string;
   rating: number;
   response: string;
+  keywordWeave?: ReviewResponseKeywordWeave;
 }
 
 const REVIEW_RESPONSE_SYSTEM = `You write public Google Business Profile review replies on behalf of a local business owner.
@@ -21,6 +33,13 @@ Rules:
 - Never use copy-paste templates. Each reply must feel written only for that reviewer.
 - Do not invent facts not supported by the review or business context.
 - Use the reviewer's first name when natural.
+
+Local SEO (optional, subtle):
+- You may receive an OPTIONAL keyword opportunity. Use it only if it fits naturally in the reply.
+- Prefer the customer's own words or a short service term — never paste a long SEO phrase verbatim.
+- Mention city/area only when it flows from the conversation (e.g. thanking a neighbor, referencing the visit).
+- If the keyword doesn't fit, ignore it completely. Never sacrifice authenticity for SEO.
+- At most one service or location concept beyond what the customer already said.
 
 Return valid JSON only: { "response": "the published reply text" }`;
 
@@ -45,17 +64,28 @@ function selectReviewsForLlm(reviews: ReviewRecord[]): ReviewRecord[] {
     .slice(0, MAX_LLM_REVIEW_RESPONSES);
 }
 
+function trackedKeywords(audit: FullAuditPayload): string[] {
+  return audit.rankings.keywords.map((keyword) => keyword.keyword);
+}
+
 async function generateOneReviewResponse(
   audit: FullAuditPayload,
-  review: ReviewRecord
+  review: ReviewRecord,
+  keywordContext: ReviewResponseKeywordContext,
+  options?: { strictKeywordWeave?: boolean }
 ): Promise<string> {
   const business = audit.gbp.identity;
   const isRedraft = review.replyState === "REJECTED";
   const violation = formatPolicyViolation(review.policyViolation);
+  const keywordBlock = buildKeywordPromptBlock(keywordContext);
+  const strictAppend = options?.strictKeywordWeave ? STRICT_KEYWORD_WEAVE_APPEND : "";
 
   const llm = await completeJson<{ response: unknown }>(
     [
-      { role: "system", content: REVIEW_RESPONSE_SYSTEM },
+      {
+        role: "system",
+        content: `${REVIEW_RESPONSE_SYSTEM}${strictAppend}`,
+      },
       {
         role: "user",
         content: `Write a reply to this Google review.
@@ -79,15 +109,66 @@ PREVIOUS REPLY (REJECTED BY GOOGLE):
 - Policy issue: ${violation || "unspecified — avoid promotional language, personal info, or off-topic content"}
 Rewrite a compliant reply that addresses the customer's review without violating Google policies.`
     : ""
-}
+}${keywordBlock}
 Return JSON: { "response": "..." }`,
       },
     ],
-    { temperature: 0.7, maxTokens: 350 }
+    { temperature: options?.strictKeywordWeave ? 0.4 : 0.7, maxTokens: 350 }
   );
 
   const fallback = templateReviewResponses(audit).find((r) => r.reviewId === review.id);
   return normalizeOptionalText(llm.response, fallback?.response ?? "");
+}
+
+async function generateWithQualityGate(
+  audit: FullAuditPayload,
+  review: ReviewRecord,
+  keywordContext: ReviewResponseKeywordContext
+): Promise<string> {
+  const keywords = trackedKeywords(audit);
+  let response = await generateOneReviewResponse(audit, review, keywordContext);
+  const quality = assessKeywordWeaveQuality(
+    response,
+    review.text ?? "",
+    keywordContext,
+    keywords
+  );
+
+  if (quality.regenRecommended) {
+    try {
+      response = await generateOneReviewResponse(audit, review, keywordContext, {
+        strictKeywordWeave: true,
+      });
+    } catch (error) {
+      console.error(`[llm] review response strict regen failed for ${review.id}:`, error);
+    }
+  }
+
+  return response;
+}
+
+function toKeywordWeavePayload(
+  response: string,
+  review: ReviewRecord,
+  keywordContext: ReviewResponseKeywordContext,
+  audit: FullAuditPayload
+): GeneratedReviewResponse["keywordWeave"] {
+  const payload = buildReviewResponseKeywordPayload(
+    response,
+    review.text ?? "",
+    keywordContext,
+    trackedKeywords(audit)
+  );
+
+  return {
+    suggestedKeyword:
+      typeof payload.suggestedKeyword === "string" ? payload.suggestedKeyword : null,
+    keywordsHit: Array.isArray(payload.keywordsHit)
+      ? payload.keywordsHit.filter((value): value is string => typeof value === "string")
+      : [],
+    weaveSkipped: payload.weaveSkipped === true,
+    weaveReason: typeof payload.weaveReason === "string" ? payload.weaveReason : null,
+  };
 }
 
 export async function generateReviewResponsesLlm(
@@ -97,22 +178,47 @@ export async function generateReviewResponsesLlm(
 
   if (pending.length === 0) return [];
 
+  const keywordContexts = assignReviewResponseKeywordContexts(audit, pending);
+
   if (!isLlmConfigured()) {
-    return templateReviewResponses(audit);
+    return templateReviewResponses(audit).map((row) => {
+      const review = audit.reviews.reviews.find((item) => item.id === row.reviewId);
+      const context =
+        keywordContexts.get(row.reviewId) ??
+        assignReviewResponseKeywordContexts(audit, review ? [review] : []).get(row.reviewId);
+      if (!review || !context) {
+        return row;
+      }
+      return {
+        ...row,
+        keywordWeave: toKeywordWeavePayload(row.response, review, context, audit),
+      };
+    });
   }
 
   const results = await Promise.all(
     pending.map(async (review) => {
+      const keywordContext =
+        keywordContexts.get(review.id) ??
+        assignReviewResponseKeywordContexts(audit, [review]).get(review.id)!;
+
       try {
-        const response = await generateOneReviewResponse(audit, review);
-        return { reviewId: review.id, rating: review.rating, response };
-      } catch (error) {
-        console.error(`[llm] review response failed for ${review.id}:`, error);
-        const fallback = templateReviewResponses(audit).find((r) => r.reviewId === review.id);
+        const response = await generateWithQualityGate(audit, review, keywordContext);
         return {
           reviewId: review.id,
           rating: review.rating,
-          response: fallback?.response ?? "",
+          response,
+          keywordWeave: toKeywordWeavePayload(response, review, keywordContext, audit),
+        };
+      } catch (error) {
+        console.error(`[llm] review response failed for ${review.id}:`, error);
+        const fallback = templateReviewResponses(audit).find((r) => r.reviewId === review.id);
+        const response = fallback?.response ?? "";
+        return {
+          reviewId: review.id,
+          rating: review.rating,
+          response,
+          keywordWeave: toKeywordWeavePayload(response, review, keywordContext, audit),
         };
       }
     })
@@ -120,3 +226,5 @@ export async function generateReviewResponsesLlm(
 
   return results.filter((r) => r.response.length > 0);
 }
+
+export { buildReviewResponseKeywordPayload } from "@/lib/review-responses/payload";

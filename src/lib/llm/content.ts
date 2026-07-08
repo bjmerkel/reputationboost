@@ -25,7 +25,12 @@ import {
 export interface AuditGeneratedContent {
   googlePosts: string[];
   gbpDescription: string;
-  reviewResponses: Array<{ reviewId: string; rating: number; response: string }>;
+  reviewResponses: Array<{
+    reviewId: string;
+    rating: number;
+    response: string;
+    keywordWeave?: import("@/lib/review-responses/types").ReviewResponseKeywordWeave;
+  }>;
   reviewRequestSms: string;
   socialPost: string;
   gbpPhotoJobs: GbpPhotoJob[];

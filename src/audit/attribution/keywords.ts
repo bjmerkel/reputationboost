@@ -1,4 +1,5 @@
 import type { ExecutionTask } from "@/audit/types";
+import { keywordsHitInText } from "@/lib/review-responses/keyword-quality";
 
 const KEYWORD_STOP_WORDS = new Set(["near", "best", "local"]);
 
@@ -52,6 +53,16 @@ export function resolveTargetKeywords(task: ExecutionTask, keywords: string[]): 
   if (fromHint.length > 0) return fromHint;
 
   switch (task.type) {
+    case "review_response": {
+      const fromHit = task.payload.keywordsHit;
+      if (Array.isArray(fromHit)) {
+        const resolved = fromHit.filter((k): k is string => typeof k === "string" && k.length > 0);
+        if (resolved.length > 0) return resolved;
+      }
+      const fromDraft = keywordsHitInText(task.draftContent, keywords);
+      if (fromDraft.length > 0) return fromDraft;
+      break;
+    }
     case "gbp_description":
     case "gbp_services":
     case "gbp_primary_category":

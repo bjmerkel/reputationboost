@@ -1,4 +1,10 @@
 import type { FullAuditPayload, ExecutionType } from "../types";
+import type { ReviewResponseKeywordContext } from "@/lib/review-responses/keyword-context";
+import {
+  assignReviewResponseKeywordContexts,
+  extractAreaToken,
+  extractServiceTokens,
+} from "@/lib/review-responses/keyword-context";
 
 export function generateGooglePosts(audit: FullAuditPayload): string[] {
   const city = audit.gbp.identity.address.split(",")[1]?.trim() ?? "your area";
@@ -33,13 +39,20 @@ export function generateReviewResponses(audit: FullAuditPayload): Array<{
   rating: number;
   response: string;
 }> {
-  return audit.reviews.reviews
-    .filter((r) => !r.responded || r.replyState === "REJECTED")
-    .map((r) => ({
-      reviewId: r.id,
-      rating: r.rating,
-      response: buildTemplateReviewResponse(audit, r),
-    }));
+  const pending = audit.reviews.reviews.filter(
+    (r) => !r.responded || r.replyState === "REJECTED"
+  );
+  const keywordContexts = assignReviewResponseKeywordContexts(audit, pending);
+
+  return pending.map((r) => ({
+    reviewId: r.id,
+    rating: r.rating,
+    response: buildTemplateReviewResponse(
+      audit,
+      r,
+      keywordContexts.get(r.id) ?? null
+    ),
+  }));
 }
 
 function excerpt(text: string, maxLen = 80): string {
@@ -51,11 +64,20 @@ function excerpt(text: string, maxLen = 80): string {
 
 function buildTemplateReviewResponse(
   audit: FullAuditPayload,
-  review: { id: string; rating: number; text: string; author: string }
+  review: { id: string; rating: number; text: string; author: string },
+  keywordContext: ReviewResponseKeywordContext | null = null
 ): string {
   const phone = audit.gbp.identity.phone;
   const name = review.author.split(" ")[0] || review.author;
   const detail = excerpt(review.text);
+  const area = extractAreaToken(audit.gbp.identity.address);
+  const serviceToken =
+    keywordContext?.serviceTokens[0] ??
+    (keywordContext?.suggestedKeyword
+      ? extractServiceTokens(keywordContext.suggestedKeyword)[0]
+      : null);
+  const canWeaveKeyword =
+    review.rating >= 4 && keywordContext?.suggestedKeyword && serviceToken;
 
   if (review.rating <= 2) {
     return detail
@@ -67,6 +89,18 @@ function buildTemplateReviewResponse(
     return detail
       ? `Thanks for sharing your experience, ${name}. We hear you on "${detail}" and we're always working to improve — reach out anytime at ${phone}.`
       : `Thanks for sharing your experience, ${name}. We're always working to improve — reach out anytime at ${phone}.`;
+  }
+
+  if (canWeaveKeyword && area) {
+    return detail
+      ? `Thank you so much, ${name}! We're glad ${detail.charAt(0).toLowerCase()}${detail.slice(1)} meant a lot to you — we love helping ${area} neighbors with ${serviceToken}.`
+      : `Thank you so much, ${name}! We're thrilled you had a great experience with ${audit.clientName} and appreciate your support here in ${area}.`;
+  }
+
+  if (canWeaveKeyword) {
+    return detail
+      ? `Thank you so much, ${name}! We're glad ${detail.charAt(0).toLowerCase()}${detail.slice(1)} meant a lot to you — we truly appreciate your support for our ${serviceToken} team.`
+      : `Thank you so much, ${name}! We're thrilled you had a great experience with ${audit.clientName}. We appreciate your support!`;
   }
 
   return detail
