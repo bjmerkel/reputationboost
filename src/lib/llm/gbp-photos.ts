@@ -1,6 +1,6 @@
 import type { FullAuditPayload } from "@/audit/types";
 import type { GbpMediaCategory } from "@/lib/google/gbp-media";
-import { mediaCategoryLabel } from "@/lib/google/gbp-media-coverage";
+import { mediaCategoryLabel, buildAtWorkPhotoHint, AT_WORK_PHOTO_GAP_TITLE } from "@/lib/google/gbp-media-coverage";
 import { buildAuditContext } from "./audit-context";
 import { completeJson } from "./client";
 import { getOpenAiApiKey, getOpenAiImageModel, isImageGenerationConfigured } from "./config";
@@ -55,9 +55,9 @@ export function buildTemplatePhotoJobs(audit: FullAuditPayload): GbpPhotoJob[] {
     aiGenerated: false,
   });
   maybePush({
-    title: "At work / service",
+    title: AT_WORK_PHOTO_GAP_TITLE,
     category: "AT_WORK",
-    hint: `Staff delivering ${category} — professional service-in-action shot.`,
+    hint: buildAtWorkPhotoHint(category, city),
     aiGenerated: false,
   });
   maybePush({
@@ -82,9 +82,9 @@ export function buildTemplatePhotoJobs(audit: FullAuditPayload): GbpPhotoJob[] {
         aiGenerated: false,
       },
       {
-        title: "At work / service",
+        title: AT_WORK_PHOTO_GAP_TITLE,
         category: "AT_WORK",
-        hint: `Staff delivering ${category} — professional service-in-action shot.`,
+        hint: buildAtWorkPhotoHint(category, city),
         aiGenerated: false,
       },
       ...audit.rankings.keywords.slice(0, 4).map((kw) => ({
@@ -99,9 +99,15 @@ export function buildTemplatePhotoJobs(audit: FullAuditPayload): GbpPhotoJob[] {
   for (const missingCategory of missing) {
     if (jobs.some((job) => job.category === missingCategory)) continue;
     jobs.push({
-      title: `${mediaCategoryLabel(missingCategory as GbpMediaCategory)} photo`,
+      title:
+        missingCategory === "AT_WORK"
+          ? AT_WORK_PHOTO_GAP_TITLE
+          : `${mediaCategoryLabel(missingCategory as GbpMediaCategory)} photo`,
       category: missingCategory as GbpMediaCategory,
-      hint: `Add a ${mediaCategoryLabel(missingCategory as GbpMediaCategory).toLowerCase()} photo to round out your Google profile.`,
+      hint:
+        missingCategory === "AT_WORK"
+          ? buildAtWorkPhotoHint(category, city)
+          : `Add a ${mediaCategoryLabel(missingCategory as GbpMediaCategory).toLowerCase()} photo to round out your Google profile.`,
       aiGenerated: missingCategory === "AT_WORK" || missingCategory === "ADDITIONAL",
     });
   }

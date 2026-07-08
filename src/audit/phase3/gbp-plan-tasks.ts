@@ -320,12 +320,13 @@ export function buildPhotoExecutionTasks(
   content: AuditGeneratedContent,
   step?: GbpPlanStep
 ): ExecutionTask[] {
-  const photoStep: GbpPlanStep =
+    const photoStep: GbpPlanStep =
     step ??
     ({
       stepNumber: 6,
       title: "Photo Optimization",
-      instruction: "Upload marketing photos to your Google Business Profile.",
+      instruction:
+        "Add photos of your work and other marketing photos to your Google Business Profile.",
       gbpAction: "upload_photo",
     } as GbpPlanStep);
 

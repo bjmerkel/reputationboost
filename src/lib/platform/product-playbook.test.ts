@@ -105,4 +105,58 @@ describe("buildProductPlaybook", () => {
     assert.equal(playbook.stage, "execute");
     assert.equal(playbook.nextItem?.action, "review_approvals");
   });
+
+  it("surfaces work-photo checklist item when AT_WORK is missing", () => {
+    const audit = minimalAudit({
+      gbp: {
+        ...minimalAudit().gbp,
+        content: {
+          ...minimalAudit().gbp.content,
+          mediaCoverage: {
+            totalCount: 5,
+            ownerPhotoCount: 5,
+            customerPhotoCount: 0,
+            hasCover: false,
+            hasLogo: false,
+            hasExterior: true,
+            hasInterior: true,
+            hasTeam: true,
+            hasAtWork: false,
+            hasVideo: false,
+            categoryCount: 3,
+            missingCategories: ["AT_WORK"],
+            coverageScore: 60,
+            totalViews: 0,
+            ownerTotalViews: 0,
+            ownerAvgViews: 0,
+            ownerZeroViewCount: 0,
+            customerPhotoShare: 0,
+            engagementScore: 50,
+            daysSinceLastUpload: 10,
+            photoViewsAvailable: false,
+          },
+        },
+      },
+      execution: {
+        generatedAt: "2026-07-01T00:00:00.000Z",
+        tasksCreated: 0,
+        pendingApproval: 0,
+        autoApproved: 0,
+        tasks: [],
+      },
+    });
+
+    const playbook = buildProductPlaybook({
+      gbpConnected: true,
+      audit,
+      tasks: [],
+      avgCustomerValue: 500,
+    });
+
+    const workPhotos = playbook.items.find((item) => item.id === "add-work-photos");
+    assert.ok(workPhotos);
+    assert.equal(workPhotos?.title, "Add photos of your work");
+    assert.equal(workPhotos?.planStepNumber, 6);
+    assert.equal(workPhotos?.status, "pending");
+  });
 });

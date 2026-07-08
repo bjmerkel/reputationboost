@@ -64,4 +64,14 @@ describe("buildCategoryBatchUploadJobs", () => {
     const jobs = buildCategoryBatchUploadJobs(auditWithCoverage([]));
     assert.equal(jobs.length, 0);
   });
+
+  it("prioritizes AT_WORK when that category is missing", () => {
+    const jobs = buildCategoryBatchUploadJobs(
+      auditWithCoverage(["AT_WORK", "INTERIOR", "TEAMS"])
+    );
+
+    assert.equal(jobs[0].category, "AT_WORK");
+    assert.equal(jobs[0].title, "Add photos of your work");
+    assert.match(jobs[0].hint, /on-site|before\/after/i);
+  });
 });

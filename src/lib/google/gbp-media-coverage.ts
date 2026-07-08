@@ -54,6 +54,85 @@ export function mediaCategoryLabel(category: GbpMediaCategory): string {
   return CATEGORY_LABELS[category] ?? category;
 }
 
+/** Google Business Profile completeness checklist copy for work photos. */
+export const AT_WORK_PHOTO_PLAN_STEP = 6;
+
+export const AT_WORK_PHOTO_GAP_TITLE = "Add photos of your work";
+
+export const AT_WORK_PHOTO_GAP_DESCRIPTION =
+  "Show photos of past services or work you've done for customers. Businesses with more profile information get discovered more on Search and Maps.";
+
+const AT_WORK_HINT_BY_CATEGORY: Array<{ match: RegExp; hint: string }> = [
+  {
+    match: /plumb|hvac|electric|roof|handyman|contractor|repair/i,
+    hint: "Crew on-site with tools, before/after of a finished job, or service in progress.",
+  },
+  {
+    match: /landscap|lawn|tree|garden/i,
+    hint: "Crew installing plants or sod, or a wide shot of a finished yard or garden.",
+  },
+  {
+    match: /dent|orthodont|dental/i,
+    hint: "Hygienist or dentist with patient from behind (no identifiable faces), or a clean treatment room in use.",
+  },
+  {
+    match: /auto|mechanic|tire|body shop/i,
+    hint: "Technician at a lift or bay, diagnostic work in progress, or before/after of a repair.",
+  },
+  {
+    match: /clean|maid|janitor/i,
+    hint: "Team cleaning a home or office, or a bright before/after of a finished space.",
+  },
+  {
+    match: /paint|remodel|kitchen|bath/i,
+    hint: "Painter or installer mid-project, or a crisp after shot of the finished room.",
+  },
+  {
+    match: /salon|barber|spa|nail/i,
+    hint: "Stylist working on a client from the side, or a finished look without showing the face.",
+  },
+  {
+    match: /restaurant|food|cafe|cater/i,
+    hint: "Chef plating a dish, kitchen in action, or beautifully presented food from a recent service.",
+  },
+];
+
+/** Industry-aware upload guidance for AT_WORK photos. */
+export function buildAtWorkPhotoHint(primaryCategory: string, city?: string): string {
+  const area = city?.trim() || "your area";
+  const normalized = primaryCategory.trim();
+  for (const entry of AT_WORK_HINT_BY_CATEGORY) {
+    if (entry.match.test(normalized)) {
+      return `${entry.hint} Real photos from ${area} build the most trust.`;
+    }
+  }
+  return `Show your team delivering ${normalized || "your service"} — past jobs, work in progress, or finished results in ${area}.`;
+}
+
+export function missingMediaGapCopy(category: string): {
+  title: string;
+  description: string;
+  priority: "P1" | "P2";
+  impact: number;
+} {
+  if (category === "AT_WORK") {
+    return {
+      title: AT_WORK_PHOTO_GAP_TITLE,
+      description: AT_WORK_PHOTO_GAP_DESCRIPTION,
+      priority: "P1",
+      impact: 6,
+    };
+  }
+
+  const label = category.toLowerCase().replace(/_/g, " ");
+  return {
+    title: `Missing ${label} photos`,
+    description: `Your profile is missing ${label} photos. Google uses category variety to judge listing quality.`,
+    priority: "P2",
+    impact: 5,
+  };
+}
+
 function isCustomerMedia(item: GbpMediaItem): boolean {
   return Boolean(item.attribution?.profileName);
 }

@@ -1,6 +1,8 @@
 import type { FullAuditPayload } from "@/audit/types";
 import type { GbpMediaCategory } from "./gbp-media";
 import {
+  AT_WORK_PHOTO_GAP_TITLE,
+  buildAtWorkPhotoHint,
   mediaCategoryLabel,
   RECOMMENDED_PHOTO_CATEGORIES,
   type GbpMediaCoverage,
@@ -34,7 +36,7 @@ export function buildCategoryBatchUploadJobs(
   const hints: Partial<Record<GbpMediaCategory, string>> = {
     EXTERIOR: `Upload a wide storefront or entrance shot in ${city}.`,
     INTERIOR: "Show your workspace, showroom, or customer area.",
-    AT_WORK: `Staff delivering ${category} — service in action.`,
+    AT_WORK: buildAtWorkPhotoHint(category, city),
     TEAMS: `Introduce your team serving ${city} customers.`,
   };
 
@@ -44,10 +46,19 @@ export function buildCategoryBatchUploadJobs(
 
     jobs.push({
       category: cat,
-      title: `Upload ${mediaCategoryLabel(cat)} photo`,
+      title:
+        cat === "AT_WORK"
+          ? AT_WORK_PHOTO_GAP_TITLE
+          : `Upload ${mediaCategoryLabel(cat)} photo`,
       hint: hints[cat] ?? `Add a ${mediaCategoryLabel(cat).toLowerCase()} photo.`,
-      priority: RECOMMENDED_PHOTO_CATEGORIES.indexOf(rawCategory),
-      reason: `Missing ${mediaCategoryLabel(cat).toLowerCase()} category on your profile.`,
+      priority:
+        cat === "AT_WORK"
+          ? -1
+          : RECOMMENDED_PHOTO_CATEGORIES.indexOf(rawCategory),
+      reason:
+        cat === "AT_WORK"
+          ? "Google recommends work photos on your completeness checklist."
+          : `Missing ${mediaCategoryLabel(cat).toLowerCase()} category on your profile.`,
     });
   }
 

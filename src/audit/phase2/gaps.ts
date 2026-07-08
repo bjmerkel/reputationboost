@@ -10,6 +10,7 @@ import { SEARCH_RADII_MILES } from "@/lib/google/places";
 import { detectPackFragility, resolveKeywordPositionAtRadius } from "./scoring";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
 import { gapScoreComponent, gapScoreImpact } from "./score-impact";
+import { missingMediaGapCopy } from "@/lib/google/gbp-media-coverage";
 import { napDriftGapId } from "@/lib/google/nap-drift";
 
 function daysSince(iso: string | null): number {
@@ -246,14 +247,15 @@ export function detectGaps(
   const mediaCoverage = audit.gbp.content.mediaCoverage;
   if (mediaCoverage) {
     for (const category of mediaCoverage.missingCategories) {
+      const copy = missingMediaGapCopy(category);
       gaps.push(
         gap(
           `missing-media-${category.toLowerCase()}`,
-          "P2",
+          copy.priority,
           "gbp_profile",
-          `Missing ${category.toLowerCase().replace(/_/g, " ")} photos`,
-          `Your profile is missing ${category.toLowerCase().replace(/_/g, " ")} photos. Google uses category variety to judge listing quality.`,
-          5,
+          copy.title,
+          copy.description,
+          copy.impact,
           2
         )
       );

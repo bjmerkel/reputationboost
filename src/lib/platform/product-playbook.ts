@@ -3,6 +3,11 @@ import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { pendingBatchTasks } from "@/lib/execution/pending-tasks";
 import { getPendingApprovalCounts } from "@/lib/execution/pending-counts";
 import { getGoogleDiffFields } from "@/lib/google/gbp-update-helpers";
+import {
+  AT_WORK_PHOTO_GAP_DESCRIPTION,
+  AT_WORK_PHOTO_GAP_TITLE,
+  AT_WORK_PHOTO_PLAN_STEP,
+} from "@/lib/google/gbp-media-coverage";
 
 export type PlaybookStage = "setup" | "launch" | "execute" | "grow" | "maintain";
 
@@ -28,6 +33,7 @@ export interface PlaybookItem {
   status: "pending" | "done";
   action: PlaybookActionKind;
   href?: string;
+  planStepNumber?: number;
   estimatedMinutes?: number;
 }
 
@@ -254,6 +260,22 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
       status: reviewPending === 0 && unrespondedNegative === 0 ? "done" : "pending",
       action: reviewPending > 0 ? "review_approvals" : "open_plan",
       estimatedMinutes: Math.max(2, reviewPending * 2),
+    });
+  }
+
+  const missingWorkPhotos = input.audit?.gbp.content.mediaCoverage?.hasAtWork === false;
+  if (missingWorkPhotos && input.gbpConnected && input.audit) {
+    items.push({
+      id: "add-work-photos",
+      stage: "execute",
+      title: AT_WORK_PHOTO_GAP_TITLE,
+      description: AT_WORK_PHOTO_GAP_DESCRIPTION,
+      why: "Google highlights this on your profile completeness checklist — customers are twice as likely to interact with businesses that show their work.",
+      priority: PRIORITY.high,
+      status: "pending",
+      action: "open_plan",
+      planStepNumber: AT_WORK_PHOTO_PLAN_STEP,
+      estimatedMinutes: 5,
     });
   }
 

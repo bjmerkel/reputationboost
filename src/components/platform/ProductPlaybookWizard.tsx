@@ -50,6 +50,7 @@ interface ProductPlaybookWizardProps {
   onRunAudit: () => void;
   onOpenReview: () => void;
   onSetView: (view: AuditView) => void;
+  onOpenPlanStep?: (stepNumber: number) => void;
   auditLoading?: boolean;
 }
 
@@ -62,6 +63,7 @@ export default function ProductPlaybookWizard({
   onRunAudit,
   onOpenReview,
   onSetView,
+  onOpenPlanStep,
   auditLoading = false,
 }: ProductPlaybookWizardProps) {
   const router = useRouter();
@@ -128,7 +130,11 @@ export default function ProductPlaybookWizard({
           onOpenReview();
           break;
         case "open_plan":
-          onSetView("strategy");
+          if (item.planStepNumber != null) {
+            onOpenPlanStep?.(item.planStepNumber);
+          } else {
+            onSetView("strategy");
+          }
           break;
         case "open_report":
           onSetView("report");
@@ -151,7 +157,7 @@ export default function ProductPlaybookWizard({
         setOpen(false);
       }
     },
-    [dismissTip, onOpenReview, onRunAudit, onSetView, router]
+    [dismissTip, onOpenPlanStep, onOpenReview, onRunAudit, onSetView, router]
   );
 
   if (!hydrated) return null;

@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import type { GbpMediaItem } from "./gbp-media";
 import {
   analyzeGbpMediaCoverage,
+  buildAtWorkPhotoHint,
+  missingMediaGapCopy,
   validateMediaUploadBytes,
   validateMediaVideoUpload,
 } from "./gbp-media-coverage";
@@ -103,5 +105,34 @@ describe("validateMediaVideoUpload", () => {
     const result = validateMediaVideoUpload(small);
     assert.equal(result.valid, false);
     assert.match(result.reason ?? "", /100 KB/);
+  });
+});
+
+describe("buildAtWorkPhotoHint", () => {
+  it("returns industry-specific guidance for plumbers", () => {
+    const hint = buildAtWorkPhotoHint("Plumber", "Austin");
+    assert.match(hint, /on-site|before\/after/i);
+    assert.match(hint, /Austin/);
+  });
+
+  it("falls back to generic service guidance", () => {
+    const hint = buildAtWorkPhotoHint("Acupuncture Clinic", "Denver");
+    assert.match(hint, /Acupuncture Clinic/);
+    assert.match(hint, /Denver/);
+  });
+});
+
+describe("missingMediaGapCopy", () => {
+  it("uses Google checklist copy for AT_WORK", () => {
+    const copy = missingMediaGapCopy("AT_WORK");
+    assert.equal(copy.title, "Add photos of your work");
+    assert.match(copy.description, /past services/i);
+    assert.equal(copy.priority, "P1");
+  });
+
+  it("uses generic copy for other categories", () => {
+    const copy = missingMediaGapCopy("INTERIOR");
+    assert.match(copy.title, /interior/i);
+    assert.equal(copy.priority, "P2");
   });
 });

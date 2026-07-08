@@ -298,6 +298,7 @@ export default function AuditDashboard({
           onRunAudit={runAudit}
           onOpenReview={openBatchReview}
           onSetView={setView}
+          onOpenPlanStep={(step) => openPlanStep(step)}
           auditLoading={loading}
         />
       </div>
@@ -540,6 +541,7 @@ export default function AuditDashboard({
           onRunAudit={runAudit}
           onOpenReview={openBatchReview}
           onSetView={setView}
+          onOpenPlanStep={(step) => openPlanStep(step)}
           auditLoading={loading}
         />
       )}

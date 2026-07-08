@@ -1,5 +1,5 @@
 import type { GbpMediaCategory } from "./gbp-media";
-import { mediaCategoryLabel, type GbpMediaCoverage } from "./gbp-media-coverage";
+import { mediaCategoryLabel, AT_WORK_PHOTO_GAP_DESCRIPTION, type GbpMediaCoverage } from "./gbp-media-coverage";
 
 export interface MediaCategoryStatus {
   category: string;
@@ -56,6 +56,10 @@ export function buildMediaHealthReport(
   const recommendations: string[] = [];
 
   for (const missing of coverage.missingCategories) {
+    if (missing === "AT_WORK") {
+      recommendations.push(AT_WORK_PHOTO_GAP_DESCRIPTION);
+      continue;
+    }
     recommendations.push(
       `Upload ${missing.replace(/_/g, " ").toLowerCase()} photos to fill a category gap.`
     );
