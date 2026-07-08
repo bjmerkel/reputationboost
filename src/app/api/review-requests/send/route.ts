@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
+import { updateExecutionTask } from "@/audit/storage-execution";
 import { auditHasReviewGap } from "@/lib/review-requests/eligibility";
 import { sendReviewRequests } from "@/lib/sms/send-review-requests";
 import { isTwilioConfigured } from "@/lib/sms/twilio";
@@ -49,6 +50,19 @@ export async function POST(request: Request) {
       manualSend: true,
       auditHasReviewGap: auditHasReviewGap(audit),
     });
+
+    if (body.executionTaskId && !body.dryRun && result.sent > 0) {
+      const summary = result.simulated
+        ? `Simulated ${result.sent} SMS review request${result.sent === 1 ? "" : "s"}.`
+        : `Sent ${result.sent} SMS review request${result.sent === 1 ? "" : "s"}${result.failed > 0 ? ` (${result.failed} failed)` : ""}.`;
+
+      await updateExecutionTask(user.id, body.executionTaskId, {
+        status: "completed",
+        completedAt: new Date().toISOString(),
+        result: summary,
+        draftContent: body.template.trim(),
+      });
+    }
 
     return NextResponse.json({
       ...result,

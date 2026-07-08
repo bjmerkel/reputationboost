@@ -26,7 +26,7 @@ const phases = [
     title: "Reputation",
     description: "Reviews strategy and response management",
     steps: [
-      { title: "Reviews Strategy", impact: 6 },
+      { title: "Request more reviews", impact: 6 },
       { title: "Review Responses", impact: 4 },
     ],
   },

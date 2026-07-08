@@ -211,8 +211,9 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
     },
     {
       stepNumber: 10,
-      title: "Reviews Strategy",
-      instruction: `Reviews are one of the strongest ranking factors. Target ${reviewTarget}+ total reviews. Focus on keywords where you're behind the pack leader on review count.`,
+      title: "Request more reviews",
+      instruction:
+        "Send personalized SMS review requests to recent customers. More Google reviews strengthen rankings — especially for keywords where you trail competitors on review count.",
       current: `${audit.gbp.engagement.reviewCount} reviews at ${audit.gbp.engagement.averageRating}★`,
       recommended: `${reviewTarget}+ reviews with keyword-rich natural language`,
       bullets: [
