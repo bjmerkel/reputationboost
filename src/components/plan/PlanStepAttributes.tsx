@@ -1,9 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ExecutionTask, GbpAttributeCoverage } from "@/audit/types";
 import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
-import { attributeDisplayName, profileLinkUriPlaceholder } from "@/lib/google/gbp-attribute-recommendations";
+import {
+  attributeDisplayName,
+  buildUserUriAttributeUpdates,
+  profileLinkUriPlaceholder,
+  resolveProfileLinkMissing,
+} from "@/lib/google/gbp-attribute-recommendations";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 
 function readAttributeUpdates(task: ExecutionTask): GbpAttributeUpdate[] {
@@ -21,7 +26,10 @@ function groupLabel(
   name: string,
   coverage?: GbpAttributeCoverage
 ): string | undefined {
-  return coverage?.missing.find((item) => item.name === name)?.groupDisplayName;
+  return (
+    coverage?.profileLinkMissing?.find((item) => item.name === name)?.groupDisplayName ??
+    coverage?.missing.find((item) => item.name === name)?.groupDisplayName
+  );
 }
 
 function attributeHint(update: GbpAttributeUpdate): string | null {
@@ -41,33 +49,72 @@ function isValidAttributeUri(uri: string): boolean {
   );
 }
 
+function isPlaceholderLikeUri(uri: string): boolean {
+  const trimmed = uri.trim().toLowerCase();
+  return (
+    trimmed.endsWith("/your-page") ||
+    trimmed.endsWith("/your-handle") ||
+    trimmed.endsWith("/@your-handle") ||
+    trimmed.endsWith("/@your-channel") ||
+    trimmed === "https://www.facebook.com/" ||
+    trimmed === "https://www.instagram.com/"
+  );
+}
+
+function publishableUri(uri: string): boolean {
+  return isValidAttributeUri(uri) && !isPlaceholderLikeUri(uri);
+}
+
 export default function PlanStepAttributes({
   task,
   gbpConnected,
   actions,
   coverage,
+  businessPhone,
+  businessWebsite,
   variant = "light",
 }: {
   task: ExecutionTask;
   gbpConnected: boolean;
   actions: PlanTaskActions;
   coverage?: GbpAttributeCoverage;
+  businessPhone?: string;
+  businessWebsite?: string;
   variant?: "light" | "dark";
 }) {
   const isLight = variant === "light";
-  const attributes = useMemo(() => readAttributeUpdates(task), [task]);
   const requiresUriInput = task.payload.requiresUriInput === true;
-  const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(attributes.map((item) => item.name))
-  );
-  const [uriValues, setUriValues] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {};
-    for (const update of attributes) {
-      initial[update.name] = update.uri ?? "";
-    }
-    return initial;
-  });
+
+  const attributes = useMemo(() => {
+    if (!requiresUriInput) return readAttributeUpdates(task);
+
+    const profileLinks = resolveProfileLinkMissing(coverage);
+    const taskAttrs = readAttributeUpdates(task);
+    const suggested = buildUserUriAttributeUpdates(profileLinks, {
+      phone: businessPhone,
+      websiteUri: businessWebsite,
+    });
+
+    return suggested.map((update) => ({
+      ...update,
+      uri: taskAttrs.find((item) => item.name === update.name)?.uri || update.uri || "",
+    }));
+  }, [task, coverage, requiresUriInput, businessPhone, businessWebsite]);
+
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [uriValues, setUriValues] = useState<Record<string, string>>({});
   const loading = actions.loadingTaskId === task.id;
+
+  useEffect(() => {
+    setSelected(new Set(attributes.map((item) => item.name)));
+    setUriValues((prev) => {
+      const next: Record<string, string> = {};
+      for (const update of attributes) {
+        next[update.name] = prev[update.name] ?? update.uri ?? "";
+      }
+      return next;
+    });
+  }, [attributes]);
 
   const selectedAttributes = attributes.filter((item) => selected.has(item.name));
   const grouped = useMemo(() => {
@@ -86,18 +133,11 @@ export default function PlanStepAttributes({
       ...update,
       uri: (uriValues[update.name] ?? "").trim(),
     }))
-    .filter((update) => isValidAttributeUri(update.uri ?? ""));
+    .filter((update) => publishableUri(update.uri ?? ""));
 
   const selectedBoolUpdates = selectedAttributes.filter(
     (update) => update.boolValue === true
   );
-
-  const canPublishUri =
-    requiresUriInput &&
-    selectedAttributes.length > 0 &&
-    selectedAttributes.every((update) => isValidAttributeUri(uriValues[update.name] ?? ""));
-
-  const canPublishBool = !requiresUriInput && selectedBoolUpdates.length > 0;
 
   function toggle(name: string) {
     setSelected((prev) => {
@@ -125,7 +165,7 @@ export default function PlanStepAttributes({
       if (selectedUriUpdates.length === 0) return;
 
       const labels = selectedUriUpdates.map((update) =>
-        attributeDisplayName(coverage!, update.name)
+        coverage ? attributeDisplayName(coverage, update.name) : update.name
       );
       const draftContent = [
         `Add ${selectedUriUpdates.length} profile link${selectedUriUpdates.length === 1 ? "" : "s"} on your Google Business Profile:`,
@@ -171,8 +211,7 @@ export default function PlanStepAttributes({
   const publishDisabled =
     loading ||
     !gbpConnected ||
-    selected.size === 0 ||
-    (requiresUriInput ? !canPublishUri : !canPublishBool);
+    (requiresUriInput ? selectedUriUpdates.length === 0 : selected.size === 0 || selectedBoolUpdates.length === 0);
 
   return (
     <div
@@ -190,7 +229,7 @@ export default function PlanStepAttributes({
           </p>
           <p className={`mt-1 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
             {requiresUriInput
-              ? "Paste each social or chat link, then publish directly to Google — no manual GBP editing."
+              ? "Paste each social or chat link you want to add. You can publish only the links you fill in — skip the rest."
               : "Uncheck any you do not want on your Google profile, then enable the rest."}
           </p>
         </div>
@@ -226,6 +265,7 @@ export default function PlanStepAttributes({
             </button>
             <span className={isLight ? "text-[#80868b]" : "text-slate-500"}>
               {selected.size} of {attributes.length} selected
+              {requiresUriInput && publishCount > 0 ? ` · ${publishCount} ready to publish` : ""}
             </span>
           </div>
 
@@ -243,7 +283,11 @@ export default function PlanStepAttributes({
                     const hint = requiresUriInput ? null : attributeHint(update);
                     const checked = selected.has(update.name);
                     const uriValue = uriValues[update.name] ?? "";
-                    const uriInvalid = requiresUriInput && checked && !isValidAttributeUri(uriValue);
+                    const uriInvalid =
+                      requiresUriInput &&
+                      checked &&
+                      uriValue.trim().length > 0 &&
+                      !isValidAttributeUri(uriValue);
 
                     return (
                       <li key={update.name}>
@@ -278,12 +322,10 @@ export default function PlanStepAttributes({
                                 type="url"
                                 value={uriValue}
                                 onChange={(event) => updateUri(update.name, event.target.value)}
-                                placeholder={
-                                  profileLinkUriPlaceholder({
-                                    name: update.name,
-                                    displayName: label,
-                                  })
-                                }
+                                placeholder={profileLinkUriPlaceholder({
+                                  name: update.name,
+                                  displayName: label,
+                                })}
                                 className={`mt-2 w-full rounded-md border px-2.5 py-1.5 text-xs ${
                                   isLight
                                     ? "border-[#dadce0] bg-white text-[#202124] placeholder:text-[#80868b]"

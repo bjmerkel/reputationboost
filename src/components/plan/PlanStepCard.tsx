@@ -38,6 +38,8 @@ export default function PlanStepCard({
   variant = "light",
   currency = "USD",
   businessName,
+  businessPhone,
+  businessWebsite,
   reviewUrl,
   onReviewRequestSent,
 }: {
@@ -56,6 +58,8 @@ export default function PlanStepCard({
   variant?: "light" | "dark";
   currency?: string;
   businessName?: string;
+  businessPhone?: string;
+  businessWebsite?: string;
   reviewUrl?: string | null;
   onReviewRequestSent?: () => void;
 }) {
@@ -239,6 +243,8 @@ export default function PlanStepCard({
                   gbpConnected={gbpConnected}
                   actions={actions}
                   coverage={attributeCoverage}
+                  businessPhone={businessPhone}
+                  businessWebsite={businessWebsite}
                   variant={variant}
                 />
               ))}

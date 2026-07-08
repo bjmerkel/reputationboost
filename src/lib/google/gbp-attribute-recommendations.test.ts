@@ -8,6 +8,7 @@ import {
   isProfileLinkCoverageItem,
   isUriAttributeType,
   profileLinkUriPlaceholder,
+  resolveProfileLinkMissing,
   recommendAttributeUpdates,
   suggestUriForAttribute,
 } from "@/lib/google/gbp-attribute-recommendations";
@@ -157,6 +158,26 @@ describe("attribute plan integration", () => {
       profileLinkUriPlaceholder({ name: "attributes/url_facebook", displayName: "Facebook" }),
       "https://www.facebook.com/your-page"
     );
+  });
+
+  it("resolves Facebook and Instagram onto older audits missing profileLinkMissing entries", () => {
+    const coverage = buildAttributeCoverage(available, current, {
+      websiteUri: "https://example.com/book",
+    });
+    const legacyCoverage = {
+      ...coverage,
+      profileLinkMissing: coverage.profileLinkMissing.filter(
+        (item) => item.displayName !== "Facebook" && item.displayName !== "Instagram"
+      ),
+    };
+
+    const resolved = resolveProfileLinkMissing(legacyCoverage);
+
+    assert.equal(resolved.length, 4);
+    assert.ok(resolved.some((item) => item.displayName === "Facebook"));
+    assert.ok(resolved.some((item) => item.displayName === "Instagram"));
+    assert.ok(resolved.some((item) => item.displayName === "Linkedin"));
+    assert.ok(resolved.some((item) => item.displayName === "WhatsApp"));
   });
 
   it("creates execution tasks for auto, URI, and manual attribute gaps", () => {

@@ -312,9 +312,62 @@ export function attributeDisplayName(
   attributeName: string
 ): string {
   const match =
+    coverage.profileLinkMissing?.find((item) => item.name === attributeName) ??
     coverage.missing.find((item) => item.name === attributeName) ??
     coverage.enabled.find((item) => item.name === attributeName);
   return match?.displayName ?? attributeName;
+}
+
+function profilePlatformKey(
+  item: Pick<GbpAttributeCoverageItem, "displayName" | "name">
+): string | null {
+  const haystack = profileLinkHaystack(item);
+  for (const platform of PROFILE_LINK_PLATFORM_KEYWORDS) {
+    if (haystack.includes(platform)) return platform;
+  }
+  return null;
+}
+
+/** Live profile-link gaps, including Facebook/Instagram even on older audits. */
+export function resolveProfileLinkMissing(
+  coverage?: GbpAttributeCoverage
+): GbpAttributeCoverageItem[] {
+  if (!coverage) return [];
+
+  const enabledKeys = new Set(coverage.enabled.map((item) => attributeKey(item.name)));
+  const seenKeys = new Set<string>();
+  const seenPlatforms = new Set<string>();
+  const items: GbpAttributeCoverageItem[] = [];
+
+  const add = (item: GbpAttributeCoverageItem) => {
+    const key = attributeKey(item.name);
+    if (enabledKeys.has(key) || seenKeys.has(key)) return;
+
+    const platform = profilePlatformKey(item);
+    if (platform) {
+      if (seenPlatforms.has(platform)) return;
+      seenPlatforms.add(platform);
+    }
+
+    seenKeys.add(key);
+    items.push(item);
+  };
+
+  for (const item of coverage.profileLinkMissing ?? []) add(item);
+  for (const item of coverage.missing) {
+    if (isProfileLinkCoverageItem(item)) add(item);
+  }
+  for (const supplemental of SUPPLEMENTAL_PROFILE_LINK_ATTRIBUTES) {
+    add({
+      name: supplemental.name,
+      displayName: supplemental.displayName,
+      groupDisplayName: supplemental.groupDisplayName,
+      valueType: supplemental.valueType,
+      autoApplicable: false,
+    });
+  }
+
+  return items.sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
 function digitsOnlyPhone(phone: string): string {

@@ -4,7 +4,7 @@ import type {
   KeywordRankAnalysis,
   Phase1AuditPayload,
 } from "../types";
-import { isProfileLinkCoverageItem, isUriAttributeType } from "@/lib/google/gbp-attribute-recommendations";
+import { isProfileLinkCoverageItem, isUriAttributeType, resolveProfileLinkMissing } from "@/lib/google/gbp-attribute-recommendations";
 import { detectPackFragility } from "./scoring";
 
 function profile(audit: Phase1AuditPayload) {
@@ -307,7 +307,7 @@ export function buildAttributePlanContent(audit: Phase1AuditPayload): {
   }
 
   const autoMissing = coverage.missing.filter((item) => item.autoApplicable);
-  const profileLinkMissing = coverage.profileLinkMissing ?? [];
+  const profileLinkMissing = resolveProfileLinkMissing(coverage);
   const enumMissing = coverage.missing.filter(
     (item) => !item.autoApplicable && !isProfileLinkCoverageItem(item) && !isUriAttributeType(item.valueType)
   );

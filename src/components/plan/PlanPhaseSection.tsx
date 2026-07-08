@@ -21,6 +21,8 @@ export default function PlanPhaseSection({
   variant = "light",
   currency = "USD",
   businessName,
+  businessPhone,
+  businessWebsite,
   reviewUrl,
   onReviewRequestSent,
 }: {
@@ -39,6 +41,8 @@ export default function PlanPhaseSection({
   currency?: string;
   variant?: "light" | "dark";
   businessName?: string;
+  businessPhone?: string;
+  businessWebsite?: string;
   reviewUrl?: string | null;
   onReviewRequestSent?: () => void;
 }) {
@@ -84,6 +88,8 @@ export default function PlanPhaseSection({
             variant={variant}
             currency={currency}
             businessName={businessName}
+            businessPhone={businessPhone}
+            businessWebsite={businessWebsite}
             reviewUrl={reviewUrl}
             onReviewRequestSent={onReviewRequestSent}
           />
