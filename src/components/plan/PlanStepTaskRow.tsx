@@ -9,6 +9,7 @@ import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
 import { needsGbpDescriptionRepublish, GBP_DESCRIPTION_MAX_LENGTH } from "@/lib/google/gbp-description";
 import { editStatusFromPayload, type GbpEditStatus } from "@/lib/google/gbp-edit-status";
+import MediaTaskThumbnail, { isMediaMaintenanceTask } from "./MediaTaskThumbnail";
 
 const EDIT_STATUS_STYLES: Record<GbpEditStatus, string> = {
   accepted: "bg-[#e6f4ea] text-[#137333]",
@@ -25,6 +26,8 @@ const TYPE_LABELS: Partial<Record<ExecutionTask["type"], string>> = {
   gbp_secondary_categories: "Categories",
   gbp_services: "Service",
   gbp_photo: "Photo",
+  gbp_media_recategorize: "Recategorize photo",
+  gbp_media_delete: "Remove photo",
   gbp_video: "Video",
   gbp_attributes: "Attributes",
   gbp_place_action: "Place action",
@@ -111,6 +114,12 @@ export default function PlanStepTaskRow({
             <span className="not-italic"> — {task.payload.reviewAuthor}</span>
           )}
         </blockquote>
+      )}
+
+      {isMediaMaintenanceTask(task) && (
+        <div className="mt-3">
+          <MediaTaskThumbnail task={task} variant={variant} />
+        </div>
       )}
 
       {task.type !== "gbp_photo" && (
