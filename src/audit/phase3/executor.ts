@@ -3,6 +3,7 @@ import { applyGbpAction, applyMediaFromBytes, applyMediaFromDraft } from "@/lib/
 import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
 import type { NapDriftFieldName } from "@/lib/google/nap-drift";
 import type { GbpMediaCategory, GbpMediaFormat } from "@/lib/google/gbp-media";
+import { dataUrlToBytes } from "@/lib/google/gbp-media";
 import { syncRecommendedGbpNotifications } from "@/lib/google/gbp-notifications";
 import { createGbpPlaceActionLink, type GbpPlaceActionType } from "@/lib/google/gbp-place-actions";
 import { generateGbpPhotoImage } from "@/lib/llm/gbp-photos";
@@ -12,16 +13,6 @@ import { isValidReviewId } from "./plan-task-utils";
 export interface ExecuteTaskContext {
   userId: string;
   business: ClientConfig;
-}
-
-function dataUrlToBytes(dataUrl: string): { bytes: ArrayBuffer; contentType: string } {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) throw new Error("Invalid image preview data.");
-  const binary = Buffer.from(match[2], "base64");
-  return {
-    bytes: binary.buffer.slice(binary.byteOffset, binary.byteOffset + binary.byteLength),
-    contentType: match[1],
-  };
 }
 
 /**

@@ -69,7 +69,11 @@ export async function publishPhotoTask(
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Photo upload failed");
-  return data.task as ExecutionTask;
+  const task = data.task as ExecutionTask;
+  if (task?.status === "failed") {
+    throw new Error(task.result ?? "Photo upload failed");
+  }
+  return task;
 }
 
 export async function publishPhotoFile(taskId: string, file: File, category: string): Promise<ExecutionTask> {

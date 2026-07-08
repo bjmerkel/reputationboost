@@ -110,8 +110,42 @@ function mapMediaItem(item: MediaApiItem): GbpMediaItem {
   };
 }
 
+function normalizeAccountId(accountId: string): string {
+  return accountId.replace(/^accounts\//, "");
+}
+
+function normalizeLocationId(locationId: string): string {
+  return locationId.replace(/^locations\//, "");
+}
+
 function mediaParent(connection: GbpConnection): string {
-  return `accounts/${connection.accountId}/locations/${connection.locationId}`;
+  return `accounts/${normalizeAccountId(connection.accountId)}/locations/${normalizeLocationId(connection.locationId)}`;
+}
+
+/** Decode a base64 data URL into raw bytes for GBP byte upload. */
+export function dataUrlToBytes(dataUrl: string): { bytes: ArrayBuffer; contentType: string } {
+  const match = dataUrl.match(/^data:([^;,]+)(?:;[^,]*)?;base64,(.+)$/s);
+  if (!match) throw new Error("Invalid image preview data.");
+  const binary = Buffer.from(match[2], "base64");
+  return {
+    bytes: binary.buffer.slice(binary.byteOffset, binary.byteOffset + binary.byteLength),
+    contentType: match[1],
+  };
+}
+
+function mediaUploadUrl(resourceName: string): string {
+  const encoded = resourceName
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  const url = new URL(`${GBP_UPLOAD}/media/${encoded}`);
+  url.searchParams.set("uploadType", "media");
+  url.searchParams.set("upload_type", "media");
+  return url.toString();
+}
+
+export function buildGbpMediaUploadUrl(resourceName: string): string {
+  return mediaUploadUrl(resourceName);
 }
 
 function normalizeCategory(category?: string): GbpMediaCategory | null {
@@ -318,7 +352,10 @@ export async function startGbpMediaUpload(
 
   const res = await fetch(url, {
     method: "POST",
-    headers: authHeadersForConnection(connection),
+    headers: {
+      ...authHeadersForConnection(connection),
+      "Content-Length": "0",
+    },
   });
 
   const data = (await res.json()) as {
@@ -340,13 +377,14 @@ export async function uploadGbpMediaBytes(
   bytes: ArrayBuffer,
   contentType: string
 ): Promise<void> {
-  const url = `${GBP_UPLOAD}/media/${resourceName}?uploadType=media`;
+  const url = mediaUploadUrl(resourceName);
 
   const res = await fetch(url, {
     method: "POST",
     headers: {
       ...authHeadersForConnection(connection),
-      "Content-Type": contentType,
+      "Content-Type": contentType || "application/octet-stream",
+      "Content-Length": String(bytes.byteLength),
     },
     body: bytes,
   });
@@ -355,6 +393,9 @@ export async function uploadGbpMediaBytes(
     const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
     throw new Error(data.error?.message ?? `Media byte upload failed (${res.status})`);
   }
+
+  // Google returns { resourceName } on success; step 3 still uses the startUpload ref.
+  await res.text().catch(() => "");
 }
 
 /** Create media item from an uploaded dataRef. */
@@ -389,6 +430,10 @@ export async function createGbpMediaFromUpload(
   const data = (await res.json()) as MediaApiItem & { error?: { message?: string } };
   if (!res.ok) {
     throw new Error(data.error?.message ?? `Media create failed (${res.status})`);
+  }
+
+  if (!data.name) {
+    throw new Error("Google accepted the upload but did not return a media item name.");
   }
 
   return mapMediaItem({

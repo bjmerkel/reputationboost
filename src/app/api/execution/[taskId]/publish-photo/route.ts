@@ -4,11 +4,17 @@ import { executeTask } from "@/audit/phase3/executor";
 import { getExecutionTask, updateExecutionTask } from "@/audit/storage-execution";
 import { computeAttributionAfterTaskCompletion } from "@/audit/attribution";
 import {
+  dataUrlToBytes,
   uploadGbpMediaFile,
   type GbpMediaCategory,
 } from "@/lib/google/gbp-media";
 import { getValidGbpConnection } from "@/lib/google/token-store";
 import { getUser } from "@/lib/supabase/server";
+
+function previewFromTask(task: Awaited<ReturnType<typeof getExecutionTask>>): string | undefined {
+  const preview = task?.payload.previewDataUrl;
+  return typeof preview === "string" && preview.startsWith("data:") ? preview : undefined;
+}
 
 /** One-click: save preview (optional), approve, and upload photo to Google. */
 export async function POST(
@@ -74,7 +80,12 @@ export async function POST(
         status: "completed",
         completedAt: now,
         result: `Photo uploaded to Google (${category}).`,
-        payload: { ...task.payload, uploadedMediaName: item.name },
+        payload: {
+          ...task.payload,
+          previewDataUrl: undefined,
+          uploadedMediaName: item.name,
+          uploadedGoogleUrl: item.googleUrl,
+        },
       });
 
       void computeAttributionAfterTaskCompletion(user.id, taskId);
@@ -82,13 +93,17 @@ export async function POST(
       return NextResponse.json({ task: saved, message: saved?.result });
     }
 
-    const body = (await request.json().catch(() => ({}))) as {
-      previewDataUrl?: string;
-    };
+    let body: { previewDataUrl?: string } = {};
+    try {
+      body = (await request.json()) as { previewDataUrl?: string };
+    } catch {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
 
-    if (body.previewDataUrl) {
+    const previewDataUrl = body.previewDataUrl ?? previewFromTask(task);
+    if (previewDataUrl && previewDataUrl !== task.payload.previewDataUrl) {
       const merged = await updateExecutionTask(user.id, taskId, {
-        payload: { ...task.payload, previewDataUrl: body.previewDataUrl },
+        payload: { ...task.payload, previewDataUrl },
       });
       if (merged) task = merged;
     }
@@ -99,6 +114,39 @@ export async function POST(
         scheduledFor: new Date().toISOString(),
       });
       if (approved) task = approved;
+    }
+
+    const category = (task.payload.category as GbpMediaCategory) ?? "ADDITIONAL";
+    const description = (task.payload.hint as string) || task.title;
+
+    if (previewDataUrl) {
+      const { bytes, contentType: imageType } = dataUrlToBytes(previewDataUrl);
+      const item = await uploadGbpMediaFile(
+        connection,
+        { bytes, contentType: imageType },
+        {
+          mediaFormat: "PHOTO",
+          category,
+          description,
+        }
+      );
+
+      const now = new Date().toISOString();
+      const saved = await updateExecutionTask(user.id, taskId, {
+        status: "completed",
+        completedAt: now,
+        result: `Photo uploaded to Google (${category}).`,
+        payload: {
+          ...task.payload,
+          previewDataUrl: undefined,
+          uploadedMediaName: item.name,
+          uploadedGoogleUrl: item.googleUrl,
+        },
+      });
+
+      void computeAttributionAfterTaskCompletion(user.id, taskId);
+
+      return NextResponse.json({ task: saved, message: saved?.result });
     }
 
     const executed = await executeTask(task, connection);
@@ -114,9 +162,13 @@ export async function POST(
 
     if (saved?.status === "completed") {
       void computeAttributionAfterTaskCompletion(user.id, taskId);
+      return NextResponse.json({ task: saved, message: saved?.result });
     }
 
-    return NextResponse.json({ task: saved, message: saved?.result });
+    return NextResponse.json(
+      { error: saved?.result ?? "Photo upload failed", task: saved },
+      { status: 500 }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Photo upload failed";
     return NextResponse.json({ error: message }, { status: 500 });
