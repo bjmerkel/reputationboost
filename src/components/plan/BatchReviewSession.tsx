@@ -7,6 +7,7 @@ import { resolvePlanStepNumber } from "@/audit/phase3/plan-task-utils";
 import { usePlanTasks } from "@/hooks/usePlanTasks";
 import { pendingBatchTasks, pendingRoutineTasks } from "@/lib/execution/pending-tasks";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
+import MediaTaskThumbnail, { isMediaMaintenanceTask } from "./MediaTaskThumbnail";
 
 export default function BatchReviewSession({
   open,
@@ -171,6 +172,14 @@ export default function BatchReviewSession({
                 className="mb-3 aspect-[3/2] w-full rounded-lg object-cover"
               />
             )}
+            {isMediaMaintenanceTask(current) && (
+              <div className="mb-3">
+                <MediaTaskThumbnail
+                  task={current}
+                  className="aspect-[3/2] w-full rounded-lg object-cover"
+                />
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               {current.type !== "gbp_photo" && gbpConnected && (
                 <button
@@ -256,6 +265,7 @@ function BatchReviewItem({
           {expectedEffect}
         </p>
       )}
+      {isMediaMaintenanceTask(task) && <MediaTaskThumbnail task={task} />}
       {task.type !== "gbp_photo" && (
         <p className="whitespace-pre-wrap rounded-lg bg-[#f8f9fa] p-3 text-sm text-[#3c4043]">
           {normalizeTextContent(task.draftContent)}
