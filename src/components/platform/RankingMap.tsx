@@ -21,7 +21,7 @@ import MapLayerControls, {
   type MapLayerState,
 } from "@/components/platform/MapLayerControls";
 import { getPlaceGeometry } from "@/lib/google/place-geometry";
-import { loadGoogleMapsCore } from "@/lib/google/maps-loader";
+import { loadGoogleMaps } from "@/lib/google/maps-loader";
 import {
   createBusinessPinIcon,
   createCompetitorMarkerIcon,
@@ -230,7 +230,7 @@ export default function RankingMap({
       lastSizeRef.current = { width, height };
 
       try {
-        const google = await loadGoogleMapsCore();
+        const google = await loadGoogleMaps();
         if (cancelled || !mapRef.current) return;
 
         let center: google.maps.LatLngLiteral = { lat, lng };
@@ -538,8 +538,8 @@ export default function RankingMap({
 
     async function placeCompetitors() {
       const map = mapInstance.current!;
-      const g = window.google;
-      if (!g) return;
+      const g = await loadGoogleMaps();
+      if (cancelled) return;
       const top3 = competitors.slice(0, 3);
 
       for (let i = 0; i < top3.length; i++) {
