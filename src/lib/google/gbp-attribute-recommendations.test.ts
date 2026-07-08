@@ -3,8 +3,11 @@ import { describe, it } from "node:test";
 import {
   attributeDisplayName,
   buildAttributeCoverage,
+  buildUserUriAttributeUpdates,
   chunkAttributeUpdates,
+  isUriAttributeType,
   recommendAttributeUpdates,
+  suggestUriForAttribute,
 } from "@/lib/google/gbp-attribute-recommendations";
 import { buildAttributePlanContent } from "@/audit/phase2/gbp-current-state";
 import { buildAttributeExecutionTasks } from "@/audit/phase3/gbp-plan-tasks";
@@ -41,6 +44,20 @@ const available = [
     valueType: "REPEATED_ENUM",
     deprecated: false,
   },
+  {
+    name: "attributes/url_linkedin",
+    displayName: "Linkedin",
+    groupDisplayName: "Place page URLs",
+    valueType: "URL",
+    deprecated: false,
+  },
+  {
+    name: "attributes/url_whatsapp",
+    displayName: "WhatsApp",
+    groupDisplayName: "Place page URLs",
+    valueType: "URL",
+    deprecated: false,
+  },
 ];
 
 const current = [
@@ -58,8 +75,8 @@ describe("buildAttributeCoverage", () => {
     });
 
     assert.equal(coverage.enabledCount, 1);
-    assert.equal(coverage.availableCount, 4);
-    assert.equal(coverage.missingCount, 3);
+    assert.equal(coverage.availableCount, 6);
+    assert.equal(coverage.missingCount, 5);
     assert.equal(coverage.autoUpdates.length, 2);
     assert.deepEqual(
       coverage.autoUpdates.map((update) => update.name),
@@ -98,14 +115,15 @@ describe("attribute plan integration", () => {
 
   it("builds a plan step that names missing attributes", () => {
     const planContent = buildAttributePlanContent(auditWithCoverage());
-    assert.match(planContent.current, /1 of 4 enabled/);
+    assert.match(planContent.current, /1 of 6 enabled/);
     assert.match(planContent.recommended, /Enable 2 missing attributes/);
     assert.equal(planContent.actionData?.attributes.length, 2);
     assert.ok(planContent.copyBlocks?.some((block) => block.label.includes("One-click")));
+    assert.ok(planContent.copyBlocks?.some((block) => block.label.includes("Profile links")));
     assert.ok(planContent.copyBlocks?.some((block) => block.label.includes("Set manually")));
   });
 
-  it("creates execution tasks for auto and manual attribute gaps", () => {
+  it("creates execution tasks for auto, URI, and manual attribute gaps", () => {
     const audit = auditWithCoverage();
     const tasks = buildAttributeExecutionTasks(audit, {
       stepNumber: 13,
@@ -115,10 +133,37 @@ describe("attribute plan integration", () => {
       actionData: { attributes: audit.gbp.attributeCoverage!.autoUpdates },
     });
 
-    assert.equal(tasks.length, 2);
+    assert.equal(tasks.length, 3);
     assert.equal(tasks[0].type, "gbp_attributes");
-    assert.equal(tasks[1].type, "gbp_checklist");
+    assert.equal(tasks[1].type, "gbp_attributes");
+    assert.match(tasks[1].title, /Add profile links/);
+    assert.equal(tasks[1].payload.requiresUriInput, true);
+    assert.equal(tasks[2].type, "gbp_checklist");
     assert.ok(Array.isArray(tasks[0].payload.attributes));
+    assert.ok(Array.isArray(tasks[1].payload.attributes));
+  });
+
+  it("suggests WhatsApp links from the business phone", () => {
+    const uri = suggestUriForAttribute(
+      { name: "attributes/url_whatsapp", displayName: "WhatsApp" },
+      { phone: "(214) 555-0100" }
+    );
+    assert.equal(uri, "https://wa.me/2145550100");
+  });
+
+  it("builds URI attribute updates for profile links", () => {
+    const coverage = buildAttributeCoverage(available, current, {
+      websiteUri: "https://example.com/book",
+    });
+    const uriMissing = coverage.missing.filter(
+      (item) => !item.autoApplicable && isUriAttributeType(item.valueType)
+    );
+    const updates = buildUserUriAttributeUpdates(uriMissing, { phone: "(214) 555-0100" });
+
+    assert.equal(updates.length, 2);
+    assert.equal(updates[0].name, "attributes/url_linkedin");
+    assert.equal(updates[0].uri, "");
+    assert.equal(updates[1].uri, "https://wa.me/2145550100");
   });
 
   it("explains the reputation score impact in step context", () => {
@@ -129,7 +174,7 @@ describe("attribute plan integration", () => {
       gbpAction: "update_attributes",
     });
 
-    assert.match(context.expectedEffect, /missing 3 of 4 available attributes/i);
+    assert.match(context.expectedEffect, /missing 5 of 6 available attributes/i);
     assert.match(context.expectedEffect, /Reputation Boost Score/i);
   });
 });

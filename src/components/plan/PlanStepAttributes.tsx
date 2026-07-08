@@ -30,6 +30,17 @@ function attributeHint(update: GbpAttributeUpdate): string | null {
   return null;
 }
 
+function isValidAttributeUri(uri: string): boolean {
+  const trimmed = uri.trim();
+  if (!trimmed) return false;
+  return (
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("sms:") ||
+    trimmed.startsWith("tel:")
+  );
+}
+
 export default function PlanStepAttributes({
   task,
   gbpConnected,
@@ -45,9 +56,17 @@ export default function PlanStepAttributes({
 }) {
   const isLight = variant === "light";
   const attributes = useMemo(() => readAttributeUpdates(task), [task]);
+  const requiresUriInput = task.payload.requiresUriInput === true;
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(attributes.map((item) => item.name))
   );
+  const [uriValues, setUriValues] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const update of attributes) {
+      initial[update.name] = update.uri ?? "";
+    }
+    return initial;
+  });
   const loading = actions.loadingTaskId === task.id;
 
   const selectedAttributes = attributes.filter((item) => selected.has(item.name));
@@ -61,6 +80,24 @@ export default function PlanStepAttributes({
     }
     return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [attributes, coverage]);
+
+  const selectedUriUpdates = selectedAttributes
+    .map((update) => ({
+      ...update,
+      uri: (uriValues[update.name] ?? "").trim(),
+    }))
+    .filter((update) => isValidAttributeUri(update.uri ?? ""));
+
+  const selectedBoolUpdates = selectedAttributes.filter(
+    (update) => update.boolValue === true
+  );
+
+  const canPublishUri =
+    requiresUriInput &&
+    selectedAttributes.length > 0 &&
+    selectedAttributes.every((update) => isValidAttributeUri(uriValues[update.name] ?? ""));
+
+  const canPublishBool = !requiresUriInput && selectedBoolUpdates.length > 0;
 
   function toggle(name: string) {
     setSelected((prev) => {
@@ -79,14 +116,40 @@ export default function PlanStepAttributes({
     setSelected(new Set());
   }
 
-  async function publishSelected() {
-    if (selectedAttributes.length === 0) return;
+  function updateUri(name: string, value: string) {
+    setUriValues((prev) => ({ ...prev, [name]: value }));
+  }
 
-    const labels = selectedAttributes.map((update) =>
+  async function publishSelected() {
+    if (requiresUriInput) {
+      if (selectedUriUpdates.length === 0) return;
+
+      const labels = selectedUriUpdates.map((update) =>
+        attributeDisplayName(coverage!, update.name)
+      );
+      const draftContent = [
+        `Add ${selectedUriUpdates.length} profile link${selectedUriUpdates.length === 1 ? "" : "s"} on your Google Business Profile:`,
+        ...labels.map((label, index) => `• ${label}: ${selectedUriUpdates[index].uri}`),
+      ].join("\n");
+
+      await actions.approveAndPublish(task, {
+        draftContent,
+        payload: {
+          ...task.payload,
+          attributes: selectedUriUpdates,
+          enableRecommended: false,
+        },
+      });
+      return;
+    }
+
+    if (selectedBoolUpdates.length === 0) return;
+
+    const labels = selectedBoolUpdates.map((update) =>
       attributeDisplayName(coverage!, update.name)
     );
     const draftContent = [
-      `Enable ${selectedAttributes.length} selected attribute${selectedAttributes.length === 1 ? "" : "s"} on your Google Business Profile:`,
+      `Enable ${selectedBoolUpdates.length} selected attribute${selectedBoolUpdates.length === 1 ? "" : "s"} on your Google Business Profile:`,
       ...labels.map((label) => `• ${label}`),
     ].join("\n");
 
@@ -94,7 +157,7 @@ export default function PlanStepAttributes({
       draftContent,
       payload: {
         ...task.payload,
-        attributes: selectedAttributes,
+        attributes: selectedBoolUpdates,
         enableRecommended: false,
       },
     });
@@ -103,6 +166,13 @@ export default function PlanStepAttributes({
   if (attributes.length === 0) {
     return null;
   }
+
+  const publishCount = requiresUriInput ? selectedUriUpdates.length : selectedBoolUpdates.length;
+  const publishDisabled =
+    loading ||
+    !gbpConnected ||
+    selected.size === 0 ||
+    (requiresUriInput ? !canPublishUri : !canPublishBool);
 
   return (
     <div
@@ -116,10 +186,12 @@ export default function PlanStepAttributes({
             Attributes
           </p>
           <p className={`mt-0.5 text-sm font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
-            Choose which attributes to enable
+            {requiresUriInput ? "Add your profile links" : "Choose which attributes to enable"}
           </p>
           <p className={`mt-1 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-            Uncheck any you do not want on your Google profile, then enable the rest.
+            {requiresUriInput
+              ? "Paste each social or chat link, then publish directly to Google — no manual GBP editing."
+              : "Uncheck any you do not want on your Google profile, then enable the rest."}
           </p>
         </div>
         <span
@@ -168,8 +240,10 @@ export default function PlanStepAttributes({
                     const label = coverage
                       ? attributeDisplayName(coverage, update.name)
                       : update.name;
-                    const hint = attributeHint(update);
+                    const hint = requiresUriInput ? null : attributeHint(update);
                     const checked = selected.has(update.name);
+                    const uriValue = uriValues[update.name] ?? "";
+                    const uriInvalid = requiresUriInput && checked && !isValidAttributeUri(uriValue);
 
                     return (
                       <li key={update.name}>
@@ -190,13 +264,31 @@ export default function PlanStepAttributes({
                             onChange={() => toggle(update.name)}
                             className="mt-0.5"
                           />
-                          <span className="min-w-0">
+                          <span className="min-w-0 flex-1">
                             <span className={`block text-sm font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
                               {label}
                             </span>
                             {hint && (
                               <span className={`mt-0.5 block text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
                                 {hint}
+                              </span>
+                            )}
+                            {requiresUriInput && checked && (
+                              <input
+                                type="url"
+                                value={uriValue}
+                                onChange={(event) => updateUri(update.name, event.target.value)}
+                                placeholder="https://..."
+                                className={`mt-2 w-full rounded-md border px-2.5 py-1.5 text-xs ${
+                                  isLight
+                                    ? "border-[#dadce0] bg-white text-[#202124] placeholder:text-[#80868b]"
+                                    : "border-white/10 bg-black/20 text-white placeholder:text-slate-500"
+                                }`}
+                              />
+                            )}
+                            {uriInvalid && (
+                              <span className="mt-1 block text-xs text-[#d93025]">
+                                Enter a valid https://, sms:, or tel: link
                               </span>
                             )}
                           </span>
@@ -221,13 +313,15 @@ export default function PlanStepAttributes({
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={loading || !gbpConnected || selected.size === 0}
+            disabled={publishDisabled}
             onClick={() => void publishSelected()}
             className="btn-primary rounded-full px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
           >
             {loading
               ? "Publishing…"
-              : `Enable ${selected.size} selected`}
+              : requiresUriInput
+                ? `Publish ${publishCount} link${publishCount === 1 ? "" : "s"}`
+                : `Enable ${publishCount} selected`}
           </button>
           {task.status === "pending_approval" && (
             <button

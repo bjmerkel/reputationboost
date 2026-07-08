@@ -34,9 +34,13 @@ function matchesHighValue(meta: GbpAttributeMetadata): boolean {
   return HIGH_VALUE_KEYWORDS.some((kw) => haystack.includes(kw));
 }
 
-function isUriAttribute(meta: GbpAttributeMetadata): boolean {
-  const type = meta.valueType.toUpperCase();
+export function isUriAttributeType(valueType: string): boolean {
+  const type = valueType.toUpperCase();
   return type.includes("URI") || type === "URL";
+}
+
+function isUriAttribute(meta: GbpAttributeMetadata): boolean {
+  return isUriAttributeType(meta.valueType);
 }
 
 function sortByPriority(
@@ -201,4 +205,47 @@ export function attributeDisplayName(
     coverage.missing.find((item) => item.name === attributeName) ??
     coverage.enabled.find((item) => item.name === attributeName);
   return match?.displayName ?? attributeName;
+}
+
+function digitsOnlyPhone(phone: string): string {
+  return phone.replace(/\D/g, "");
+}
+
+/** Best-effort URL for URI attributes the user still needs to provide. */
+export function suggestUriForAttribute(
+  meta: Pick<GbpAttributeMetadata, "displayName" | "name">,
+  options?: {
+    websiteUri?: string;
+    phone?: string;
+  }
+): string {
+  const haystack = `${meta.displayName} ${meta.name}`.toLowerCase();
+  const phoneDigits = options?.phone ? digitsOnlyPhone(options.phone) : "";
+
+  if (phoneDigits) {
+    if (haystack.includes("whatsapp")) {
+      return `https://wa.me/${phoneDigits}`;
+    }
+    if (haystack.includes("text")) {
+      return `sms:+${phoneDigits}`;
+    }
+  }
+
+  return "";
+}
+
+/** URI attributes that can be published once the user supplies a link. */
+export function buildUserUriAttributeUpdates(
+  missing: Array<Pick<GbpAttributeMetadata, "name" | "displayName" | "valueType">>,
+  options?: {
+    websiteUri?: string;
+    phone?: string;
+  }
+): GbpAttributeUpdate[] {
+  return missing
+    .filter((item) => isUriAttributeType(item.valueType))
+    .map((item) => ({
+      name: item.name,
+      uri: suggestUriForAttribute(item, options),
+    }));
 }
