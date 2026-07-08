@@ -36,12 +36,13 @@ function HolidayEditorRow({
   const inputClass = isLight
     ? "rounded border border-[#dadce0] bg-white px-2 py-1 text-xs text-[#3c4043]"
     : "rounded border border-white/10 bg-black/20 px-2 py-1 text-xs text-slate-200";
+  const rowBorder = isLight ? "border-[#e8eaed]" : "border-white/8";
 
   if (!editable) {
     return (
-      <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1">
-        <span className={labelClass}>{period.name}</span>
-        <span className={`text-right text-xs ${mutedClass}`}>
+      <li className={`flex items-start justify-between gap-4 border-b py-2.5 last:border-b-0 ${rowBorder}`}>
+        <span className={`min-w-0 flex-1 text-sm leading-snug ${labelClass}`}>{period.name}</span>
+        <span className={`shrink-0 text-right text-xs leading-snug ${mutedClass}`}>
           {formatEditableHolidaySchedule(period)}
         </span>
       </li>
@@ -50,47 +51,54 @@ function HolidayEditorRow({
 
   return (
     <li
-      className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-md px-1 py-1 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] ${
+      className={`border-b py-3 last:border-b-0 ${rowBorder} ${
         period.enabled ? "" : "opacity-60"
       }`}
     >
-      <input
-        type="checkbox"
-        checked={period.enabled}
-        onChange={(event) => onChange({ enabled: event.target.checked })}
-        aria-label={`Include ${period.name}`}
-        className="h-4 w-4 shrink-0 rounded border-[#dadce0]"
-      />
-      <span className={`min-w-0 text-sm ${labelClass}`}>{period.name}</span>
-      <label className={`flex items-center gap-1.5 text-xs ${mutedClass}`}>
+      <div className="flex items-start gap-3">
         <input
           type="checkbox"
-          checked={period.closed}
-          disabled={!period.enabled}
-          onChange={(event) => onChange({ closed: event.target.checked })}
+          checked={period.enabled}
+          onChange={(event) => onChange({ enabled: event.target.checked })}
+          aria-label={`Include ${period.name}`}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#dadce0]"
         />
-        Closed
-      </label>
-      {!period.closed && (
-        <>
-          <input
-            type="time"
-            value={period.openTime}
-            disabled={!period.enabled}
-            onChange={(event) => onChange({ openTime: event.target.value })}
-            className={inputClass}
-            aria-label={`${period.name} open time`}
-          />
-          <input
-            type="time"
-            value={period.closeTime}
-            disabled={!period.enabled}
-            onChange={(event) => onChange({ closeTime: event.target.value })}
-            className={inputClass}
-            aria-label={`${period.name} close time`}
-          />
-        </>
-      )}
+        <div className="min-w-0 flex-1">
+          <p className={`text-sm font-medium leading-snug ${labelClass}`}>{period.name}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <label className={`inline-flex items-center gap-1.5 text-xs whitespace-nowrap ${mutedClass}`}>
+              <input
+                type="checkbox"
+                checked={period.closed}
+                disabled={!period.enabled}
+                onChange={(event) => onChange({ closed: event.target.checked })}
+              />
+              Closed
+            </label>
+            {!period.closed && (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="time"
+                  value={period.openTime}
+                  disabled={!period.enabled}
+                  onChange={(event) => onChange({ openTime: event.target.value })}
+                  className={inputClass}
+                  aria-label={`${period.name} open time`}
+                />
+                <span className={`text-xs ${mutedClass}`}>to</span>
+                <input
+                  type="time"
+                  value={period.closeTime}
+                  disabled={!period.enabled}
+                  onChange={(event) => onChange({ closeTime: event.target.value })}
+                  className={inputClass}
+                  aria-label={`${period.name} close time`}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </li>
   );
 }
@@ -200,7 +208,7 @@ export default function PlanStepHours({
         </div>
       ) : (
         <ul
-          className={`mt-4 space-y-1 rounded-lg border px-3 py-3 ${
+          className={`mt-4 rounded-lg border px-3 py-1 ${
             isLight ? "border-[#dadce0] bg-white" : "border-white/10 bg-black/20"
           }`}
         >
