@@ -655,6 +655,7 @@ export interface KeywordScoreCard {
   revenueCaptureScore: number;
   /** Profile relevance for this keyword (0–100) */
   relevanceScore: number;
+  /** 1-mile Nearby Search position (pack badge) */
   position: number | "not_in_pack";
   positionLabel: string;
   inLocalPack: boolean;
@@ -666,6 +667,17 @@ export interface KeywordScoreCard {
   suggestedAction: string;
   /** Share of geo-grid cells in Local 3-Pack, when grid data exists */
   gridCoveragePercent?: number | null;
+  /** Ranks at 1/3/5/10 mi used for service-area scoring */
+  radiusRanks: Array<{
+    distanceMiles: number;
+    rank: number | "not_in_pack";
+    inLocalPack: boolean;
+    label: string;
+  }>;
+  /** How customer travel distance is weighted in the score */
+  radiusProfileLabel: string;
+  packFragile: boolean;
+  weakestRadiusMiles: number | null;
 }
 
 export type PathOptimizationMode = "driver" | "outcome" | "revenue" | "balanced";

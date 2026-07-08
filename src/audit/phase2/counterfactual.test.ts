@@ -169,7 +169,7 @@ describe("counterfactual score simulation", () => {
     const audit = createTestAudit();
     const plan = buildTemplateGbpPlan(audit);
     assert.ok(plan.steps.length > 0);
-    assert.ok(plan.steps.length < 16);
+    assert.ok(plan.steps.length <= 17);
     for (const step of plan.steps) {
       assert.equal(isStepSatisfied(audit, step.stepNumber), false);
     }

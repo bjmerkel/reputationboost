@@ -46,6 +46,7 @@ function gapActionRef(gap: GapFlag) {
 export function gapOutcomeScoreImpact(gap: GapFlag, audit: Phase1AuditPayload): number {
   if (
     gap.id.startsWith("rank-outside-pack") ||
+    gap.id.startsWith("pack-fragility-") ||
     gap.id === "no-search-keyword-data" ||
     gap.id.startsWith("relevance-gap-")
   ) {

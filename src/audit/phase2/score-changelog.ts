@@ -1,6 +1,12 @@
-import type { HealthScores, RankMovement, ScoreChangelogEntry, ScoreComponent } from "../types";
+import type {
+  HealthScores,
+  KeywordRankSnapshot,
+  RankMovement,
+  ScoreChangelogEntry,
+  ScoreComponent,
+} from "../types";
 import type { ScoreDailySnapshot } from "../types/timeseries";
-import { positionVisibilityScore } from "./scoring";
+import { detectPackFragility, positionVisibilityScore } from "./scoring";
 import { computeOutcomeIndex } from "./score-driver-outcome";
 
 const COMPONENT_LABELS: Record<ScoreComponent, string> = {
@@ -28,7 +34,23 @@ function componentDelta(
   };
 }
 
-function keywordRankEntry(movement: RankMovement): ScoreChangelogEntry | null {
+function packFragilityHint(
+  keyword: string,
+  keywordRanks?: Map<string, KeywordRankSnapshot>
+): string {
+  const snapshot = keywordRanks?.get(keyword);
+  if (!snapshot) return "";
+  const fragility = detectPackFragility(snapshot);
+  if (!fragility.fragile) return "";
+  return fragility.weakestRadiusMiles
+    ? ` — pack fragile beyond ${fragility.weakestRadiusMiles} mi`
+    : " — pack fragile beyond 1 mi";
+}
+
+function keywordRankEntry(
+  movement: RankMovement,
+  keywordRanks?: Map<string, KeywordRankSnapshot>
+): ScoreChangelogEntry | null {
   const from = movement.fromPosition;
   const to = movement.toPosition;
   if (from === to) return null;
@@ -36,6 +58,7 @@ function keywordRankEntry(movement: RankMovement): ScoreChangelogEntry | null {
   const fromVis = from != null ? positionVisibilityScore(from) : 0;
   const toVis = to != null ? positionVisibilityScore(to) : 0;
   const delta = Math.round((toVis - fromVis) * 0.3);
+  const fragilityHint = packFragilityHint(movement.keyword, keywordRanks);
 
   if (movement.improved) {
     const fromLabel = from == null ? "unranked" : `#${from}`;
@@ -44,7 +67,7 @@ function keywordRankEntry(movement: RankMovement): ScoreChangelogEntry | null {
       component: "outcome",
       delta: Math.max(1, delta),
       keyword: movement.keyword,
-      label: `Ranking improved on "${movement.keyword}" (${fromLabel} → ${toLabel})`,
+      label: `Ranking improved at 1 mi on "${movement.keyword}" (${fromLabel} → ${toLabel})${fragilityHint}`,
     };
   }
 
@@ -54,7 +77,7 @@ function keywordRankEntry(movement: RankMovement): ScoreChangelogEntry | null {
     component: "outcome",
     delta: Math.min(-1, delta),
     keyword: movement.keyword,
-    label: `Ranking dropped on "${movement.keyword}" (${fromLabel} → ${toLabel})`,
+    label: `Ranking dropped at 1 mi on "${movement.keyword}" (${fromLabel} → ${toLabel})${fragilityHint}`,
   };
 }
 
@@ -101,7 +124,8 @@ function driverOutcomeDeltas(
 export function buildScoreChangelogFromSnapshots(
   current: ScoreDailySnapshot,
   prior: ScoreDailySnapshot,
-  rankMovements: RankMovement[] = []
+  rankMovements: RankMovement[] = [],
+  keywordRanks?: Map<string, KeywordRankSnapshot>
 ): ScoreChangelogEntry[] {
   const entries: ScoreChangelogEntry[] = [];
 
@@ -125,7 +149,7 @@ export function buildScoreChangelogFromSnapshots(
   entries.push(...driverOutcomeDeltas(current, prior));
 
   for (const movement of rankMovements) {
-    const entry = keywordRankEntry(movement);
+    const entry = keywordRankEntry(movement, keywordRanks);
     if (entry) entries.push(entry);
   }
 
@@ -135,7 +159,8 @@ export function buildScoreChangelogFromSnapshots(
 export function buildScoreChangelogFromHealthScores(
   current: HealthScores,
   prior: HealthScores,
-  rankMovements: RankMovement[] = []
+  rankMovements: RankMovement[] = [],
+  keywordRanks?: Map<string, KeywordRankSnapshot>
 ): ScoreChangelogEntry[] {
   return buildScoreChangelogFromSnapshots(
     {
@@ -160,7 +185,8 @@ export function buildScoreChangelogFromHealthScores(
       revenueCapture: prior.revenueCapture,
       source: "audit",
     },
-    rankMovements
+    rankMovements,
+    keywordRanks
   );
 }
 

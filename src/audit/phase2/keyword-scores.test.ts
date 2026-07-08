@@ -18,6 +18,9 @@ describe("computeKeywordScores", () => {
       assert.ok(card.relevanceScore >= 0 && card.relevanceScore <= 100);
       assert.ok(card.suggestedAction.length > 0);
       assert.ok(card.positionLabel.length > 0);
+      assert.equal(card.radiusRanks.length, 4);
+      assert.ok(card.radiusProfileLabel.length > 0);
+      assert.equal(typeof card.packFragile, "boolean");
     }
     // Outside-pack keywords should rank as higher opportunity
     const outside = cards.filter((c) => !c.inLocalPack);
@@ -40,6 +43,18 @@ describe("computeKeywordScores", () => {
       assert.ok(withImpressions.potentialAtRank1 != null);
       assert.ok(withImpressions.potentialAtRank1! >= withImpressions.estimatedMonthlyRevenue!);
     }
+  });
+
+  it("flags pack-fragile keywords with radius breakdown", () => {
+    const audit = createTestAudit();
+    const cards = computeKeywordScores(audit);
+    const fragile = cards.find((c) => c.keyword === "plumber near me");
+    assert.ok(fragile);
+    assert.equal(fragile!.packFragile, true);
+    assert.equal(fragile!.weakestRadiusMiles, 3);
+    assert.equal(fragile!.radiusRanks.find((r) => r.distanceMiles === 1)?.inLocalPack, true);
+    assert.equal(fragile!.radiusRanks.find((r) => r.distanceMiles === 3)?.inLocalPack, false);
+    assert.match(fragile!.radiusProfileLabel, /Metro|Neighborhood|local/i);
   });
 });
 

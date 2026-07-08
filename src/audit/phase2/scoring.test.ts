@@ -4,13 +4,18 @@ import type { KeywordRankSnapshot } from "../types";
 import {
   computeHealthScores,
   computeConversionScore,
+  computeRevenueCaptureScore,
   computeVisibilityScore,
+  detectPackFragility,
   impressionWeightFloor,
   keywordGeoGridVisibilityScore,
   keywordImpressionWeight,
+  keywordServiceAreaRevenueCaptureScore,
+  keywordServiceAreaVisibilityScore,
   matchSearchKeywordImpressions,
   positionVisibilityScore,
 } from "./scoring";
+import { RADIUS_PROFILE_WEIGHTS } from "./radius-profiles";
 import {
   computeOutcomeIndex,
   computeOverallFromDriverOutcome,
@@ -358,6 +363,159 @@ describe("computeHealthScores", () => {
       },
     });
     assert.ok(improved > base);
+  });
+});
+
+describe("multi-radius visibility", () => {
+  const baseKw: KeywordRankSnapshot = {
+    keyword: "plumber near me",
+    localPackPosition: 1,
+    inLocalPack: true,
+    geoRanks: [
+      { distanceMiles: 1, rank: 1, inLocalPack: true },
+      { distanceMiles: 3, rank: 8, inLocalPack: false },
+      { distanceMiles: 5, rank: 12, inLocalPack: false },
+      { distanceMiles: 10, rank: 15, inLocalPack: false },
+    ],
+    packLeaderRating: 4.9,
+    packLeaderReviewCount: 200,
+    clientRating: 4.6,
+    clientReviewCount: 87,
+  };
+
+  it("blends wider radii so #1 at 1mi alone does not score 100", () => {
+    const metroScore = keywordServiceAreaVisibilityScore(baseKw, RADIUS_PROFILE_WEIGHTS.metro);
+    assert.ok(metroScore < 100);
+    assert.ok(metroScore > 0);
+  });
+
+  it("applies pack fragility penalty when in pack at 1mi but not at 3mi", () => {
+    const fragileKw: KeywordRankSnapshot = {
+      ...baseKw,
+      localPackPosition: 2,
+      geoRanks: [
+        { distanceMiles: 1, rank: 2, inLocalPack: true },
+        { distanceMiles: 3, rank: 6, inLocalPack: false },
+        { distanceMiles: 5, rank: 9, inLocalPack: false },
+        { distanceMiles: 10, rank: 12, inLocalPack: false },
+      ],
+    };
+    const fragile = detectPackFragility(fragileKw);
+    assert.equal(fragile.fragile, true);
+    assert.equal(fragile.penalty, -8);
+    assert.equal(fragile.weakestRadiusMiles, 3);
+
+    const withoutPenalty = keywordServiceAreaVisibilityScore(
+      { ...fragileKw, geoRanks: fragileKw.geoRanks.map((g) => ({ ...g, rank: 2, inLocalPack: true })) },
+      RADIUS_PROFILE_WEIGHTS.equal
+    );
+    const withPenalty = keywordServiceAreaVisibilityScore(fragileKw, RADIUS_PROFILE_WEIGHTS.equal);
+    assert.ok(withPenalty < withoutPenalty);
+  });
+
+  it("weights audit visibility with metro profile for plumbers", () => {
+    const audit = createTestAudit();
+    const only1mi = {
+      ...audit,
+      rankings: {
+        ...audit.rankings,
+        keywords: audit.rankings.keywords.map((kw) =>
+          kw.keyword === "plumber near me"
+            ? {
+                ...kw,
+                geoRanks: [
+                  { distanceMiles: 1, rank: 1, inLocalPack: true },
+                  { distanceMiles: 3, rank: 1, inLocalPack: true },
+                  { distanceMiles: 5, rank: 1, inLocalPack: true },
+                  { distanceMiles: 10, rank: 1, inLocalPack: true },
+                ],
+              }
+            : kw
+        ),
+      },
+    };
+    const wideDrop = {
+      ...audit,
+      rankings: {
+        ...audit.rankings,
+        keywords: audit.rankings.keywords.map((kw) =>
+          kw.keyword === "plumber near me"
+            ? {
+                ...kw,
+                geoRanks: [
+                  { distanceMiles: 1, rank: 1, inLocalPack: true },
+                  { distanceMiles: 3, rank: 10, inLocalPack: false },
+                  { distanceMiles: 5, rank: 12, inLocalPack: false },
+                  { distanceMiles: 10, rank: 15, inLocalPack: false },
+                ],
+              }
+            : kw
+        ),
+      },
+    };
+    assert.ok(computeVisibilityScore(wideDrop) < computeVisibilityScore(only1mi));
+  });
+});
+
+describe("service area revenue capture", () => {
+  it("weights click share across radii for revenue capture", () => {
+    const strongNear: KeywordRankSnapshot = {
+      keyword: "plumber",
+      localPackPosition: 1,
+      inLocalPack: true,
+      geoRanks: [
+        { distanceMiles: 1, rank: 1, inLocalPack: true },
+        { distanceMiles: 3, rank: 1, inLocalPack: true },
+        { distanceMiles: 5, rank: 1, inLocalPack: true },
+        { distanceMiles: 10, rank: 1, inLocalPack: true },
+      ],
+      packLeaderRating: 4.9,
+      packLeaderReviewCount: 200,
+      clientRating: 4.6,
+      clientReviewCount: 87,
+    };
+    const weakFar: KeywordRankSnapshot = {
+      ...strongNear,
+      geoRanks: [
+        { distanceMiles: 1, rank: 1, inLocalPack: true },
+        { distanceMiles: 3, rank: 8, inLocalPack: false },
+        { distanceMiles: 5, rank: 10, inLocalPack: false },
+        { distanceMiles: 10, rank: 12, inLocalPack: false },
+      ],
+    };
+
+    const strongScore = keywordServiceAreaRevenueCaptureScore(
+      strongNear,
+      RADIUS_PROFILE_WEIGHTS.metro
+    );
+    const weakScore = keywordServiceAreaRevenueCaptureScore(
+      weakFar,
+      RADIUS_PROFILE_WEIGHTS.metro
+    );
+    assert.ok(strongScore > weakScore);
+
+    const audit = createTestAudit();
+    const strongAudit = {
+      ...audit,
+      rankings: {
+        ...audit.rankings,
+        keywords: audit.rankings.keywords.map((kw) =>
+          kw.keyword === "plumber near me" ? strongNear : kw
+        ),
+      },
+    };
+    const weakAudit = {
+      ...audit,
+      rankings: {
+        ...audit.rankings,
+        keywords: audit.rankings.keywords.map((kw) =>
+          kw.keyword === "plumber near me" ? weakFar : kw
+        ),
+      },
+    };
+    assert.ok(
+      computeRevenueCaptureScore(weakAudit) < computeRevenueCaptureScore(strongAudit)
+    );
   });
 });
 
