@@ -284,6 +284,8 @@ describe("computeHealthScores", () => {
           configuredTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
           availableTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
           missingRecommendedTypes: [],
+          missingAvailableTypes: [],
+          typeCatalog: [],
           hasAppointmentLink: true,
           hasOnlineAppointmentLink: true,
           hasDiningReservationLink: false,

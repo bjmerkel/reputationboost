@@ -840,9 +840,9 @@ export function tasksFromVideoGaps(audit: FullAuditPayload): ExecutionTask[] {
 
 export function tasksFromPlaceActionGaps(audit: FullAuditPayload): ExecutionTask[] {
   const coverage = audit.gbp.placeActions;
-  if (!coverage?.apiAvailable || coverage.missingRecommendedTypes.length === 0) return [];
+  if (!coverage?.apiAvailable || coverage.missingAvailableTypes.length === 0) return [];
 
-  const website = audit.gbp.identity.website?.trim();
+  const website = audit.gbp.identity.website?.trim() || "https://";
   const step: GbpPlanStep = {
     stepNumber: 15,
     title: "Place action links",
@@ -850,28 +850,49 @@ export function tasksFromPlaceActionGaps(audit: FullAuditPayload): ExecutionTask
     gbpAction: "manual",
   };
 
-  return coverage.missingRecommendedTypes.map((type) => {
-    const label = placeActionTypeLabel(type);
-    const suggestedUri = website || "https://";
-    return buildGbpTask(
+  const missingTypes = coverage.missingAvailableTypes.map((type) => {
+    const catalog = coverage.typeCatalog.find((item) => item.placeActionType === type);
+    return {
+      placeActionType: type,
+      displayName: catalog?.displayName ?? placeActionTypeLabel(type),
+      suggestedUri: website,
+      recommended: coverage.missingRecommendedTypes.includes(type),
+    };
+  });
+
+  const labels = missingTypes.map((item) => item.displayName);
+  const configuredSummary =
+    audit.gbp.placeActionLinks?.length ?
+      [
+        "",
+        "Already configured:",
+        ...audit.gbp.placeActionLinks.map(
+          (link) => `• ${link.displayType}: ${link.uri}`
+        ),
+      ].join("\n")
+      : "";
+
+  return [
+    buildGbpTask(
       audit,
       step,
       "gbp_place_action",
-      `Add ${label} link`,
+      "Add place action links",
       [
-        `Add a ${label.toLowerCase()} link on your Google Business Profile.`,
-        "",
-        "Paste the destination URL on the first line, then approve to publish.",
-        "",
-        suggestedUri,
-      ].join("\n"),
+        `Add ${missingTypes.length} place action link${missingTypes.length === 1 ? "" : "s"} on your Google Business Profile:`,
+        ...labels.map((label) => `• ${label}`),
+        configuredSummary,
+      ]
+        .filter(Boolean)
+        .join("\n"),
       {
-        placeActionType: type,
-        suggestedUri,
-        syncPlaceAction: true,
+        requiresPlaceActionInput: true,
+        placeActionTypes: missingTypes,
+        configuredLinks: audit.gbp.placeActionLinks ?? [],
+        suggestedUri: website,
       }
-    );
-  });
+    ),
+  ];
 }
 
 export function tasksFromNotificationGaps(audit: FullAuditPayload): ExecutionTask[] {

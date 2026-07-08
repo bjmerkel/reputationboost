@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { tasksFromPlaceActionGaps } from "@/audit/phase3/gbp-plan-tasks";
+import { createTestAudit } from "@/audit/phase3/test-fixtures";
 import {
   analyzeGbpPlaceActionCoverage,
   formatPlaceActionCoverageSummary,
@@ -45,6 +47,11 @@ describe("analyzeGbpPlaceActionCoverage", () => {
     assert.equal(coverage.merchantLinkCount, 1);
     assert.ok(coverage.coverageScore > 50);
     assert.ok(coverage.missingRecommendedTypes.includes("ONLINE_APPOINTMENT"));
+    assert.deepEqual(coverage.missingAvailableTypes, [
+      "ONLINE_APPOINTMENT",
+      "SHOP_ONLINE",
+    ]);
+    assert.equal(coverage.typeCatalog.length, 3);
   });
 
   it("recommends food ordering links for restaurants", () => {
@@ -58,6 +65,10 @@ describe("analyzeGbpPlaceActionCoverage", () => {
     });
 
     assert.deepEqual(coverage.missingRecommendedTypes, [
+      "DINING_RESERVATION",
+      "FOOD_ORDERING",
+    ]);
+    assert.deepEqual(coverage.missingAvailableTypes, [
       "DINING_RESERVATION",
       "FOOD_ORDERING",
     ]);
@@ -92,6 +103,11 @@ describe("formatPlaceActionCoverageSummary", () => {
       configuredTypes: ["APPOINTMENT", "SHOP_ONLINE"],
       availableTypes: ["APPOINTMENT", "SHOP_ONLINE"],
       missingRecommendedTypes: [],
+      missingAvailableTypes: [],
+      typeCatalog: [
+        { placeActionType: "APPOINTMENT", displayName: "Book appointment" },
+        { placeActionType: "SHOP_ONLINE", displayName: "Shop online" },
+      ],
       hasAppointmentLink: true,
       hasOnlineAppointmentLink: false,
       hasDiningReservationLink: false,
@@ -103,5 +119,36 @@ describe("formatPlaceActionCoverageSummary", () => {
 
     assert.match(summary, /Book appointment/);
     assert.match(summary, /Shop online/);
+  });
+});
+
+describe("tasksFromPlaceActionGaps", () => {
+  it("creates one consolidated plan task for all missing available types", () => {
+    const audit = createTestAudit();
+    const coverage = analyzeGbpPlaceActionCoverage({
+      links: [],
+      availableTypes: [
+        { placeActionType: "APPOINTMENT", displayName: "Book appointment" },
+        { placeActionType: "ONLINE_APPOINTMENT", displayName: "Book online appointment" },
+        { placeActionType: "SHOP_ONLINE", displayName: "Shop online" },
+      ],
+      primaryCategory: "Plumber",
+      probe: { endpoints: { links: "ok", typeMetadata: "ok" } },
+    });
+
+    const tasks = tasksFromPlaceActionGaps({
+      ...audit,
+      gbp: {
+        ...audit.gbp,
+        placeActions: coverage,
+        placeActionLinks: [],
+      },
+    });
+
+    assert.equal(tasks.length, 1);
+    assert.equal(tasks[0].type, "gbp_place_action");
+    assert.equal(tasks[0].payload.requiresPlaceActionInput, true);
+    assert.equal((tasks[0].payload.placeActionTypes as unknown[]).length, 3);
+    assert.equal(tasks[0].planStepNumber, 15);
   });
 });

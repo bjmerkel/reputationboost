@@ -23,13 +23,18 @@ export function buildPlaceActionsHealthReport(
   coverage: GbpPlaceActionCoverage
 ): PlaceActionsHealthReport {
   const recommended = new Set(coverage.missingRecommendedTypes);
-  const allTypes = [...new Set([...coverage.availableTypes, ...coverage.configuredTypes])];
+  const catalogTypes =
+    coverage.typeCatalog.length > 0
+      ? coverage.typeCatalog.map((item) => item.placeActionType)
+      : [...new Set([...coverage.availableTypes, ...coverage.configuredTypes])];
 
-  const typeStatus: PlaceActionTypeStatus[] = allTypes.slice(0, 8).map((type) => ({
+  const typeStatus: PlaceActionTypeStatus[] = catalogTypes.map((type) => ({
     type,
-    label: placeActionTypeLabel(type),
+    label:
+      coverage.typeCatalog.find((item) => item.placeActionType === type)?.displayName ??
+      placeActionTypeLabel(type),
     configured: coverage.configuredTypes.includes(type),
-    recommended: recommended.has(type) || coverage.missingRecommendedTypes.includes(type),
+    recommended: recommended.has(type),
   }));
 
   return {

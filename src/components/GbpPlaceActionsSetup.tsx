@@ -177,10 +177,10 @@ export default function GbpPlaceActionsSetup({
             </ul>
           )}
 
-          {coverage?.missingRecommendedTypes.length ? (
+          {coverage?.missingAvailableTypes.length ? (
             <p className={`text-sm ${isLight ? "text-[#b06000]" : "text-amber-200"}`}>
-              Missing recommended links:{" "}
-              {coverage.missingRecommendedTypes
+              Missing action links:{" "}
+              {coverage.missingAvailableTypes
                 .map((type) => type.replace(/_/g, " ").toLowerCase())
                 .join(", ")}
             </p>
