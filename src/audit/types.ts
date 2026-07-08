@@ -557,14 +557,6 @@ export interface ReviewSnapshot {
   coverage?: GbpReviewCoverage;
 }
 
-export interface CitationCheck {
-  source: string;
-  nameMatch: boolean;
-  addressMatch: boolean;
-  phoneMatch: boolean;
-  url?: string;
-}
-
 export interface WebsiteSignals {
   napMatch: boolean;
   hasLocalBusinessSchema: boolean;
@@ -574,8 +566,6 @@ export interface WebsiteSignals {
 
 export interface OffGoogleSnapshot {
   collectedAt: string;
-  citations: CitationCheck[];
-  citationConsistencyScore: number;
   website: WebsiteSignals;
   socialPostCountLast30Days: number;
 }
@@ -1104,7 +1094,6 @@ export type ExecutionType =
   | "review_delete_reply"
   | "review_request"
   | "schema_markup"
-  | "citation_fix"
   | "social_post";
 
 export interface ExecutionTask {

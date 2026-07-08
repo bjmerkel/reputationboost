@@ -94,7 +94,6 @@ export function buildAuditContext(audit: Phase1AuditPayload): string {
     },
     competitors,
     offGoogle: {
-      citationScore: audit.offGoogle.citationConsistencyScore,
       hasSchema: audit.offGoogle.website.hasLocalBusinessSchema,
       socialPosts30d: audit.offGoogle.socialPostCountLast30Days,
     },

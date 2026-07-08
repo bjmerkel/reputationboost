@@ -136,7 +136,7 @@ After strategy generation, the engine builds an execution queue from the 30-day 
 - **GBP optimization** — business description, photos/services checklist
 - **Review responses** — draft replies for unresponded reviews
 - **Review requests** — SMS template for happy customers
-- **Technical & citations** — schema markup and NAP fix tasks
+- **Technical** — schema markup tasks
 
 Tasks that publish public content require approval. Approve individually or use **Approve All**, then **Run Approved** to execute (simulated until `GOOGLE_BUSINESS_API_KEY` is wired).
 

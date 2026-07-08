@@ -163,8 +163,6 @@ function minimalPhase1(): Phase1AuditPayload {
     },
     offGoogle: {
       collectedAt: "2026-07-03T12:00:00.000Z",
-      citations: [],
-      citationConsistencyScore: 80,
       website: {
         napMatch: true,
         hasLocalBusinessSchema: false,

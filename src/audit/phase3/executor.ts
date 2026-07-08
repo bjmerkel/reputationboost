@@ -106,7 +106,6 @@ export async function executeTask(
     review_delete_reply: `Removed review reply for review ${task.payload.reviewId ?? "unknown"}.`,
     review_request: `Sent ${task.payload.batchSize ?? 15} SMS review requests.`,
     schema_markup: "Generated LocalBusiness schema snippet for developer install.",
-    citation_fix: "Submitted citation corrections to directories.",
     social_post: "Scheduled Facebook and Instagram post.",
   };
 
@@ -348,7 +347,6 @@ async function executeTaskLive(
     case "gbp_checklist":
     case "review_request":
     case "schema_markup":
-    case "citation_fix":
     case "social_post":
       return {
         ...task,

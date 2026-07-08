@@ -40,7 +40,6 @@ type DataTab =
   | "rankings"
   | "competitors"
   | "reviews"
-  | "citations"
   | "trends";
 
 const DATA_TABS: { id: DataTab; label: string }[] = [
@@ -50,7 +49,6 @@ const DATA_TABS: { id: DataTab; label: string }[] = [
   { id: "trends", label: "Trends" },
   { id: "competitors", label: "Competitors" },
   { id: "reviews", label: "Reviews" },
-  { id: "citations", label: "Citations" },
 ];
 
 function auditDataTheme(light: boolean) {
@@ -617,30 +615,6 @@ export default function AuditDataPanel({
         />
       )}
 
-      {tab === "citations" && (
-        <div>
-          <DataBlock
-            light={isLight}
-            title="Off-Google signals"
-            rows={[
-              ["Citation consistency", `${audit.offGoogle.citationConsistencyScore}%`],
-              ["NAP on website", audit.offGoogle.website.napMatch ? "Match" : "Mismatch"],
-              [
-                "LocalBusiness schema",
-                audit.offGoogle.website.hasLocalBusinessSchema ? "Yes" : "Missing",
-              ],
-              ["Social posts (30d)", String(audit.offGoogle.socialPostCountLast30Days)],
-            ]}
-          />
-          {audit.offGoogle.website.issues.length > 0 && (
-            <ul className={auditDataTheme(isLight).issuesList}>
-              {audit.offGoogle.website.issues.map((issue) => (
-                <li key={issue}>{issue}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
     </div>
   );
 }

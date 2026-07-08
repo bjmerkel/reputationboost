@@ -708,20 +708,6 @@ export function detectGaps(
     );
   }
 
-  if (audit.offGoogle.citationConsistencyScore < 80) {
-    gaps.push(
-      gap(
-        "citation-mismatch",
-        "P2",
-        "technical",
-        "Citation NAP inconsistencies",
-        `Citation consistency score: ${audit.offGoogle.citationConsistencyScore}%. Fix mismatches on Apple Maps, Facebook, and directories.`,
-        6,
-        5
-      )
-    );
-  }
-
   if (audit.offGoogle.socialPostCountLast30Days < 4) {
     gaps.push(
       gap(

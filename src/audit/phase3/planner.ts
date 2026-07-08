@@ -216,19 +216,6 @@ function createTaskForAction(
           { url: audit.gbp.identity.website }
         ),
       ];
-    case "citation_fix":
-      return [
-        buildTask(
-          audit,
-          action,
-          "citation_fix",
-          `Fix NAP inconsistencies on: ${audit.offGoogle.citations
-            .filter((c) => !c.addressMatch || !c.phoneMatch)
-            .map((c) => c.source)
-            .join(", ")}.`,
-          { citations: audit.offGoogle.citations }
-        ),
-      ];
     case "social_post":
       return [
         buildTask(audit, action, "social_post", content.socialPost || action.draftCopy || "", {

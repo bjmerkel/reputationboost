@@ -637,7 +637,7 @@ export function tasksFromGbpPlan(
   return tasks;
 }
 
-/** Gap-driven tasks not covered by the 15-step GBP plan (schema, citations, social). */
+/** Gap-driven tasks not covered by the 15-step GBP plan (schema, social). */
 export function tasksFromNapDrift(audit: FullAuditPayload): ExecutionTask[] {
   const drifts = audit.gbp.napDrift ?? [];
   if (drifts.length === 0) return [];
@@ -687,7 +687,6 @@ export function tasksFromNapDrift(audit: FullAuditPayload): ExecutionTask[] {
 
 export const SUPPLEMENTARY_GAP_IDS = new Set([
   "missing-schema",
-  "citation-mismatch",
   "low-social",
   "missing-holiday-hours",
   "missing-hours",
