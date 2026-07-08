@@ -8,6 +8,7 @@ import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { usePlanTasks } from "@/hooks/usePlanTasks";
+import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 import GoogleUpdatesPanel from "./GoogleUpdatesPanel";
 import PlanPhaseSection from "./PlanPhaseSection";
 import PlanProgressHeader from "./PlanProgressHeader";
@@ -21,6 +22,7 @@ export default function PlanView({
   variant = "light",
   onReviewPending,
   onAuditUpdated,
+  onTasksChange,
   avgCustomerValue,
   currency = "USD",
   focusStep = null,
@@ -36,6 +38,7 @@ export default function PlanView({
   variant?: "light" | "dark";
   onReviewPending?: () => void;
   onAuditUpdated?: (audit: FullAuditPayload) => void;
+  onTasksChange?: () => void;
   avgCustomerValue?: number | null;
   currency?: string;
   focusStep?: number | null;
@@ -114,6 +117,12 @@ export default function PlanView({
       setSyncingGoogleUpdates(false);
     }
   }, [onAuditUpdated, syncGoogleUpdates]);
+
+  useEffect(() => {
+    onTasksChange?.();
+  }, [onTasksChange, tasks]);
+
+  const pendingApprovalCount = planApprovalBadgeCount(tasks);
 
   const defaultExpandedStep = useMemo(() => {
     if (focusStep != null) return focusStep;
@@ -208,6 +217,7 @@ export default function PlanView({
         plan={plan}
         variant={variant}
         onReviewPending={onReviewPending}
+        pendingApprovalCount={pendingApprovalCount}
         estimatedMonthlyRevenue={path?.estimatedMonthlyRevenue}
         projectedMonthlyRevenue={path?.projectedMonthlyRevenue}
         currency={currency}

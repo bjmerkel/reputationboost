@@ -9,7 +9,7 @@ import ListingStrengthInsights from "@/components/audit/ListingStrengthInsights"
 import HomeApprovalCTA from "@/components/home/HomeApprovalCTA";
 import HomeHealthSummary from "@/components/home/HomeHealthSummary";
 import HomeReviewInbox from "@/components/home/HomeReviewInbox";
-import { pendingBatchTasks } from "@/lib/execution/pending-tasks";
+import { getPendingApprovalCounts, planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 
 export default function HomeView({
@@ -49,8 +49,8 @@ export default function HomeView({
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
   clientId: string;
 }) {
-  const batchableCount = pendingBatchTasks(tasks).length;
-  const totalPending = tasks.filter((t) => t.status === "pending_approval").length;
+  const pendingCounts = getPendingApprovalCounts(tasks);
+  const approvalCount = planApprovalBadgeCount(tasks);
   const estimatedMonthlyRevenue = estimateTotalMonthlyRevenue(audit, avgCustomerValue);
 
   return (
@@ -68,9 +68,7 @@ export default function HomeView({
 
       <HomeReviewInbox
         audit={audit}
-        pendingReplyCount={tasks.filter(
-          (t) => t.type === "review_response" && t.status === "pending_approval"
-        ).length}
+        pendingReplyCount={pendingCounts.reviewReplies}
         onReviewPending={onReviewPending}
         onNavigateToPlan={() => onNavigateToPlan?.(11)}
       />
@@ -98,12 +96,19 @@ export default function HomeView({
         title="What did we just do?"
       />
 
-      <HomeApprovalCTA pendingCount={totalPending} onReview={onReviewPending} />
+      <HomeApprovalCTA pendingCount={approvalCount} onReview={onReviewPending} />
 
-      {totalPending > batchableCount && batchableCount > 0 && (
+      {pendingCounts.generating > 0 && pendingCounts.batchable > 0 && (
         <p className="text-xs text-[#80868b]">
-          {totalPending - batchableCount} photo task
-          {totalPending - batchableCount === 1 ? "" : "s"} need generation in Plan before review.
+          {pendingCounts.generating} photo task
+          {pendingCounts.generating === 1 ? "" : "s"} still generating in Plan — review the{" "}
+          {pendingCounts.batchable} ready update{pendingCounts.batchable === 1 ? "" : "s"} now.
+        </p>
+      )}
+      {pendingCounts.generating > 0 && pendingCounts.batchable === 0 && (
+        <p className="text-xs text-[#80868b]">
+          {pendingCounts.generating} photo task
+          {pendingCounts.generating === 1 ? "" : "s"} need generation in Plan before review.
         </p>
       )}
     </div>

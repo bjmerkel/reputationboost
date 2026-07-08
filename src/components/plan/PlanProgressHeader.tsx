@@ -7,6 +7,7 @@ export default function PlanProgressHeader({
   plan,
   variant = "light",
   onReviewPending,
+  pendingApprovalCount,
   estimatedMonthlyRevenue,
   projectedMonthlyRevenue,
   currency = "USD",
@@ -14,12 +15,14 @@ export default function PlanProgressHeader({
   plan: Plan;
   variant?: "light" | "dark";
   onReviewPending?: () => void;
+  pendingApprovalCount?: number;
   estimatedMonthlyRevenue?: number | null;
   projectedMonthlyRevenue?: number | null;
   currency?: string;
 }) {
   const isLight = variant === "light";
   const { progress } = plan;
+  const approvalCount = pendingApprovalCount ?? progress.needsApproval;
   const pct = progress.totalSteps > 0 ? Math.round((progress.completedSteps / progress.totalSteps) * 100) : 0;
 
   return (
@@ -49,18 +52,18 @@ export default function PlanProgressHeader({
               </p>
             )}
         </div>
-        {progress.needsApproval > 0 && (
+        {approvalCount > 0 && (
           onReviewPending ? (
             <button
               type="button"
               onClick={onReviewPending}
               className="rounded-full bg-[#fef7e0] px-3 py-1 text-xs font-semibold text-[#e37400] hover:bg-[#feefc3]"
             >
-              {progress.needsApproval} need approval → Review
+              {approvalCount} need approval → Review
             </button>
           ) : (
             <span className="rounded-full bg-[#fef7e0] px-3 py-1 text-xs font-semibold text-[#e37400]">
-              {progress.needsApproval} need{progress.needsApproval === 1 ? "s" : ""} your approval
+              {approvalCount} need{approvalCount === 1 ? "s" : ""} your approval
             </span>
           )
         )}
