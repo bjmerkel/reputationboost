@@ -231,6 +231,7 @@ export default function PlanView({
             actions={actions}
             attributionByTaskId={attributionByTaskId}
             mediaCoverage={audit.gbp.content.mediaCoverage}
+            attributeCoverage={audit.gbp.attributeCoverage}
             defaultExpandedStep={defaultExpandedStep}
             focusStep={focusStep}
             variant={variant}

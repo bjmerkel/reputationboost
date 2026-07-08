@@ -1,6 +1,6 @@
 "use client";
 
-import type { PlanPhase, PlanStep, GbpMediaCoverage } from "@/audit/types";
+import type { PlanPhase, PlanStep, GbpAttributeCoverage, GbpMediaCoverage } from "@/audit/types";
 import PlanStepCard from "./PlanStepCard";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import type { ActionAttribution } from "@/audit/types/timeseries";
@@ -13,6 +13,7 @@ export default function PlanPhaseSection({
   actions,
   attributionByTaskId,
   mediaCoverage,
+  attributeCoverage,
   defaultExpandedStep,
   focusStep,
   variant = "light",
@@ -28,6 +29,7 @@ export default function PlanPhaseSection({
   actions: PlanTaskActions;
   attributionByTaskId: Record<string, ActionAttribution>;
   mediaCoverage?: GbpMediaCoverage;
+  attributeCoverage?: GbpAttributeCoverage;
   defaultExpandedStep?: number;
   focusStep?: number | null;
   currency?: string;
@@ -69,6 +71,7 @@ export default function PlanPhaseSection({
             actions={actions}
             attributionByTaskId={attributionByTaskId}
             mediaCoverage={mediaCoverage}
+            attributeCoverage={attributeCoverage}
             defaultExpanded={
               step.stepNumber === defaultExpandedStep || step.stepNumber === focusStep
             }

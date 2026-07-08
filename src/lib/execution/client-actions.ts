@@ -124,7 +124,7 @@ export async function publishPhotoBatch(
 
 export async function approveAndPublishTask(
   task: ExecutionTask,
-  options?: { draftContent?: string; retry?: boolean }
+  options?: { draftContent?: string; retry?: boolean; payload?: Record<string, unknown> }
 ): Promise<ExecutionTask> {
   if (task.type === "review_response" && !isValidReviewId(task.payload.reviewId)) {
     throw new Error(
@@ -146,6 +146,10 @@ export async function approveAndPublishTask(
 
   if (draftContent && draftContent !== task.draftContent) {
     await patchExecutionTask(task.id, { draftContent });
+  }
+
+  if (options?.payload) {
+    await patchExecutionTask(task.id, { payload: options.payload });
   }
 
   if (retry && task.status === "completed") {

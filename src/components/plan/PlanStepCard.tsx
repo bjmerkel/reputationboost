@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PlanStep, GbpMediaCoverage } from "@/audit/types";
+import type { PlanStep, GbpAttributeCoverage, GbpMediaCoverage } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import { formatCurrency } from "@/audit/attribution/roi";
@@ -9,6 +9,7 @@ import PlanStepDiff from "./PlanStepDiff";
 import PlanStepPhotos from "./PlanStepPhotos";
 import PlanStepVideos from "./PlanStepVideos";
 import PlanStepTaskRow from "./PlanStepTaskRow";
+import PlanStepAttributes from "./PlanStepAttributes";
 import ReviewRequestPanel from "@/components/review-requests/ReviewRequestPanel";
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
 
@@ -29,6 +30,7 @@ export default function PlanStepCard({
   actions,
   attributionByTaskId,
   mediaCoverage,
+  attributeCoverage,
   defaultExpanded = false,
   variant = "light",
   currency = "USD",
@@ -44,6 +46,7 @@ export default function PlanStepCard({
   actions: PlanTaskActions;
   attributionByTaskId: Record<string, ActionAttribution>;
   mediaCoverage?: GbpMediaCoverage;
+  attributeCoverage?: GbpAttributeCoverage;
   defaultExpanded?: boolean;
   variant?: "light" | "dark";
   currency?: string;
@@ -61,11 +64,15 @@ export default function PlanStepCard({
   const reviewRequestTask = step.tasks.find(
     (t) => t.type === "review_request" && t.status !== "completed"
   );
+  const attributeTasks = step.tasks.filter(
+    (t) => t.type === "gbp_attributes" && t.status !== "completed"
+  );
   const nonPhotoTasks = step.tasks.filter(
     (t) =>
       t.type !== "gbp_photo" &&
       t.type !== "gbp_video" &&
       t.type !== "review_request" &&
+      t.type !== "gbp_attributes" &&
       t.status !== "completed"
   );
   const statusStyle = STATUS_STYLES[step.status] ?? STATUS_STYLES.pending;
@@ -208,6 +215,21 @@ export default function PlanStepCard({
                 variant={variant}
                 onSent={() => onReviewRequestSent?.()}
               />
+            </div>
+          )}
+
+          {attributeTasks.length > 0 && (
+            <div className="mt-4 space-y-3">
+              {attributeTasks.map((task) => (
+                <PlanStepAttributes
+                  key={task.id}
+                  task={task}
+                  gbpConnected={gbpConnected}
+                  actions={actions}
+                  coverage={attributeCoverage}
+                  variant={variant}
+                />
+              ))}
             </div>
           )}
 
