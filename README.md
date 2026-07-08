@@ -1,6 +1,10 @@
 # Reputation Boost
 
-Modern marketing homepage for [Reputation Boost](https://reputationboost.com/) — an AI-powered local rankings and online visibility platform.
+Marketing site and platform for [Reputation Boost](https://reputationboost.com/) — an AI-powered Google Business Profile audit, **Reputation Boost Score**, and local rankings platform.
+
+**Live demo:** [reputationboost.vercel.app](https://reputationboost.vercel.app/) — search your business on the homepage for a free preview audit (no sign-in required).
+
+Brand assets live in `public/` (app logo: `public/Logo.jpeg`).
 
 ## Tech Stack
 
@@ -174,9 +178,9 @@ Protected routes: `/platform/*`, `/api/audit/*`, `/api/execution/*`, `/api/place
 
 ## Page Sections
 
-- **Hero** — Headline, CTA, stats, and interactive dashboard preview
-- **Features** — Get Data, Geo-Located Heatmap, Top Competitors, Customized Suggestions
-- **How It Works** — Three-step flow with before/after rankings comparison
-- **Testimonial** — Customer quote
-- **CTA** — Get Free Account signup
-- **Footer** — Navigation and links
+- **Hero** — Business search with instant free preview audit
+- **Platform explorer** — Live map, score, and action plan after search
+- **How It Works** — Nightly score loop and continuous improvement flywheel
+- **ROI calculator** — Revenue opportunity estimate
+- **Pricing & FAQ** — Plans and common questions
+- **CTA & footer** — Signup and navigation
