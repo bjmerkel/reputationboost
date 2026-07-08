@@ -6,7 +6,7 @@ import type {
   GbpLocationFieldStatus,
   GbpSnapshot,
 } from "@/audit/types";
-import { isProfileLinkCoverageItem, isUriAttributeType } from "./gbp-attribute-recommendations";
+import { isProfileLinkCoverageItem, isUriAttributeType, resolveProfileLinkMissing } from "./gbp-attribute-recommendations";
 import { enrichLocationInventoryScores } from "./gbp-field-score-impact";
 import { GBP_DESCRIPTION_MAX_LENGTH } from "./gbp-description";
 import type { GbpLocationProfile } from "./gbp-location";
@@ -128,7 +128,7 @@ function buildAttributesInventoryField(
   if (attributeCoverage && attributeCoverage.availableCount > 0) {
     const { enabledCount, availableCount, enabled, missing, missingCount } = attributeCoverage;
     const autoMissingCount = missing.filter((item) => item.autoApplicable).length;
-    const uriMissingCount = attributeCoverage.profileLinkMissing.length;
+    const uriMissingCount = resolveProfileLinkMissing(attributeCoverage).length;
     const enumMissingCount = missing.filter(
       (item) =>
         !item.autoApplicable &&

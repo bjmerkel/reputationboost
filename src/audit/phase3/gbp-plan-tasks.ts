@@ -25,6 +25,7 @@ import {
   chunkAttributeUpdates,
   isProfileLinkCoverageItem,
   isUriAttributeType,
+  resolveProfileLinkMissing,
 } from "@/lib/google/gbp-attribute-recommendations";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { generateReviewResponses } from "@/audit/phase3/content";
@@ -154,7 +155,7 @@ export function buildAttributeExecutionTasks(
     coverage?.autoUpdates ??
     [];
   const manualMissing = coverage?.missing.filter((item) => !item.autoApplicable) ?? [];
-  const profileLinkMissing = coverage?.profileLinkMissing ?? [];
+  const profileLinkMissing = resolveProfileLinkMissing(coverage);
   const enumMissing = manualMissing.filter(
     (item) => !isProfileLinkCoverageItem(item) && !isUriAttributeType(item.valueType)
   );

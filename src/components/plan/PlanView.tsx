@@ -239,6 +239,8 @@ export default function PlanView({
             variant={variant}
             currency={currency}
             businessName={audit.clientName}
+            businessPhone={audit.gbp.identity.phone}
+            businessWebsite={audit.gbp.identity.website}
             reviewUrl={reviewUrl}
             onReviewRequestSent={handleReviewRequestSent}
           />
