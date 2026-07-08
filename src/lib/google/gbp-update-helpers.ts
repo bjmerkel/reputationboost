@@ -1,8 +1,21 @@
 import { tasksFromGoogleSuggestions } from "@/audit/phase3/gbp-plan-tasks";
-import type { ExecutionTask, FullAuditPayload, GbpGoogleSuggestion } from "@/audit/types";
+import type { ExecutionTask, ExecutionType, FullAuditPayload, GbpGoogleSuggestion } from "@/audit/types";
 import { GOOGLE_UPDATES_STEP_NUMBER } from "./gbp-field-plan-map";
 
 export { GOOGLE_UPDATES_STEP_NUMBER };
+
+const GOOGLE_UPDATE_TASK_TYPES = new Set<ExecutionType>([
+  "gbp_accept_suggestion",
+  "gbp_reject_suggestion",
+  "gbp_title",
+  "gbp_phone",
+  "gbp_website",
+  "gbp_address",
+]);
+
+export function isGoogleUpdateTask(task: ExecutionTask): boolean {
+  return GOOGLE_UPDATE_TASK_TYPES.has(task.type);
+}
 
 export function getGoogleDiffFields(audit: FullAuditPayload): GbpGoogleSuggestion[] {
   return (

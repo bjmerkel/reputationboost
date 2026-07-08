@@ -745,7 +745,7 @@ export function tasksFromMediaMaintenance(audit: FullAuditPayload): ExecutionTas
   if (actions.length === 0) return [];
 
   const step: GbpPlanStep = {
-    stepNumber: 0,
+    stepNumber: 6,
     title: "Media maintenance",
     instruction: "Improve photo category coverage on your Google Business Profile.",
     gbpAction: "upload_photo",
@@ -792,7 +792,7 @@ export function tasksFromVideoGaps(audit: FullAuditPayload): ExecutionTask[] {
   if (jobs.length === 0) return [];
 
   const step: GbpPlanStep = {
-    stepNumber: 0,
+    stepNumber: 7,
     title: "Video upload",
     instruction: "Add short videos to boost profile engagement on Google Maps.",
     gbpAction: "upload_video",
@@ -816,7 +816,7 @@ export function tasksFromPlaceActionGaps(audit: FullAuditPayload): ExecutionTask
 
   const website = audit.gbp.identity.website?.trim();
   const step: GbpPlanStep = {
-    stepNumber: 0,
+    stepNumber: 15,
     title: "Place action links",
     instruction: "Add booking, ordering, or shop links on your Google Business Profile.",
     gbpAction: "manual",
@@ -852,7 +852,7 @@ export function tasksFromNotificationGaps(audit: FullAuditPayload): ExecutionTas
   if (!getGbpPubsubTopic()) return [];
 
   const step: GbpPlanStep = {
-    stepNumber: 0,
+    stepNumber: 16,
     title: "Real-time GBP alerts",
     instruction: "Enable Pub/Sub notifications for time-sensitive listing events.",
     gbpAction: "manual",
