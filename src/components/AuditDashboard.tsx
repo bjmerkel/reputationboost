@@ -317,6 +317,7 @@ export default function AuditDashboard({
       {error && <p className="mb-3 shrink-0 text-sm text-[#d93025]">{error}</p>}
 
       <PlatformShell
+        showMapOverlay={view !== "audit"}
         searchBar={
           <MapsSearchBar
             businessName={businessName}
@@ -426,9 +427,23 @@ export default function AuditDashboard({
 
         <div className="relative h-full min-h-0 w-full">
           {view === "audit" ? (
-            <div className="h-full min-h-0 overflow-y-auto overscroll-y-contain bg-[#f8f9fa]">
-              <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
-                <AuditDataView
+            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f8f9fa]">
+              <div className="flex shrink-0 items-center justify-end gap-3 border-b border-[#e8eaed] bg-white px-4 py-3 sm:px-6">
+                <p className="mr-auto text-xs text-[#80868b]">
+                  {audit.period} · {new Date(audit.completedAt).toLocaleDateString()}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => runAudit()}
+                  disabled={loading || !gbpConnected}
+                  className="btn-primary shrink-0 rounded-full px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {loading ? "Refreshing…" : "Refresh data"}
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
+                <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
+                  <AuditDataView
                   audit={audit}
                   clientId={clientId}
                   tasks={tasks}
@@ -440,6 +455,7 @@ export default function AuditDashboard({
                   globalCalibration={scoreHistory.globalCalibration}
                   layout="canvas"
                 />
+                </div>
               </div>
             </div>
           ) : (
@@ -485,17 +501,19 @@ export default function AuditDashboard({
         attributionByTaskId={attributionData.attributionByTaskId}
       />
 
-      <ProductPlaybookWizard
-        gbpConnected={gbpConnected}
-        businessId={businessId}
-        audit={audit}
-        tasks={tasks}
-        avgCustomerValue={avgCustomerValue}
-        onRunAudit={runAudit}
-        onOpenReview={openBatchReview}
-        onSetView={setView}
-        auditLoading={loading}
-      />
+      {view !== "audit" && (
+        <ProductPlaybookWizard
+          gbpConnected={gbpConnected}
+          businessId={businessId}
+          audit={audit}
+          tasks={tasks}
+          avgCustomerValue={avgCustomerValue}
+          onRunAudit={runAudit}
+          onOpenReview={openBatchReview}
+          onSetView={setView}
+          auditLoading={loading}
+        />
+      )}
     </div>
   );
 }

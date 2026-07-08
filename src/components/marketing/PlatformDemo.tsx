@@ -215,6 +215,7 @@ export default function PlatformDemo({
 
       <div className="h-[min(88vh,900px)] min-h-[520px]">
         <PlatformShell
+          showMapOverlay={view !== "audit"}
           searchBar={
             <MapsSearchBar
               businessName={businessName}

@@ -3,12 +3,19 @@
 import { Children } from "react";
 
 interface PlatformShellProps {
-  searchBar: React.ReactNode;
+  searchBar?: React.ReactNode;
   toolbar?: React.ReactNode;
+  /** Floating keyword search and refresh controls over the map canvas. */
+  showMapOverlay?: boolean;
   children: React.ReactNode;
 }
 
-export default function PlatformShell({ searchBar, toolbar, children }: PlatformShellProps) {
+export default function PlatformShell({
+  searchBar,
+  toolbar,
+  showMapOverlay = true,
+  children,
+}: PlatformShellProps) {
   const childArray = Children.toArray(children);
   const panel = childArray[0];
   const map = childArray[1];
@@ -20,14 +27,18 @@ export default function PlatformShell({ searchBar, toolbar, children }: Platform
         {panel}
       </div>
 
-      {/* Map canvas with floating search overlay */}
+      {/* Map canvas with optional floating search overlay */}
       <div className="relative flex h-full min-h-[280px] min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start gap-2 px-3 pt-3 sm:px-4 sm:pt-4">
-          <div className="pointer-events-auto min-w-0 flex-1 sm:max-w-md lg:max-w-lg">
-            {searchBar}
+        {showMapOverlay && (searchBar || toolbar) && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start gap-2 px-3 pt-3 sm:px-4 sm:pt-4">
+            {searchBar && (
+              <div className="pointer-events-auto min-w-0 flex-1 sm:max-w-md lg:max-w-lg">
+                {searchBar}
+              </div>
+            )}
+            {toolbar && <div className="pointer-events-auto shrink-0">{toolbar}</div>}
           </div>
-          {toolbar && <div className="pointer-events-auto shrink-0">{toolbar}</div>}
-        </div>
+        )}
         <div className="h-full min-h-0 flex-1">{map}</div>
       </div>
     </div>
