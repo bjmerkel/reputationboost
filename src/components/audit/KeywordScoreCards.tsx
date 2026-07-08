@@ -14,12 +14,19 @@ export default function KeywordScoreCards({
 }) {
   if (keywords.length === 0) return null;
 
+  const radiusProfileLabel = keywords[0]?.radiusProfileLabel;
+
   return (
     <div className={compact ? "space-y-2" : "space-y-3"}>
       {!compact && (
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#80868b]">
-          Keyword scores
-        </p>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#80868b]">
+            Keyword scores
+          </p>
+          {radiusProfileLabel && (
+            <p className="text-[10px] text-[#5f6368]">{radiusProfileLabel}</p>
+          )}
+        </div>
       )}
       {keywords.map((kw) => (
         <KeywordCard key={kw.keyword} keyword={kw} currency={currency} compact={compact} />
@@ -57,6 +64,27 @@ function KeywordCard({
         </span>
       </div>
 
+      {kw.packFragile && (
+        <p
+          className={`mt-1.5 rounded-md bg-[#fef7e0] px-2 py-1 font-medium text-[#b06000] ${
+            compact ? "text-[10px]" : "text-xs"
+          }`}
+        >
+          Pack fragile
+          {kw.weakestRadiusMiles != null
+            ? ` — drops off by ${kw.weakestRadiusMiles} mi`
+            : " — strong at 1 mi only"}
+        </p>
+      )}
+
+      {kw.radiusRanks.length > 0 && (
+        <div className={`mt-2 flex flex-wrap gap-1.5 ${compact ? "text-[10px]" : "text-xs"}`}>
+          {kw.radiusRanks.map((radius) => (
+            <RadiusBadge key={radius.distanceMiles} radius={radius} compact={compact} />
+          ))}
+        </div>
+      )}
+
       <div className={`mt-2 grid grid-cols-3 gap-2 ${compact ? "text-[10px]" : "text-xs"}`}>
         <Metric label="Visibility" value={`${kw.visibilityScore}/100`} />
         <Metric label="Relevance" value={`${kw.relevanceScore}/100`} />
@@ -86,6 +114,29 @@ function KeywordCard({
         {kw.suggestedAction}
       </p>
     </div>
+  );
+}
+
+function RadiusBadge({
+  radius,
+  compact,
+}: {
+  radius: KeywordScoreCard["radiusRanks"][number];
+  compact?: boolean;
+}) {
+  const color = radius.inLocalPack ? "#188038" : "#80868b";
+  const bg = radius.inLocalPack ? "#e6f4ea" : "#f1f3f4";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${
+        compact ? "text-[10px]" : "text-xs"
+      }`}
+      style={{ backgroundColor: bg, color }}
+    >
+      <span className="text-[#5f6368]">{radius.distanceMiles} mi</span>
+      <span>{radius.label}</span>
+    </span>
   );
 }
 

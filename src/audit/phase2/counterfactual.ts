@@ -763,20 +763,29 @@ function numericRankAtOneMile(kw: KeywordRankSnapshot): number {
 }
 
 function improveKeywordRank(kw: KeywordRankSnapshot, rankDelta: number): KeywordRankSnapshot {
-  const current = numericRankAtOneMile(kw);
-  const improved = Math.max(1, current - rankDelta);
-  const inLocalPack = improved <= 3;
+  const improvedGeoRanks = kw.geoRanks.map((g) => {
+    const current = g.rank ?? 20;
+    const improved = Math.max(1, current - rankDelta);
+    const inLocalPack = improved <= 3;
+    return { ...g, rank: improved, inLocalPack };
+  });
+
+  const improved1mi =
+    improvedGeoRanks.find((g) => g.distanceMiles === 1)?.rank ??
+    Math.max(1, numericRankAtOneMile(kw) - rankDelta);
+  const inLocalPack = improved1mi <= 3;
   const localPackPosition = inLocalPack
-    ? (improved as 1 | 2 | 3)
+    ? (improved1mi as 1 | 2 | 3)
     : ("not_in_pack" as const);
 
   return {
     ...kw,
     inLocalPack,
     localPackPosition,
-    geoRanks: kw.geoRanks.map((g) =>
-      g.distanceMiles === 1 ? { ...g, rank: improved, inLocalPack } : g
-    ),
+    geoRanks:
+      improvedGeoRanks.length > 0
+        ? improvedGeoRanks
+        : [{ distanceMiles: 1, rank: improved1mi, inLocalPack }],
   };
 }
 
@@ -882,12 +891,22 @@ export function applyOutcomeMutation(
   refreshRankingAggregates(audit);
 }
 
-/** Apply projected rank improvements for rank-outside-pack gaps. */
+/** Apply projected rank improvements for rank-outside-pack and pack-fragility gaps. */
 export function applyOutcomeGapMutation(
   audit: Phase1AuditPayload,
   gap: GapFlag,
   options?: CounterfactualProjectionOptions
 ): void {
+  if (gap.id.startsWith("pack-fragility-")) {
+    const keyword = gap.id.replace("pack-fragility-", "");
+    audit.rankings.keywords = audit.rankings.keywords.map((kw) => {
+      if (kw.keyword.toLowerCase() !== keyword.toLowerCase()) return kw;
+      return improveKeywordRank(kw, 3);
+    });
+    refreshRankingAggregates(audit);
+    return;
+  }
+
   if (!gap.id.startsWith("rank-outside-pack-")) return;
 
   const keyword = gap.id.replace("rank-outside-pack-", "");

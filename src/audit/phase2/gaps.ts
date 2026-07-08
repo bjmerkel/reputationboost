@@ -5,6 +5,7 @@ import type {
   Phase1AuditPayload,
 } from "../types";
 import type { OutcomesContext } from "../outcomes/types";
+import { detectPackFragility } from "./scoring";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
 import { gapScoreComponent, gapScoreImpact } from "./score-impact";
 import { napDriftGapId } from "@/lib/google/nap-drift";
@@ -101,6 +102,23 @@ export function detectGaps(
         `You are missing 70%+ of map clicks for this keyword. Position: ${kw.localPackPosition}. Pack leader has ${kw.packLeaderReviewCount} reviews.`,
         10,
         6
+      )
+    );
+  }
+
+  for (const kw of audit.rankings.keywords) {
+    const fragility = detectPackFragility(kw);
+    if (!fragility.fragile || fragility.weakestRadiusMiles == null) continue;
+
+    gaps.push(
+      gap(
+        `pack-fragility-${kw.keyword}`,
+        "P1",
+        "rankings",
+        `Pack fragile on "${kw.keyword}"`,
+        `You rank in the Local 3-Pack within 1 mi but drop off by ${fragility.weakestRadiusMiles} mi. Customers searching farther out see competitors first — strengthen posts and reviews for this keyword.`,
+        8,
+        5
       )
     );
   }

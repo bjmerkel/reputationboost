@@ -14,10 +14,12 @@ describe("plan-phases", () => {
     assert.equal(getPhaseForStep(16), "ongoing");
   });
 
-  it("defines all 16 steps across phases", () => {
+  it("defines all core plan steps across phases", () => {
     const covered = PLAN_PHASE_DEFINITIONS.flatMap((p) => p.stepNumbers);
-    assert.equal(covered.length, 16);
-    assert.deepEqual([...new Set(covered)].sort((a, b) => a - b), Array.from({ length: 16 }, (_, i) => i + 1));
+    assert.equal(covered.length, 17);
+    assert.deepEqual([...new Set(covered)].sort((a, b) => a - b), [
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+    ]);
   });
 
   it("maps custom plan steps to ongoing phase", () => {
@@ -63,7 +65,7 @@ describe("buildPlan", () => {
 
     assert.ok(plan);
     assert.ok(plan!.steps.length > 0);
-    assert.ok(plan!.steps.length <= 16);
+    assert.ok(plan!.steps.length <= 17);
     assert.equal(plan!.progress.totalSteps, plan!.steps.length);
     assert.ok(plan!.progress.currentHealthScore >= 0);
     assert.ok(Number.isFinite(plan!.progress.currentHealthScore));

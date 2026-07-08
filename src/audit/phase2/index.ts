@@ -1,4 +1,14 @@
-export { computeHealthScores, computeVisibilityScore, computeConversionScore, computeRevenueCaptureScore, computeKeywordRelevanceScore, positionVisibilityScore, positionClickShare, resolveKeywordPosition, keywordImpressionWeight, impressionWeightFloor, matchSearchKeywordImpressions, keywordGeoGridVisibilityScore, resolveClickSharePercent } from "./scoring";
+export { computeHealthScores, computeVisibilityScore, computeConversionScore, computeRevenueCaptureScore, computeKeywordRelevanceScore, positionVisibilityScore, positionClickShare, resolveKeywordPosition, resolveKeywordPositionAtRadius, keywordImpressionWeight, impressionWeightFloor, matchSearchKeywordImpressions, keywordGeoGridVisibilityScore, keywordGridCoverageScore, keywordRadiusVisibilityScore, keywordServiceAreaVisibilityScore, keywordServiceAreaRevenueCaptureScore, detectPackFragility, resolveClickSharePercent } from "./scoring";
+export {
+  GRID_RADIUS_BLEND,
+  RADIUS_PROFILE_WEIGHTS,
+  formatRadiusMiles,
+  radiusProfileLabel,
+  radiusWeightsForAudit,
+  resolveRadiusProfile,
+  availableSearchRadii,
+} from "./radius-profiles";
+export type { RadiusProfileKey, RadiusWeights } from "./radius-profiles";
 export { extractKeywordRelevanceHeuristic, resolveKeywordRelevance, relevanceByKeyword } from "./relevance-heuristic";
 export { DEFAULT_RANK_MEDIAN_WINDOW_DAYS, medianOf, medianRankSnapshotForKeyword, smoothRankSnapshotsForDate } from "./rank-median";
 export { compareRanksAtOneMile, summarizeRankValidation, compareSearchModesAtOneMile, validateKeywordRanks } from "./rank-validation";

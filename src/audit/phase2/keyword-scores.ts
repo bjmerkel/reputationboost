@@ -1,16 +1,26 @@
 import { DEFAULT_ROI_CONFIG } from "../attribution/roi";
-import type { KeywordScoreCard, Phase1AuditPayload } from "../types";
+import type { KeywordScoreCard, KeywordRankSnapshot, Phase1AuditPayload } from "../types";
+import { SEARCH_RADII_MILES } from "@/lib/google/places";
 import type { LearnedScoreModel } from "./score-learning";
-import { DEFAULT_LEARNED_SCORE_MODEL, topClickSharePercent } from "./score-learning";
+import { DEFAULT_LEARNED_SCORE_MODEL, effectiveScoreModel } from "./score-learning";
 import {
+  detectPackFragility,
   impressionWeightFloor,
-  keywordGeoGridVisibilityScore,
+  keywordGridCoverageScore,
   keywordImpressionWeight,
+  keywordServiceAreaRevenueCaptureScore,
+  keywordServiceAreaVisibilityScore,
   matchSearchKeywordImpressions,
   positionClickShare,
   positionVisibilityScore,
   resolveKeywordPosition,
+  resolveKeywordPositionAtRadius,
 } from "./scoring";
+import {
+  radiusProfileLabel,
+  radiusWeightsForAudit,
+  resolveRadiusProfile,
+} from "./radius-profiles";
 import { relevanceByKeyword } from "./relevance-heuristic";
 
 function clamp(n: number, min = 0, max = 100) {
@@ -21,6 +31,12 @@ function positionLabel(position: number | "not_in_pack"): string {
   if (position === "not_in_pack") return "Outside 3-Pack";
   if (position <= 3) return `#${position} in Local 3-Pack`;
   return `#${position}`;
+}
+
+function radiusRankLabel(rank: number | "not_in_pack"): string {
+  if (rank === "not_in_pack") return "outside pack";
+  if (rank <= 3) return `#${rank}`;
+  return `#${rank}`;
 }
 
 function impressionsLabel(impressions: number | null): string {
@@ -34,14 +50,47 @@ function blendedLeadRate(): number {
   return (c.callConversionRate + c.directionConversionRate + c.websiteClickConversionRate) / 3;
 }
 
+function blendedKeywordClickShare(
+  kw: KeywordRankSnapshot,
+  audit: Phase1AuditPayload,
+  model: LearnedScoreModel | null = DEFAULT_LEARNED_SCORE_MODEL
+): number {
+  const weights = radiusWeightsForAudit(audit);
+  const active = effectiveScoreModel(model);
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  for (const miles of SEARCH_RADII_MILES) {
+    const weight = weights[miles];
+    if (weight <= 0) continue;
+    const position = resolveKeywordPositionAtRadius(kw, miles);
+    weightedSum += weight * positionClickShare(position, active);
+    totalWeight += weight;
+  }
+
+  return totalWeight > 0 ? weightedSum / totalWeight : 0;
+}
+
 function estimateKeywordRevenue(
   impressions: number,
-  position: number | "not_in_pack",
+  kw: KeywordRankSnapshot,
+  audit: Phase1AuditPayload,
   avgCustomerValue: number | null | undefined,
   model: LearnedScoreModel | null = DEFAULT_LEARNED_SCORE_MODEL
 ): number | null {
   if (!avgCustomerValue || avgCustomerValue <= 0 || impressions <= 0) return null;
-  const clickShare = positionClickShare(position, model) / 100;
+  const clickShare = blendedKeywordClickShare(kw, audit, model) / 100;
+  const leads = impressions * clickShare * blendedLeadRate();
+  return Math.round(leads * avgCustomerValue);
+}
+
+function estimateKeywordRevenueAtRank1(
+  impressions: number,
+  avgCustomerValue: number | null | undefined,
+  model: LearnedScoreModel | null = DEFAULT_LEARNED_SCORE_MODEL
+): number | null {
+  if (!avgCustomerValue || avgCustomerValue <= 0 || impressions <= 0) return null;
+  const clickShare = positionClickShare(1, model) / 100;
   const leads = impressions * clickShare * blendedLeadRate();
   return Math.round(leads * avgCustomerValue);
 }
@@ -50,9 +99,14 @@ function suggestedAction(
   keyword: string,
   position: number | "not_in_pack",
   inLocalPack: boolean,
-  relevanceRecommendation: string | null
+  relevanceRecommendation: string | null,
+  packFragile: boolean,
+  weakestRadiusMiles: number | null
 ): string {
   if (relevanceRecommendation) return relevanceRecommendation;
+  if (packFragile && weakestRadiusMiles) {
+    return `Hold 3-Pack through ${weakestRadiusMiles} mi — posts and reviews mentioning "${keyword}"`;
+  }
   if (!inLocalPack) {
     return `2 Google Posts + 5 reviews mentioning "${keyword}"`;
   }
@@ -72,6 +126,7 @@ function overallImpactIfRank1(
 ): number {
   const keywords = audit.rankings.keywords;
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+  const weights = radiusWeightsForAudit(audit);
   const floor = impressionWeightFloor(searchKeywords);
   let totalWeight = 0;
   let currentSum = 0;
@@ -79,7 +134,7 @@ function overallImpactIfRank1(
 
   for (const kw of keywords) {
     const weight = keywordImpressionWeight(kw.keyword, searchKeywords, floor);
-    const posScore = keywordGeoGridVisibilityScore(kw);
+    const posScore = keywordServiceAreaVisibilityScore(kw, weights);
     const rank1Score = positionVisibilityScore(1);
     totalWeight += weight;
     currentSum += posScore * weight;
@@ -97,6 +152,19 @@ function overallImpactIfRank1(
   return clamp(visibilityDelta * 0.5);
 }
 
+function buildRadiusRanks(kw: KeywordRankSnapshot): KeywordScoreCard["radiusRanks"] {
+  return SEARCH_RADII_MILES.map((distanceMiles) => {
+    const rank = resolveKeywordPositionAtRadius(kw, distanceMiles);
+    const inLocalPack = typeof rank === "number" && rank <= 3;
+    return {
+      distanceMiles,
+      rank,
+      inLocalPack,
+      label: radiusRankLabel(rank),
+    };
+  });
+}
+
 export interface KeywordScoreOptions {
   avgCustomerValue?: number | null;
   currency?: string;
@@ -111,7 +179,8 @@ export function computeKeywordScores(
   const floor = impressionWeightFloor(searchKeywords);
   const relevanceMap = relevanceByKeyword(audit);
   const model = options.scoreModel ?? DEFAULT_LEARNED_SCORE_MODEL;
-  const topShare = topClickSharePercent(model);
+  const weights = radiusWeightsForAudit(audit);
+  const profileLabel = radiusProfileLabel(resolveRadiusProfile(audit));
 
   return audit.rankings.keywords
     .map((kw) => {
@@ -119,15 +188,16 @@ export function computeKeywordScores(
       const matchedImpressions = matchSearchKeywordImpressions(kw.keyword, searchKeywords);
       const impressions = matchedImpressions ?? null;
       const relevance = relevanceMap.get(kw.keyword.toLowerCase());
+      const fragility = detectPackFragility(kw);
 
-      const visibilityScore = keywordGeoGridVisibilityScore(kw);
-      const revenueCaptureScore = clamp((positionClickShare(position, model) / topShare) * 100);
+      const visibilityScore = keywordServiceAreaVisibilityScore(kw, weights);
+      const revenueCaptureScore = keywordServiceAreaRevenueCaptureScore(kw, weights, model);
       const relevanceScore = relevance?.score ?? 50;
       const estimatedMonthlyRevenue = impressions
-        ? estimateKeywordRevenue(impressions, position, options.avgCustomerValue, model)
+        ? estimateKeywordRevenue(impressions, kw, audit, options.avgCustomerValue, model)
         : null;
       const potentialAtRank1 = impressions
-        ? estimateKeywordRevenue(impressions, 1, options.avgCustomerValue, model)
+        ? estimateKeywordRevenueAtRank1(impressions, options.avgCustomerValue, model)
         : null;
 
       return {
@@ -147,10 +217,16 @@ export function computeKeywordScores(
           kw.keyword,
           position,
           kw.inLocalPack,
-          relevance?.recommendation ?? null
+          relevance?.recommendation ?? null,
+          fragility.fragile,
+          fragility.weakestRadiusMiles
         ),
         gridCoveragePercent:
-          kw.geoGrid && kw.geoGrid.length > 0 ? visibilityScore : null,
+          kw.geoGrid && kw.geoGrid.length > 0 ? keywordGridCoverageScore(kw) : null,
+        radiusRanks: buildRadiusRanks(kw),
+        radiusProfileLabel: profileLabel,
+        packFragile: fragility.fragile,
+        weakestRadiusMiles: fragility.weakestRadiusMiles,
       };
     })
     .sort((a, b) => {

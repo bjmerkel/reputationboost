@@ -7,7 +7,14 @@ import type {
   ScoreComponent,
   ScoreInsight,
 } from "../types";
+import { SEARCH_RADII_MILES, type SearchRadiusMiles } from "@/lib/google/places";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
+import {
+  GRID_RADIUS_BLEND,
+  RADIUS_PROFILE_WEIGHTS,
+  type RadiusWeights,
+  radiusWeightsForAudit,
+} from "./radius-profiles";
 import type { ClickShareCurve, LearnedScoreModel } from "./score-learning";
 import {
   computeOverallFromDriverOutcome,
@@ -73,20 +80,143 @@ export function positionClickShare(
 }
 
 export function resolveKeywordPosition(kw: KeywordRankSnapshot): LocalPackPosition | number {
-  if (kw.inLocalPack && typeof kw.localPackPosition === "number") {
-    return kw.localPackPosition;
-  }
-  if (kw.inLocalPack) {
-    const rank1mi = kw.geoRanks.find((g) => g.distanceMiles === 1)?.rank;
-    if (rank1mi != null && rank1mi <= 3) return rank1mi as 1 | 2 | 3;
-  }
-  if (typeof kw.localPackPosition === "number") return kw.localPackPosition;
-  const rank1mi = kw.geoRanks.find((g) => g.distanceMiles === 1)?.rank;
-  return rank1mi ?? "not_in_pack";
+  return resolveKeywordPositionAtRadius(kw, 1);
 }
 
-function resolvePosition(kw: KeywordRankSnapshot): LocalPackPosition | number {
-  return resolveKeywordPosition(kw);
+/** Rank at a specific search radius from the business pin. */
+export function resolveKeywordPositionAtRadius(
+  kw: KeywordRankSnapshot,
+  miles: SearchRadiusMiles
+): LocalPackPosition | number {
+  if (miles === 1) {
+    if (kw.inLocalPack && typeof kw.localPackPosition === "number") {
+      return kw.localPackPosition;
+    }
+    if (kw.inLocalPack) {
+      const rank1mi = kw.geoRanks.find((g) => g.distanceMiles === 1)?.rank;
+      if (rank1mi != null && rank1mi <= 3) return rank1mi as 1 | 2 | 3;
+    }
+    if (typeof kw.localPackPosition === "number") return kw.localPackPosition;
+  }
+
+  const point = kw.geoRanks.find((g) => g.distanceMiles === miles);
+  if (point?.rank != null) return point.rank;
+  return "not_in_pack";
+}
+
+export interface PackFragilityResult {
+  fragile: boolean;
+  penalty: number;
+  weakestRadiusMiles: SearchRadiusMiles | null;
+  label: string | null;
+}
+
+function isInLocalPack(position: LocalPackPosition | number): boolean {
+  return typeof position === "number" && position <= 3;
+}
+
+/** In pack near pin but outside pack at wider radii — inflates 1mi-only scores. */
+export function detectPackFragility(kw: KeywordRankSnapshot): PackFragilityResult {
+  const rank1 = resolveKeywordPositionAtRadius(kw, 1);
+  const rank3 = resolveKeywordPositionAtRadius(kw, 3);
+  const rank5 = resolveKeywordPositionAtRadius(kw, 5);
+
+  if (isInLocalPack(rank1) && !isInLocalPack(rank3)) {
+    return {
+      fragile: true,
+      penalty: -8,
+      weakestRadiusMiles: 3,
+      label: "Pack drops beyond 1 mi",
+    };
+  }
+
+  if (isInLocalPack(rank1) && isInLocalPack(rank3) && !isInLocalPack(rank5)) {
+    return {
+      fragile: true,
+      penalty: -10,
+      weakestRadiusMiles: 5,
+      label: "Pack drops beyond 3 mi",
+    };
+  }
+
+  return { fragile: false, penalty: 0, weakestRadiusMiles: null, label: null };
+}
+
+function packConsistencyBonus(kw: KeywordRankSnapshot): number {
+  const radii: SearchRadiusMiles[] = [1, 3, 5];
+  const allInPack = radii.every((miles) =>
+    isInLocalPack(resolveKeywordPositionAtRadius(kw, miles))
+  );
+  return allInPack ? 5 : 0;
+}
+
+/** Pure geo-grid pack coverage (0–100). */
+export function keywordGridCoverageScore(kw: KeywordRankSnapshot): number {
+  if (!kw.geoGrid?.length) return 0;
+  const inPack = kw.geoGrid.filter((p) => p.inLocalPack).length;
+  return clamp((inPack / kw.geoGrid.length) * 100);
+}
+
+/** Weighted visibility across 1/3/5/10 mi Nearby Search radii. */
+export function keywordRadiusVisibilityScore(
+  kw: KeywordRankSnapshot,
+  weights: RadiusWeights
+): number {
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  for (const miles of SEARCH_RADII_MILES) {
+    const weight = weights[miles];
+    if (weight <= 0) continue;
+    const position = resolveKeywordPositionAtRadius(kw, miles);
+    weightedSum += weight * positionVisibilityScore(position);
+    totalWeight += weight;
+  }
+
+  return totalWeight > 0 ? clamp(weightedSum / totalWeight) : 0;
+}
+
+/** Blends geo-grid, multi-radius visibility, and pack-consistency adjustments. */
+export function keywordServiceAreaVisibilityScore(
+  kw: KeywordRankSnapshot,
+  weights: RadiusWeights = RADIUS_PROFILE_WEIGHTS.neighborhood
+): number {
+  const radiusScore = keywordRadiusVisibilityScore(kw, weights);
+  let score =
+    kw.geoGrid && kw.geoGrid.length > 0
+      ? clamp(GRID_RADIUS_BLEND * keywordGridCoverageScore(kw) + (1 - GRID_RADIUS_BLEND) * radiusScore)
+      : radiusScore;
+
+  const fragility = detectPackFragility(kw);
+  if (fragility.fragile) {
+    score = clamp(score + fragility.penalty);
+  } else {
+    score = clamp(score + packConsistencyBonus(kw));
+  }
+
+  return score;
+}
+
+/** Weighted click-share capture across service-area radii, normalized to 0–100. */
+export function keywordServiceAreaRevenueCaptureScore(
+  kw: KeywordRankSnapshot,
+  weights: RadiusWeights,
+  model?: LearnedScoreModel | null
+): number {
+  const active = effectiveScoreModel(model);
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  for (const miles of SEARCH_RADII_MILES) {
+    const weight = weights[miles];
+    if (weight <= 0) continue;
+    const position = resolveKeywordPositionAtRadius(kw, miles);
+    weightedSum += weight * positionClickShare(position, active);
+    totalWeight += weight;
+  }
+
+  const capture = totalWeight > 0 ? weightedSum / totalWeight : 0;
+  return clamp((capture / topClickSharePercent(model)) * 100);
 }
 
 /** Median impression count across GBP search terms — floor for unmatched tracked keywords. */
@@ -150,16 +280,15 @@ export function keywordImpressionWeight(
 /** Share of geo-grid points in the Local 3-Pack (0–100). Falls back to 1mi rank position. */
 export function keywordGeoGridVisibilityScore(kw: KeywordRankSnapshot): number {
   if (kw.geoGrid && kw.geoGrid.length > 0) {
-    const inPack = kw.geoGrid.filter((p) => p.inLocalPack).length;
-    return clamp((inPack / kw.geoGrid.length) * 100);
+    return keywordGridCoverageScore(kw);
   }
   return positionVisibilityScore(resolveKeywordPosition(kw));
 }
 
-function weightedKeywordMetric(
+function weightedKeywordVisibility(
   keywords: KeywordRankSnapshot[],
   searchKeywords: Array<{ keyword: string; impressions: number | null }>,
-  metric: (position: LocalPackPosition | number) => number
+  weights: RadiusWeights
 ): number {
   if (keywords.length === 0) return 0;
 
@@ -169,22 +298,18 @@ function weightedKeywordMetric(
 
   for (const kw of keywords) {
     const weight = keywordImpressionWeight(kw.keyword, searchKeywords, floor);
-    const position = resolvePosition(kw);
     totalWeight += weight;
-    weightedSum += metric(position) * weight;
+    weightedSum += keywordServiceAreaVisibilityScore(kw, weights) * weight;
   }
 
   return totalWeight > 0 ? weightedSum / totalWeight : 0;
 }
 
-function clickShareMetric(model?: LearnedScoreModel | null) {
-  const active = effectiveScoreModel(model);
-  return (position: LocalPackPosition | number) => positionClickShare(position, active);
-}
-
-function weightedKeywordVisibility(
+function weightedKeywordRevenueCapture(
   keywords: KeywordRankSnapshot[],
-  searchKeywords: Array<{ keyword: string; impressions: number | null }>
+  searchKeywords: Array<{ keyword: string; impressions: number | null }>,
+  weights: RadiusWeights,
+  model?: LearnedScoreModel | null
 ): number {
   if (keywords.length === 0) return 0;
 
@@ -195,7 +320,7 @@ function weightedKeywordVisibility(
   for (const kw of keywords) {
     const weight = keywordImpressionWeight(kw.keyword, searchKeywords, floor);
     totalWeight += weight;
-    weightedSum += keywordGeoGridVisibilityScore(kw) * weight;
+    weightedSum += keywordServiceAreaRevenueCaptureScore(kw, weights, model) * weight;
   }
 
   return totalWeight > 0 ? weightedSum / totalWeight : 0;
@@ -203,7 +328,8 @@ function weightedKeywordVisibility(
 
 export function computeVisibilityScore(audit: Phase1AuditPayload): number {
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
-  const base = weightedKeywordVisibility(audit.rankings.keywords, searchKeywords);
+  const weights = radiusWeightsForAudit(audit);
+  const base = weightedKeywordVisibility(audit.rankings.keywords, searchKeywords, weights);
   const perfCoverage = audit.gbp.performance.coverage;
   if (!perfCoverage) return clamp(base);
 
@@ -322,30 +448,27 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
   return clamp(profileTrust * 0.55 + relevance * 0.45);
 }
 
-/** Share of available map clicks captured, weighted by keyword impressions. */
 export function computeRevenueCaptureScore(
   audit: Phase1AuditPayload,
   model: LearnedScoreModel | null = DEFAULT_LEARNED_SCORE_MODEL
 ): number {
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
-  const capture = weightedKeywordMetric(
-    audit.rankings.keywords,
-    searchKeywords,
-    clickShareMetric(model)
+  const weights = radiusWeightsForAudit(audit);
+  return clamp(
+    weightedKeywordRevenueCapture(audit.rankings.keywords, searchKeywords, weights, model)
   );
-  const topShare = topClickSharePercent(model);
-  return clamp((capture / topShare) * 100);
 }
 
 export function findTopOpportunityKeyword(audit: Phase1AuditPayload): string | null {
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+  const weights = radiusWeightsForAudit(audit);
   const floor = impressionWeightFloor(searchKeywords);
   let bestKeyword: string | null = null;
   let bestOpportunity = 0;
 
   for (const kw of audit.rankings.keywords) {
     const weight = keywordImpressionWeight(kw.keyword, searchKeywords, floor);
-    const visibility = keywordGeoGridVisibilityScore(kw);
+    const visibility = keywordServiceAreaVisibilityScore(kw, weights);
     const opportunity = (100 - visibility) * weight;
     if (opportunity > bestOpportunity) {
       bestOpportunity = opportunity;
@@ -395,9 +518,14 @@ export function buildScoreInsight(
   } else if (weakest.id === "outcome" || weakest.id === "visibility" || weakest.id === "revenueCapture") {
     if (topOpportunityKeyword) {
       const kw = audit.rankings.keywords.find((k) => k.keyword === topOpportunityKeyword);
-      const pos = kw ? resolvePosition(kw) : "not_in_pack";
+      const pos = kw ? resolveKeywordPosition(kw) : "not_in_pack";
       const posLabel = pos === "not_in_pack" ? "outside the 3-Pack" : `#${pos}`;
-      nextAction = `Ranking outcome: improve "${topOpportunityKeyword}" (${posLabel}) — strengthen profile relevance first`;
+      const fragility = kw ? detectPackFragility(kw) : null;
+      const radiusHint =
+        fragility?.fragile && fragility.weakestRadiusMiles
+          ? ` — pack drops by ${fragility.weakestRadiusMiles} mi`
+          : "";
+      nextAction = `Ranking outcome: improve "${topOpportunityKeyword}" (${posLabel}${radiusHint}) — strengthen profile relevance first`;
     } else {
       nextAction = "Ranking outcome is lagging — align categories and services with target keywords";
     }

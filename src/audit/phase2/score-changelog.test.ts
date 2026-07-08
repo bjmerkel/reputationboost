@@ -44,6 +44,48 @@ describe("buildScoreChangelogFromSnapshots", () => {
     assert.ok(entries.some((e) => e.component === "driver" && e.delta === 2));
     assert.ok(entries.some((e) => e.component === "outcome"));
     assert.ok(entries.some((e) => e.keyword === "emergency plumber dallas"));
+    const rankEntry = entries.find((e) => e.keyword === "emergency plumber dallas");
+    assert.ok(rankEntry?.label.includes("1 mi"));
+  });
+
+  it("adds pack fragility hint when keyword ranks are provided", () => {
+    const audit = createTestAudit();
+    const fragileKw = audit.rankings.keywords.find((k) => k.keyword === "plumber near me")!;
+    const keywordRanks = new Map([[fragileKw.keyword, fragileKw]]);
+
+    const entries = buildScoreChangelogFromSnapshots(
+      {
+        businessId: "b1",
+        date: "2026-07-02",
+        overall: 58,
+        visibility: 40,
+        conversion: 65,
+        revenueCapture: 30,
+        source: "ingest",
+      },
+      {
+        businessId: "b1",
+        date: "2026-07-01",
+        overall: 53,
+        visibility: 35,
+        conversion: 63,
+        revenueCapture: 28,
+        source: "ingest",
+      },
+      [
+        {
+          keyword: "plumber near me",
+          fromPosition: 4,
+          toPosition: 3,
+          improved: true,
+        },
+      ],
+      keywordRanks
+    );
+
+    const rankEntry = entries.find((e) => e.keyword === "plumber near me");
+    assert.ok(rankEntry?.label.includes("1 mi"));
+    assert.match(rankEntry?.label ?? "", /pack fragile beyond 3 mi/);
   });
 });
 
