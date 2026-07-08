@@ -72,6 +72,7 @@ export default function ProfileCommandCenter({
   avgCustomerValue,
   currency = "USD",
   variant = "light",
+  showPerformanceTrends = true,
   fieldCalibration,
   onNavigateToPlan,
 }: {
@@ -81,6 +82,7 @@ export default function ProfileCommandCenter({
   avgCustomerValue?: number | null;
   currency?: string;
   variant?: "light" | "dark";
+  showPerformanceTrends?: boolean;
   fieldCalibration?: FieldAttributionCalibration;
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: GbpLocationInventoryField["planScrollTarget"]) => void;
 }) {
@@ -185,7 +187,9 @@ export default function ProfileCommandCenter({
         </div>
       )}
 
-      {clientId && <ProfilePerformanceTrends clientId={clientId} variant={variant} />}
+      {clientId && showPerformanceTrends && (
+        <ProfilePerformanceTrends clientId={clientId} variant={variant} />
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
         <SummaryPill label="Good" value={inventory.summary.good} tone="good" isLight={isLight} />

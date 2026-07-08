@@ -82,6 +82,7 @@ export default function HomeView({
         avgCustomerValue={avgCustomerValue}
         currency={avgCustomerValueCurrency}
         globalCalibration={globalCalibration}
+        showPerformanceTrends={false}
         onNavigateToPlan={onNavigateToPlan}
       />
 
