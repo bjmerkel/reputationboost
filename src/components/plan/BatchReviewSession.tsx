@@ -8,6 +8,7 @@ import { usePlanTasks } from "@/hooks/usePlanTasks";
 import { pendingBatchTasks, pendingRoutineTasks } from "@/lib/execution/pending-tasks";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import MediaTaskThumbnail, { isMediaMaintenanceTask } from "./MediaTaskThumbnail";
+import PlanStepHours from "./PlanStepHours";
 
 export default function BatchReviewSession({
   open,
@@ -156,13 +157,17 @@ export default function BatchReviewSession({
               Nothing ready to review right now. Check your Plan for photo tasks still generating.
             </p>
           ) : current ? (
-            <BatchReviewItem task={current} gbpConnected={gbpConnected} />
+            current.type === "gbp_hours" ? (
+              <PlanStepHours task={current} gbpConnected={gbpConnected} actions={actions} />
+            ) : (
+              <BatchReviewItem task={current} gbpConnected={gbpConnected} />
+            )
           ) : null}
 
           {error && <p className="mt-3 text-sm text-[#d93025]">{error}</p>}
         </div>
 
-        {pending.length > 0 && current && (
+        {pending.length > 0 && current && current.type !== "gbp_hours" && (
           <footer className="space-y-3 border-t border-[#e8eaed] px-5 py-4">
             {current.type === "gbp_photo" && typeof current.payload.previewDataUrl === "string" && (
               // eslint-disable-next-line @next/next/no-img-element

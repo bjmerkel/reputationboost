@@ -10,6 +10,7 @@ import PlanStepPhotos from "./PlanStepPhotos";
 import PlanStepVideos from "./PlanStepVideos";
 import PlanStepTaskRow from "./PlanStepTaskRow";
 import PlanStepAttributes from "./PlanStepAttributes";
+import PlanStepHours from "./PlanStepHours";
 import PlanStepPlaceActions from "./PlanStepPlaceActions";
 import ReviewRequestPanel from "@/components/review-requests/ReviewRequestPanel";
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
@@ -76,6 +77,9 @@ export default function PlanStepCard({
   const attributeTasks = step.tasks.filter(
     (t) => t.type === "gbp_attributes" && t.status !== "completed"
   );
+  const hoursTasks = step.tasks.filter(
+    (t) => t.type === "gbp_hours" && t.status !== "completed"
+  );
   const placeActionTask = step.tasks.find(
     (t) =>
       t.type === "gbp_place_action" &&
@@ -88,6 +92,7 @@ export default function PlanStepCard({
       t.type !== "gbp_video" &&
       t.type !== "review_request" &&
       t.type !== "gbp_attributes" &&
+      t.type !== "gbp_hours" &&
       t.type !== "gbp_place_action" &&
       t.status !== "completed"
   );
@@ -245,6 +250,20 @@ export default function PlanStepCard({
                   coverage={attributeCoverage}
                   businessPhone={businessPhone}
                   businessWebsite={businessWebsite}
+                  variant={variant}
+                />
+              ))}
+            </div>
+          )}
+
+          {hoursTasks.length > 0 && (
+            <div className="mt-4 space-y-3">
+              {hoursTasks.map((task) => (
+                <PlanStepHours
+                  key={task.id}
+                  task={task}
+                  gbpConnected={gbpConnected}
+                  actions={actions}
                   variant={variant}
                 />
               ))}

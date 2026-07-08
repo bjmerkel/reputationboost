@@ -20,6 +20,7 @@ import { formatMediaViewCountLabel } from "@/lib/google/gbp-media-maintenance";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { sanitizeGbpDescriptionDraft } from "@/lib/google/gbp-description";
 import { sanitizeGbpPostDraft } from "@/lib/google/gbp-post-content";
+import { defaultUsHolidayDescriptions } from "@/lib/google/gbp-hours";
 import {
   attributeDisplayName,
   buildUserUriAttributeUpdates,
@@ -474,6 +475,10 @@ export function tasksFromGbpPlanStep(
     case "update_attributes":
       return buildAttributeExecutionTasks(audit, step);
     case "update_hours": {
+      const year = new Date().getFullYear();
+      const holidayLines = defaultUsHolidayDescriptions(year).map(
+        (holiday) => `• ${holiday.name}: ${holiday.schedule}`
+      );
       const needsRegular = !audit.gbp.completeness.hasHours;
       const needsHoliday = !audit.gbp.completeness.hasHolidayHours;
       const tasks: ExecutionTask[] = [];
@@ -500,22 +505,37 @@ export function tasksFromGbpPlanStep(
             audit,
             step,
             "gbp_hours",
-            "Add holiday hours",
+            `Add ${year} holiday hours`,
             [
-              "Approve to add US holiday closures and modified hours (July 4, Thanksgiving, Christmas, etc.).",
+              "Approve to add major US holiday closures and modified hours to your Google Business Profile.",
+              "Existing special hours for the same dates are preserved.",
+              "",
+              "Holidays to add:",
+              ...holidayLines,
             ].join("\n"),
-            { hoursAction: "update_holiday_hours" }
+            { hoursAction: "update_holiday_hours", holidayYear: year }
+          )
+        );
+      } else {
+        tasks.push(
+          buildGbpTask(
+            audit,
+            step,
+            "gbp_hours",
+            `Refresh ${year} holiday hours`,
+            [
+              "Approve to merge major US holiday closures and modified hours into your profile.",
+              "Existing special hours for the same dates are preserved.",
+              "",
+              "Holidays included:",
+              ...holidayLines,
+            ].join("\n"),
+            { hoursAction: "update_holiday_hours", holidayYear: year, refresh: true }
           )
         );
       }
 
-      if (tasks.length > 0) return tasks;
-
-      return [
-        buildGbpTask(audit, step, "gbp_checklist", step.title, checklistContent(step), {
-          manual: true,
-        }),
-      ];
+      return tasks;
     }
     case "update_booking_attributes": {
       const bookingUri = data.bookingUri ?? audit.gbp.identity.website ?? "";

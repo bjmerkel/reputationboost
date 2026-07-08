@@ -372,9 +372,11 @@ function FieldRow({
           <FixButton field={field} isLight={isLight} onNavigateToPlan={onNavigateToPlan} />
         )}
       </div>
-      <p className={`mt-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
-        {field.current}
-      </p>
+      {fieldSummary(field) !== field.current.trim() && (
+        <p className={`mt-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
+          {field.current}
+        </p>
+      )}
       {field.missingCurrent && (
         <p className={`mt-2 text-sm ${isLight ? "text-[#b06000]" : "text-amber-200"}`}>
           {field.missingCurrent}

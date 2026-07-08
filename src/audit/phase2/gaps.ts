@@ -370,8 +370,8 @@ export function detectGaps(
         "missing-holiday-hours",
         "P2",
         "gbp_profile",
-        "Missing holiday hours",
-        "Add holiday hours to avoid customer frustration and improve trust signals.",
+        "Missing major holiday hours",
+        "Add major US holiday hours for the full year to avoid customer frustration and improve trust signals.",
         5,
         2
       )

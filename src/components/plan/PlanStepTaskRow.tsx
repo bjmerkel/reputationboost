@@ -26,6 +26,7 @@ const TYPE_LABELS: Partial<Record<ExecutionTask["type"], string>> = {
   gbp_secondary_categories: "Categories",
   gbp_services: "Service",
   gbp_photo: "Photo",
+  gbp_hours: "Hours",
   gbp_media_recategorize: "Recategorize photo",
   gbp_media_delete: "Remove photo",
   gbp_video: "Video",

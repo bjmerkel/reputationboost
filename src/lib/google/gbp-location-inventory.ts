@@ -14,6 +14,8 @@ import { maskIncludesField } from "./gbp-google-updated";
 import {
   formatRegularHoursSummary,
   formatSpecialHoursSummary,
+  hasAdequateHolidayCoverage,
+  hasSpecialHourPeriods,
 } from "./gbp-hours";
 
 export interface BuildGbpLocationInventoryInput {
@@ -335,7 +337,11 @@ export function buildGbpLocationInventory(
         : completeness.hasHolidayHours
           ? "Configured"
           : "Not set",
-      status: fieldStatus(completeness.hasHolidayHours, completeness.hasHolidayHours),
+      status: fieldStatus(
+        hasSpecialHourPeriods(profile?.specialHours),
+        hasAdequateHolidayCoverage(profile?.specialHours)
+      ),
+      constraint: "Add major US holidays for the full year",
       editable: true,
       googleUpdateState,
     }),

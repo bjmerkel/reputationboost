@@ -31,6 +31,7 @@ import {
 } from "@/lib/google/gbp-location";
 import { buildAttributeCoverage } from "@/lib/google/gbp-attribute-recommendations";
 import { buildGbpLocationInventory } from "@/lib/google/gbp-location-inventory";
+import { hasAdequateHolidayCoverage } from "@/lib/google/gbp-hours";
 import {
   fetchPlaceDetails,
   primaryCategoryFromTypes,
@@ -208,8 +209,9 @@ async function collectGbpFromApi(
       : (liveProfile?.attributes ?? []);
   const hasHours = liveProfile?.hasRegularHours ?? place?.hasHours ?? false;
   const hasFullWeekHours = liveProfile?.hasFullWeekHours ?? false;
-  const hasHolidayHours =
-    liveProfile?.hasSpecialHours ?? liveProfile?.hasMoreHours ?? place?.hasHolidayHours ?? false;
+  const hasHolidayHours = liveProfile?.specialHours
+    ? hasAdequateHolidayCoverage(liveProfile.specialHours)
+    : liveProfile?.hasSpecialHours ?? place?.hasHolidayHours ?? false;
   const noPendingEdits = liveProfile ? !liveProfile.hasPendingEdits : true;
   const photoCount = enrichment.media.photoCount || place?.photoCount || 0;
   const mediaCoverage = analyzeGbpMediaCoverage(enrichment.media.items, {

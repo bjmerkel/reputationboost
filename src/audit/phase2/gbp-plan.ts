@@ -257,8 +257,8 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
           ? "Weekly hours: full coverage ✓"
           : "Add open days for Mon–Sat (or your operating days)",
         audit.gbp.completeness.hasHolidayHours
-          ? "Holiday hours: configured ✓"
-          : "Add holiday hours — currently missing",
+          ? "Holiday hours: major holidays configured ✓"
+          : "Add major US holidays for the full year",
       ],
       gbpAction: "update_hours",
     },
