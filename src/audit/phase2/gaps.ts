@@ -542,20 +542,6 @@ export function detectGaps(
     );
   }
 
-  if (audit.gbp.content.unansweredQa > 0) {
-    gaps.push(
-      gap(
-        "unanswered-qa",
-        "P2",
-        "gbp_profile",
-        `${audit.gbp.content.unansweredQa} unanswered Q&A`,
-        "Answer customer questions on your GBP — they appear in search results.",
-        5,
-        2
-      )
-    );
-  }
-
   const notifications = audit.gbp.notifications;
   if (notifications && !notifications.configured) {
     gaps.push(

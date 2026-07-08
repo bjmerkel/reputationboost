@@ -267,8 +267,6 @@ export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): 
       return gbp.content.videoCount >= 2;
     case 8:
       return daysSince(gbp.content.lastPostDate) <= POST_FRESH_DAYS;
-    case 9:
-      return gbp.content.unansweredQa === 0;
     case 10: {
       const hasReviewGap = audit.rankings.keywords.some(
         (k) => k.inLocalPack && k.clientReviewCount < k.packLeaderReviewCount * 0.5
@@ -384,10 +382,6 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
     case 8:
       audit.gbp.content.lastPostDate = new Date().toISOString();
       audit.gbp.content.postCount = Math.max(1, audit.gbp.content.postCount);
-      break;
-    case 9:
-      audit.gbp.content.unansweredQa = 0;
-      audit.gbp.content.qaCount = Math.max(audit.gbp.content.qaCount, 15);
       break;
     case 10: {
       const avgLeader =
@@ -528,9 +522,6 @@ export function applyGapMutation(audit: Phase1AuditPayload, gap: GapFlag): void 
       break;
     case "low-response-rate":
       audit.gbp.engagement.responseRate = 1;
-      break;
-    case "unanswered-qa":
-      audit.gbp.content.unansweredQa = 0;
       break;
     case "performance-api-unavailable": {
       const perf = audit.gbp.performance;

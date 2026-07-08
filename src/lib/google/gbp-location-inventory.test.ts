@@ -89,8 +89,6 @@ const baseInput = {
     lastPhotoUpload: null,
     postCount: 2,
     lastPostDate: "2026-06-28T00:00:00.000Z",
-    qaCount: 1,
-    unansweredQa: 0,
   },
   engagement: {
     reviewCount: 45,

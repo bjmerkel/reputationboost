@@ -269,7 +269,6 @@ const PREVIEW_GAP_PREFIXES = [
   "low-photos",
   "unresponded-negative",
   "low-response-rate",
-  "unanswered-qa",
 ];
 
 function isPreviewRelevantGap(id: string): boolean {

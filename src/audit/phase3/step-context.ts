@@ -133,8 +133,6 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
       return outsidePack.length > 0
         ? `Publish weekly posts targeting keywords outside the 3-Pack, starting with "${outsidePack[0]}".`
         : "Maintain weekly Google Posts to signal an active profile.";
-    case 9:
-      return "Seed Q&A pairs covering target keywords and answer all unanswered questions.";
     case 10: {
       const gaps = rankings.filter((r) => r.reviewGap > 20);
       if (gaps.length > 0) {

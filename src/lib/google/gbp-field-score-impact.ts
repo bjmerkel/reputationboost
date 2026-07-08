@@ -39,7 +39,6 @@ export const GBP_FIELD_SCORE_WEIGHTS: Record<string, FieldScoreWeight> = {
   "content.photos": { maxImpact: 4, component: "conversion" },
   "content.posts": { maxImpact: 3, component: "conversion" },
   "engagement.reviews": { maxImpact: 5, component: "conversion" },
-  "content.qa": { maxImpact: 2, component: "conversion" },
   "issues.verified": { maxImpact: 5, component: "conversion" },
 };
 

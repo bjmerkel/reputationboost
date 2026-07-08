@@ -101,15 +101,7 @@ export function buildGbpCurrentState(audit: Phase1AuditPayload): GbpCurrentState
       status: fieldStatus(String(posts.length), daysSince !== null && daysSince <= 14),
     },
     {
-      label: "Q&A",
-      current: `${audit.gbp.content.qaCount} questions · ${audit.gbp.content.unansweredQa} unanswered`,
-      status: fieldStatus(
-        String(audit.gbp.content.qaCount),
-        audit.gbp.content.unansweredQa === 0 && audit.gbp.content.qaCount >= 5
-      ),
-    },
-    {
-      label: "Reviews",
+      label: "Google Posts",
       current: `${audit.gbp.engagement.reviewCount} reviews · ${audit.gbp.engagement.averageRating}★ · ${Math.round(audit.gbp.engagement.responseRate * 100)}% responded`,
       status: fieldStatus(
         String(audit.gbp.engagement.reviewCount),
@@ -156,8 +148,6 @@ export function buildGbpCurrentState(audit: Phase1AuditPayload): GbpCurrentState
   if (secondary.length < 2) profileGaps.push("Add secondary categories that match your target keywords");
   if (daysSince === null || daysSince > 14)
     profileGaps.push("No Google Post in the last 2 weeks — publish weekly posts");
-  if (audit.gbp.content.unansweredQa > 0)
-    profileGaps.push(`${audit.gbp.content.unansweredQa} Q&A question(s) need answers`);
   if (audit.gbp.engagement.responseRate < 0.9)
     profileGaps.push(`Review response rate is ${Math.round(audit.gbp.engagement.responseRate * 100)}% — target 100%`);
   if (audit.gbp.content.photoCount < 50)

@@ -420,9 +420,6 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
     }
   }
 
-  const qaScore =
-    gbp.content.unansweredQa === 0 ? 100 : clamp(100 - gbp.content.unansweredQa * 15);
-
   const placeActionScore = gbp.placeActions?.apiAvailable
     ? clamp(gbp.placeActions.coverageScore)
     : 50;
@@ -435,8 +432,7 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
     photoScore * 0.12 +
     videoScore * 0.05 +
     postScore * 0.11 +
-    responseScore * 0.09 +
-    qaScore * 0.05 +
+    responseScore * 0.14 +
     placeActionScore * 0.05 +
     notificationScore * 0.03;
 

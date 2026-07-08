@@ -59,7 +59,6 @@ export function buildAuditContext(audit: Phase1AuditPayload): string {
       daysAgo: Math.floor((Date.now() - new Date(p.createTime).getTime()) / 86400000),
       summary: p.summary.slice(0, 150),
     })),
-    qaItems: (audit.gbp.qaItems ?? []).slice(0, 5),
     rankings: {
       shareOfVoice: audit.rankings.shareOfVoice,
       keywordsInPack: audit.rankings.keywordsInPack,

@@ -13,8 +13,8 @@ const capabilities = [
   },
   {
     title: "GBP Profile Optimization",
-    description: "Categories, services, descriptions, photos, videos, and Q&A applied directly via Google API.",
-    tag: "16-step plan",
+    description: "Categories, services, descriptions, photos, and videos applied directly via Google API.",
+    tag: "15-step plan",
   },
   {
     title: "SMS Review Requests",

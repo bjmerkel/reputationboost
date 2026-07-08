@@ -359,7 +359,7 @@ export default function OnboardingWizard({
           <ul className={`space-y-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
             <li>✓ Performance: profile views, calls, directions, website clicks, search keywords</li>
             <li>✓ Reviews and response status</li>
-            <li>✓ Google Posts and Q&amp;A</li>
+            <li>✓ Google Posts</li>
             <li>✓ Publish approved content from the execution queue</li>
           </ul>
 

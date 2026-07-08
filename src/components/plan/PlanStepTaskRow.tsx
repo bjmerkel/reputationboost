@@ -34,7 +34,6 @@ const TYPE_LABELS: Partial<Record<ExecutionTask["type"], string>> = {
   review_response: "Review reply",
   review_delete_reply: "Remove reply",
   review_request: "Review request",
-  qa_answer: "Q&A",
 };
 
 export default function PlanStepTaskRow({

@@ -15,11 +15,10 @@ const phases = [
   {
     id: "content",
     title: "Content Engine",
-    description: "Photos, videos, posts, and Q&A",
+    description: "Photos, videos, and posts",
     steps: [
       { title: "Photo Optimization", impact: 7 },
       { title: "Weekly Google Posts", impact: 5 },
-      { title: "Q&A Section", impact: 4 },
     ],
   },
   {

@@ -121,7 +121,6 @@ export function mapActionToExecutionType(actionId: string): ExecutionType | null
     return "review_response";
   }
   if (actionId.startsWith("review-gap")) return "review_request";
-  if (actionId === "unanswered-qa") return "qa_answer";
   if (actionId === "missing-schema") return "schema_markup";
   if (actionId === "citation-mismatch") return "citation_fix";
   if (actionId === "low-social") return "social_post";

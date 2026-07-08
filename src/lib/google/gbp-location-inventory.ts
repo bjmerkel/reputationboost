@@ -426,14 +426,6 @@ export function buildGbpLocationInventory(
       editable: true,
     },
     {
-      apiPath: "content.qa",
-      label: "Q&A",
-      section: "engagement",
-      current: `${content.qaCount} questions · ${content.unansweredQa} unanswered`,
-      status: fieldStatus(content.qaCount > 0, content.unansweredQa === 0),
-      editable: true,
-    },
-    {
       apiPath: "performance.actions",
       label: "Calls · directions · clicks",
       section: "performance",

@@ -105,7 +105,6 @@ export async function executeTask(
     review_response: `Posted review response for review ${task.payload.reviewId ?? "unknown"}.`,
     review_delete_reply: `Removed review reply for review ${task.payload.reviewId ?? "unknown"}.`,
     review_request: `Sent ${task.payload.batchSize ?? 15} SMS review requests.`,
-    qa_answer: "Published Q&A answer on Google Business Profile.",
     schema_markup: "Generated LocalBusiness schema snippet for developer install.",
     citation_fix: "Submitted citation corrections to directories.",
     social_post: "Scheduled Facebook and Instagram post.",
@@ -347,7 +346,6 @@ async function executeTaskLive(
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
     case "gbp_checklist":
-    case "qa_answer":
     case "review_request":
     case "schema_markup":
     case "citation_fix":
