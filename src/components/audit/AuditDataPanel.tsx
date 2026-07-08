@@ -32,6 +32,7 @@ import { buildReviewsHealthReport } from "@/lib/google/gbp-reviews-health";
 import { buildLocalPostsHealthReport } from "@/lib/google/gbp-local-posts-health";
 import { buildPlaceActionsHealthReport } from "@/lib/google/gbp-place-actions-health";
 import { competitorMapRank } from "@/lib/google/local-rankings";
+import { detectPackFragility } from "@/audit/phase2/scoring";
 
 type DataTab = "profile" | "rankings" | "competitors" | "reviews" | "citations" | "trends";
 
@@ -357,27 +358,63 @@ export default function AuditDataPanel({
               </tr>
             </thead>
             <tbody>
-              {audit.rankings.keywords.map((kw) => (
+              {audit.rankings.keywords.map((kw) => {
+                const fragility = detectPackFragility(kw);
+                return (
                 <tr
                   key={kw.keyword}
                   className={`border-b ${isLight ? "border-[#f1f3f4]" : "border-white/5"}`}
                 >
                   <td className={`px-4 py-3 ${isLight ? "text-[#202124]" : "text-white"}`}>
-                    {kw.keyword}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>{kw.keyword}</span>
+                      {fragility.fragile && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            isLight ? "bg-[#fef7e0] text-[#b06000]" : "bg-amber-500/20 text-amber-300"
+                          }`}
+                        >
+                          Fragile
+                          {fragility.weakestRadiusMiles != null
+                            ? ` by ${fragility.weakestRadiusMiles} mi`
+                            : ""}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <PackBadge inPack={kw.inLocalPack} position={kw.localPackPosition} light={isLight} />
                   </td>
-                  {kw.geoRanks.map((g) => (
+                  {kw.geoRanks.map((g) => {
+                    const inPack = g.inLocalPack ?? (typeof g.rank === "number" && g.rank <= 3);
+                    const isWeakest =
+                      fragility.fragile &&
+                      fragility.weakestRadiusMiles != null &&
+                      g.distanceMiles === fragility.weakestRadiusMiles;
+                    return (
                     <td
                       key={g.distanceMiles}
-                      className={`px-4 py-3 ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}
+                      className={`px-4 py-3 ${
+                        inPack
+                          ? isLight
+                            ? "text-[#137333]"
+                            : "text-emerald-400"
+                          : isWeakest
+                            ? isLight
+                              ? "bg-[#fef7e0] font-medium text-[#b06000]"
+                              : "bg-amber-500/10 font-medium text-amber-300"
+                            : isLight
+                              ? "text-[#c5221f]"
+                              : "text-red-400"
+                      }`}
                     >
                       {g.rank ? `#${g.rank}` : "—"}
                     </td>
-                  ))}
+                    );
+                  })}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

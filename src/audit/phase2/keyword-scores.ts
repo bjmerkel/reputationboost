@@ -3,6 +3,7 @@ import type { KeywordScoreCard, KeywordRankSnapshot, Phase1AuditPayload } from "
 import { SEARCH_RADII_MILES } from "@/lib/google/places";
 import type { LearnedScoreModel } from "./score-learning";
 import { DEFAULT_LEARNED_SCORE_MODEL, effectiveScoreModel } from "./score-learning";
+import { projectKeywordToRank1 } from "./counterfactual";
 import {
   detectPackFragility,
   impressionWeightFloor,
@@ -86,11 +87,14 @@ function estimateKeywordRevenue(
 
 function estimateKeywordRevenueAtRank1(
   impressions: number,
+  kw: KeywordRankSnapshot,
+  audit: Phase1AuditPayload,
   avgCustomerValue: number | null | undefined,
   model: LearnedScoreModel | null = DEFAULT_LEARNED_SCORE_MODEL
 ): number | null {
   if (!avgCustomerValue || avgCustomerValue <= 0 || impressions <= 0) return null;
-  const clickShare = positionClickShare(1, model) / 100;
+  const rank1Kw = projectKeywordToRank1(kw);
+  const clickShare = blendedKeywordClickShare(rank1Kw, audit, model) / 100;
   const leads = impressions * clickShare * blendedLeadRate();
   return Math.round(leads * avgCustomerValue);
 }
@@ -135,11 +139,11 @@ function overallImpactIfRank1(
   for (const kw of keywords) {
     const weight = keywordImpressionWeight(kw.keyword, searchKeywords, floor);
     const posScore = keywordServiceAreaVisibilityScore(kw, weights);
-    const rank1Score = positionVisibilityScore(1);
     totalWeight += weight;
     currentSum += posScore * weight;
     if (kw.keyword === keyword) {
-      rank1Sum += rank1Score * weight;
+      const rank1Kw = projectKeywordToRank1(kw);
+      rank1Sum += keywordServiceAreaVisibilityScore(rank1Kw, weights) * weight;
     } else {
       rank1Sum += posScore * weight;
     }
@@ -197,7 +201,7 @@ export function computeKeywordScores(
         ? estimateKeywordRevenue(impressions, kw, audit, options.avgCustomerValue, model)
         : null;
       const potentialAtRank1 = impressions
-        ? estimateKeywordRevenueAtRank1(impressions, options.avgCustomerValue, model)
+        ? estimateKeywordRevenueAtRank1(impressions, kw, audit, options.avgCustomerValue, model)
         : null;
 
       return {

@@ -4,6 +4,7 @@ import type {
   KeywordRankAnalysis,
   Phase1AuditPayload,
 } from "../types";
+import { detectPackFragility } from "./scoring";
 
 function profile(audit: Phase1AuditPayload) {
   return audit.gbp.liveProfile;
@@ -178,6 +179,7 @@ export function buildKeywordRankAnalysis(audit: Phase1AuditPayload): KeywordRank
     const rank5 = kw.geoRanks.find((g) => g.distanceMiles === 5)?.rank ?? null;
     const reviewGap = Math.max(0, kw.packLeaderReviewCount - kw.clientReviewCount);
     const inProfile = keywordInProfile(audit, kw.keyword);
+    const fragility = detectPackFragility(kw);
 
     const gbpUpdates: string[] = [];
     if (!kw.inLocalPack) {
@@ -192,6 +194,21 @@ export function buildKeywordRankAnalysis(audit: Phase1AuditPayload): KeywordRank
         );
       }
       gbpUpdates.push("Add photos specific to this service type");
+    } else if (fragility.fragile && fragility.weakestRadiusMiles != null) {
+      gbpUpdates.push(
+        `Hold 3-Pack through ${fragility.weakestRadiusMiles} mi — weekly posts and reviews mentioning "${kw.keyword}"`
+      );
+      gbpUpdates.push(
+        `Customers searching ${fragility.weakestRadiusMiles}+ mi away see competitors — strengthen service-area relevance`
+      );
+      if (!inProfile) {
+        gbpUpdates.push(`Add "${kw.keyword}" to description or services to reinforce wider-area visibility`);
+      }
+      if (reviewGap > 20) {
+        gbpUpdates.push(
+          `Close review gap (${kw.clientReviewCount} vs leader's ${kw.packLeaderReviewCount}) for this keyword`
+        );
+      }
     } else {
       gbpUpdates.push(`Defend #${kw.localPackPosition} position — keep weekly posts mentioning "${kw.keyword}"`);
       if (!inProfile) {
@@ -200,7 +217,9 @@ export function buildKeywordRankAnalysis(audit: Phase1AuditPayload): KeywordRank
     }
 
     const position = kw.inLocalPack
-      ? `#${kw.localPackPosition} in 3-Pack`
+      ? fragility.fragile && fragility.weakestRadiusMiles != null
+        ? `#${kw.localPackPosition} in 3-Pack (fragile by ${fragility.weakestRadiusMiles} mi)`
+        : `#${kw.localPackPosition} in 3-Pack`
       : rank1
         ? `#${rank1} at 1 mi (outside 3-Pack)`
         : "Not ranking in top results";
@@ -216,6 +235,8 @@ export function buildKeywordRankAnalysis(audit: Phase1AuditPayload): KeywordRank
       clientReviews: kw.clientReviewCount,
       reviewGap,
       gbpUpdates,
+      packFragile: fragility.fragile,
+      weakestRadiusMiles: fragility.weakestRadiusMiles,
     };
   });
 }
