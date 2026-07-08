@@ -1,6 +1,7 @@
 import type { ExecutionTask, FullAuditPayload, GapFlag } from "@/audit/types";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { pendingBatchTasks } from "@/lib/execution/pending-tasks";
+import { getPendingApprovalCounts } from "@/lib/execution/pending-counts";
 import { getGoogleDiffFields } from "@/lib/google/gbp-update-helpers";
 
 export type PlaybookStage = "setup" | "launch" | "execute" | "grow" | "maintain";
@@ -121,11 +122,10 @@ function inferStage(input: PlaybookInput, pendingCount: number): PlaybookStage {
 export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
   const dismissed = new Set(input.dismissedTips ?? []);
   const items: PlaybookItem[] = [];
+  const pendingCounts = getPendingApprovalCounts(input.tasks);
   const batchPending = pendingBatchTasks(input.tasks);
-  const planPendingCount = input.tasks.filter((t) => t.status === "pending_approval").length;
-  const reviewPending = input.tasks.filter(
-    (t) => t.type === "review_response" && t.status === "pending_approval"
-  ).length;
+  const planPendingCount = pendingCounts.total;
+  const reviewPending = pendingCounts.reviewReplies;
   const unrespondedNegative = input.audit?.reviews.unrespondedNegative ?? 0;
   const auditAgeDays = daysSince(input.audit?.completedAt);
   const overallScore = input.audit?.strategy?.scores.overall ?? null;
@@ -210,11 +210,15 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
     title:
       batchPending.length > 0
         ? `Approve ${batchPending.length} plan update${batchPending.length === 1 ? "" : "s"}`
-        : "Work through your optimization plan",
+        : pendingCounts.generating > 0
+          ? `${pendingCounts.generating} photo${pendingCounts.generating === 1 ? "" : "s"} generating in Plan`
+          : "Work through your optimization plan",
     description:
       batchPending.length > 0
         ? "Review AI-drafted posts, profile edits, and media — then publish to Google."
-        : "Open Plan to see the next steps tailored to your audit.",
+        : pendingCounts.generating > 0
+          ? "Open Plan to finish generating photo previews before you can approve them."
+          : "Open Plan to see the next steps tailored to your audit.",
     why: "Approved changes go live on your Google Business Profile automatically.",
     priority: PRIORITY.critical,
     status: planPendingCount === 0 && input.audit ? "done" : "pending",

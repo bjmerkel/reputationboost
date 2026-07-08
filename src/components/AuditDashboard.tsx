@@ -25,7 +25,9 @@ import BatchReviewSession from "@/components/plan/BatchReviewSession";
 import PlanView from "@/components/plan/PlanView";
 import ProductPlaybookWizard from "@/components/platform/ProductPlaybookWizard";
 import { useAttributionDashboard } from "@/hooks/useAttributionDashboard";
+import { usePlanTasks } from "@/hooks/usePlanTasks";
 import { useScoreHistory } from "@/hooks/useScoreHistory";
+import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 
 interface BusinessLocation {
   lat: number;
@@ -91,9 +93,28 @@ export default function AuditDashboard({
   const { data: attributionData, loading: attributionLoading } = useAttributionDashboard(clientId);
   const { data: scoreHistory, loading: scoreHistoryLoading } = useScoreHistory(clientId);
 
+  const {
+    tasks: liveTasks,
+    refresh: refreshExecutionTasks,
+  } = usePlanTasks({
+    clientId,
+    auditId: audit?.auditId ?? "",
+    initialTasks: initialExecutionTasks,
+    enabled: Boolean(audit?.auditId),
+  });
+
   const openBatchReview = useCallback(() => {
     setBatchReviewOpen(true);
   }, []);
+
+  const closeBatchReview = useCallback(() => {
+    setBatchReviewOpen(false);
+    void refreshExecutionTasks();
+  }, [refreshExecutionTasks]);
+
+  const handleExecutionTasksChange = useCallback(() => {
+    void refreshExecutionTasks();
+  }, [refreshExecutionTasks]);
 
   useEffect(() => {
     if (reviewParam === "pending" && audit) {
@@ -120,10 +141,9 @@ export default function AuditDashboard({
     setViewState(normalizedView);
   }, [paramView, normalizedView, router, searchParams]);
 
-  const tasks =
-    audit?.execution?.tasks?.length ? audit.execution.tasks : initialExecutionTasks;
+  const tasks = audit ? liveTasks : initialExecutionTasks;
 
-  const planPendingCount = tasks.filter((t) => t.status === "pending_approval").length;
+  const planPendingCount = planApprovalBadgeCount(tasks);
 
   const keywordRank = useMemo(() => {
     if (!audit) return undefined;
@@ -395,6 +415,7 @@ export default function AuditDashboard({
               variant="light"
               onReviewPending={openBatchReview}
               onAuditUpdated={setAudit}
+              onTasksChange={handleExecutionTasksChange}
               avgCustomerValue={avgCustomerValue}
               currency={avgCustomerValueCurrency}
               focusStep={focusPlanStep}
@@ -500,12 +521,13 @@ export default function AuditDashboard({
 
       <BatchReviewSession
         open={batchReviewOpen}
-        onClose={() => setBatchReviewOpen(false)}
+        onClose={closeBatchReview}
         clientId={clientId}
         auditId={audit.auditId}
         gbpConnected={gbpConnected}
         initialTasks={tasks}
         attributionByTaskId={attributionData.attributionByTaskId}
+        onTasksChange={handleExecutionTasksChange}
       />
 
       {view !== "audit" && (

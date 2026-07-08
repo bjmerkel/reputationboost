@@ -17,6 +17,7 @@ import PlatformShell from "@/components/platform/PlatformShell";
 import RankingMap from "@/components/platform/RankingMap";
 import ViewAsCustomerModal from "@/components/platform/ViewAsCustomerModal";
 import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
+import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 
 interface PlatformDemoProps {
   audit: FullAuditPayload;
@@ -185,7 +186,7 @@ export default function PlatformDemo({
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const tasks = audit.execution?.tasks ?? [];
-  const planPendingCount = tasks.filter((t) => t.status === "pending_approval").length;
+  const planPendingCount = planApprovalBadgeCount(tasks);
 
   const keywordRank = useMemo(() => {
     return (

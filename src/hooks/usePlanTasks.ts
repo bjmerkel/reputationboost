@@ -19,6 +19,7 @@ interface UsePlanTasksOptions {
   auditId: string;
   initialTasks?: ExecutionTask[];
   initialPlan?: Plan | null;
+  enabled?: boolean;
 }
 
 export function usePlanTasks({
@@ -26,6 +27,7 @@ export function usePlanTasks({
   auditId,
   initialTasks = [],
   initialPlan = null,
+  enabled = true,
 }: UsePlanTasksOptions) {
   const [tasks, setTasks] = useState<ExecutionTask[]>(initialTasks);
   const [plan, setPlan] = useState<Plan | null>(initialPlan);
@@ -34,13 +36,23 @@ export function usePlanTasks({
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!enabled || !auditId) {
+      return { tasks: initialTasks, plan: initialPlan };
+    }
     const data = await fetchExecutionState(clientId, auditId);
     setTasks(data.tasks);
     setPlan(data.plan);
     return data;
-  }, [clientId, auditId]);
+  }, [auditId, clientId, enabled, initialPlan, initialTasks]);
 
   useEffect(() => {
+    if (!enabled || !auditId) {
+      setTasks(initialTasks);
+      setPlan(initialPlan);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function load() {
@@ -65,7 +77,7 @@ export function usePlanTasks({
     return () => {
       cancelled = true;
     };
-  }, [clientId, auditId]);
+  }, [auditId, clientId, enabled, initialPlan, initialTasks]);
 
   const runWithLoading = useCallback(
     async (taskId: string, action: () => Promise<void>) => {
