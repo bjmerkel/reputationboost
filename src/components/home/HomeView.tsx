@@ -49,7 +49,7 @@ export default function HomeView({
   const estimatedMonthlyRevenue = estimateTotalMonthlyRevenue(audit, avgCustomerValue);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <HomeHealthSummary
         audit={audit}
         summary={summary}
