@@ -9,6 +9,12 @@ export interface ReviewKeywordTarget {
   reviewGap: number;
   /** New reviews to request this month for this keyword */
   reviewsNeeded: number;
+  /** Reviews in corpus that mention this keyword */
+  reviewsMentioningKeyword: number;
+  /** Remaining mentions needed to hit target */
+  reviewsRemaining: number;
+  /** 0–100 progress toward mention target */
+  progressPercent: number;
   priority: "high" | "medium";
   recommendation: string;
 }
@@ -47,6 +53,51 @@ export function customerMatchesKeyword(
   return tokens.some((t) => notes.includes(t));
 }
 
+export function countReviewMentionsForKeyword(
+  audit: FullAuditPayload,
+  keyword: string
+): number {
+  const tokens = significantTokens(keyword);
+  if (tokens.length === 0) return 0;
+
+  return audit.reviews.reviews.filter((review) => {
+    const lower = review.text.toLowerCase();
+    return tokens.some((t) => lower.includes(t));
+  }).length;
+}
+
+export function prioritizeCustomersByKeyword<T extends Pick<CustomerRecord, "service_notes">>(
+  customers: T[],
+  focusKeyword: string,
+  batchSize: number
+): T[] {
+  return [...customers]
+    .sort((a, b) => {
+      const aMatch = customerMatchesKeyword(a, focusKeyword) ? 0 : 1;
+      const bMatch = customerMatchesKeyword(b, focusKeyword) ? 0 : 1;
+      return aMatch - bMatch;
+    })
+    .slice(0, batchSize);
+}
+
+export function resolveFocusKeywordForCustomer(
+  audit: FullAuditPayload,
+  customer: Pick<CustomerRecord, "service_notes">
+): string | null {
+  const rankings = audit.strategy.gbpPlan?.keywordRankings ?? [];
+  const serviceNotes = customer.service_notes?.trim();
+  if (serviceNotes) {
+    const matched = rankings.find((row) => customerMatchesKeyword(customer, row.keyword));
+    if (matched) return matched.keyword;
+  }
+
+  const prioritized = rankings
+    .filter((row) => !row.inLocalPack || row.reviewGap > 20 || row.packFragile)
+    .sort((a, b) => b.reviewGap - a.reviewGap);
+
+  return prioritized[0]?.keyword ?? rankings[0]?.keyword ?? null;
+}
+
 function reviewsNeededForKeyword(row: KeywordRankAnalysis): number {
   if (row.reviewGap <= 0) {
     return row.inLocalPack ? 0 : 5;
@@ -79,18 +130,31 @@ function recommendationForKeyword(row: KeywordRankAnalysis, needed: number): str
   return `Request ${needed} review${needed === 1 ? "" : "s"} from recent "${row.keyword}" customers`;
 }
 
-function rankKeywordTargets(rankings: KeywordRankAnalysis[]): ReviewKeywordTarget[] {
+function rankKeywordTargets(
+  rankings: KeywordRankAnalysis[],
+  audit: FullAuditPayload
+): ReviewKeywordTarget[] {
   return rankings
     .map((row) => {
       const reviewsNeeded = reviewsNeededForKeyword(row);
+      const reviewsMentioningKeyword = countReviewMentionsForKeyword(audit, row.keyword);
+      const reviewsRemaining = Math.max(0, reviewsNeeded - reviewsMentioningKeyword);
+      const progressPercent =
+        reviewsNeeded > 0
+          ? Math.min(100, Math.round((reviewsMentioningKeyword / reviewsNeeded) * 100))
+          : 100;
+
       return {
         keyword: row.keyword,
         clientReviews: row.clientReviews,
         packLeaderReviews: row.packLeaderReviews,
         reviewGap: row.reviewGap,
         reviewsNeeded,
+        reviewsMentioningKeyword,
+        reviewsRemaining,
+        progressPercent,
         priority: priorityForKeyword(row),
-        recommendation: recommendationForKeyword(row, reviewsNeeded),
+        recommendation: recommendationForKeyword(row, reviewsRemaining || reviewsNeeded),
       };
     })
     .filter((t) => t.reviewsNeeded > 0)
@@ -147,7 +211,7 @@ export function buildReviewCampaignPlan(
   options: BuildReviewCampaignPlanOptions = {}
 ): ReviewCampaignPlan {
   const rankings = audit.strategy.gbpPlan?.keywordRankings ?? [];
-  const keywordTargets = rankKeywordTargets(rankings);
+  const keywordTargets = rankKeywordTargets(rankings, audit);
   const focusKeyword =
     options.focusKeywordOverride ??
     keywordTargets.find((t) => t.priority === "high")?.keyword ??

@@ -13,6 +13,7 @@ interface ReviewRequestPanelProps {
   executionTaskId?: string;
   planContext?: PlanStepContext;
   planBullets?: string[];
+  initialFocusKeyword?: string | null;
   variant?: "light" | "dark";
   onSent?: (summary: string) => void;
 }
@@ -23,6 +24,7 @@ export default function ReviewRequestPanel({
   executionTaskId,
   planContext,
   planBullets,
+  initialFocusKeyword,
   variant = "light",
   onSent,
 }: ReviewRequestPanelProps) {
@@ -80,9 +82,9 @@ export default function ReviewRequestPanel({
   );
 
   useEffect(() => {
-    void loadMessageTemplate(planContext?.primaryKeyword ?? null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
-  }, [planContext?.primaryKeyword]);
+    void loadMessageTemplate(initialFocusKeyword ?? planContext?.primaryKeyword ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when deep-link keyword changes
+  }, [initialFocusKeyword, planContext?.primaryKeyword]);
 
   async function handleSend() {
     setSending(true);
@@ -97,6 +99,7 @@ export default function ReviewRequestPanel({
           template,
           batchSize: sendCount,
           executionTaskId,
+          focusKeyword,
         }),
       });
       const data = await parseJsonResponse<{

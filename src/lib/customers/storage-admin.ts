@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { REVIEW_REQUEST_COOLDOWN_DAYS } from "@/lib/review-requests/eligibility";
 import { normalizePhoneE164 } from "@/lib/sms/phone";
 import type { CustomerInput, CustomerRecord } from "./types";
 
@@ -51,6 +52,27 @@ export async function getCustomersByIdsAdmin(
     .select("*")
     .eq("business_id", businessId)
     .in("id", customerIds);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(rowToRecord);
+}
+
+export async function getEligibleCustomersAdmin(
+  businessId: string,
+  limit: number
+): Promise<CustomerRecord[]> {
+  const supabase = createAdminClient();
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - REVIEW_REQUEST_COOLDOWN_DAYS);
+
+  const { data, error } = await supabase
+    .from("customers")
+    .select("*")
+    .eq("business_id", businessId)
+    .eq("opted_out", false)
+    .or(`review_requested_at.is.null,review_requested_at.lt.${cutoff.toISOString()}`)
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
   if (error) throw new Error(error.message);
   return (data ?? []).map(rowToRecord);

@@ -3,6 +3,7 @@ import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin"
 import { upsertCustomerAdmin } from "@/lib/customers/storage-admin";
 import type { CustomerRecord } from "@/lib/customers/types";
 import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
+import { resolveFocusKeywordForCustomer } from "@/lib/review-requests/campaign-plan";
 import {
   auditHasReviewGap,
   evaluateReviewRequestEligibility,
@@ -226,10 +227,11 @@ export async function processInboundWebhook(
     if (usePrivateFeedback && !reviewUrlOverride) {
       reviewRequestSkippedReason = "Private feedback URL is not configured.";
     } else {
+      const focusKeyword = audit ? resolveFocusKeywordForCustomer(audit, customer) : null;
       const template = usePrivateFeedback
         ? buildPrivateFeedbackTemplate(business.name)
         : audit
-          ? await generateReviewRequestMessage(audit, customer)
+          ? await generateReviewRequestMessage(audit, customer, focusKeyword)
           : buildDefaultTemplate(business.name);
 
       if (settings.delayHours > 0) {

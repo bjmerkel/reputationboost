@@ -27,6 +27,7 @@ export async function POST(request: Request) {
       batchSize?: number;
       dryRun?: boolean;
       executionTaskId?: string;
+      focusKeyword?: string | null;
     }>(request);
 
     if (!body.template?.trim()) {
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
       executionTaskId: body.executionTaskId,
       dryRun: body.dryRun,
       manualSend: true,
+      focusKeyword: body.focusKeyword,
       auditHasReviewGap: auditHasReviewGap(audit),
     });
 

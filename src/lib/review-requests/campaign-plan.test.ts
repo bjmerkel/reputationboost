@@ -3,7 +3,9 @@ import { describe, it } from "node:test";
 import {
   buildReviewCampaignPlan,
   countCustomersMatchingKeyword,
+  countReviewMentionsForKeyword,
   customerMatchesKeyword,
+  prioritizeCustomersByKeyword,
 } from "./campaign-plan";
 import type { FullAuditPayload } from "@/audit/types";
 
@@ -40,7 +42,14 @@ function minimalAudit(overrides: Partial<FullAuditPayload> = {}): FullAuditPaylo
       totalKeywords: 2,
       shareOfVoice: 50,
     },
-    reviews: { reviews: [], sentiment: { positiveThemes: [] }, unrespondedNegative: 0 },
+    reviews: {
+      reviews: [
+        { text: "Great after school program for my kids", rating: 5, date: "2026-01-01", responded: true },
+        { text: "Excellent tutoring session", rating: 5, date: "2026-02-01", responded: true },
+      ],
+      sentiment: { positiveThemes: [] },
+      unrespondedNegative: 0,
+    },
     competitors: [],
     strategy: {
       gaps: [],
@@ -106,6 +115,22 @@ describe("buildReviewCampaignPlan", () => {
     assert.ok(plan.executionSteps.length >= 3);
   });
 
+  it("tracks keyword mention progress toward targets", () => {
+    const audit = minimalAudit();
+    assert.equal(
+      countReviewMentionsForKeyword(audit, "after school programs las vegas"),
+      1
+    );
+
+    const plan = buildReviewCampaignPlan(audit, { eligibleCount: 10 });
+    const afterSchool = plan.keywordTargets.find((t) => t.keyword.includes("after school"));
+    assert.ok(afterSchool);
+    assert.equal(afterSchool!.reviewsMentioningKeyword, 1);
+    assert.ok(afterSchool!.reviewsRemaining > 0);
+    assert.ok(afterSchool!.progressPercent > 0);
+    assert.ok(afterSchool!.progressPercent < 100);
+  });
+
   it("counts customers matching focus keyword via service notes", () => {
     const keyword = "after school programs las vegas";
     assert.ok(
@@ -122,5 +147,20 @@ describe("buildReviewCampaignPlan", () => {
       keyword
     );
     assert.equal(count, 1);
+  });
+
+  it("prioritizes keyword-matched customers in batch selection order", () => {
+    const keyword = "after school programs las vegas";
+    const customers = [
+      { service_notes: "math tutoring" },
+      { service_notes: "after school enrichment" },
+      { service_notes: "reading help" },
+      { service_notes: "after school program" },
+    ];
+
+    const batch = prioritizeCustomersByKeyword(customers, keyword, 2);
+    assert.equal(batch.length, 2);
+    assert.ok(customerMatchesKeyword(batch[0], keyword));
+    assert.ok(customerMatchesKeyword(batch[1], keyword));
   });
 });

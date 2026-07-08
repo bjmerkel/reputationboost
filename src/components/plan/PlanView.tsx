@@ -25,6 +25,7 @@ export default function PlanView({
   currency = "USD",
   focusStep = null,
   focusScrollTarget = null,
+  focusKeyword = null,
   onFocusHandled,
 }: {
   audit: FullAuditPayload;
@@ -39,6 +40,7 @@ export default function PlanView({
   currency?: string;
   focusStep?: number | null;
   focusScrollTarget?: "google-updates" | null;
+  focusKeyword?: string | null;
   onFocusHandled?: () => void;
 }) {
   const isLight = variant === "light";
@@ -236,6 +238,7 @@ export default function PlanView({
             placeActionLinks={audit.gbp.placeActionLinks}
             defaultExpandedStep={defaultExpandedStep}
             focusStep={focusStep}
+            focusKeyword={focusKeyword}
             variant={variant}
             currency={currency}
             businessName={audit.clientName}

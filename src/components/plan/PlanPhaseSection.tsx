@@ -18,6 +18,7 @@ export default function PlanPhaseSection({
   placeActionLinks,
   defaultExpandedStep,
   focusStep,
+  focusKeyword,
   variant = "light",
   currency = "USD",
   businessName,
@@ -38,6 +39,7 @@ export default function PlanPhaseSection({
   placeActionLinks?: GbpPlaceActionLinkSummary[];
   defaultExpandedStep?: number;
   focusStep?: number | null;
+  focusKeyword?: string | null;
   currency?: string;
   variant?: "light" | "dark";
   businessName?: string;
@@ -91,6 +93,9 @@ export default function PlanPhaseSection({
             businessPhone={businessPhone}
             businessWebsite={businessWebsite}
             reviewUrl={reviewUrl}
+            initialFocusKeyword={
+              step.stepNumber === 10 ? focusKeyword ?? step.context.primaryKeyword ?? null : null
+            }
             onReviewRequestSent={onReviewRequestSent}
           />
         ))}

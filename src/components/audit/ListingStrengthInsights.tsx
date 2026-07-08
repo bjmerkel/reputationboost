@@ -40,7 +40,11 @@ export default function ListingStrengthInsights({
   performancePoints?: DailyMetricPoint[];
   scoreSeries?: ScoreDailySnapshot[];
   trendsLoading?: boolean;
-  onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
+  onNavigateToPlan?: (
+    stepNumber: number,
+    scrollTarget?: "google-updates",
+    focusKeyword?: string
+  ) => void;
 }) {
   const businessCalibration = useMemo(
     () => buildAttributionCalibration(attributions),
@@ -103,7 +107,11 @@ export default function ListingStrengthInsights({
       />
       <GapsPanel audit={audit} avgCustomerValue={avgCustomerValue} currency={currency} />
       {showKeywords && (
-        <KeywordScoreCards keywords={keywordScores} currency={currency} />
+        <KeywordScoreCards
+          keywords={keywordScores}
+          currency={currency}
+          onNavigateToPlan={onNavigateToPlan}
+        />
       )}
       {!avgCustomerValue && keywordScores.some((k) => k.impressions != null) && (
         <p className="text-xs text-[#80868b]">

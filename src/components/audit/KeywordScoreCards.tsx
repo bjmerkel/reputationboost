@@ -5,14 +5,26 @@ import { formatCurrency } from "@/audit/attribution/roi";
 import InfoTooltip from "@/components/ui/InfoTooltip";
 import { SCORE_TOOLTIPS } from "@/lib/scores/score-tooltips";
 
+const REVIEW_REQUEST_PLAN_STEP = 10;
+
+function isReviewRelatedAction(action: string): boolean {
+  return /\breviews?\b/i.test(action);
+}
+
 export default function KeywordScoreCards({
   keywords,
   currency = "USD",
   compact = false,
+  onNavigateToPlan,
 }: {
   keywords: KeywordScoreCard[];
   currency?: string;
   compact?: boolean;
+  onNavigateToPlan?: (
+    stepNumber: number,
+    scrollTarget?: "google-updates",
+    focusKeyword?: string
+  ) => void;
 }) {
   if (keywords.length === 0) return null;
 
@@ -31,7 +43,13 @@ export default function KeywordScoreCards({
         </div>
       )}
       {keywords.map((kw) => (
-        <KeywordCard key={kw.keyword} keyword={kw} currency={currency} compact={compact} />
+        <KeywordCard
+          key={kw.keyword}
+          keyword={kw}
+          currency={currency}
+          compact={compact}
+          onNavigateToPlan={onNavigateToPlan}
+        />
       ))}
     </div>
   );
@@ -41,12 +59,19 @@ function KeywordCard({
   keyword: kw,
   currency,
   compact,
+  onNavigateToPlan,
 }: {
   keyword: KeywordScoreCard;
   currency: string;
   compact?: boolean;
+  onNavigateToPlan?: (
+    stepNumber: number,
+    scrollTarget?: "google-updates",
+    focusKeyword?: string
+  ) => void;
 }) {
   const packColor = kw.inLocalPack ? "#188038" : "#d93025";
+  const showReviewCta = onNavigateToPlan && isReviewRelatedAction(kw.suggestedAction);
 
   return (
     <div
@@ -115,10 +140,21 @@ function KeywordCard({
         </p>
       )}
 
-      <p className={`mt-1.5 text-[#5f6368] ${compact ? "text-[10px]" : "text-xs"}`}>
-        <span className="font-medium text-[#202124]">Do: </span>
-        {kw.suggestedAction}
-      </p>
+      <div className={`mt-1.5 ${compact ? "text-[10px]" : "text-xs"}`}>
+        <p className="text-[#5f6368]">
+          <span className="font-medium text-[#202124]">Do: </span>
+          {kw.suggestedAction}
+        </p>
+        {showReviewCta && (
+          <button
+            type="button"
+            onClick={() => onNavigateToPlan(REVIEW_REQUEST_PLAN_STEP, undefined, kw.keyword)}
+            className="mt-2 text-xs font-semibold text-[#1a73e8] hover:underline"
+          >
+            Start review campaign for &ldquo;{kw.keyword}&rdquo; →
+          </button>
+        )}
+      </div>
     </div>
   );
 }

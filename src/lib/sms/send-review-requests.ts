@@ -2,6 +2,7 @@ import type { ClientConfig } from "@/audit/types";
 import {
   getCustomersByIds,
   getEligibleCustomers,
+  listCustomers,
   logSmsMessage,
   markCustomersReviewRequested,
 } from "@/lib/customers/storage";
@@ -15,6 +16,7 @@ import {
   evaluateReviewRequestEligibility,
   ineligibilityMessage,
 } from "@/lib/review-requests/eligibility";
+import { prioritizeCustomersByKeyword } from "@/lib/review-requests/campaign-plan";
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isTwilioConfigured, sendSms } from "@/lib/sms/twilio";
@@ -31,6 +33,8 @@ export interface SendReviewRequestsInput {
   serviceRole?: boolean;
   /** Skip audit-gap checks for explicit UI sends. Defaults to true for manual sends. */
   manualSend?: boolean;
+  /** When set, eligible customers matching this keyword are sent first. */
+  focusKeyword?: string | null;
   auditHasReviewGap?: boolean;
   reviewUrlOverride?: string;
 }
@@ -74,12 +78,33 @@ async function resolveCustomers(
   businessId: string,
   customerIds?: string[],
   batchSize = 15,
-  serviceRole = false
+  serviceRole = false,
+  focusKeyword?: string | null
 ): Promise<CustomerRecord[]> {
   if (customerIds && customerIds.length > 0) {
     if (serviceRole) return getCustomersByIdsAdmin(businessId, customerIds);
     return getCustomersByIds(userId, businessId, customerIds);
   }
+
+  if (focusKeyword?.trim()) {
+    const poolSize = Math.max(batchSize * 4, 100);
+    const fetchEligible = serviceRole
+      ? async () => {
+          const { getEligibleCustomersAdmin } = await import("@/lib/customers/storage-admin");
+          return getEligibleCustomersAdmin(businessId, poolSize);
+        }
+      : async () => {
+          const { customers } = await listCustomers(userId, businessId, {
+            eligibleOnly: true,
+            limit: poolSize,
+          });
+          return customers;
+        };
+
+    const pool = await fetchEligible();
+    return prioritizeCustomersByKeyword(pool, focusKeyword.trim(), batchSize);
+  }
+
   return getEligibleCustomers(userId, businessId, batchSize);
 }
 
@@ -103,7 +128,8 @@ export async function sendReviewRequests(
     businessId,
     input.customerIds,
     input.batchSize ?? 15,
-    input.serviceRole
+    input.serviceRole,
+    input.focusKeyword
   );
 
   const result: SendReviewRequestsResult = {

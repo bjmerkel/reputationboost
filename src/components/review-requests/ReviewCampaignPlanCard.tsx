@@ -119,6 +119,39 @@ export default function ReviewCampaignPlanCard({
                     <p className={`mt-1 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
                       {target.recommendation}
                     </p>
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between gap-2 text-[10px]">
+                        <span className={isLight ? "text-[#80868b]" : "text-slate-500"}>
+                          {target.reviewsMentioningKeyword} of {target.reviewsNeeded} keyword-rich
+                          reviews
+                        </span>
+                        <span className={`font-semibold ${isLight ? "text-[#202124]" : "text-slate-200"}`}>
+                          {target.progressPercent}%
+                        </span>
+                      </div>
+                      <div
+                        className={`mt-1 h-1.5 overflow-hidden rounded-full ${
+                          isLight ? "bg-[#e8eaed]" : "bg-white/10"
+                        }`}
+                      >
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            target.progressPercent >= 100
+                              ? "bg-[#188038]"
+                              : isLight
+                                ? "bg-[#1a73e8]"
+                                : "bg-blue-400"
+                          }`}
+                          style={{ width: `${target.progressPercent}%` }}
+                        />
+                      </div>
+                      {target.reviewsRemaining > 0 && (
+                        <p className={`mt-1 text-[10px] ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                          {target.reviewsRemaining} more mentioning &ldquo;{target.keyword}&rdquo; ·{" "}
+                          {target.clientReviews} total vs {target.packLeaderReviews} leader
+                        </p>
+                      )}
+                    </div>
                   </button>
                 </li>
               );

@@ -42,6 +42,7 @@ export default function PlanStepCard({
   businessPhone,
   businessWebsite,
   reviewUrl,
+  initialFocusKeyword,
   onReviewRequestSent,
 }: {
   step: PlanStep;
@@ -62,6 +63,7 @@ export default function PlanStepCard({
   businessPhone?: string;
   businessWebsite?: string;
   reviewUrl?: string | null;
+  initialFocusKeyword?: string | null;
   onReviewRequestSent?: () => void;
 }) {
   const isLight = variant === "light";
@@ -238,6 +240,7 @@ export default function PlanStepCard({
                 executionTaskId={reviewRequestTask.id}
                 planContext={step.context}
                 planBullets={step.bullets}
+                initialFocusKeyword={initialFocusKeyword}
                 variant={variant}
                 onSent={() => onReviewRequestSent?.()}
               />

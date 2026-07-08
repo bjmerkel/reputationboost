@@ -83,6 +83,7 @@ export default function AuditDashboard({
   const [focusPlanScrollTarget, setFocusPlanScrollTarget] = useState<
     "google-updates" | null
   >(null);
+  const [focusPlanKeyword, setFocusPlanKeyword] = useState<string | null>(null);
   const autoAuditStartedRef = useRef(false);
 
   const reviewParam = searchParams.get("review");
@@ -180,9 +181,10 @@ export default function AuditDashboard({
   }, [setView]);
 
   const openPlanStep = useCallback(
-    (stepNumber: number, scrollTarget?: "google-updates") => {
+    (stepNumber: number, scrollTarget?: "google-updates", focusKeyword?: string) => {
       setFocusPlanStep(stepNumber);
       setFocusPlanScrollTarget(scrollTarget ?? null);
+      setFocusPlanKeyword(focusKeyword ?? null);
       setView("strategy");
     },
     [setView]
@@ -397,9 +399,11 @@ export default function AuditDashboard({
               currency={avgCustomerValueCurrency}
               focusStep={focusPlanStep}
               focusScrollTarget={focusPlanScrollTarget}
+              focusKeyword={focusPlanKeyword}
               onFocusHandled={() => {
                 setFocusPlanStep(null);
                 setFocusPlanScrollTarget(null);
+                setFocusPlanKeyword(null);
               }}
             />
           )}

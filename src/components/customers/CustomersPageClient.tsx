@@ -237,6 +237,7 @@ export default function CustomersPageClient({
           template,
           customerIds,
           batchSize: selectedIds.size > 0 ? selectedIds.size : batchSize,
+          focusKeyword,
           dryRun,
         }),
       });
