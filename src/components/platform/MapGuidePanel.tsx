@@ -13,7 +13,7 @@ const QUICK_START = [
   },
   {
     title: "Read the colors",
-    body: "Green = top 3 in the Local Pack. Dark red = page 1. Bright red = buried or missing.",
+    body: "Green = top 3 in the Local Pack. Dark red = page 1. Bright red = buried or not found.",
   },
   {
     title: "Tap a zone or cell",

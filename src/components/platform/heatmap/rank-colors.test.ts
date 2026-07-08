@@ -6,4 +6,9 @@ describe("rankColor", () => {
   it("uses dark red for page-one ranks (4–10)", () => {
     assert.equal(rankColor(7), "#c5221f");
   });
+
+  it("uses bright red for not found and buried ranks", () => {
+    assert.equal(rankColor(null), "#ea4335");
+    assert.equal(rankColor(15), "#ea4335");
+  });
 });
