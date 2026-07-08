@@ -4,6 +4,7 @@ import { loadAuditByIdFromSupabase } from "@/audit/storage-supabase";
 import { getExecutionTask, updateExecutionTask } from "@/audit/storage-execution";
 import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
 import { regenerateReviewResponse } from "@/lib/review-responses/regenerate";
+import { loadCustomerKeywordHints } from "@/lib/review-responses/load-customer-hints";
 import { getActiveKeywordCampaigns } from "@/lib/review-requests/campaign-storage";
 import { getUser } from "@/lib/supabase/server";
 
@@ -64,6 +65,7 @@ export async function POST(
 
   const campaigns = await getActiveKeywordCampaigns(user.id, businessId).catch(() => []);
   const activeCampaignKeywords = campaigns.map((campaign) => campaign.keyword);
+  const customers = await loadCustomerKeywordHints(user.id, businessId);
   const fallbackKeyword =
     typeof task.payload.suggestedKeyword === "string" ? task.payload.suggestedKeyword : null;
 
@@ -73,6 +75,7 @@ export async function POST(
       keyword: body.keyword,
       fallbackKeyword,
       activeCampaignKeywords,
+      customers,
     });
 
     const saved = await updateExecutionTask(user.id, taskId, {

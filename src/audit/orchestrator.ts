@@ -14,6 +14,7 @@ import { generateStrategy } from "@/lib/llm/strategy";
 import { generateAuditContent } from "@/lib/llm/content";
 import { extractKeywordRelevance } from "@/lib/llm/relevance";
 import { getActiveKeywordCampaigns } from "@/lib/review-requests/campaign-storage";
+import { loadCustomerKeywordHints } from "@/lib/review-responses/load-customer-hints";
 import { generateExecutionQueue } from "./phase3";
 import {
   getBusinessIdForSlug,
@@ -157,6 +158,7 @@ export async function runPhase1Audit(
   const auditWithStrategy = { ...phase1Enriched, strategy };
 
   let activeCampaignKeywords: string[] = [];
+  let customerKeywordHints: Awaited<ReturnType<typeof loadCustomerKeywordHints>> = [];
   if (options.userId) {
     const businessId = await getBusinessIdForSlug(options.userId, client.id);
     if (businessId) {
@@ -166,10 +168,14 @@ export async function runPhase1Audit(
       } catch {
         activeCampaignKeywords = [];
       }
+      customerKeywordHints = await loadCustomerKeywordHints(options.userId, businessId);
     }
   }
 
-  const content = await generateAuditContent(auditWithStrategy, { activeCampaignKeywords });
+  const content = await generateAuditContent(auditWithStrategy, {
+    activeCampaignKeywords,
+    customers: customerKeywordHints,
+  });
   const execution = generateExecutionQueue(auditWithStrategy, content);
 
   const audit: FullAuditPayload = {

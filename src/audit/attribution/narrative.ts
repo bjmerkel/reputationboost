@@ -44,6 +44,7 @@ export interface NarrativeInput {
   gridCoverageBefore?: number | null;
   gridCoverageAfter?: number | null;
   cellsImproved?: number | null;
+  keywordsMentioned?: string[];
 }
 
 export function buildAttributionNarrative(input: NarrativeInput): string {
@@ -54,6 +55,10 @@ export function buildAttributionNarrative(input: NarrativeInput): string {
   const action = TASK_LABELS[input.taskType] ?? input.title;
 
   const parts: string[] = [`${action} ${date}`];
+
+  if (input.taskType === "review_response" && input.keywordsMentioned?.length) {
+    parts.push(`reply reinforced ${input.keywordsMentioned.map((k) => `'${k}'`).join(", ")}`);
+  }
 
   if (input.primaryKeyword) {
     if (input.rankBefore !== input.rankAfter) {

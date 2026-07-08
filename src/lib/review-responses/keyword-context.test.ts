@@ -207,6 +207,28 @@ describe("keyword-context", () => {
     assert.equal(withCampaign.suggestedKeyword, "oil change arlington va");
     assert.equal(withCampaign.activeCampaignKeyword, "oil change arlington va");
   });
+
+  it("uses customer service notes for keyword opportunities", () => {
+    const audit = minimalAudit({
+      reviews: {
+        ...minimalAudit().reviews,
+        reviews: [review({ author: "Jane Doe", text: "Great visit" })],
+      },
+    });
+
+    const context = resolveReviewResponseKeywordContext(audit, review({ author: "Jane Doe", text: "Great visit" }), {
+      customers: [
+        {
+          first_name: "Jane",
+          last_name: "Doe",
+          service_notes: "oil change and tire rotation",
+        },
+      ],
+    });
+
+    assert.equal(context.suggestedKeyword, "oil change arlington va");
+    assert.equal(context.reason, "customer_service_match");
+  });
 });
 
 describe("keyword-quality", () => {

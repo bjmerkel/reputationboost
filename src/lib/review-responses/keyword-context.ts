@@ -3,9 +3,15 @@ import {
   textContainsKeyword,
 } from "@/audit/attribution/keywords";
 import type { FullAuditPayload, ReviewRecord } from "@/audit/types";
+import type { CustomerKeywordHint } from "./customer-match";
+import {
+  customerServiceMatchesKeyword,
+  customerServiceNotesForReviewer,
+} from "./customer-match";
 
 export type ReviewKeywordWeaveReason =
   | "review_mentions_service"
+  | "customer_service_match"
   | "outside_pack_gap"
   | "low_review_mentions"
   | "batch_rotation"
@@ -15,6 +21,8 @@ export type ReviewKeywordWeaveReason =
 export interface ReviewResponseKeywordOptions {
   /** Keywords from active review_keyword_campaigns — boosts scoring +15 each. */
   activeCampaignKeywords?: string[];
+  /** Customers with service notes — match reviewer names for keyword opportunities. */
+  customers?: CustomerKeywordHint[];
 }
 
 export interface ReviewResponseKeywordContext {
@@ -112,6 +120,11 @@ function scoreKeywordForReview(
     reason = "review_mentions_service";
   }
 
+  if (customerServiceMatchesKeyword(review.author, keyword, options?.customers ?? [])) {
+    score += 35;
+    if (!reason) reason = "customer_service_match";
+  }
+
   if (isOutsidePack(audit, keyword)) {
     score += 25;
     if (!reason) reason = "outside_pack_gap";
@@ -133,7 +146,8 @@ function scoreKeywordForReview(
 function buildWeaveHints(
   audit: FullAuditPayload,
   review: ReviewRecord,
-  keyword: string
+  keyword: string,
+  options?: ReviewResponseKeywordOptions
 ): string[] {
   const hints: string[] = [];
   const reviewText = review.text ?? "";
@@ -141,6 +155,11 @@ function buildWeaveHints(
 
   if (matched.length > 0) {
     hints.push(`customer mentioned "${matched.join(", ")}"`);
+  }
+
+  const serviceNotes = customerServiceNotesForReviewer(review.author, options?.customers ?? []);
+  if (serviceNotes) {
+    hints.push(`customer record notes: "${serviceNotes}"`);
   }
 
   const area = extractAreaToken(audit.gbp.identity.address);
@@ -178,7 +197,7 @@ function buildContextForKeyword(
   reason: ReviewKeywordWeaveReason,
   options?: ReviewResponseKeywordOptions
 ): ReviewResponseKeywordContext {
-  const hints = buildWeaveHints(audit, review, keyword);
+  const hints = buildWeaveHints(audit, review, keyword, options);
   if (isActiveCampaignKeyword(keyword, options)) {
     hints.push("active SMS review campaign is collecting mentions for this service");
   }
@@ -356,6 +375,8 @@ export function weaveReasonLabel(context: ReviewResponseKeywordContext): string 
   switch (context.reason) {
     case "review_mentions_service":
       return `Reinforce the service the customer mentioned (${context.suggestedKeyword}).`;
+    case "customer_service_match":
+      return `Customer record matches this service — weave "${context.suggestedKeyword}" if natural.`;
     case "outside_pack_gap":
       return `Subtle mention of "${context.suggestedKeyword}" — you're outside the local 3-Pack for this term.`;
     case "low_review_mentions":
