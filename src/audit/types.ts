@@ -235,6 +235,15 @@ export interface GbpAttributeCoverageItem {
   autoApplicable: boolean;
 }
 
+export interface GbpConfiguredProfileLink {
+  name: string;
+  displayName: string;
+  groupDisplayName: string;
+  valueType: string;
+  uri: string;
+  platform?: string;
+}
+
 export interface GbpAttributeCoverage {
   enabledCount: number;
   availableCount: number;
@@ -242,6 +251,7 @@ export interface GbpAttributeCoverage {
   enabled: GbpAttributeCoverageItem[];
   missing: GbpAttributeCoverageItem[];
   profileLinkMissing: GbpAttributeCoverageItem[];
+  configuredProfileLinks: GbpConfiguredProfileLink[];
   supportedAttributeNames: string[];
   autoUpdates: Array<{
     name: string;

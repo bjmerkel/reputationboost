@@ -1,4 +1,8 @@
-import type { GbpAttributeCoverage, GbpAttributeCoverageItem } from "@/audit/types";
+import type {
+  GbpAttributeCoverage,
+  GbpAttributeCoverageItem,
+  GbpConfiguredProfileLink,
+} from "@/audit/types";
 import type {
   GbpAttributeMetadata,
   GbpAttributeUpdate,
@@ -90,17 +94,104 @@ export function isProfileLinkCoverageItem(
   return isProfileLinkAttribute(item);
 }
 
+function attributeUriValue(attr: GbpLocationAttribute): string | undefined {
+  return attr.values.find(
+    (value) =>
+      value.startsWith("https://") ||
+      value.startsWith("http://") ||
+      value.startsWith("sms:") ||
+      value.startsWith("tel:")
+  );
+}
+
+function profileLinkDisplayName(
+  attr: GbpLocationAttribute,
+  meta?: GbpAttributeMetadata
+): string {
+  if (meta?.displayName) return meta.displayName;
+  const haystack = `${attr.name}`.toLowerCase();
+  if (haystack.includes("facebook")) return "Facebook";
+  if (haystack.includes("instagram")) return "Instagram";
+  if (haystack.includes("linkedin")) return "LinkedIn";
+  if (haystack.includes("pinterest")) return "Pinterest";
+  if (haystack.includes("tiktok")) return "TikTok";
+  if (haystack.includes("whatsapp")) return "WhatsApp";
+  if (haystack.includes("twitter")) return "X (Twitter)";
+  if (haystack.includes("youtube")) return "YouTube";
+  if (haystack.includes("text")) return "Texting number";
+  return attr.name.replace(/^attributes\//, "").replace(/_/g, " ");
+}
+
+/** Profile-link URIs already set on the GBP location (from getAttributes). */
+export function buildConfiguredProfileLinks(
+  current: GbpLocationAttribute[],
+  available: GbpAttributeMetadata[]
+): GbpConfiguredProfileLink[] {
+  const metadataByKey = new Map<string, GbpAttributeMetadata>();
+  for (const meta of available) {
+    metadataByKey.set(attributeKey(meta.name), meta);
+    metadataByKey.set(meta.name, meta);
+  }
+
+  const links: GbpConfiguredProfileLink[] = [];
+  const seenPlatforms = new Set<string>();
+
+  for (const attr of current) {
+    if (!isEnabledGbpAttribute(attr)) continue;
+    const uri = attributeUriValue(attr);
+    if (!uri) continue;
+
+    const meta = metadataByKey.get(attributeKey(attr.name)) ?? metadataByKey.get(attr.name);
+    const item = {
+      name: attr.name,
+      displayName: profileLinkDisplayName(attr, meta),
+      groupDisplayName: meta?.groupDisplayName ?? "Place page URLs",
+      valueType: meta?.valueType ?? attr.valueType ?? "URL",
+    };
+
+    if (!isProfileLinkAttribute(item)) continue;
+
+    const platform = profilePlatformKey(item);
+    if (platform) {
+      if (seenPlatforms.has(platform)) continue;
+      seenPlatforms.add(platform);
+    }
+
+    links.push({
+      name: attr.name,
+      displayName: item.displayName,
+      groupDisplayName: item.groupDisplayName,
+      valueType: item.valueType,
+      uri,
+      platform: platform ?? undefined,
+    });
+  }
+
+  return links.sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
 function buildMissingProfileLinkItems(
   active: GbpAttributeMetadata[],
-  enabled: GbpAttributeCoverageItem[]
+  configuredProfileLinks: GbpConfiguredProfileLink[]
 ): GbpAttributeCoverageItem[] {
-  const enabledKeys = new Set(enabled.map((item) => attributeKey(item.name)));
+  const configuredKeys = new Set(
+    configuredProfileLinks.map((item) => attributeKey(item.name))
+  );
+  const configuredPlatforms = new Set(
+    configuredProfileLinks
+      .map((item) => item.platform ?? profilePlatformKey(item))
+      .filter((platform): platform is string => Boolean(platform))
+  );
   const seen = new Set<string>();
   const items: GbpAttributeCoverageItem[] = [];
 
   const add = (item: GbpAttributeCoverageItem) => {
     const key = attributeKey(item.name);
-    if (enabledKeys.has(key) || seen.has(key)) return;
+    if (configuredKeys.has(key) || seen.has(key)) return;
+
+    const platform = profilePlatformKey(item);
+    if (platform && configuredPlatforms.has(platform)) return;
+
     seen.add(key);
     items.push(item);
   };
@@ -211,6 +302,8 @@ export function buildAttributeCoverage(
       autoApplicable: false,
     }));
 
+  const configuredProfileLinks = buildConfiguredProfileLinks(current, active);
+
   const missingKeys = new Set(
     active
       .filter((meta) => !enabledKeys.has(attributeKey(meta.name)))
@@ -232,7 +325,7 @@ export function buildAttributeCoverage(
     .map((meta) => buildAutoUpdate(meta, options?.websiteUri))
     .filter((update): update is GbpAttributeUpdate => update != null);
 
-  const profileLinkMissing = buildMissingProfileLinkItems(active, enabled);
+  const profileLinkMissing = buildMissingProfileLinkItems(active, configuredProfileLinks);
 
   return {
     enabledCount: enabled.length,
@@ -241,6 +334,7 @@ export function buildAttributeCoverage(
     enabled,
     missing,
     profileLinkMissing,
+    configuredProfileLinks,
     supportedAttributeNames: active.map((meta) => meta.name),
     autoUpdates,
   };
@@ -334,6 +428,14 @@ export function resolveProfileLinkMissing(
 ): GbpAttributeCoverageItem[] {
   if (!coverage) return [];
 
+  const configuredKeys = new Set(
+    (coverage.configuredProfileLinks ?? []).map((item) => attributeKey(item.name))
+  );
+  const configuredPlatforms = new Set(
+    (coverage.configuredProfileLinks ?? [])
+      .map((item) => item.platform ?? profilePlatformKey(item))
+      .filter((platform): platform is string => Boolean(platform))
+  );
   const enabledKeys = new Set(coverage.enabled.map((item) => attributeKey(item.name)));
   const seenKeys = new Set<string>();
   const seenPlatforms = new Set<string>();
@@ -341,11 +443,11 @@ export function resolveProfileLinkMissing(
 
   const add = (item: GbpAttributeCoverageItem) => {
     const key = attributeKey(item.name);
-    if (enabledKeys.has(key) || seenKeys.has(key)) return;
+    if (configuredKeys.has(key) || enabledKeys.has(key) || seenKeys.has(key)) return;
 
     const platform = profilePlatformKey(item);
     if (platform) {
-      if (seenPlatforms.has(platform)) return;
+      if (configuredPlatforms.has(platform) || seenPlatforms.has(platform)) return;
       seenPlatforms.add(platform);
     }
 

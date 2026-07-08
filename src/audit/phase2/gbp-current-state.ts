@@ -307,6 +307,7 @@ export function buildAttributePlanContent(audit: Phase1AuditPayload): {
   }
 
   const autoMissing = coverage.missing.filter((item) => item.autoApplicable);
+  const configuredProfileLinks = coverage.configuredProfileLinks ?? [];
   const profileLinkMissing = resolveProfileLinkMissing(coverage);
   const enumMissing = coverage.missing.filter(
     (item) => !item.autoApplicable && !isProfileLinkCoverageItem(item) && !isUriAttributeType(item.valueType)
@@ -354,6 +355,16 @@ export function buildAttributePlanContent(audit: Phase1AuditPayload): {
           {
             label: `One-click attributes (${autoMissing.length})`,
             content: autoMissing.map((item) => `• ${item.displayName}`).join("\n"),
+          },
+        ]
+      : []),
+    ...(configuredProfileLinks.length > 0
+      ? [
+          {
+            label: `Profile links already set (${configuredProfileLinks.length})`,
+            content: configuredProfileLinks
+              .map((item) => `• ${item.displayName}: ${item.uri}`)
+              .join("\n"),
           },
         ]
       : []),
