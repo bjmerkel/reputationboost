@@ -12,7 +12,7 @@ import {
   parseCityStateFromAreaText,
   resolveServiceAreaLabel,
 } from "@/lib/google/parse-business-place";
-import { resolvePrimaryCategoryLabel } from "@/lib/google/place-details";
+import { resolvePrimaryCategoryLabel, isGenericCategoryLabel } from "@/lib/google/place-details";
 
 export interface BusinessPlaceSelection {
   placeId: string;
@@ -78,6 +78,23 @@ async function resolveServiceAreaCoordinates(input: {
 
 function formatableText(value?: google.maps.places.FormattableText | null): string {
   return value?.text?.trim() ?? "";
+}
+
+async function enrichIndustryFromServer(placeId: string, industry: string): Promise<string> {
+  if (!isGenericCategoryLabel(industry)) return industry;
+
+  try {
+    const res = await fetch("/api/places/category", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ placeId }),
+    });
+    if (!res.ok) return industry;
+    const data = (await res.json()) as { industry?: string };
+    return data.industry?.trim() || industry;
+  } catch {
+    return industry;
+  }
 }
 
 async function parsePlace(
@@ -154,6 +171,12 @@ async function parsePlace(
   }
 
   const displayAddress = formattedAddress || serviceAreaLabel || predictionSecondary;
+  let industry = resolvePrimaryCategoryLabel({
+    primaryTypeDisplayName: place.primaryTypeDisplayName,
+    primaryType: place.primaryType,
+    types: place.types,
+  });
+  industry = await enrichIndustryFromServer(placeId, industry);
 
   return {
     placeId,
@@ -172,11 +195,7 @@ async function parsePlace(
     lng,
     phone: place.nationalPhoneNumber ?? undefined,
     website: place.websiteURI ?? undefined,
-    industry: resolvePrimaryCategoryLabel({
-      primaryTypeDisplayName: place.primaryTypeDisplayName,
-      primaryType: place.primaryType,
-      types: place.types,
-    }),
+    industry,
     formattedAddress: displayAddress,
     isServiceAreaBusiness,
   };

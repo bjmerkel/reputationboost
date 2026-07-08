@@ -87,13 +87,57 @@ function apiKeyOrThrow(): string {
 }
 
 function formatCategory(types: string[]): string {
-  const skip = new Set(["point_of_interest", "establishment", "geocode"]);
-  const type = types.find((t) => !skip.has(t));
-  return type ? type.replace(/_/g, " ") : "local business";
+  return bestCategoryFromTypes(types);
+}
+
+const SKIP_PLACE_TYPES = new Set([
+  "point_of_interest",
+  "establishment",
+  "geocode",
+  "political",
+]);
+
+/** Broad Places types that are often wrong when a more specific type is available. */
+const GENERIC_PRIMARY_TYPES = new Set([
+  "general_contractor",
+  "contractor",
+  "store",
+  "business_center",
+  "corporate_office",
+  "finance",
+  "food",
+  "health",
+  "lodging",
+  "local_business",
+]);
+
+function formatTypeLabel(type: string): string {
+  const label = type.replace(/_/g, " ");
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function typeSpecificityScore(type: string): number {
+  if (SKIP_PLACE_TYPES.has(type)) return -100;
+  if (GENERIC_PRIMARY_TYPES.has(type)) return 1;
+  return 10 + type.split("_").length * 5 + type.length;
+}
+
+export function bestCategoryFromTypes(types: string[]): string {
+  const ranked = types
+    .filter((type) => !SKIP_PLACE_TYPES.has(type))
+    .sort((a, b) => typeSpecificityScore(b) - typeSpecificityScore(a));
+
+  return ranked[0] ? formatTypeLabel(ranked[0]) : "local business";
+}
+
+export function isGenericCategoryLabel(label: string): boolean {
+  const normalized = label.trim().toLowerCase();
+  if (!normalized || normalized === "local business") return true;
+  return GENERIC_PRIMARY_TYPES.has(normalized.replace(/ /g, "_"));
 }
 
 export function primaryCategoryFromTypes(types: string[]): string {
-  return formatCategory(types);
+  return bestCategoryFromTypes(types);
 }
 
 /** Prefer Google's primary type display name (matches GBP category) over generic types[]. */
@@ -102,13 +146,22 @@ export function resolvePrimaryCategoryLabel(input: {
   primaryType?: string | null;
   types?: string[];
 }): string {
-  const displayName = input.primaryTypeDisplayName?.trim();
-  if (displayName) return displayName;
+  const types = input.types ?? [];
+  const primaryType = input.primaryType?.trim() ?? "";
+  const displayName = input.primaryTypeDisplayName?.trim() ?? "";
 
-  const primaryType = input.primaryType?.trim();
-  if (primaryType) return primaryType.replace(/_/g, " ");
+  if (primaryType && GENERIC_PRIMARY_TYPES.has(primaryType) && types.length > 0) {
+    const specific = bestCategoryFromTypes(types);
+    if (!isGenericCategoryLabel(specific)) return specific;
+  }
 
-  return primaryCategoryFromTypes(input.types ?? []);
+  if (displayName && (!primaryType || !GENERIC_PRIMARY_TYPES.has(primaryType))) {
+    return displayName;
+  }
+
+  if (primaryType) return formatTypeLabel(primaryType);
+
+  return bestCategoryFromTypes(types);
 }
 
 export function secondaryCategoriesFromTypes(types: string[]): string[] {
