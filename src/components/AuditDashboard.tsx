@@ -332,7 +332,7 @@ export default function AuditDashboard({
           <div className="flex shrink-0 flex-col items-end gap-0.5">
             <button
               type="button"
-              onClick={runAudit}
+              onClick={() => runAudit()}
               disabled={loading || !gbpConnected}
               className="btn-primary shrink-0 rounded-full px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
