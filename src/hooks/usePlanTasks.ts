@@ -257,6 +257,7 @@ export type PlanTaskActions = Pick<
   | "ensurePhotoTasks"
   | "syncGoogleUpdates"
   | "approveAllRoutine"
+  | "regenerateReviewResponse"
   | "loadingTaskId"
   | "error"
 >;

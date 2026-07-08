@@ -249,11 +249,16 @@ export async function computeAttributionForTask(
         )
       : null;
 
+  const keywordsMentioned = Array.isArray(task.payload.keywordsHit)
+    ? task.payload.keywordsHit.filter((value): value is string => typeof value === "string")
+    : [];
+
   let narrative = buildAttributionNarrative({
     taskType: task.type,
     title: task.title,
     publishedAt: task.completedAt,
     primaryKeyword,
+    keywordsMentioned: task.type === "review_response" ? keywordsMentioned : undefined,
     rankBefore,
     rankAfter,
     serviceAreaVisibilityBefore: primaryVisibility?.before ?? null,

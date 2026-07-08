@@ -65,6 +65,7 @@ export default function PlanView({
     ensurePhotoTasks,
     syncGoogleUpdates,
     approveAllRoutine,
+    regenerateReviewResponse,
     loadingTaskId,
     refresh,
   } = usePlanTasks({
@@ -87,6 +88,7 @@ export default function PlanView({
       ensurePhotoTasks,
       syncGoogleUpdates,
       approveAllRoutine,
+      regenerateReviewResponse,
       loadingTaskId,
       error,
     }),
@@ -103,6 +105,7 @@ export default function PlanView({
       ensurePhotoTasks,
       syncGoogleUpdates,
       approveAllRoutine,
+      regenerateReviewResponse,
       loadingTaskId,
       error,
     ]

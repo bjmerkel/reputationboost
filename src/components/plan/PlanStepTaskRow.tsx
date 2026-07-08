@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ExecutionTask } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
@@ -10,6 +10,9 @@ import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
 import { needsGbpDescriptionRepublish, GBP_DESCRIPTION_MAX_LENGTH } from "@/lib/google/gbp-description";
 import { editStatusFromPayload, type GbpEditStatus } from "@/lib/google/gbp-edit-status";
 import MediaTaskThumbnail, { isMediaMaintenanceTask } from "./MediaTaskThumbnail";
+import ReviewResponseKeywordHints, {
+  reviewResponseCanSuggestWeave,
+} from "./ReviewResponseKeywordHints";
 
 const EDIT_STATUS_STYLES: Record<GbpEditStatus, string> = {
   accepted: "bg-[#e6f4ea] text-[#137333]",
@@ -58,6 +61,12 @@ export default function PlanStepTaskRow({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.draftContent);
   const loading = actions.loadingTaskId === task.id;
+
+  useEffect(() => {
+    if (!editing) {
+      setDraft(task.draftContent);
+    }
+  }, [task.draftContent, editing]);
 
   const canPublish =
     gbpConnected &&
@@ -115,6 +124,21 @@ export default function PlanStepTaskRow({
             <span className="not-italic"> — {task.payload.reviewAuthor}</span>
           )}
         </blockquote>
+      )}
+
+      {task.type === "review_response" && (
+        <div className="mt-3">
+          <ReviewResponseKeywordHints
+            task={task}
+            variant={variant}
+            loading={loading}
+            onSuggestWeave={
+              reviewResponseCanSuggestWeave(task) && actions.regenerateReviewResponse
+                ? () => void actions.regenerateReviewResponse?.(task, { weaveKeyword: true })
+                : undefined
+            }
+          />
+        </div>
       )}
 
       {isMediaMaintenanceTask(task) && (
@@ -260,6 +284,24 @@ export default function PlanStepTaskRow({
                   Skip
                 </button>
               )}
+              {task.type === "review_response" &&
+                reviewResponseCanSuggestWeave(task) &&
+                actions.regenerateReviewResponse && (
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() =>
+                      void actions.regenerateReviewResponse?.(task, { weaveKeyword: true })
+                    }
+                    className={`rounded-full border px-4 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                      isLight
+                        ? "border-[#dadce0] text-[#1a73e8]"
+                        : "border-white/10 text-sky-400"
+                    }`}
+                  >
+                    {loading ? "Regenerating…" : "Suggest keyword weave"}
+                  </button>
+                )}
             </>
           )}
         </div>

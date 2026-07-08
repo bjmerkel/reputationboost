@@ -9,6 +9,9 @@ import { pendingBatchTasks, pendingRoutineTasks } from "@/lib/execution/pending-
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import MediaTaskThumbnail, { isMediaMaintenanceTask } from "./MediaTaskThumbnail";
 import PlanStepHours from "./PlanStepHours";
+import ReviewResponseKeywordHints, {
+  reviewResponseCanSuggestWeave,
+} from "./ReviewResponseKeywordHints";
 
 export default function BatchReviewSession({
   open,
@@ -207,10 +210,7 @@ export default function BatchReviewSession({
               </div>
             )}
             <div className="flex flex-wrap gap-2">
-              {current.type === "review_response" &&
-                typeof current.payload.suggestedKeyword === "string" &&
-                (!Array.isArray(current.payload.keywordsHit) ||
-                  current.payload.keywordsHit.length === 0) && (
+              {current.type === "review_response" && reviewResponseCanSuggestWeave(current) && (
                   <button
                     type="button"
                     disabled={loadingTaskId === current.id}
@@ -283,20 +283,6 @@ function BatchReviewItem({
   onSuggestKeywordWeave?: () => void;
 }) {
   const stepNumber = resolvePlanStepNumber(task);
-  const expectedEffect =
-    typeof task.payload.expectedEffect === "string" ? task.payload.expectedEffect : null;
-  const suggestedKeyword =
-    typeof task.payload.suggestedKeyword === "string" ? task.payload.suggestedKeyword : null;
-  const activeCampaignKeyword =
-    typeof task.payload.activeCampaignKeyword === "string"
-      ? task.payload.activeCampaignKeyword
-      : null;
-  const keywordsHit = Array.isArray(task.payload.keywordsHit)
-    ? task.payload.keywordsHit.filter((value): value is string => typeof value === "string")
-    : [];
-  const weaveSkipped = task.payload.weaveSkipped === true;
-  const weaveReason =
-    typeof task.payload.weaveReason === "string" ? task.payload.weaveReason : null;
 
   return (
     <div className="space-y-3">
@@ -309,46 +295,11 @@ function BatchReviewItem({
         </p>
       )}
       <h3 className="text-base font-semibold text-[#202124]">{task.title}</h3>
-      {activeCampaignKeyword && (
-        <p className="text-sm text-[#1a73e8]">
-          Active campaign: collecting &ldquo;{activeCampaignKeyword}&rdquo; reviews
-        </p>
-      )}
-      {keywordsHit.length > 0 && (
-        <p className="text-sm text-[#188038]">
-          Mentions {keywordsHit.map((keyword) => `"${keyword}"`).join(", ")}
-        </p>
-      )}
-      {suggestedKeyword && keywordsHit.length === 0 && weaveSkipped && (
-        <p className="text-sm text-[#80868b]">No keyword added — reply stays natural.</p>
-      )}
-      {suggestedKeyword && keywordsHit.length === 0 && !weaveSkipped && (
-        <p className="text-sm text-[#5f6368]">
-          Could mention: &ldquo;{suggestedKeyword}&rdquo;
-          {onSuggestKeywordWeave && (
-            <button
-              type="button"
-              disabled={loading}
-              onClick={onSuggestKeywordWeave}
-              className="ml-2 text-[#1a73e8] hover:underline disabled:opacity-50"
-            >
-              Try weave
-            </button>
-          )}
-        </p>
-      )}
-      {weaveReason && (
-        <p className="text-sm text-[#3c4043]">
-          <span className="font-medium">Why: </span>
-          {weaveReason}
-        </p>
-      )}
-      {expectedEffect && !weaveReason && (
-        <p className="text-sm text-[#3c4043]">
-          <span className="font-medium">Why: </span>
-          {expectedEffect}
-        </p>
-      )}
+      <ReviewResponseKeywordHints
+        task={task}
+        loading={loading}
+        onSuggestWeave={onSuggestKeywordWeave}
+      />
       {isMediaMaintenanceTask(task) && <MediaTaskThumbnail task={task} />}
       {task.type !== "gbp_photo" && (
         <p className="whitespace-pre-wrap rounded-lg bg-[#f8f9fa] p-3 text-sm text-[#3c4043]">
