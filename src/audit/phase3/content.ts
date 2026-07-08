@@ -122,7 +122,6 @@ export function mapActionToExecutionType(actionId: string): ExecutionType | null
   }
   if (actionId.startsWith("review-gap")) return "review_request";
   if (actionId === "missing-schema") return "schema_markup";
-  if (actionId === "citation-mismatch") return "citation_fix";
   if (actionId === "low-social") return "social_post";
   if (actionId === "missing-holiday-hours" || actionId === "missing-hours" || actionId === "incomplete-week-hours") {
     return "gbp_hours";

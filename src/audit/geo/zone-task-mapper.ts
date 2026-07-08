@@ -8,7 +8,7 @@ const GAP_KEYWORDS: Record<string, string[]> = {
   "thin-description": ["description", "profile", "category"],
   "missing-secondary-categories": ["category", "service"],
   "low-response-rate": ["review", "respond"],
-  "nap-drift": ["address", "nap", "citation"],
+  "nap-drift": ["address", "nap"],
   "missing-local-schema": ["website", "schema"],
 };
 

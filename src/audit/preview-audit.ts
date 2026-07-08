@@ -109,8 +109,6 @@ function emptyReviewsSnapshot(): ReviewSnapshot {
 function neutralOffGoogleSnapshot(): OffGoogleSnapshot {
   return {
     collectedAt: new Date().toISOString(),
-    citations: [],
-    citationConsistencyScore: 100,
     website: {
       napMatch: true,
       hasLocalBusinessSchema: true,
