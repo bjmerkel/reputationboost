@@ -1,7 +1,7 @@
 import type { FullAuditPayload } from "@/audit/types";
 import { generateReviewRequestSms as templateReviewRequestSms } from "@/audit/phase3/content";
 import type { CustomerRecord } from "@/lib/customers/types";
-import { customerFirstName } from "@/lib/sms/personalize";
+import { customerFirstName, ensureBusinessInTemplate } from "@/lib/sms/personalize";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
 import { normalizeOptionalText } from "./normalize-content";
@@ -11,6 +11,7 @@ const REVIEW_REQUEST_SYSTEM = `You write short SMS messages asking happy custome
 Rules:
 - Under 300 characters (link placeholder counts as 25 chars)
 - Warm, personal, not salesy — like a text from the business owner
+- Always identify the business with [BUSINESS] so the customer knows who is texting
 - Reference the customer's first name with [FIRST_NAME] placeholder
 - Reference their service with [SERVICE] when provided
 - Always include [REVIEW_LINK] exactly once — we substitute the real URL
@@ -61,10 +62,10 @@ export function buildTemplateReviewRequestMessage(context: ReviewRequestContext)
     "[SERVICE]";
 
   if (context.focusKeyword) {
-    return `Hi ${firstName}! Thanks for choosing ${context.businessName} for ${service}. If your experience was great, a quick Google review about what we helped with would mean a lot: [REVIEW_LINK]`;
+    return `Hi ${firstName}! Thanks for choosing [BUSINESS] for ${service}. If your experience was great, a quick Google review about what we helped with would mean a lot: [REVIEW_LINK]`;
   }
 
-  return `Hi ${firstName}! Thanks for trusting ${context.businessName} with ${service}. If you have 30 seconds, a quick Google review helps neighbors find us: [REVIEW_LINK]`;
+  return `Hi ${firstName}! Thanks for trusting [BUSINESS] with ${service}. If you have 30 seconds, a quick Google review helps neighbors find us: [REVIEW_LINK]`;
 }
 
 export async function generateReviewRequestMessage(
@@ -78,13 +79,13 @@ export async function generateReviewRequestMessage(
     : buildTemplateReviewRequestMessage(context);
 
   if (!isLlmConfigured()) {
-    return fallback;
+    return ensureBusinessInTemplate(fallback, context.businessName);
   }
 
   try {
     const sampleLine = context.sampleCustomer
       ? `Sample customer: ${customerFirstName(context.sampleCustomer)}, service: ${context.sampleCustomer.service_notes ?? "recent visit"}`
-      : "Use [FIRST_NAME] and [SERVICE] placeholders for personalization.";
+      : "Use [FIRST_NAME], [SERVICE], and [BUSINESS] placeholders for personalization.";
     const keywordLine = context.focusKeyword
       ? `Priority keyword: "${context.focusKeyword}" — the business needs reviews that naturally mention this service. Use [SERVICE] for the customer's specific program; do not paste the full keyword verbatim unless it fits naturally.`
       : "";
@@ -108,9 +109,9 @@ Return JSON: { "message": "..." }`,
       { maxTokens: 300 }
     );
 
-    return normalizeOptionalText(llm.message, fallback);
+    return ensureBusinessInTemplate(normalizeOptionalText(llm.message, fallback), context.businessName);
   } catch (error) {
     console.error("[llm] review request SMS generation failed:", error);
-    return fallback;
+    return ensureBusinessInTemplate(fallback, context.businessName);
   }
 }

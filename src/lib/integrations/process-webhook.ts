@@ -21,8 +21,8 @@ import {
 } from "./webhook-storage";
 import type { WebhookProcessResult } from "./webhook-types";
 
-function buildDefaultTemplate(businessName: string): string {
-  return `Hi [FIRST_NAME]! Thanks for choosing ${businessName} for [SERVICE]. We'd love your feedback on Google — it helps neighbors find us: [REVIEW_LINK]`;
+function buildDefaultTemplate(_businessName: string): string {
+  return `Hi [FIRST_NAME]! Thanks for choosing [BUSINESS] for [SERVICE]. We'd love your feedback on Google — it helps neighbors find us: [REVIEW_LINK]`;
 }
 
 function readSentiment(

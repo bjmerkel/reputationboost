@@ -192,6 +192,7 @@ export default function ReviewRequestPanel({
         <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
           Personalized per customer with{" "}
           <code className="text-xs">[FIRST_NAME]</code>,{" "}
+          <code className="text-xs">[BUSINESS]</code>,{" "}
           <code className="text-xs">[SERVICE]</code> (set on each customer), and{" "}
           <code className="text-xs">[REVIEW_LINK]</code>.
           {focusKeyword ? (

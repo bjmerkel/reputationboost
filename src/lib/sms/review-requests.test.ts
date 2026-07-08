@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { parseCustomerCsv, parseCustomerJson } from "@/lib/customers/parse-import";
 import { normalizePhoneE164 } from "@/lib/sms/phone";
-import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
+import { personalizeReviewRequestSms, ensureBusinessInTemplate, previewReviewRequestSms } from "@/lib/sms/personalize";
 import {
   googleReviewUrlForBusiness,
   googleWriteReviewUrl,
@@ -50,14 +50,59 @@ describe("substituteReviewLink", () => {
 describe("personalizeReviewRequestSms", () => {
   it("personalizes customer fields", () => {
     const message = personalizeReviewRequestSms({
-      template: "Hi [FIRST_NAME]! Thanks for [SERVICE]. [REVIEW_LINK]",
+      template: "Hi [FIRST_NAME]! Thanks for choosing [BUSINESS] for [SERVICE]. [REVIEW_LINK]",
       customer: { first_name: "Jane", last_name: "Doe", service_notes: "AC repair" },
       businessName: "Cool Air",
       reviewUrl: googleWriteReviewUrl("ChIJtest"),
     });
     assert.match(message, /Hi Jane!/);
+    assert.match(message, /Cool Air/);
     assert.match(message, /AC repair/);
     assert.match(message, /writereview/);
+  });
+
+  it("injects business name when template omits it", () => {
+    const template =
+      "Hi [FIRST_NAME], it was a pleasure having your child in our [SERVICE]! We strive for quality and communication, and your feedback means a lot. If you could take a moment to leave us a quick Google review, it would really help us out. Thank you! [REVIEW_LINK]";
+    const message = personalizeReviewRequestSms({
+      template,
+      customer: { first_name: "Sam", last_name: "Lee", service_notes: "after school program" },
+      businessName: "Northshore Learning Center",
+      reviewUrl: googleWriteReviewUrl("ChIJtest"),
+    });
+    assert.match(message, /Northshore Learning Center/);
+    assert.match(message, /Hi Sam/);
+    assert.match(message, /after school program/);
+  });
+});
+
+describe("ensureBusinessInTemplate", () => {
+  it("leaves templates that already include [BUSINESS]", () => {
+    const template = "Hi [FIRST_NAME], thanks for visiting [BUSINESS]! [REVIEW_LINK]";
+    assert.equal(ensureBusinessInTemplate(template, "Acme Co"), template);
+  });
+
+  it("injects [BUSINESS] after the greeting when missing", () => {
+    const result = ensureBusinessInTemplate(
+      "Hi [FIRST_NAME], it was a pleasure having your child in our [SERVICE]! [REVIEW_LINK]",
+      "Northshore Learning Center"
+    );
+    assert.match(result, /thank you for choosing \[BUSINESS\]/i);
+  });
+});
+
+describe("previewReviewRequestSms", () => {
+  it("substitutes business name even without a sample customer", () => {
+    const preview = previewReviewRequestSms({
+      template:
+        "Hi [FIRST_NAME], it was a pleasure having your child in our [SERVICE]! [REVIEW_LINK]",
+      businessName: "Northshore Learning Center",
+      reviewUrl: "https://example.com/review",
+      serviceFallback: "after school programs",
+    });
+    assert.match(preview, /Northshore Learning Center/);
+    assert.match(preview, /after school programs/);
+    assert.doesNotMatch(preview, /\[BUSINESS\]/);
   });
 });
 

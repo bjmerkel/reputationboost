@@ -406,8 +406,8 @@ export default function CustomersPageClient({
           <p className="mt-2 text-sm text-[#5f6368]">
             Personalized for <strong>{businessName}</strong>. Set each customer&apos;s Service field
             to match your focus keyword so <code className="text-xs">[SERVICE]</code> drives
-            keyword-rich reviews. Also use <code className="text-xs">[FIRST_NAME]</code> and{" "}
-            <code className="text-xs">[REVIEW_LINK]</code>.
+            keyword-rich reviews. Also use <code className="text-xs">[FIRST_NAME]</code>,{" "}
+            <code className="text-xs">[BUSINESS]</code>, and <code className="text-xs">[REVIEW_LINK]</code>.
           </p>
 
           {reviewUrl && (
