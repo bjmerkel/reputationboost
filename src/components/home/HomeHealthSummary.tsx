@@ -7,6 +7,8 @@ import { formatCurrency } from "@/audit/attribution/roi";
 import { formatAvgCoverageLabel } from "@/components/platform/heatmap/coverage-labels";
 import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
 import ScoreChangelog from "@/components/audit/ScoreChangelog";
+import InfoTooltip from "@/components/ui/InfoTooltip";
+import { SCORE_TOOLTIPS } from "@/lib/scores/score-tooltips";
 
 function formatDelta(change: number, suffix = ""): string {
   if (change === 0) return `0${suffix}`;
@@ -72,23 +74,41 @@ export default function HomeHealthSummary({
           {displayScore}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-lg font-semibold text-[#202124]">
+          <p className="inline-flex flex-wrap items-center gap-1 text-lg font-semibold text-[#202124]">
             Reputation Boost Score {displayScore}/100
+            <InfoTooltip {...SCORE_TOOLTIPS.overall} />
           </p>
           <p className="text-sm text-[#5f6368]">
-            Profile {scores.driverScore ?? scores.conversion}/100 · outcome{" "}
-            {scores.outcomeIndex ?? Math.round(scores.visibility * 0.6 + scores.revenueCapture * 0.4)}
-            /100
+            <span className="inline-flex items-center gap-1">
+              Profile {scores.driverScore ?? scores.conversion}/100
+              <InfoTooltip {...SCORE_TOOLTIPS.profileStrength} />
+            </span>
+            {" · "}
+            <span className="inline-flex items-center gap-1">
+              outcome{" "}
+              {scores.outcomeIndex ??
+                Math.round(scores.visibility * 0.6 + scores.revenueCapture * 0.4)}
+              /100
+              <InfoTooltip {...SCORE_TOOLTIPS.rankingOutcome} />
+            </span>
           </p>
-          <p className="text-sm capitalize text-[#5f6368]">{scores.grade.replace("_", " ")}</p>
+          <p className="inline-flex items-center gap-1 text-sm capitalize text-[#5f6368]">
+            {scores.grade.replace("_", " ")}
+            <InfoTooltip {...SCORE_TOOLTIPS.grade} />
+          </p>
           {liveScoreDate && liveScore != null && liveScore !== scores.overall && (
             <p className="mt-1 text-xs text-[#1a73e8]">
               Live score {liveScore}/100 · updated {liveScoreDate}
             </p>
           )}
           {mom && mom.overallScoreChange !== 0 && !liveScoreDate && (
-            <p className={`mt-1 text-sm ${mom.overallScoreChange > 0 ? "text-[#137333]" : "text-[#d93025]"}`}>
+            <p
+              className={`mt-1 inline-flex items-center gap-1 text-sm ${
+                mom.overallScoreChange > 0 ? "text-[#137333]" : "text-[#d93025]"
+              }`}
+            >
               {formatDelta(mom.overallScoreChange)} pts since last audit
+              <InfoTooltip {...SCORE_TOOLTIPS.scoreDelta} />
             </p>
           )}
           {estimatedMonthlyRevenue != null && estimatedMonthlyRevenue > 0 && (
@@ -97,10 +117,11 @@ export default function HomeHealthSummary({
             </p>
           )}
           {gridCoverage.keywordsWithGrid > 0 && (
-            <p className="mt-1 text-sm text-[#5f6368]">
+            <p className="mt-1 inline-flex flex-wrap items-center gap-1 text-sm text-[#5f6368]">
               <span className="font-medium text-[#202124]">
                 {formatAvgCoverageLabel(gridCoverage.avgCoverage)}
               </span>
+              <InfoTooltip {...SCORE_TOOLTIPS.serviceAreaCoverage} />
               {" "}across your service area
               {gridCoverage.avgCoverage < 50 && (
                 <span className="text-[#c5221f]"> — expand weak zones on the map</span>
