@@ -246,6 +246,7 @@ export async function processInboundWebhook(
           template,
           delayHours: settings.delayHours,
           reviewUrlOverride,
+          focusKeyword,
         });
 
         if (scheduled.scheduled) {

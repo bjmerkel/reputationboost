@@ -9,6 +9,13 @@ import {
 } from "@/lib/customers/storage-admin";
 import type { CustomerRecord } from "@/lib/customers/types";
 import {
+  countReviewMentionsForKeyword,
+} from "@/lib/review-requests/campaign-plan";
+import {
+  ensureKeywordCampaignStarted,
+} from "@/lib/review-requests/campaign-storage";
+import { refreshCampaignCompletionsForBusiness } from "@/lib/review-requests/campaign-dashboard";
+import {
   auditHasReviewGap,
   evaluateReviewRequestEligibility,
 } from "@/lib/review-requests/eligibility";
@@ -26,6 +33,7 @@ export interface ScheduledSmsRecord {
   body: string;
   scheduled_at: string;
   status: string;
+  focus_keyword: string | null;
 }
 
 function addHours(date: Date, hours: number): Date {
@@ -40,6 +48,7 @@ export async function scheduleReviewRequestSms(input: {
   body: string;
   sendAt: Date;
   customerEventId?: string;
+  focusKeyword?: string | null;
 }): Promise<string> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -49,6 +58,7 @@ export async function scheduleReviewRequestSms(input: {
       user_id: input.userId,
       customer_id: input.customerId,
       execution_task_id: input.customerEventId ?? null,
+      focus_keyword: input.focusKeyword?.trim() || null,
       to_phone: input.toPhone,
       body: input.body,
       status: "scheduled",
@@ -65,7 +75,9 @@ export async function listDueScheduledSms(limit = 50): Promise<ScheduledSmsRecor
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("sms_messages")
-    .select("id, business_id, user_id, customer_id, to_phone, body, scheduled_at, status")
+    .select(
+      "id, business_id, user_id, customer_id, to_phone, body, scheduled_at, status, focus_keyword"
+    )
     .eq("status", "scheduled")
     .lte("scheduled_at", new Date().toISOString())
     .order("scheduled_at", { ascending: true })
@@ -87,6 +99,35 @@ async function loadBusinessConfig(businessId: string): Promise<ClientConfig | nu
   return data ? businessRecordToClientConfig(data) : null;
 }
 
+async function startCampaignAfterScheduledSend(input: {
+  userId: string;
+  business: ClientConfig;
+  focusKeyword: string | null;
+  audit: ReturnType<typeof ensureStrategy> | null;
+}): Promise<void> {
+  const keyword = input.focusKeyword?.trim();
+  if (!keyword || !input.business.businessId || !input.audit) return;
+
+  const target = input.audit.strategy.gbpPlan?.keywordRankings?.find(
+    (row) => row.keyword.toLowerCase() === keyword.toLowerCase()
+  );
+
+  await ensureKeywordCampaignStarted({
+    userId: input.userId,
+    businessId: input.business.businessId,
+    keyword,
+    baselineMentionCount: countReviewMentionsForKeyword(input.audit, keyword),
+    targetReviews: target ? Math.max(5, Math.ceil(target.reviewGap * 0.3)) : undefined,
+    serviceRole: true,
+  });
+
+  await refreshCampaignCompletionsForBusiness(
+    input.userId,
+    input.business.businessId,
+    input.audit
+  );
+}
+
 export async function scheduleReviewRequestForCustomer(input: {
   userId: string;
   business: ClientConfig;
@@ -95,6 +136,7 @@ export async function scheduleReviewRequestForCustomer(input: {
   delayHours: number;
   customerEventId?: string;
   reviewUrlOverride?: string;
+  focusKeyword?: string | null;
 }): Promise<{ scheduled: boolean; scheduledAt?: string; smsId?: string; reason?: string }> {
   const businessId = input.business.businessId;
   if (!businessId) throw new Error("Business ID is required");
@@ -137,6 +179,7 @@ export async function scheduleReviewRequestForCustomer(input: {
     body,
     sendAt,
     customerEventId: input.customerEventId,
+    focusKeyword: input.focusKeyword,
   });
 
   return { scheduled: true, scheduledAt: sendAt.toISOString(), smsId };
@@ -238,6 +281,12 @@ export async function processDueScheduledSms(): Promise<{
       if (!isTwilioConfigured()) {
         await markScheduledMessage(message.id, { status: "simulated" });
         await markCustomersReviewRequestedAdmin(message.business_id, [customer.id]);
+        await startCampaignAfterScheduledSend({
+          userId: message.user_id,
+          business,
+          focusKeyword: message.focus_keyword,
+          audit,
+        });
         sent++;
         continue;
       }
@@ -250,6 +299,12 @@ export async function processDueScheduledSms(): Promise<{
           toPhone: sms.to,
         });
         await markCustomersReviewRequestedAdmin(message.business_id, [customer.id]);
+        await startCampaignAfterScheduledSend({
+          userId: message.user_id,
+          business,
+          focusKeyword: message.focus_keyword,
+          audit,
+        });
         sent++;
       } else {
         await markScheduledMessage(message.id, {

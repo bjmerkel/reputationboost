@@ -116,7 +116,7 @@ export async function incrementCampaignAttributedReviews(
   const supabase = createAdminClient();
   const { data: campaign, error: loadError } = await supabase
     .from("review_keyword_campaigns")
-    .select("id, attributed_reviews")
+    .select("id, attributed_reviews, target_reviews")
     .eq("business_id", businessId)
     .eq("keyword", normalized)
     .eq("status", "active")
@@ -124,13 +124,60 @@ export async function incrementCampaignAttributedReviews(
 
   if (loadError || !campaign) return;
 
+  const nextAttributed = (campaign.attributed_reviews as number) + 1;
+  const target = campaign.target_reviews as number | null;
+  const reachedTarget = target != null && target > 0 && nextAttributed >= target;
+
   const { error } = await supabase
     .from("review_keyword_campaigns")
     .update({
-      attributed_reviews: (campaign.attributed_reviews as number) + 1,
+      attributed_reviews: nextAttributed,
+      status: reachedTarget ? "completed" : "active",
       updated_at: new Date().toISOString(),
     })
     .eq("id", campaign.id as string);
 
   if (error) throw new Error(error.message);
+}
+
+export async function completeKeywordCampaign(campaignId: string): Promise<void> {
+  const supabase = createAdminClient();
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("review_keyword_campaigns")
+    .update({ status: "completed", updated_at: now })
+    .eq("id", campaignId)
+    .eq("status", "active");
+
+  if (error) throw new Error(error.message);
+}
+
+export async function listKeywordCampaigns(
+  userId: string,
+  businessId: string,
+  options: { includeCompleted?: boolean; limit?: number } = {}
+): Promise<ReviewKeywordCampaign[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("review_keyword_campaigns")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("business_id", businessId)
+    .order("started_at", { ascending: false });
+
+  if (!options.includeCompleted) {
+    query = query.eq("status", "active");
+  }
+
+  if (options.limit) {
+    query = query.limit(options.limit);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    if (error.message.includes("review_keyword_campaigns")) return [];
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map(rowToCampaign);
 }

@@ -9,6 +9,7 @@ import {
   selectCustomersForCampaign,
 } from "@/lib/review-requests/campaign-plan";
 import { getActiveKeywordCampaigns } from "@/lib/review-requests/campaign-storage";
+import { refreshCampaignCompletionsForBusiness } from "@/lib/review-requests/campaign-dashboard";
 import { getEligibleCustomers, listCustomers } from "@/lib/customers/storage";
 import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
@@ -46,6 +47,12 @@ export async function POST(request: Request) {
     });
     const audit = rawAudit ? ensureStrategy(rawAudit) : null;
     const campaigns = await getActiveKeywordCampaigns(user.id, business.businessId);
+    if (audit) {
+      await refreshCampaignCompletionsForBusiness(user.id, business.businessId, audit);
+    }
+    const refreshedCampaigns = audit
+      ? await getActiveKeywordCampaigns(user.id, business.businessId)
+      : campaigns;
 
     const address = [
       business.location.address,
@@ -85,7 +92,7 @@ export async function POST(request: Request) {
           matchedToFocusKeyword: matchedCustomers,
           focusKeywordOverride: focusKeyword,
           keywordFilterApplied,
-          campaigns,
+          campaigns: refreshedCampaigns,
         })
       : null;
 

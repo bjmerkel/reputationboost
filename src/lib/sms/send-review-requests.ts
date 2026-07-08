@@ -20,6 +20,7 @@ import {
   selectCustomersForCampaign,
 } from "@/lib/review-requests/campaign-plan";
 import { ensureKeywordCampaignStarted } from "@/lib/review-requests/campaign-storage";
+import { refreshCampaignCompletionsForBusiness } from "@/lib/review-requests/campaign-dashboard";
 import {
   evaluateReviewRequestEligibility,
   ineligibilityMessage,
@@ -137,6 +138,12 @@ async function startCampaignIfNeeded(input: {
     targetReviews: target ? Math.max(5, Math.ceil(target.reviewGap * 0.3)) : undefined,
     serviceRole: input.serviceRole,
   });
+
+  await refreshCampaignCompletionsForBusiness(
+    input.userId,
+    input.business.businessId,
+    audit
+  );
 }
 
 export async function sendReviewRequests(

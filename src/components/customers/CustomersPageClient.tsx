@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ReviewCampaignPlanCard from "@/components/review-requests/ReviewCampaignPlanCard";
+import ReviewCampaignDashboard from "@/components/customers/ReviewCampaignDashboard";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
 import { REVIEW_REQUEST_COOLDOWN_DAYS } from "@/lib/review-requests/eligibility";
 import type { ReviewCampaignPlan } from "@/lib/review-requests/campaign-plan";
@@ -68,6 +69,7 @@ export default function CustomersPageClient({
   const [matchedCustomers, setMatchedCustomers] = useState(0);
   const [focusKeyword, setFocusKeyword] = useState<string | null>(null);
   const [campaignPlan, setCampaignPlan] = useState<ReviewCampaignPlan | null>(null);
+  const [campaignRefreshKey, setCampaignRefreshKey] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sendResult, setSendResult] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -265,6 +267,8 @@ export default function CustomersPageClient({
       if (!dryRun) {
         setSelectedIds(new Set());
         await loadCustomers();
+        await loadMessageTemplate(focusKeyword);
+        setCampaignRefreshKey((key) => key + 1);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Send failed");
@@ -295,6 +299,13 @@ export default function CustomersPageClient({
           {sendResult}
         </div>
       )}
+
+      <ReviewCampaignDashboard
+        onFocusKeyword={(keyword) => {
+          setFocusKeyword(keyword);
+          void loadMessageTemplate(keyword);
+        }}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
