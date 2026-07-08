@@ -17,7 +17,11 @@ import type { AttributionCalibration } from "../phase2/attribution-calibration";
 import { projectHealthScoresFromStepNumbers } from "../phase2/counterfactual";
 import { buildStepContext } from "./step-context";
 import { findStepOutcome } from "./step-outcomes";
-import { GOOGLE_UPDATES_STEP_NUMBER } from "@/lib/google/gbp-update-helpers";
+import {
+  GOOGLE_UPDATES_STEP_NUMBER,
+  isGoogleUpdateTask,
+} from "@/lib/google/gbp-update-helpers";
+import { buildAllGbpPlanSteps } from "../phase2/gbp-plan";
 
 function groupTasksByStep(tasks: ExecutionTask[]): Map<number, ExecutionTask[]> {
   const grouped = new Map<number, ExecutionTask[]>();
@@ -143,7 +147,9 @@ export function buildPlan(
     )
   );
 
-  const googleUpdateTasks = tasksByStep.get(GOOGLE_UPDATES_STEP_NUMBER) ?? [];
+  const googleUpdateTasks = (tasksByStep.get(GOOGLE_UPDATES_STEP_NUMBER) ?? []).filter(
+    isGoogleUpdateTask
+  );
   if (googleUpdateTasks.length > 0) {
     planSteps.unshift({
       stepNumber: GOOGLE_UPDATES_STEP_NUMBER,
@@ -152,7 +158,7 @@ export function buildPlan(
       instruction:
         "Google has suggested changes or is still processing your recent edits. Accept Google's version or keep yours for each field.",
       context: {
-        targetKeywords: gbpPlan.targetKeywords,
+        targetKeywords: [],
         expectedEffect:
           "Clearing Google conflicts keeps your public listing aligned with what you intend customers to see.",
       },
@@ -163,6 +169,28 @@ export function buildPlan(
           ? findStepOutcome(GOOGLE_UPDATES_STEP_NUMBER, googleUpdateTasks, attributions)
           : undefined,
     });
+  }
+
+  const includedStepNumbers = new Set(planSteps.map((step) => step.stepNumber));
+  const templateSteps = buildAllGbpPlanSteps(audit);
+  for (const [stepNumber, orphanTasks] of tasksByStep) {
+    if (stepNumber === GOOGLE_UPDATES_STEP_NUMBER || includedStepNumbers.has(stepNumber)) continue;
+    if (orphanTasks.length === 0) continue;
+
+    const template = templateSteps.find((step) => step.stepNumber === stepNumber);
+    if (!template) continue;
+
+    planSteps.push(
+      buildPlanStep(
+        audit,
+        template,
+        orphanTasks,
+        attributions,
+        calibration,
+        avgCustomerValue
+      )
+    );
+    includedStepNumbers.add(stepNumber);
   }
 
   const currentHealthScore = Number.isFinite(audit.strategy.scores?.overall)

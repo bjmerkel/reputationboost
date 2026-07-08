@@ -146,6 +146,56 @@ describe("buildPlan", () => {
     assert.ok(Array.isArray(task!.payload.targetKeywords));
   });
 
+  it("keeps video and media tasks out of the Google updates step", () => {
+    const audit = createTestAudit();
+    const tasks = [
+      {
+        ...audit.execution!.tasks[0],
+        id: "google-accept-1",
+        planStepNumber: 0,
+        actionItemId: "google-suggestion-title",
+        type: "gbp_accept_suggestion" as const,
+        title: "Accept Google change: Business name",
+        status: "pending_approval" as const,
+      },
+      {
+        ...audit.execution!.tasks[0],
+        id: "video-gap-1",
+        planStepNumber: 7,
+        actionItemId: "video-gap-1",
+        type: "gbp_video" as const,
+        title: "Business walkthrough video",
+        status: "pending_approval" as const,
+      },
+      {
+        ...audit.execution!.tasks[0],
+        id: "media-maint-1",
+        planStepNumber: 6,
+        actionItemId: "media-maint-1",
+        type: "gbp_media_recategorize" as const,
+        title: "Recategorize photo to Exterior",
+        status: "pending_approval" as const,
+      },
+    ];
+
+    const plan = buildPlan(audit, tasks);
+    assert.ok(plan);
+
+    const googleUpdates = plan!.steps.find((s) => s.stepNumber === 0);
+    assert.ok(googleUpdates);
+    assert.equal(googleUpdates!.tasks.length, 1);
+    assert.equal(googleUpdates!.tasks[0].type, "gbp_accept_suggestion");
+    assert.equal(googleUpdates!.context.targetKeywords.length, 0);
+
+    const videoStep = plan!.steps.find((s) => s.stepNumber === 7);
+    assert.ok(videoStep);
+    assert.ok(videoStep!.tasks.some((task) => task.type === "gbp_video"));
+
+    const photoStep = plan!.steps.find((s) => s.stepNumber === 6);
+    assert.ok(photoStep);
+    assert.ok(photoStep!.tasks.some((task) => task.type === "gbp_media_recategorize"));
+  });
+
   it("places custom steps in the ongoing phase and excludes them from score projection", () => {
     const audit = createTestAudit();
     const customStep = {
