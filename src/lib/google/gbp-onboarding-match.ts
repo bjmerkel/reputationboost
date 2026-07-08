@@ -65,6 +65,7 @@ export async function rankGbpLocationsForBusiness(
         (r) =>
           r.title.toLowerCase() === loc.title.toLowerCase() &&
           (!business.address ||
+            !r.address ||
             r.address.toLowerCase().includes(business.address.split(",")[0].toLowerCase()))
       )
     ) {

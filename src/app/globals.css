@@ -639,6 +639,34 @@ body {
   font-weight: 500;
 }
 
+/* PlaceAutocompleteElement (new Places widget) */
+.rb-place-autocomplete-host {
+  width: 100%;
+}
+
+.rb-place-autocomplete-host--hero .rb-place-autocomplete--hero {
+  padding-left: 3rem;
+}
+
+.rb-place-autocomplete {
+  width: 100%;
+  color-scheme: light;
+}
+
+.rb-place-autocomplete--light {
+  --gmp-mat-color-surface: #ffffff;
+  --gmp-mat-color-on-surface: #202124;
+  --gmp-mat-color-outline: #dadce0;
+}
+
+.rb-place-autocomplete--hero {
+  min-height: 3.5rem;
+}
+
+.rb-place-autocomplete--compact {
+  min-height: 3rem;
+}
+
 /* Google Maps–style embedded platform frame */
 .google-maps-frame {
   border-radius: 8px;

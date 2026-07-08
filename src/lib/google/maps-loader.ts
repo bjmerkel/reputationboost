@@ -76,6 +76,12 @@ export function loadGoogleMapsCore(): Promise<typeof google> {
   return loadPromise;
 }
 
+/** Load the Places library (PlaceAutocompleteElement, Place class, etc.). */
+export async function importPlacesLibrary(): Promise<google.maps.PlacesLibrary> {
+  const googleMaps = await loadGoogleMapsCore();
+  return googleMaps.maps.importLibrary("places") as Promise<google.maps.PlacesLibrary>;
+}
+
 /** Load Google Maps JavaScript API with Places library (client-side). */
 export function loadGoogleMaps(): Promise<typeof google> {
   if (typeof window === "undefined") {

@@ -27,7 +27,7 @@ export interface GbpLocationOption {
 }
 
 const LOCATION_READ_MASK =
-  "name,title,phoneNumbers,storefrontAddress,websiteUri,metadata,categories,relationshipData";
+  "name,title,phoneNumbers,storefrontAddress,serviceArea,websiteUri,metadata,categories,relationshipData";
 
 function extractId(resourceName: string, segment: string): string {
   const parts = resourceName.split("/");
@@ -50,12 +50,27 @@ interface LocationListItem {
     administrativeArea?: string;
     postalCode?: string;
   };
+  serviceArea?: {
+    businessType?: string;
+    places?: {
+      placeInfos?: Array<{ placeId?: string; placeName?: string }>;
+    };
+  };
   websiteUri?: string;
   metadata?: { placeId?: string };
   categories?: {
     primaryCategory?: { name?: string; displayName?: string };
   };
   relationshipData?: { parentChain?: string };
+}
+
+function formatServiceAreaAddress(
+  serviceArea?: LocationListItem["serviceArea"]
+): string {
+  const places = serviceArea?.places?.placeInfos ?? [];
+  const names = places.map((place) => place.placeName).filter(Boolean);
+  if (names.length === 0) return "";
+  return `Serves ${names.join(", ")}`;
 }
 
 function mapLocationOption(
@@ -67,7 +82,7 @@ function mapLocationOption(
     ? [addr.addressLines?.join(", "), addr.locality, addr.administrativeArea, addr.postalCode]
         .filter(Boolean)
         .join(", ")
-    : "";
+    : formatServiceAreaAddress(loc.serviceArea);
 
   const primary = loc.categories?.primaryCategory;
 

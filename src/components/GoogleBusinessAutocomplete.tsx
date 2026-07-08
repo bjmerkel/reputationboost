@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { isMapsAutocompleteAvailable, loadGoogleMaps, MAPS_SETUP_HELP } from "@/lib/google/maps-loader";
+import {
+  importPlacesLibrary,
+  isMapsAutocompleteAvailable,
+  MAPS_SETUP_HELP,
+} from "@/lib/google/maps-loader";
 
 export interface BusinessPlaceSelection {
   placeId: string;
@@ -17,6 +21,7 @@ export interface BusinessPlaceSelection {
   website?: string;
   industry: string;
   formattedAddress: string;
+  isServiceAreaBusiness?: boolean;
 }
 
 interface GoogleBusinessAutocompleteProps {
@@ -28,9 +33,12 @@ interface GoogleBusinessAutocompleteProps {
   hero?: boolean;
 }
 
-function component(type: string, components: google.maps.GeocoderAddressComponent[]): string {
+function componentFromAddress(
+  type: string,
+  components: google.maps.places.AddressComponent[]
+): string {
   const match = components.find((c) => c.types.includes(type));
-  return match?.long_name ?? match?.short_name ?? "";
+  return match?.longText ?? match?.shortText ?? "";
 }
 
 function industryFromTypes(types: string[]): string {
@@ -39,31 +47,108 @@ function industryFromTypes(types: string[]): string {
   return category ? category.replace(/_/g, " ") : "local business";
 }
 
-function parsePlace(place: google.maps.places.PlaceResult): BusinessPlaceSelection | null {
-  if (!place.place_id || !place.geometry?.location) return null;
+function normalizePlaceId(id: string): string {
+  return id.startsWith("places/") ? id.slice("places/".length) : id;
+}
 
-  const components = place.address_components ?? [];
-  const streetNumber = component("street_number", components);
-  const route = component("route", components);
+async function resolveServiceAreaCoordinates(input: {
+  placeId: string;
+  name: string;
+  formattedAddress: string;
+  city: string;
+  state: string;
+}): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const res = await fetch("/api/places/resolve-location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { lat?: number; lng?: number };
+    if (typeof data.lat === "number" && typeof data.lng === "number") {
+      return { lat: data.lat, lng: data.lng };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function parsePlace(place: google.maps.places.Place): Promise<BusinessPlaceSelection | null> {
+  await place.fetchFields({
+    fields: [
+      "id",
+      "displayName",
+      "formattedAddress",
+      "addressComponents",
+      "location",
+      "nationalPhoneNumber",
+      "websiteURI",
+      "googleMapsURI",
+      "types",
+    ],
+  });
+
+  const placeId = place.id ? normalizePlaceId(place.id) : "";
+  if (!placeId) return null;
+
+  const components = place.addressComponents ?? [];
+  const streetNumber = componentFromAddress("street_number", components);
+  const route = componentFromAddress("route", components);
   const street = [streetNumber, route].filter(Boolean).join(" ");
+  const formattedAddress = place.formattedAddress ?? "";
+  const hasCoordinates = Boolean(place.location);
+  const isServiceAreaBusiness = !hasCoordinates;
+
+  let city =
+    componentFromAddress("locality", components) ||
+    componentFromAddress("sublocality", components) ||
+    componentFromAddress("administrative_area_level_2", components);
+  let state = componentFromAddress("administrative_area_level_1", components);
+  const zip = componentFromAddress("postal_code", components);
+
+  if (isServiceAreaBusiness && (!city || !state) && formattedAddress) {
+    const areaText = formattedAddress.replace(/^Serves\s+/i, "").trim();
+    const [areaCity, areaState] = areaText.split(",").map((part) => part.trim());
+    if (!city && areaCity) city = areaCity;
+    if (!state && areaState) state = areaState.split(/\s+/)[0] ?? areaState;
+  }
+
+  let lat = place.location?.lat() ?? 0;
+  let lng = place.location?.lng() ?? 0;
+
+  if (isServiceAreaBusiness) {
+    const resolved = await resolveServiceAreaCoordinates({
+      placeId,
+      name: place.displayName ?? "",
+      formattedAddress,
+      city,
+      state,
+    });
+    if (resolved) {
+      lat = resolved.lat;
+      lng = resolved.lng;
+    }
+  }
+
+  const serviceAreaLabel = formattedAddress.replace(/^Serves\s+/i, "").trim();
 
   return {
-    placeId: place.place_id,
-    mapsUrl: place.url,
-    name: place.name ?? "",
-    address: street || component("premise", components) || place.name || "",
-    city:
-      component("locality", components) ||
-      component("sublocality", components) ||
-      component("administrative_area_level_2", components),
-    state: component("administrative_area_level_1", components),
-    zip: component("postal_code", components),
-    lat: place.geometry.location.lat(),
-    lng: place.geometry.location.lng(),
-    phone: place.formatted_phone_number,
-    website: place.website,
+    placeId,
+    mapsUrl: place.googleMapsURI ?? undefined,
+    name: place.displayName ?? "",
+    address: street || (isServiceAreaBusiness ? serviceAreaLabel : formattedAddress) || "",
+    city,
+    state,
+    zip,
+    lat,
+    lng,
+    phone: place.nationalPhoneNumber ?? undefined,
+    website: place.websiteURI ?? undefined,
     industry: industryFromTypes(place.types ?? []),
-    formattedAddress: place.formatted_address ?? "",
+    formattedAddress,
+    isServiceAreaBusiness,
   };
 }
 
@@ -74,53 +159,75 @@ export default function GoogleBusinessAutocomplete({
   compact = false,
   hero = false,
 }: GoogleBusinessAutocompleteProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const autocompleteRef = useRef<google.maps.places.PlaceAutocompleteElement | null>(null);
   const [ready, setReady] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<BusinessPlaceSelection | null>(null);
 
   useEffect(() => {
-    if (!isMapsAutocompleteAvailable() || !inputRef.current) {
+    if (!isMapsAutocompleteAvailable() || !containerRef.current) {
       setError("Google Maps API key not configured.");
       return;
     }
 
     let cancelled = false;
+    const container = containerRef.current;
+    let cleanupListener: (() => void) | undefined;
 
-    loadGoogleMaps()
-      .then((google) => {
-        if (cancelled || !inputRef.current) return;
+    importPlacesLibrary()
+      .then(({ PlaceAutocompleteElement }) => {
+        if (cancelled || !container) return;
 
-        const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
-          types: ["establishment"],
-          fields: [
-            "place_id",
-            "name",
-            "formatted_address",
-            "address_components",
-            "geometry",
-            "website",
-            "formatted_phone_number",
-            "types",
-            "url",
-          ],
+        const autocomplete = new PlaceAutocompleteElement({
+          includedPrimaryTypes: ["establishment"],
+          includedRegionCodes: ["us"],
+          pureServiceAreaBusinessesIncluded: true,
+          placeholder: hero
+            ? "Search your business on Google Maps"
+            : "Start typing your business name…",
+          noInputIcon: hero || compact,
         });
 
-        autocomplete.addListener("place_changed", () => {
-          const place = autocomplete.getPlace();
-          const parsed = parsePlace(place);
-          if (!parsed) {
-            setError("Could not read that place. Try another result.");
-            return;
-          }
+        autocomplete.className = [
+          "rb-place-autocomplete",
+          hero ? "rb-place-autocomplete--hero" : "",
+          compact ? "rb-place-autocomplete--compact" : "",
+          theme === "light" ? "rb-place-autocomplete--light" : "rb-place-autocomplete--dark",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        const handleSelect = async (event: Event) => {
+          const { placePrediction } = event as google.maps.places.PlacePredictionSelectEvent;
+          setResolving(true);
           setError(null);
-          setSelected(parsed);
-          onSelect(parsed);
-        });
 
+          try {
+            const place = placePrediction.toPlace();
+            const parsed = await parsePlace(place);
+            if (!parsed) {
+              setError("Could not read that place. Try another result.");
+              return;
+            }
+            setSelected(parsed);
+            onSelect(parsed);
+          } catch {
+            setError("Could not read that place. Try another result.");
+          } finally {
+            setResolving(false);
+          }
+        };
+
+        autocomplete.addEventListener("gmp-select", handleSelect);
+        container.replaceChildren(autocomplete);
         autocompleteRef.current = autocomplete;
         setReady(true);
+
+        cleanupListener = () => {
+          autocomplete.removeEventListener("gmp-select", handleSelect);
+        };
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to load Google Autocomplete");
@@ -128,14 +235,18 @@ export default function GoogleBusinessAutocomplete({
 
     return () => {
       cancelled = true;
+      cleanupListener?.();
       autocompleteRef.current = null;
+      container.replaceChildren();
     };
-  }, [onSelect]);
+  }, [hero, compact, onSelect, theme]);
 
   function handleClear() {
     setSelected(null);
     setError(null);
-    if (inputRef.current) inputRef.current.value = "";
+    if (autocompleteRef.current) {
+      autocompleteRef.current.value = "";
+    }
     onClear?.();
   }
 
@@ -170,57 +281,40 @@ export default function GoogleBusinessAutocomplete({
           >
             Find your business on Google Maps
           </label>
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder="Start typing your business name…"
-            autoComplete="off"
-            className={
-              isLight
-                ? "w-full rounded-full border border-[#dadce0] bg-white px-5 py-3.5 text-sm text-[#202124] shadow-sm placeholder:text-[#80868b] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
-                : "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:outline-none"
-            }
-          />
+          <div ref={containerRef} className="rb-place-autocomplete-host" />
           <p className={`mt-1.5 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
-            {ready
-              ? "Powered by Google Places — select your listing from the dropdown."
-              : "Loading Google Autocomplete…"}
+            {resolving
+              ? "Loading business details…"
+              : ready
+                ? "Powered by Google Places — select your listing from the dropdown. Service-area businesses are supported."
+                : "Loading Google Autocomplete…"}
           </p>
         </div>
       )}
 
       {(compact || hero) && (
         <div className="relative">
-          <svg
-            className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-[#5f6368] ${
-              hero ? "left-5 h-6 w-6" : "left-4 h-5 w-5"
-            }`}
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-            aria-hidden
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-            />
-          </svg>
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder={
-              hero
-                ? "Search your business on Google Maps"
-                : "Search your business on Google Maps…"
-            }
-            autoComplete="off"
-            className={
-              hero
-                ? "w-full rounded-full border border-[#dadce0] bg-white py-5 pr-6 pl-14 text-lg text-[#202124] shadow-[0_2px_8px_rgba(60,64,67,0.15),0_1px_3px_rgba(60,64,67,0.1)] placeholder:text-[#80868b] focus:border-[#1a73e8] focus:outline-none focus:ring-4 focus:ring-[#1a73e8]/15 sm:py-6 sm:pl-16 sm:text-xl"
-                : "w-full rounded-full border border-[#dadce0] bg-white py-4 pr-5 pl-12 text-base text-[#202124] shadow-sm placeholder:text-[#80868b] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
-            }
+          {(hero || compact) && (
+            <svg
+              className={`pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 text-[#5f6368] ${
+                hero ? "left-5 h-6 w-6" : "left-4 h-5 w-5"
+              }`}
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+              />
+            </svg>
+          )}
+          <div
+            ref={containerRef}
+            className={hero ? "rb-place-autocomplete-host rb-place-autocomplete-host--hero" : "rb-place-autocomplete-host"}
           />
         </div>
       )}
@@ -260,7 +354,7 @@ export default function GoogleBusinessAutocomplete({
                   rel="noopener noreferrer"
                   className="underline"
                 >
-                  Places API
+                  Places API (New)
                 </a>{" "}
                 → Enable
               </li>
@@ -292,6 +386,11 @@ export default function GoogleBusinessAutocomplete({
               <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
                 {selected.formattedAddress}
               </p>
+              {selected.isServiceAreaBusiness && (
+                <p className={`mt-1 text-xs ${isLight ? "text-[#1a73e8]" : "text-emerald-400/80"}`}>
+                  Service-area business (no storefront address)
+                </p>
+              )}
               {selected.industry && (
                 <p
                   className={`mt-1 text-xs ${isLight ? "text-[#1a73e8]" : "text-emerald-400/80"}`}
