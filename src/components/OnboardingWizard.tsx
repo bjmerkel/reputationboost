@@ -50,6 +50,7 @@ export default function OnboardingWizard({
   const [website, setWebsite] = useState("");
   const [keywords, setKeywords] = useState<string[]>([]);
   const [avgCustomerValue, setAvgCustomerValue] = useState("");
+  const [isServiceAreaBusiness, setIsServiceAreaBusiness] = useState(false);
 
   function handlePlaceSelect(place: BusinessPlaceSelection) {
     setPlaceSelected(true);
@@ -63,6 +64,7 @@ export default function OnboardingWizard({
     setZip(place.zip);
     setLat(place.lat);
     setLng(place.lng);
+    setIsServiceAreaBusiness(Boolean(place.isServiceAreaBusiness));
     if (place.phone) setPhone(place.phone);
     if (place.website) setWebsite(place.website);
     setKeywords([]);
@@ -81,6 +83,7 @@ export default function OnboardingWizard({
     setZip("");
     setLat(0);
     setLng(0);
+    setIsServiceAreaBusiness(false);
     setKeywords([]);
   }
 
@@ -264,11 +267,28 @@ export default function OnboardingWizard({
                   light={isLight}
                 />
               </div>
-              <Field label="Street address" value={address} onChange={setAddress} required light={isLight} />
+              <Field
+                label={isServiceAreaBusiness ? "Service area" : "Street address"}
+                value={address}
+                onChange={setAddress}
+                required={!isServiceAreaBusiness}
+                hint={
+                  isServiceAreaBusiness
+                    ? "Service-area businesses don't have a storefront — we'll use your service area for rank tracking."
+                    : undefined
+                }
+                light={isLight}
+              />
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field label="City" value={city} onChange={setCity} required light={isLight} />
                 <Field label="State" value={state} onChange={setState} required light={isLight} />
-                <Field label="ZIP" value={zip} onChange={setZip} required light={isLight} />
+                <Field
+                  label="ZIP"
+                  value={zip}
+                  onChange={setZip}
+                  required={!isServiceAreaBusiness}
+                  light={isLight}
+                />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Phone" value={phone} onChange={setPhone} light={isLight} />
