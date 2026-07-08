@@ -96,6 +96,21 @@ export function primaryCategoryFromTypes(types: string[]): string {
   return formatCategory(types);
 }
 
+/** Prefer Google's primary type display name (matches GBP category) over generic types[]. */
+export function resolvePrimaryCategoryLabel(input: {
+  primaryTypeDisplayName?: string | null;
+  primaryType?: string | null;
+  types?: string[];
+}): string {
+  const displayName = input.primaryTypeDisplayName?.trim();
+  if (displayName) return displayName;
+
+  const primaryType = input.primaryType?.trim();
+  if (primaryType) return primaryType.replace(/_/g, " ");
+
+  return primaryCategoryFromTypes(input.types ?? []);
+}
+
 export function secondaryCategoriesFromTypes(types: string[]): string[] {
   const skip = new Set(["point_of_interest", "establishment", "geocode"]);
   return types

@@ -12,6 +12,7 @@ import {
   parseCityStateFromAreaText,
   resolveServiceAreaLabel,
 } from "@/lib/google/parse-business-place";
+import { resolvePrimaryCategoryLabel } from "@/lib/google/place-details";
 
 export interface BusinessPlaceSelection {
   placeId: string;
@@ -45,12 +46,6 @@ function componentFromAddress(
 ): string {
   const match = components.find((c) => c.types.includes(type));
   return match?.longText ?? match?.shortText ?? "";
-}
-
-function industryFromTypes(types: string[]): string {
-  const skip = new Set(["point_of_interest", "establishment", "geocode", "political"]);
-  const category = types.find((t) => !skip.has(t));
-  return category ? category.replace(/_/g, " ") : "local business";
 }
 
 function normalizePlaceId(id: string): string {
@@ -101,6 +96,8 @@ async function parsePlace(
       "websiteURI",
       "googleMapsURI",
       "types",
+      "primaryType",
+      "primaryTypeDisplayName",
       "isPureServiceAreaBusiness",
     ],
   });
@@ -175,7 +172,11 @@ async function parsePlace(
     lng,
     phone: place.nationalPhoneNumber ?? undefined,
     website: place.websiteURI ?? undefined,
-    industry: industryFromTypes(place.types ?? []),
+    industry: resolvePrimaryCategoryLabel({
+      primaryTypeDisplayName: place.primaryTypeDisplayName,
+      primaryType: place.primaryType,
+      types: place.types,
+    }),
     formattedAddress: displayAddress,
     isServiceAreaBusiness,
   };
