@@ -45,6 +45,57 @@ const DATA_TABS: { id: DataTab; label: string }[] = [
   { id: "citations", label: "Citations" },
 ];
 
+function auditDataTheme(light: boolean) {
+  return {
+    card: light
+      ? "rounded-xl border border-[#dadce0] bg-white p-4"
+      : "rounded-xl border border-white/8 bg-white/[0.02] p-4",
+    cardWide: light
+      ? "md:col-span-2 rounded-xl border border-[#dadce0] bg-white p-4"
+      : "md:col-span-2 rounded-xl border border-white/8 bg-white/[0.02] p-4",
+    heading: light ? "text-sm font-semibold text-[#202124]" : "text-sm font-semibold text-slate-300",
+    subheading: light ? "mt-1 text-xs text-[#5f6368]" : "mt-1 text-xs text-slate-500",
+    scorePill: light
+      ? "rounded-full bg-[#e8f0fe] px-3 py-1 text-sm font-semibold text-[#1a73e8]"
+      : "rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white",
+    metricBox: light ? "rounded-lg bg-[#f8f9fa] px-3 py-2" : "rounded-lg bg-white/5 px-3 py-2",
+    metricLabel: light
+      ? "text-[10px] uppercase tracking-wide text-[#80868b]"
+      : "text-[10px] uppercase tracking-wide text-slate-500",
+    metricValue: light ? "text-sm font-semibold text-[#202124]" : "text-sm font-semibold text-slate-200",
+    metricValueLg: light ? "text-lg font-semibold text-[#202124]" : "text-lg font-semibold text-slate-200",
+    muted: light ? "text-[#5f6368]" : "text-slate-400",
+    body: light ? "text-[#3c4043]" : "text-slate-300",
+    label: light ? "text-[#5f6368]" : "text-slate-500",
+    value: light ? "text-[#202124]" : "text-slate-200",
+    blockTitle: light ? "mb-3 text-sm font-semibold text-[#202124]" : "mb-3 text-sm font-semibold text-slate-300",
+    okStatus: light ? "bg-[#e6f4ea] text-[#137333]" : "bg-emerald-500/10 text-emerald-300",
+    warnStatus: light ? "bg-[#fef7e0] text-[#b06000]" : "bg-amber-500/10 text-amber-300",
+    recommend: light ? "text-xs text-[#b06000]" : "text-xs text-amber-300/90",
+    listItem: light ? "rounded-lg bg-[#f8f9fa] px-3 py-2" : "rounded-lg bg-white/5 px-3 py-2",
+    competitorRow: light
+      ? "flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#e8eaed] bg-[#f8f9fa] px-4 py-3"
+      : "flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-4 py-3",
+    competitorName: light ? "text-[#202124]" : "text-white",
+    keywordHeading: light ? "font-semibold text-[#137333]" : "font-semibold text-emerald-400",
+    sectionLabel: light
+      ? "mb-2 text-xs uppercase tracking-wider text-[#80868b]"
+      : "mb-2 text-xs uppercase tracking-wider text-slate-500",
+    tagEmerald: light ? "bg-[#e6f4ea] text-[#137333]" : "bg-emerald-500/10 text-emerald-300",
+    tagRed: light ? "bg-[#fce8e6] text-[#c5221f]" : "bg-red-500/10 text-red-300",
+    avatarFallback: light
+      ? "flex h-8 w-8 items-center justify-center rounded-full bg-[#e8eaed] text-xs text-[#5f6368]"
+      : "flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs text-slate-400",
+    pillMuted: light
+      ? "rounded-full bg-[#f1f3f4] px-2 py-0.5 text-[#5f6368]"
+      : "rounded-full bg-white/5 px-2 py-0.5 text-slate-300",
+    empty: light ? "text-sm text-[#80868b]" : "text-sm text-slate-500",
+    issuesList: light
+      ? "mt-4 list-inside list-disc text-sm text-[#b06000]"
+      : "mt-4 list-inside list-disc text-sm text-amber-400/90",
+  };
+}
+
 export default function AuditDataPanel({
   audit,
   clientId,
@@ -52,7 +103,7 @@ export default function AuditDataPanel({
   activeKeyword,
   onKeywordChange,
   embedded = false,
-  variant = "dark",
+  variant = "light",
   gbpConnected = false,
   onNavigateToPlan,
   attributions = [],
@@ -191,6 +242,7 @@ export default function AuditDataPanel({
           <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-3">
             <DataBlock
+              light={isLight}
               title="Identity"
               rows={[
                 ["Name", audit.gbp.identity.name],
@@ -206,6 +258,7 @@ export default function AuditDataPanel({
             />
           </div>
           <DataBlock
+            light={isLight}
             title="Content & issues"
             rows={[
               ["Photos", String(audit.gbp.content.photoCount)],
@@ -217,6 +270,7 @@ export default function AuditDataPanel({
           />
           {audit.gbp.notifications && (
             <DataBlock
+              light={isLight}
               title="Real-time alerts"
               rows={[
                 [
@@ -246,6 +300,7 @@ export default function AuditDataPanel({
             />
           )}
           <DataBlock
+            light={isLight}
             title="Engagement"
             rows={[
               [
@@ -257,6 +312,7 @@ export default function AuditDataPanel({
             ]}
           />
           <DataBlock
+            light={isLight}
             title={`Performance (${audit.gbp.performance.periodDays}d)`}
             rows={[
               ["Profile views", String(audit.gbp.performance.profileViews)],
@@ -278,6 +334,7 @@ export default function AuditDataPanel({
           />
           {(audit.gbp.performance.searchKeywords?.length ?? 0) > 0 && (
             <DataBlock
+              light={isLight}
               title="Search keywords (Google)"
               rows={audit.gbp.performance.searchKeywords!.slice(0, 12).map((kw) => [
                 kw.keyword,
@@ -289,11 +346,12 @@ export default function AuditDataPanel({
           )}
 
           {audit.gbp.performance.coverage && (
-            <PerformanceHealthPanel coverage={audit.gbp.performance.coverage} />
+            <PerformanceHealthPanel light={isLight} coverage={audit.gbp.performance.coverage} />
           )}
 
           {audit.gbp.placeActions && (
             <PlaceActionsHealthPanel
+              light={isLight}
               coverage={audit.gbp.placeActions}
               links={audit.gbp.placeActionLinks ?? []}
             />
@@ -301,6 +359,7 @@ export default function AuditDataPanel({
 
           {audit.gbp.localPosts && (
             <LocalPostsHealthPanel
+              light={isLight}
               coverage={audit.gbp.localPosts}
               recentPosts={audit.gbp.recentPosts ?? []}
             />
@@ -310,12 +369,14 @@ export default function AuditDataPanel({
             <>
               {audit.gbp.content.mediaCoverage && (
                 <MediaHealthPanel
+                  light={isLight}
                   coverage={audit.gbp.content.mediaCoverage}
                   photosByType={audit.gbp.content.photosByType}
                   videoCount={audit.gbp.content.videoCount ?? 0}
                 />
               )}
               <MediaGallery
+              light={isLight}
               photoCount={audit.gbp.content.photoCount}
               videoCount={audit.gbp.content.videoCount ?? 0}
               photosByType={audit.gbp.content.photosByType}
@@ -422,35 +483,33 @@ export default function AuditDataPanel({
 
       {tab === "competitors" && (
         <div className="space-y-6">
-          <p className="text-sm text-slate-400">
+          <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
             Top competitors from the same Nearby Search used for your pack position. Rank numbers
             match Google&apos;s ordering — when you&apos;re in the pack, competitors below show
             their true Maps position (e.g. #2, #3).
           </p>
           {audit.competitors.map((snap) => {
             const keywordRank = audit.rankings.keywords.find((k) => k.keyword === snap.keyword);
+            const theme = auditDataTheme(isLight);
             return (
             <div key={snap.keyword}>
               <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h4 className="font-semibold text-emerald-400">{snap.keyword}</h4>
+                <h4 className={theme.keywordHeading}>{snap.keyword}</h4>
                 {keywordRank?.inLocalPack && typeof keywordRank.localPackPosition === "number" ? (
-                  <span className="text-sm text-slate-400">
+                  <span className={`text-sm ${theme.muted}`}>
                     Your business: #{keywordRank.localPackPosition} in Local 3-Pack
                   </span>
                 ) : keywordRank && !keywordRank.inLocalPack ? (
-                  <span className="text-sm text-slate-400">Your business: outside 3-Pack</span>
+                  <span className={`text-sm ${theme.muted}`}>Your business: outside 3-Pack</span>
                 ) : null}
               </div>
               <div className="space-y-2">
                 {snap.competitors.slice(0, 5).map((c, i) => (
-                  <div
-                    key={c.placeId}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-4 py-3"
-                  >
-                    <span className="text-white">
+                  <div key={c.placeId} className={theme.competitorRow}>
+                    <span className={theme.competitorName}>
                       #{competitorMapRank(c.mapPositions, snap.keyword, i)} {c.name}
                     </span>
-                    <span className="text-sm text-slate-400">
+                    <span className={`text-sm ${theme.muted}`}>
                       {c.averageRating}★ · {c.reviewCount} reviews · {c.postsLast30Days}{" "}
                       posts/mo
                     </span>
@@ -467,13 +526,15 @@ export default function AuditDataPanel({
         <div className="space-y-6">
           {(audit.reviews.coverage ?? audit.gbp.reviewCoverage) && (
             <ReviewsHealthPanel
+              light={isLight}
               coverage={(audit.reviews.coverage ?? audit.gbp.reviewCoverage)!}
             />
           )}
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <ReviewStat label="Unresponded negative" value={String(audit.reviews.unrespondedNegative)} />
+            <ReviewStat light={isLight} label="Unresponded negative" value={String(audit.reviews.unrespondedNegative)} />
             <ReviewStat
+              light={isLight}
               label="Avg response time"
               value={
                 audit.reviews.avgResponseTimeHours != null
@@ -481,36 +542,32 @@ export default function AuditDataPanel({
                   : "—"
               }
             />
-            <ReviewStat label="Pending replies" value={String(audit.reviews.pendingReplies)} />
-            <ReviewStat label="Rejected replies" value={String(audit.reviews.rejectedReplies)} />
+            <ReviewStat light={isLight} label="Pending replies" value={String(audit.reviews.pendingReplies)} />
+            <ReviewStat light={isLight} label="Rejected replies" value={String(audit.reviews.rejectedReplies)} />
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">
-                Praise themes
-              </p>
-              <TagList items={audit.reviews.sentiment.positiveThemes} color="emerald" />
+              <p className={auditDataTheme(isLight).sectionLabel}>Praise themes</p>
+              <TagList light={isLight} items={audit.reviews.sentiment.positiveThemes} color="emerald" />
             </div>
             <div>
-              <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">
-                Complaint themes
-              </p>
-              <TagList items={audit.reviews.sentiment.negativeThemes} color="red" />
+              <p className={auditDataTheme(isLight).sectionLabel}>Complaint themes</p>
+              <TagList light={isLight} items={audit.reviews.sentiment.negativeThemes} color="red" />
             </div>
           </div>
 
-          <p className="text-sm text-slate-400">
+          <p className={`text-sm ${auditDataTheme(isLight).muted}`}>
             {audit.reviews.reviews.length} reviews collected · Dispute candidates:{" "}
             {audit.reviews.disputeCandidates.length}
           </p>
 
           <div className="space-y-3">
             {audit.reviews.reviews.slice(0, 20).map((review) => (
-              <ReviewCard key={review.id} review={review} />
+              <ReviewCard key={review.id} light={isLight} review={review} />
             ))}
             {audit.reviews.reviews.length > 20 && (
-              <p className="text-sm text-slate-500">
+              <p className={auditDataTheme(isLight).empty}>
                 Showing 20 of {audit.reviews.reviews.length} reviews.
               </p>
             )}
@@ -530,6 +587,7 @@ export default function AuditDataPanel({
       {tab === "citations" && (
         <div>
           <DataBlock
+            light={isLight}
             title="Off-Google signals"
             rows={[
               ["Citation consistency", `${audit.offGoogle.citationConsistencyScore}%`],
@@ -542,7 +600,7 @@ export default function AuditDataPanel({
             ]}
           />
           {audit.offGoogle.website.issues.length > 0 && (
-            <ul className="mt-4 list-inside list-disc text-sm text-amber-400/90">
+            <ul className={auditDataTheme(isLight).issuesList}>
               {audit.offGoogle.website.issues.map((issue) => (
                 <li key={issue}>{issue}</li>
               ))}
@@ -554,15 +612,24 @@ export default function AuditDataPanel({
   );
 }
 
-function DataBlock({ title, rows }: { title: string; rows: [string, string][] }) {
+function DataBlock({
+  title,
+  rows,
+  light = false,
+}: {
+  title: string;
+  rows: [string, string][];
+  light?: boolean;
+}) {
+  const theme = auditDataTheme(light);
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
-      <p className="mb-3 text-sm font-semibold text-slate-300">{title}</p>
+    <div className={theme.card}>
+      <p className={theme.blockTitle}>{title}</p>
       <dl className="space-y-2">
         {rows.map(([k, v]) => (
           <div key={k} className="flex justify-between gap-4 text-sm">
-            <dt className="text-slate-500">{k}</dt>
-            <dd className="text-right text-slate-200">{v}</dd>
+            <dt className={theme.label}>{k}</dt>
+            <dd className={`text-right ${theme.value}`}>{v}</dd>
           </div>
         ))}
       </dl>
@@ -601,9 +668,17 @@ function PackBadge({
   );
 }
 
-function TagList({ items, color }: { items: string[]; color: "emerald" | "red" }) {
-  const cls =
-    color === "emerald" ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300";
+function TagList({
+  items,
+  color,
+  light = false,
+}: {
+  items: string[];
+  color: "emerald" | "red";
+  light?: boolean;
+}) {
+  const theme = auditDataTheme(light);
+  const cls = color === "emerald" ? theme.tagEmerald : theme.tagRed;
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => (
@@ -620,49 +695,67 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleDateString();
 }
 
-function ReviewStat({ label, value }: { label: string; value: string }) {
+function ReviewStat({
+  label,
+  value,
+  light = false,
+}: {
+  label: string;
+  value: string;
+  light?: boolean;
+}) {
+  const theme = auditDataTheme(light);
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3">
-      <p className="text-xs uppercase tracking-wider text-slate-500">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-white">{value}</p>
+    <div className={theme.card}>
+      <p className={theme.metricLabel}>{label}</p>
+      <p className={`mt-1 text-lg font-semibold ${theme.value}`}>{value}</p>
     </div>
   );
 }
 
-function ReviewCard({ review }: { review: ReviewRecord }) {
+function ReviewCard({ review, light = false }: { review: ReviewRecord; light?: boolean }) {
+  const theme = auditDataTheme(light);
   const sentimentColor =
     review.sentiment === "positive"
-      ? "text-emerald-400"
+      ? light
+        ? "text-[#137333]"
+        : "text-emerald-400"
       : review.sentiment === "negative"
-        ? "text-red-400"
-        : "text-amber-400";
+        ? light
+          ? "text-[#c5221f]"
+          : "text-red-400"
+        : light
+          ? "text-[#e37400]"
+          : "text-amber-400";
 
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+    <div className={theme.card}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           {review.authorPhotoUrl ? (
             <ExternalImage
               src={review.authorPhotoUrl}
               alt=""
-              className="h-8 w-8 rounded-full bg-white/10 object-cover"
+              className={`h-8 w-8 rounded-full object-cover ${light ? "bg-[#e8eaed]" : "bg-white/10"}`}
               fallback={
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs text-slate-400">
+                <div className={theme.avatarFallback}>
                   {review.isAnonymous ? "?" : review.author.charAt(0)}
                 </div>
               }
             />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs text-slate-400">
+            <div className={theme.avatarFallback}>
               {review.isAnonymous ? "?" : review.author.charAt(0)}
             </div>
           )}
           <div>
-            <p className="font-medium text-white">
+            <p className={`font-medium ${theme.value}`}>
               {review.author}
-              <span className="ml-2 text-amber-400">{review.rating}★</span>
+              <span className={`ml-2 ${light ? "text-[#fbbc04]" : "text-amber-400"}`}>
+                {review.rating}★
+              </span>
             </p>
-            <p className="text-xs text-slate-500">{formatDate(review.publishedAt)}</p>
+            <p className={`text-xs ${theme.label}`}>{formatDate(review.publishedAt)}</p>
           </div>
         </div>
         <span className={`text-xs font-medium uppercase ${sentimentColor}`}>
@@ -671,7 +764,7 @@ function ReviewCard({ review }: { review: ReviewRecord }) {
       </div>
 
       {review.text && (
-        <p className="mt-3 text-sm leading-relaxed text-slate-300">&ldquo;{review.text}&rdquo;</p>
+        <p className={`mt-3 text-sm leading-relaxed ${theme.body}`}>&ldquo;{review.text}&rdquo;</p>
       )}
 
       {review.mediaItems && review.mediaItems.length > 0 && (
@@ -682,7 +775,7 @@ function ReviewCard({ review }: { review: ReviewRecord }) {
               href={item.videoUrl ?? item.thumbnailUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="block overflow-hidden rounded-lg border border-white/10"
+              className={`block overflow-hidden rounded-lg border ${light ? "border-[#dadce0]" : "border-white/10"}`}
             >
               <ExternalImage
                 src={item.thumbnailUrl}
@@ -695,41 +788,59 @@ function ReviewCard({ review }: { review: ReviewRecord }) {
       )}
 
       {review.replyText ? (
-        <div className="mt-3 rounded-lg border border-white/8 bg-slate-900/40 p-3">
+        <div
+          className={`mt-3 rounded-lg border p-3 ${
+            light ? "border-[#e8eaed] bg-[#f8f9fa]" : "border-white/8 bg-slate-900/40"
+          }`}
+        >
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <p className={`text-xs font-semibold uppercase tracking-wider ${theme.label}`}>
               Your reply
             </p>
             {review.replyState && review.replyState !== "APPROVED" && (
-              <ReplyStateBadge state={review.replyState} />
+              <ReplyStateBadge light={light} state={review.replyState} />
             )}
           </div>
-          <p className="mt-1 text-sm text-slate-400">{review.replyText}</p>
+          <p className={`mt-1 text-sm ${theme.muted}`}>{review.replyText}</p>
           {review.policyViolation && (
-            <p className="mt-2 text-xs text-red-400">
+            <p className={`mt-2 text-xs ${light ? "text-[#c5221f]" : "text-red-400"}`}>
               Policy: {formatViolation(review.policyViolation)}
             </p>
           )}
           {review.responseTimeHours != null && (
-            <p className="mt-1 text-xs text-slate-500">
+            <p className={`mt-1 text-xs ${theme.label}`}>
               Responded in {review.responseTimeHours}h
             </p>
           )}
         </div>
       ) : (
-        <p className="mt-3 text-xs text-amber-400">No reply yet</p>
+        <p className={`mt-3 text-xs ${light ? "text-[#e37400]" : "text-amber-400"}`}>
+          No reply yet
+        </p>
       )}
     </div>
   );
 }
 
-function ReplyStateBadge({ state }: { state: ReviewRecord["replyState"] }) {
+function ReplyStateBadge({
+  state,
+  light = false,
+}: {
+  state: ReviewRecord["replyState"];
+  light?: boolean;
+}) {
   const styles =
     state === "REJECTED"
-      ? "bg-red-500/20 text-red-300"
+      ? light
+        ? "bg-[#fce8e6] text-[#c5221f]"
+        : "bg-red-500/20 text-red-300"
       : state === "PENDING"
-        ? "bg-amber-500/20 text-amber-300"
-        : "bg-slate-500/20 text-slate-400";
+        ? light
+          ? "bg-[#fef7e0] text-[#b06000]"
+          : "bg-amber-500/20 text-amber-300"
+        : light
+          ? "bg-[#f1f3f4] text-[#5f6368]"
+          : "bg-slate-500/20 text-slate-400";
 
   const label =
     state === "REJECTED" ? "Rejected" : state === "PENDING" ? "Pending" : state ?? "";
@@ -747,21 +858,24 @@ function formatViolation(code: string): string {
     .replace(/^\w/, (c) => c.toUpperCase());
 }
 
-function ReviewsHealthPanel({ coverage }: { coverage: GbpReviewCoverage }) {
+function ReviewsHealthPanel({
+  coverage,
+  light = false,
+}: {
+  coverage: GbpReviewCoverage;
+  light?: boolean;
+}) {
   const report = buildReviewsHealthReport(coverage);
+  const theme = auditDataTheme(light);
 
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+    <div className={theme.card}>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-slate-300">Review management health</p>
-          <p className="mt-1 text-xs text-slate-500">
-            Response rate, reply moderation, and review velocity
-          </p>
+          <p className={theme.heading}>Review management health</p>
+          <p className={theme.subheading}>Response rate, reply moderation, and review velocity</p>
         </div>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white">
-          {report.overallScore}%
-        </span>
+        <span className={theme.scorePill}>{report.overallScore}%</span>
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-2">
@@ -772,9 +886,7 @@ function ReviewsHealthPanel({ coverage }: { coverage: GbpReviewCoverage }) {
           <div
             key={endpoint.label}
             className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
-              endpoint.status === "ok"
-                ? "bg-emerald-500/10 text-emerald-300"
-                : "bg-amber-500/10 text-amber-300"
+              endpoint.status === "ok" ? theme.okStatus : theme.warnStatus
             }`}
           >
             <span>{endpoint.label}</span>
@@ -793,14 +905,14 @@ function ReviewsHealthPanel({ coverage }: { coverage: GbpReviewCoverage }) {
             value: report.avgResponseTimeHours != null ? `${report.avgResponseTimeHours}h` : "—",
           },
         ].map((metric) => (
-          <div key={metric.label} className="rounded-lg bg-white/5 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-slate-500">{metric.label}</p>
-            <p className="text-sm font-semibold text-slate-200">{metric.value}</p>
+          <div key={metric.label} className={theme.metricBox}>
+            <p className={theme.metricLabel}>{metric.label}</p>
+            <p className={theme.metricValue}>{metric.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2 text-[11px] text-slate-400">
+      <div className={`mb-4 flex flex-wrap gap-2 text-[11px] ${theme.muted}`}>
         <span>{report.unrespondedNegativeCount} unresponded negative</span>
         <span>·</span>
         <span>{report.pendingReplies} pending replies</span>
@@ -809,7 +921,7 @@ function ReviewsHealthPanel({ coverage }: { coverage: GbpReviewCoverage }) {
       </div>
 
       {report.recommendations.length > 0 && (
-        <ul className="space-y-1.5 text-xs text-amber-300/90">
+        <ul className={`space-y-1.5 ${theme.recommend}`}>
           {report.recommendations.map((item) => (
             <li key={item}>• {item}</li>
           ))}
@@ -822,24 +934,23 @@ function ReviewsHealthPanel({ coverage }: { coverage: GbpReviewCoverage }) {
 function LocalPostsHealthPanel({
   coverage,
   recentPosts,
+  light = false,
 }: {
   coverage: GbpLocalPostCoverage;
   recentPosts: GbpPostItem[];
+  light?: boolean;
 }) {
   const report = buildLocalPostsHealthReport(coverage);
+  const theme = auditDataTheme(light);
 
   return (
-    <div className="md:col-span-2 rounded-xl border border-white/8 bg-white/[0.02] p-4">
+    <div className={theme.cardWide}>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-slate-300">Google Posts health</p>
-          <p className="mt-1 text-xs text-slate-500">
-            Posting frequency, topic mix, and engagement signals
-          </p>
+          <p className={theme.heading}>Google Posts health</p>
+          <p className={theme.subheading}>Posting frequency, topic mix, and engagement signals</p>
         </div>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white">
-          {report.overallScore}%
-        </span>
+        <span className={theme.scorePill}>{report.overallScore}%</span>
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-2">
@@ -850,9 +961,7 @@ function LocalPostsHealthPanel({
           <div
             key={endpoint.label}
             className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
-              endpoint.status === "ok"
-                ? "bg-emerald-500/10 text-emerald-300"
-                : "bg-amber-500/10 text-amber-300"
+              endpoint.status === "ok" ? theme.okStatus : theme.warnStatus
             }`}
           >
             <span>{endpoint.label}</span>
@@ -871,29 +980,29 @@ function LocalPostsHealthPanel({
           },
           { label: "Topics", value: report.topicSummary },
         ].map((metric) => (
-          <div key={metric.label} className="rounded-lg bg-white/5 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-slate-500">{metric.label}</p>
-            <p className="text-sm font-semibold text-slate-200">{metric.value}</p>
+          <div key={metric.label} className={theme.metricBox}>
+            <p className={theme.metricLabel}>{metric.label}</p>
+            <p className={theme.metricValue}>{metric.value}</p>
           </div>
         ))}
       </div>
 
       {recentPosts.length > 0 && (
-        <ul className="mb-4 space-y-2 text-xs text-slate-300">
+        <ul className={`mb-4 space-y-2 text-xs ${theme.body}`}>
           {recentPosts.slice(0, 4).map((post) => (
-            <li key={post.name ?? post.createTime} className="rounded-lg bg-white/5 px-3 py-2">
-              <div className="flex items-center justify-between gap-2 text-slate-500">
+            <li key={post.name ?? post.createTime} className={theme.listItem}>
+              <div className={`flex items-center justify-between gap-2 ${theme.label}`}>
                 <span>{post.topicType?.toLowerCase() ?? "post"}</span>
                 <span>{post.state?.toLowerCase() ?? "live"}</span>
               </div>
-              <p className="mt-1 line-clamp-2 text-slate-300">{post.summary}</p>
+              <p className={`mt-1 line-clamp-2 ${theme.body}`}>{post.summary}</p>
             </li>
           ))}
         </ul>
       )}
 
       {report.recommendations.length > 0 && (
-        <ul className="space-y-1.5 text-xs text-amber-300/90">
+        <ul className={`space-y-1.5 ${theme.recommend}`}>
           {report.recommendations.map((item) => (
             <li key={item}>• {item}</li>
           ))}
@@ -906,24 +1015,25 @@ function LocalPostsHealthPanel({
 function PlaceActionsHealthPanel({
   coverage,
   links,
+  light = false,
 }: {
   coverage: GbpPlaceActionCoverage;
   links: GbpPlaceActionLinkSummary[];
+  light?: boolean;
 }) {
   const report = buildPlaceActionsHealthReport(coverage);
+  const theme = auditDataTheme(light);
 
   return (
-    <div className="md:col-span-2 rounded-xl border border-white/8 bg-white/[0.02] p-4">
+    <div className={theme.cardWide}>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-slate-300">Place action links</p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className={theme.heading}>Place action links</p>
+          <p className={theme.subheading}>
             Booking, ordering, and shop links surfaced on Google Maps
           </p>
         </div>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white">
-          {report.overallScore}%
-        </span>
+        <span className={theme.scorePill}>{report.overallScore}%</span>
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-2">
@@ -934,9 +1044,7 @@ function PlaceActionsHealthPanel({
           <div
             key={endpoint.label}
             className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
-              endpoint.status === "ok"
-                ? "bg-emerald-500/10 text-emerald-300"
-                : "bg-amber-500/10 text-amber-300"
+              endpoint.status === "ok" ? theme.okStatus : theme.warnStatus
             }`}
           >
             <span>{endpoint.label}</span>
@@ -951,29 +1059,31 @@ function PlaceActionsHealthPanel({
           { label: "Merchant-owned", value: report.merchantLinkCount },
           { label: "Configured types", value: coverage.configuredTypes.length },
         ].map((metric) => (
-          <div key={metric.label} className="rounded-lg bg-white/5 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-slate-500">{metric.label}</p>
-            <p className="text-lg font-semibold text-slate-200">{metric.value}</p>
+          <div key={metric.label} className={theme.metricBox}>
+            <p className={theme.metricLabel}>{metric.label}</p>
+            <p className={theme.metricValueLg}>{metric.value}</p>
           </div>
         ))}
       </div>
 
       {links.length > 0 && (
-        <ul className="mb-4 space-y-2 text-xs text-slate-300">
+        <ul className={`mb-4 space-y-2 text-xs ${theme.body}`}>
           {links.slice(0, 5).map((link) => (
-            <li key={link.name} className="rounded-lg bg-white/5 px-3 py-2">
+            <li key={link.name} className={theme.listItem}>
               <div className="flex items-center justify-between gap-2">
                 <span>{link.displayType}</span>
-                {link.isPreferred && <span className="text-emerald-300">preferred</span>}
+                {link.isPreferred && (
+                  <span className={light ? "text-[#137333]" : "text-emerald-300"}>preferred</span>
+                )}
               </div>
-              <p className="mt-1 truncate text-slate-500">{link.uri}</p>
+              <p className={`mt-1 truncate ${theme.label}`}>{link.uri}</p>
             </li>
           ))}
         </ul>
       )}
 
       {report.recommendations.length > 0 && (
-        <ul className="space-y-1.5 text-xs text-amber-300/90">
+        <ul className={`space-y-1.5 ${theme.recommend}`}>
           {report.recommendations.map((item) => (
             <li key={item}>• {item}</li>
           ))}
@@ -983,21 +1093,26 @@ function PlaceActionsHealthPanel({
   );
 }
 
-function PerformanceHealthPanel({ coverage }: { coverage: GbpPerformanceCoverage }) {
+function PerformanceHealthPanel({
+  coverage,
+  light = false,
+}: {
+  coverage: GbpPerformanceCoverage;
+  light?: boolean;
+}) {
   const report = buildPerformanceHealthReport(coverage);
+  const theme = auditDataTheme(light);
 
   return (
-    <div className="md:col-span-2 rounded-xl border border-white/8 bg-white/[0.02] p-4">
+    <div className={theme.cardWide}>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-slate-300">Performance health</p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className={theme.heading}>Performance health</p>
+          <p className={theme.subheading}>
             Google Performance API coverage for actions, views, and search keywords
           </p>
         </div>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white">
-          {report.overallScore}%
-        </span>
+        <span className={theme.scorePill}>{report.overallScore}%</span>
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -1005,7 +1120,7 @@ function PerformanceHealthPanel({ coverage }: { coverage: GbpPerformanceCoverage
           <div
             key={endpoint.key}
             className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
-              endpoint.ok ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"
+              endpoint.ok ? theme.okStatus : theme.warnStatus
             }`}
           >
             <span>{endpoint.label}</span>
@@ -1021,14 +1136,14 @@ function PerformanceHealthPanel({ coverage }: { coverage: GbpPerformanceCoverage
           { label: "Keywords", value: report.keywordCount },
           { label: "Tracked terms", value: report.trackedKeywordCount },
         ].map((metric) => (
-          <div key={metric.label} className="rounded-lg bg-white/5 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-slate-500">{metric.label}</p>
-            <p className="text-lg font-semibold text-slate-200">{metric.value}</p>
+          <div key={metric.label} className={theme.metricBox}>
+            <p className={theme.metricLabel}>{metric.label}</p>
+            <p className={theme.metricValueLg}>{metric.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
+      <div className={`flex flex-wrap gap-2 text-[11px] ${theme.muted}`}>
         <span>{report.apiAvailable ? "API connected" : "API unavailable"}</span>
         {report.partialApi && (
           <>
@@ -1051,7 +1166,7 @@ function PerformanceHealthPanel({ coverage }: { coverage: GbpPerformanceCoverage
       </div>
 
       {report.recommendations.length > 0 && (
-        <ul className="mt-3 space-y-1.5 text-xs text-amber-300/90">
+        <ul className={`mt-3 space-y-1.5 ${theme.recommend}`}>
           {report.recommendations.map((item) => (
             <li key={item}>• {item}</li>
           ))}
@@ -1065,25 +1180,26 @@ function MediaHealthPanel({
   coverage,
   photosByType,
   videoCount,
+  light = false,
 }: {
   coverage: GbpMediaCoverage;
   photosByType: Record<string, number>;
   videoCount: number;
+  light?: boolean;
 }) {
   const report = buildMediaHealthReport(coverage, photosByType);
+  const theme = auditDataTheme(light);
 
   return (
-    <div className="md:col-span-2 rounded-xl border border-white/8 bg-white/[0.02] p-4">
+    <div className={theme.cardWide}>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-slate-300">Media health</p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className={theme.heading}>Media health</p>
+          <p className={theme.subheading}>
             Overall score based on coverage, engagement, video, and recency
           </p>
         </div>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white">
-          {report.overallScore}%
-        </span>
+        <span className={theme.scorePill}>{report.overallScore}%</span>
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -1093,9 +1209,9 @@ function MediaHealthPanel({
           { label: "Video", value: report.videoScore },
           { label: "Recency", value: report.recencyScore },
         ].map((metric) => (
-          <div key={metric.label} className="rounded-lg bg-white/5 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-slate-500">{metric.label}</p>
-            <p className="text-lg font-semibold text-slate-200">{metric.value}%</p>
+          <div key={metric.label} className={theme.metricBox}>
+            <p className={theme.metricLabel}>{metric.label}</p>
+            <p className={theme.metricValueLg}>{metric.value}%</p>
           </div>
         ))}
       </div>
@@ -1105,7 +1221,7 @@ function MediaHealthPanel({
           <div
             key={item.category}
             className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
-              item.filled ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"
+              item.filled ? theme.okStatus : theme.warnStatus
             }`}
           >
             <span>{item.label}</span>
@@ -1114,7 +1230,7 @@ function MediaHealthPanel({
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
+      <div className={`flex flex-wrap gap-2 text-[11px] ${theme.muted}`}>
         <span>{report.ownerPhotoCount} owner photos</span>
         <span>·</span>
         <span>{report.customerPhotoCount} customer</span>
@@ -1131,7 +1247,7 @@ function MediaHealthPanel({
       </div>
 
       {report.recommendations.length > 0 && (
-        <ul className="mt-3 space-y-1.5 text-xs text-amber-300/90">
+        <ul className={`mt-3 space-y-1.5 ${theme.recommend}`}>
           {report.recommendations.map((item) => (
             <li key={item}>• {item}</li>
           ))}
@@ -1147,13 +1263,16 @@ function MediaGallery({
   photosByType,
   previews,
   coverage,
+  light = false,
 }: {
   photoCount: number;
   videoCount: number;
   photosByType: Record<string, number>;
   previews: GbpMediaPreview[];
   coverage?: GbpMediaCoverage;
+  light?: boolean;
 }) {
+  const theme = auditDataTheme(light);
   const typeSummary = Object.entries(photosByType)
     .map(([type, count]) => `${type.replace(/_/g, " ").toLowerCase()}: ${count}`)
     .join(" · ");
@@ -1165,52 +1284,40 @@ function MediaGallery({
     : null;
 
   return (
-    <div className="md:col-span-2 rounded-xl border border-white/8 bg-white/[0.02] p-4">
+    <div className={theme.cardWide}>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-slate-300">Photos & videos</p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className={theme.heading}>Photos & videos</p>
+          <p className={theme.subheading}>
             {photoCount} photos · {videoCount} videos
             {typeSummary ? ` · ${typeSummary}` : ""}
           </p>
           {coverage && (
             <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-              <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-300">
-                Coverage {coverage.coverageScore}%
-              </span>
-              <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-300">
-                Engagement {coverage.engagementScore}%
-              </span>
-              <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-400">
+              <span className={theme.pillMuted}>Coverage {coverage.coverageScore}%</span>
+              <span className={theme.pillMuted}>Engagement {coverage.engagementScore}%</span>
+              <span className={theme.pillMuted}>
                 {coverage.ownerPhotoCount} owner · {coverage.customerPhotoCount} customer
                 {coverage.customerPhotoShare > 0 ? ` (${coverage.customerPhotoShare}% customer)` : ""}
               </span>
               {coverage.ownerAvgViews > 0 && (
-                <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-400">
-                  {coverage.ownerAvgViews} avg owner views
-                </span>
+                <span className={theme.pillMuted}>{coverage.ownerAvgViews} avg owner views</span>
               )}
               {coverage.totalViews > 0 && (
-                <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-400">
+                <span className={theme.pillMuted}>
                   {coverage.totalViews.toLocaleString()} views
                 </span>
               )}
               {coverage.daysSinceLastUpload !== null && (
-                <span className="rounded-full bg-white/5 px-2 py-0.5 text-slate-400">
+                <span className={theme.pillMuted}>
                   Last upload {coverage.daysSinceLastUpload}d ago
                 </span>
               )}
             </div>
           )}
-          {missingSummary && (
-            <p className="mt-2 text-xs text-amber-300/90">
-              Missing categories: {missingSummary}
-            </p>
-          )}
+          {missingSummary && <p className={`mt-2 text-xs ${theme.recommend}`}>Missing categories: {missingSummary}</p>}
         </div>
-        {previews.length > 0 && (
-          <p className="text-xs text-slate-500">Showing {previews.length} previews</p>
-        )}
+        {previews.length > 0 && <p className={`text-xs ${theme.label}`}>Showing {previews.length} previews</p>}
       </div>
 
       {previews.length > 0 ? (
@@ -1221,7 +1328,9 @@ function MediaGallery({
               href={item.googleUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="group relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-slate-900/50"
+              className={`group relative aspect-square overflow-hidden rounded-lg border ${
+                light ? "border-[#dadce0] bg-[#f8f9fa]" : "border-white/10 bg-slate-900/50"
+              }`}
               title={item.description || item.category || undefined}
             >
               <ExternalImage
@@ -1256,7 +1365,7 @@ function MediaGallery({
           ))}
         </div>
       ) : (
-        <p className="text-sm text-slate-500">
+        <p className={theme.empty}>
           {photoCount > 0
             ? "Photo count is available but thumbnails could not be loaded. Re-run the audit or check GBP media permissions."
             : "No media on profile yet."}
