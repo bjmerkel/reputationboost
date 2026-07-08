@@ -31,6 +31,7 @@ import { buildPerformanceHealthReport } from "@/lib/google/gbp-performance-healt
 import { buildReviewsHealthReport } from "@/lib/google/gbp-reviews-health";
 import { buildLocalPostsHealthReport } from "@/lib/google/gbp-local-posts-health";
 import { buildPlaceActionsHealthReport } from "@/lib/google/gbp-place-actions-health";
+import { competitorMapRank } from "@/lib/google/local-rankings";
 
 type DataTab = "profile" | "rankings" | "competitors" | "reviews" | "citations" | "trends";
 
@@ -385,9 +386,25 @@ export default function AuditDataPanel({
 
       {tab === "competitors" && (
         <div className="space-y-6">
-          {audit.competitors.map((snap) => (
+          <p className="text-sm text-slate-400">
+            Top competitors from the same Nearby Search used for your pack position. Rank numbers
+            match Google&apos;s ordering — when you&apos;re in the pack, competitors below show
+            their true Maps position (e.g. #2, #3).
+          </p>
+          {audit.competitors.map((snap) => {
+            const keywordRank = audit.rankings.keywords.find((k) => k.keyword === snap.keyword);
+            return (
             <div key={snap.keyword}>
-              <h4 className="mb-3 font-semibold text-emerald-400">{snap.keyword}</h4>
+              <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h4 className="font-semibold text-emerald-400">{snap.keyword}</h4>
+                {keywordRank?.inLocalPack && typeof keywordRank.localPackPosition === "number" ? (
+                  <span className="text-sm text-slate-400">
+                    Your business: #{keywordRank.localPackPosition} in Local 3-Pack
+                  </span>
+                ) : keywordRank && !keywordRank.inLocalPack ? (
+                  <span className="text-sm text-slate-400">Your business: outside 3-Pack</span>
+                ) : null}
+              </div>
               <div className="space-y-2">
                 {snap.competitors.slice(0, 5).map((c, i) => (
                   <div
@@ -395,7 +412,7 @@ export default function AuditDataPanel({
                     className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-4 py-3"
                   >
                     <span className="text-white">
-                      #{i + 1} {c.name}
+                      #{competitorMapRank(c.mapPositions, snap.keyword, i)} {c.name}
                     </span>
                     <span className="text-sm text-slate-400">
                       {c.averageRating}★ · {c.reviewCount} reviews · {c.postsLast30Days}{" "}
@@ -405,7 +422,8 @@ export default function AuditDataPanel({
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

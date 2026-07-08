@@ -51,6 +51,16 @@ export function isOwnBusiness(
   return false;
 }
 
+/** Google's 1-indexed rank for a keyword, falling back to list order for legacy snapshots. */
+export function competitorMapRank(
+  mapPositions: Record<string, number | "not_in_pack">,
+  keyword: string,
+  listIndex: number
+): number {
+  const pos = mapPositions[keyword];
+  return typeof pos === "number" ? pos : listIndex + 1;
+}
+
 function normalizeBusinessName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
@@ -90,7 +100,8 @@ export function mergeCompetitorCandidates(
     if (isOwnBusiness(place, options)) continue;
     if (seen.has(place.placeId)) continue;
     seen.add(place.placeId);
-    merged.push({ ...place, position: merged.length + 1 });
+    // Preserve Google's 1-indexed position from the source result list.
+    merged.push(place);
     if (merged.length >= limit) break;
   }
 
@@ -101,8 +112,6 @@ export interface ResolveCompetitorOptions {
   limit?: number;
   /** Seed list (e.g. 1mi Nearby results already fetched for rankings). */
   initialResults?: PlaceResult[];
-  /** City/state appended to Text Search queries — closer to Maps UI behavior. */
-  locationLabel?: string;
 }
 
 /**
@@ -121,6 +130,12 @@ export function buildCompetitorTextQuery(keyword: string, locationLabel?: string
   return `${keyword} in ${trimmed}`;
 }
 
+/**
+ * Harvest competitors from the same Nearby Search ordering used for rankings.
+ * Seeds from 1mi results (already fetched for rank snapshots), then widens radius
+ * via Nearby only — Text Search returns a different ordering and caused pack-position
+ * mismatches vs keyword scores on Home.
+ */
 export async function resolveCompetitorResults(
   keyword: string,
   location: GeoLocation,
@@ -128,29 +143,16 @@ export async function resolveCompetitorResults(
   options: ResolveCompetitorOptions = {}
 ): Promise<PlaceResult[]> {
   const limit = options.limit ?? TOP_COMPETITORS;
-  const textQuery = buildCompetitorTextQuery(keyword, options.locationLabel);
 
   let competitors = extractCompetitors(options.initialResults ?? [], matchOptions, limit);
   if (competitors.length >= limit) return competitors;
 
   for (const miles of COMPETITOR_SEARCH_RADII) {
-    const radiusMeters = milesToMeters(miles);
-
     // Skip re-fetching 1mi nearby when we already seeded from rankings.
-    if (!(miles === 1 && options.initialResults)) {
-      const nearbyResults = await searchPlaces(keyword, location, radiusMeters, "nearby");
-      competitors = mergeCompetitorCandidates(competitors, nearbyResults, matchOptions, limit);
-      if (competitors.length >= limit) return competitors;
-    }
+    if (miles === 1 && options.initialResults) continue;
 
-    try {
-      const textResults = await searchPlaces(keyword, location, radiusMeters, "text", {
-        textQuery,
-      });
-      competitors = mergeCompetitorCandidates(competitors, textResults, matchOptions, limit);
-    } catch {
-      // Text search is supplemental; nearby results still power rankings.
-    }
+    const nearbyResults = await searchPlaces(keyword, location, milesToMeters(miles), "nearby");
+    competitors = mergeCompetitorCandidates(competitors, nearbyResults, matchOptions, limit);
     if (competitors.length >= limit) return competitors;
   }
 
@@ -193,7 +195,7 @@ function toCompetitorProfile(
     descriptionLength: 0,
     attributeCount: 0,
     mapPositions: {
-      [keyword]: place.position <= 3 ? (place.position as 1 | 2 | 3) : "not_in_pack",
+      [keyword]: place.position,
     },
     reviewThemes: [],
   };
@@ -327,7 +329,6 @@ export async function collectPlacesRankData(client: ClientConfig): Promise<{
         resolveCompetitorResults(keyword, location, matchOptions, {
           limit: TOP_COMPETITORS,
           initialResults: resultsByRadius[1],
-          locationLabel: `${client.location.city}, ${client.location.state}`,
         }),
       ]);
 

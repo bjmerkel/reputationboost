@@ -207,7 +207,7 @@ async function collectPreviewRankings(
         descriptionLength: 0,
         attributeCount: 0,
         mapPositions: {
-          [keyword]: place.position <= 3 ? (place.position as 1 | 2 | 3) : "not_in_pack",
+          [keyword]: place.position,
         },
         reviewThemes: [],
       })),

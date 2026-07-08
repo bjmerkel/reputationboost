@@ -28,6 +28,7 @@ import {
   createGoogleMapOptions,
 } from "@/lib/google/map-marker-icons";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
+import { competitorMapRank } from "@/lib/google/local-rankings";
 
 export { rankColor } from "@/components/platform/heatmap/rank-colors";
 
@@ -545,12 +546,9 @@ export default function RankingMap({
         if (cancelled || !position) continue;
 
         const packPos = activeKeyword
-          ? comp.mapPositions[activeKeyword]
-          : undefined;
-        const label =
-          typeof packPos === "number" && packPos <= 3
-            ? String(packPos)
-            : String(i + 1);
+          ? competitorMapRank(comp.mapPositions, activeKeyword, i)
+          : i + 1;
+        const label = String(packPos);
 
         const marker = new g.maps.Marker({
           position,

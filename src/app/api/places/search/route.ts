@@ -84,9 +84,6 @@ export async function GET(request: Request) {
   const competitors = await resolveCompetitorResults(keyword, location, matchOptions, {
     limit: 3,
     initialResults: businesses,
-    locationLabel: address
-      ? undefined
-      : `${business.location.city}, ${business.location.state}`,
   });
 
   return NextResponse.json({
