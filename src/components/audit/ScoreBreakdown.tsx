@@ -1,24 +1,30 @@
 import type { HealthScores } from "@/audit/types";
+import InfoTooltip from "@/components/ui/InfoTooltip";
+import { SCORE_TOOLTIPS, type ScoreTooltipContent } from "@/lib/scores/score-tooltips";
 
 const DRIVER_META = {
   label: "Profile strength",
   description: "Controllable signals — relevance, reviews, content",
+  tooltip: SCORE_TOOLTIPS.profileStrength,
   color: "#007b83",
 };
 
 const OUTCOME_META = {
   label: "Ranking outcome",
   description: "Where you rank today — visibility + click share",
+  tooltip: SCORE_TOOLTIPS.rankingOutcome,
   color: "#1a73e8",
 };
 
 const OUTCOME_DETAIL = {
   visibility: {
     label: "Visibility",
+    tooltip: SCORE_TOOLTIPS.visibility,
     color: "#1a73e8",
   },
   revenueCapture: {
     label: "Revenue capture",
+    tooltip: SCORE_TOOLTIPS.revenueCapture,
     color: "#188038",
   },
 };
@@ -64,23 +70,46 @@ export function normalizeHealthScores(scores: HealthScores | undefined | null): 
   };
 }
 
+function ScoreLabel({
+  label,
+  tooltip,
+  variant = "light",
+  compact,
+}: {
+  label: string;
+  tooltip?: ScoreTooltipContent;
+  variant?: "light" | "dark";
+  compact?: boolean;
+}) {
+  return (
+    <span className={`inline-flex items-center gap-1 font-medium text-[#3c4043] ${compact ? "text-xs" : "text-sm"}`}>
+      {label}
+      {tooltip && <InfoTooltip {...tooltip} variant={variant} />}
+    </span>
+  );
+}
+
 function ScoreBar({
   label,
   value,
   color,
   description,
+  tooltip,
+  variant = "light",
   compact,
 }: {
   label: string;
   value: number;
   color: string;
   description?: string;
+  tooltip?: ScoreTooltipContent;
+  variant?: "light" | "dark";
   compact?: boolean;
 }) {
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
-        <span className={`font-medium text-[#3c4043] ${compact ? "text-xs" : "text-sm"}`}>{label}</span>
+        <ScoreLabel label={label} tooltip={tooltip} variant={variant} compact={compact} />
         <span className={`font-semibold text-[#202124] ${compact ? "text-xs" : "text-sm"}`}>{value}/100</span>
       </div>
       {!compact && description && (
@@ -100,10 +129,12 @@ export default function ScoreBreakdown({
   scores,
   compact = false,
   showInsight = true,
+  variant = "light",
 }: {
   scores: HealthScores;
   compact?: boolean;
   showInsight?: boolean;
+  variant?: "light" | "dark";
 }) {
   const normalized = normalizeHealthScores(scores);
   if (!normalized) return null;
@@ -115,6 +146,8 @@ export default function ScoreBreakdown({
         value={normalized.driverScore}
         color={DRIVER_META.color}
         description={DRIVER_META.description}
+        tooltip={DRIVER_META.tooltip}
+        variant={variant}
         compact={compact}
       />
 
@@ -124,6 +157,8 @@ export default function ScoreBreakdown({
           value={normalized.outcomeIndex}
           color={OUTCOME_META.color}
           description={OUTCOME_META.description}
+          tooltip={OUTCOME_META.tooltip}
+          variant={variant}
           compact={compact}
         />
         {!compact && (
@@ -132,12 +167,16 @@ export default function ScoreBreakdown({
               label={OUTCOME_DETAIL.visibility.label}
               value={normalized.visibility}
               color={OUTCOME_DETAIL.visibility.color}
+              tooltip={OUTCOME_DETAIL.visibility.tooltip}
+              variant={variant}
               compact
             />
             <ScoreBar
               label={OUTCOME_DETAIL.revenueCapture.label}
               value={normalized.revenueCapture}
               color={OUTCOME_DETAIL.revenueCapture.color}
+              tooltip={OUTCOME_DETAIL.revenueCapture.tooltip}
+              variant={variant}
               compact
             />
           </div>

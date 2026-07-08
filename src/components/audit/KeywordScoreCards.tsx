@@ -2,6 +2,8 @@
 
 import type { KeywordScoreCard } from "@/audit/types";
 import { formatCurrency } from "@/audit/attribution/roi";
+import InfoTooltip from "@/components/ui/InfoTooltip";
+import { SCORE_TOOLTIPS } from "@/lib/scores/score-tooltips";
 
 export default function KeywordScoreCards({
   keywords,
@@ -86,9 +88,13 @@ function KeywordCard({
       )}
 
       <div className={`mt-2 grid grid-cols-3 gap-2 ${compact ? "text-[10px]" : "text-xs"}`}>
-        <Metric label="Visibility" value={`${kw.visibilityScore}/100`} />
-        <Metric label="Relevance" value={`${kw.relevanceScore}/100`} />
-        <Metric label="Revenue capture" value={`${kw.revenueCaptureScore}/100`} />
+        <Metric label="Visibility" value={`${kw.visibilityScore}/100`} tooltip={SCORE_TOOLTIPS.visibility} />
+        <Metric label="Relevance" value={`${kw.relevanceScore}/100`} tooltip={SCORE_TOOLTIPS.relevance} />
+        <Metric
+          label="Revenue capture"
+          value={`${kw.revenueCaptureScore}/100`}
+          tooltip={SCORE_TOOLTIPS.revenueCapture}
+        />
       </div>
 
       <p className={`mt-1.5 text-[#80868b] ${compact ? "text-[10px]" : "text-xs"}`}>
@@ -140,10 +146,21 @@ function RadiusBadge({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  tooltip,
+}: {
+  label: string;
+  value: string;
+  tooltip?: (typeof SCORE_TOOLTIPS)[keyof typeof SCORE_TOOLTIPS];
+}) {
   return (
     <div>
-      <p className="text-[#80868b]">{label}</p>
+      <p className="inline-flex items-center gap-0.5 text-[#80868b]">
+        {label}
+        {tooltip && <InfoTooltip {...tooltip} className="scale-90" />}
+      </p>
       <p className="font-semibold text-[#202124]">{value}</p>
     </div>
   );

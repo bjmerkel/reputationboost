@@ -1,0 +1,69 @@
+export interface ScoreTooltipContent {
+  title: string;
+  calculation: string;
+  importance: string;
+}
+
+export const SCORE_TOOLTIPS = {
+  overall: {
+    title: "Reputation Boost Score",
+    calculation:
+      "70% Profile strength + 30% Ranking outcome, blended into one 0–100 score. Grades: Healthy 70+, At risk 40–69, Urgent below 40.",
+    importance:
+      "Your headline health check — combines what you can control on your listing with where you actually rank, so you know if Google is sending you customers.",
+  },
+  profileStrength: {
+    title: "Profile strength",
+    calculation:
+      "Reviews (rating and volume vs competitors), profile completeness, photos and videos, post recency, review response rate, keyword relevance, place actions, and notifications — weighted into one 0–100 score.",
+    importance:
+      "These are signals you control directly on your Google Business Profile. A stronger profile helps Google trust and recommend your business.",
+  },
+  rankingOutcome: {
+    title: "Ranking outcome",
+    calculation: "60% Visibility + 40% Revenue capture, combined into one 0–100 score.",
+    importance:
+      "Reflects real search results today — how often you show up in the Local 3-Pack and how much of the available map traffic you capture.",
+  },
+  visibility: {
+    title: "Visibility",
+    calculation:
+      "Impression-weighted average across your keywords: share of your service area where you rank in Google's Local 3-Pack, blending geo-grid coverage with rank at 1, 3, 5, and 10 mile radii.",
+    importance:
+      "Measures discoverability. Customers can't call or visit if your listing doesn't appear when they search nearby.",
+  },
+  revenueCapture: {
+    title: "Revenue capture",
+    calculation:
+      "Impression-weighted click-share by pack position across your service area — #1 captures the most map clicks, #2 and #3 less, and positions outside the pack capture very little.",
+    importance:
+      "Estimates how much of the available map demand you're winning. Moving up one pack position can meaningfully increase calls and directions.",
+  },
+  relevance: {
+    title: "Relevance",
+    calculation:
+      "How well your categories, services, description, attributes, and reviews align with this keyword compared to what Google expects for the search.",
+    importance:
+      "Google favors listings that clearly match the search. Low relevance means profile edits may help even before rank changes.",
+  },
+  grade: {
+    title: "Score grade",
+    calculation: "Based on your Reputation Boost Score: Healthy 70–100, At risk 40–69, Urgent 0–39.",
+    importance:
+      "Shows how urgently to act. Below 70, competitors are likely capturing map searches you should be winning.",
+  },
+  scoreDelta: {
+    title: "Score change",
+    calculation:
+      "Change in your overall Reputation Boost Score compared to your previous audit.",
+    importance:
+      "Tracks whether recent work on your profile and rankings is moving the needle over time.",
+  },
+  serviceAreaCoverage: {
+    title: "Service area coverage",
+    calculation:
+      "Average geo-grid coverage across your tracked keywords — the share of map areas where you rank in Google's top 3.",
+    importance:
+      "Shows geographic strength beyond your business pin. Weak zones are opportunities to improve rankings in neighborhoods you serve.",
+  },
+} as const satisfies Record<string, ScoreTooltipContent>;

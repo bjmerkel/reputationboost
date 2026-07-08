@@ -3,6 +3,8 @@
 import type { FullAuditPayload } from "@/audit/types";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
+import InfoTooltip from "@/components/ui/InfoTooltip";
+import { SCORE_TOOLTIPS } from "@/lib/scores/score-tooltips";
 
 interface PlaceCardDetailsProps {
   audit: FullAuditPayload;
@@ -23,13 +25,16 @@ export default function PlaceCardDetails({ audit, onPreviewCustomer }: PlaceCard
       <div className="flex items-start gap-3">
         <ListingStrengthRing score={score} color={gradeColor} />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-[#5f6368]">Reputation Boost Score</p>
+          <p className="inline-flex items-center gap-1 text-xs font-medium text-[#5f6368]">
+            Reputation Boost Score
+            <InfoTooltip {...SCORE_TOOLTIPS.overall} />
+          </p>
           <p className="text-sm font-medium text-[#202124]">
             {score}/100 · {grade.replace("_", " ")}
           </p>
           {strategy?.scores && (
             <div className="mt-2">
-              <ScoreBreakdown scores={strategy.scores} compact showInsight />
+              <ScoreBreakdown scores={strategy.scores} compact showInsight variant="light" />
             </div>
           )}
         </div>
