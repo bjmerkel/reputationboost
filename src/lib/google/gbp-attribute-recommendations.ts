@@ -1,4 +1,4 @@
-import type { GbpAttributeCoverage } from "@/audit/types";
+import type { GbpAttributeCoverage, GbpAttributeCoverageItem } from "@/audit/types";
 import type {
   GbpAttributeMetadata,
   GbpAttributeUpdate,
@@ -28,6 +28,112 @@ const HIGH_VALUE_KEYWORDS = [
 ];
 
 const ATTRIBUTE_BATCH_SIZE = 25;
+
+const PROFILE_LINK_PLATFORM_KEYWORDS = [
+  "facebook",
+  "instagram",
+  "linkedin",
+  "pinterest",
+  "tiktok",
+  "whatsapp",
+  "twitter",
+  "youtube",
+  "texting",
+];
+
+const SUPPLEMENTAL_PROFILE_LINK_ATTRIBUTES: Array<
+  Pick<GbpAttributeMetadata, "name" | "displayName" | "groupDisplayName" | "valueType">
+> = [
+  {
+    name: "attributes/url_facebook",
+    displayName: "Facebook",
+    groupDisplayName: "Place page URLs",
+    valueType: "URL",
+  },
+  {
+    name: "attributes/url_instagram",
+    displayName: "Instagram",
+    groupDisplayName: "Place page URLs",
+    valueType: "URL",
+  },
+];
+
+function profileLinkHaystack(
+  meta: Pick<GbpAttributeMetadata, "displayName" | "groupDisplayName" | "name">
+): string {
+  return `${meta.displayName} ${meta.groupDisplayName} ${meta.name}`.toLowerCase();
+}
+
+export function isProfileLinkAttribute(
+  meta: Pick<GbpAttributeMetadata, "displayName" | "groupDisplayName" | "name" | "valueType">
+): boolean {
+  if (!isUriAttributeType(meta.valueType)) return false;
+
+  const haystack = profileLinkHaystack(meta);
+  if (haystack.includes("place page url")) return true;
+
+  if (
+    haystack.includes("appointment") ||
+    haystack.includes("booking") ||
+    haystack.includes("menu") ||
+    haystack.includes("reserv")
+  ) {
+    return false;
+  }
+
+  return PROFILE_LINK_PLATFORM_KEYWORDS.some((keyword) => haystack.includes(keyword));
+}
+
+export function isProfileLinkCoverageItem(
+  item: Pick<GbpAttributeCoverageItem, "displayName" | "groupDisplayName" | "name" | "valueType">
+): boolean {
+  return isProfileLinkAttribute(item);
+}
+
+function buildMissingProfileLinkItems(
+  active: GbpAttributeMetadata[],
+  enabled: GbpAttributeCoverageItem[]
+): GbpAttributeCoverageItem[] {
+  const enabledKeys = new Set(enabled.map((item) => attributeKey(item.name)));
+  const seen = new Set<string>();
+  const items: GbpAttributeCoverageItem[] = [];
+
+  const add = (item: GbpAttributeCoverageItem) => {
+    const key = attributeKey(item.name);
+    if (enabledKeys.has(key) || seen.has(key)) return;
+    seen.add(key);
+    items.push(item);
+  };
+
+  for (const meta of active) {
+    if (!isProfileLinkAttribute(meta)) continue;
+    add({
+      name: meta.name,
+      displayName: meta.displayName,
+      groupDisplayName: meta.groupDisplayName,
+      valueType: meta.valueType,
+      autoApplicable: false,
+    });
+  }
+
+  for (const supplemental of SUPPLEMENTAL_PROFILE_LINK_ATTRIBUTES) {
+    const platform = supplemental.displayName.toLowerCase();
+    const alreadyRepresented = active.some(
+      (meta) => isProfileLinkAttribute(meta) && profileLinkHaystack(meta).includes(platform)
+    );
+    if (alreadyRepresented) continue;
+
+    add({
+      name: supplemental.name,
+      displayName: supplemental.displayName,
+      groupDisplayName: supplemental.groupDisplayName,
+      valueType: supplemental.valueType,
+      autoApplicable: false,
+    });
+  }
+
+  return items.sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
 
 function matchesHighValue(meta: GbpAttributeMetadata): boolean {
   const haystack = `${meta.displayName} ${meta.groupDisplayName} ${meta.name}`.toLowerCase();
@@ -126,12 +232,16 @@ export function buildAttributeCoverage(
     .map((meta) => buildAutoUpdate(meta, options?.websiteUri))
     .filter((update): update is GbpAttributeUpdate => update != null);
 
+  const profileLinkMissing = buildMissingProfileLinkItems(active, enabled);
+
   return {
     enabledCount: enabled.length,
     availableCount: active.length,
     missingCount: missing.length,
     enabled,
     missing,
+    profileLinkMissing,
+    supportedAttributeNames: active.map((meta) => meta.name),
     autoUpdates,
   };
 }
@@ -231,7 +341,33 @@ export function suggestUriForAttribute(
     }
   }
 
+  if (haystack.includes("facebook")) {
+    return "https://www.facebook.com/";
+  }
+  if (haystack.includes("instagram")) {
+    return "https://www.instagram.com/";
+  }
+
   return "";
+}
+
+/** Placeholder hint for profile-link URL inputs. */
+export function profileLinkUriPlaceholder(
+  meta: Pick<GbpAttributeMetadata, "displayName" | "name">
+): string {
+  const haystack = `${meta.displayName} ${meta.name}`.toLowerCase();
+  if (haystack.includes("facebook")) return "https://www.facebook.com/your-page";
+  if (haystack.includes("instagram")) return "https://www.instagram.com/your-handle";
+  if (haystack.includes("linkedin")) return "https://www.linkedin.com/company/your-page";
+  if (haystack.includes("pinterest")) return "https://www.pinterest.com/your-page";
+  if (haystack.includes("tiktok")) return "https://www.tiktok.com/@your-handle";
+  if (haystack.includes("whatsapp")) return "https://wa.me/15551234567";
+  if (haystack.includes("twitter") || haystack.includes("_x")) {
+    return "https://www.twitter.com/your-handle";
+  }
+  if (haystack.includes("youtube")) return "https://www.youtube.com/@your-channel";
+  if (haystack.includes("text")) return "sms:+15551234567";
+  return "https://";
 }
 
 /** URI attributes that can be published once the user supplies a link. */

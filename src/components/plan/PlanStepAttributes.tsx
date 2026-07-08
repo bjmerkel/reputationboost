@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ExecutionTask, GbpAttributeCoverage } from "@/audit/types";
 import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
-import { attributeDisplayName } from "@/lib/google/gbp-attribute-recommendations";
+import { attributeDisplayName, profileLinkUriPlaceholder } from "@/lib/google/gbp-attribute-recommendations";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 
 function readAttributeUpdates(task: ExecutionTask): GbpAttributeUpdate[] {
@@ -278,7 +278,12 @@ export default function PlanStepAttributes({
                                 type="url"
                                 value={uriValue}
                                 onChange={(event) => updateUri(update.name, event.target.value)}
-                                placeholder="https://..."
+                                placeholder={
+                                  profileLinkUriPlaceholder({
+                                    name: update.name,
+                                    displayName: label,
+                                  })
+                                }
                                 className={`mt-2 w-full rounded-md border px-2.5 py-1.5 text-xs ${
                                   isLight
                                     ? "border-[#dadce0] bg-white text-[#202124] placeholder:text-[#80868b]"

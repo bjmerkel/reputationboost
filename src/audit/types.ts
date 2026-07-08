@@ -241,6 +241,8 @@ export interface GbpAttributeCoverage {
   missingCount: number;
   enabled: GbpAttributeCoverageItem[];
   missing: GbpAttributeCoverageItem[];
+  profileLinkMissing: GbpAttributeCoverageItem[];
+  supportedAttributeNames: string[];
   autoUpdates: Array<{
     name: string;
     boolValue?: boolean;

@@ -4,7 +4,7 @@ import type {
   KeywordRankAnalysis,
   Phase1AuditPayload,
 } from "../types";
-import { isUriAttributeType } from "@/lib/google/gbp-attribute-recommendations";
+import { isProfileLinkCoverageItem, isUriAttributeType } from "@/lib/google/gbp-attribute-recommendations";
 import { detectPackFragility } from "./scoring";
 
 function profile(audit: Phase1AuditPayload) {
@@ -307,23 +307,24 @@ export function buildAttributePlanContent(audit: Phase1AuditPayload): {
   }
 
   const autoMissing = coverage.missing.filter((item) => item.autoApplicable);
-  const manualMissing = coverage.missing.filter((item) => !item.autoApplicable);
-  const uriMissing = manualMissing.filter((item) => isUriAttributeType(item.valueType));
-  const enumMissing = manualMissing.filter((item) => !isUriAttributeType(item.valueType));
+  const profileLinkMissing = coverage.profileLinkMissing ?? [];
+  const enumMissing = coverage.missing.filter(
+    (item) => !item.autoApplicable && !isProfileLinkCoverageItem(item) && !isUriAttributeType(item.valueType)
+  );
 
   const recommended =
     autoMissing.length > 0
       ? `Enable ${autoMissing.length} missing attribute${autoMissing.length === 1 ? "" : "s"}${
-          uriMissing.length > 0
-            ? `, then add ${uriMissing.length} profile link${uriMissing.length === 1 ? "" : "s"}`
+          profileLinkMissing.length > 0
+            ? `, then add ${profileLinkMissing.length} profile link${profileLinkMissing.length === 1 ? "" : "s"}`
             : ""
         }${
           enumMissing.length > 0
             ? `, then set ${enumMissing.length} more in Google`
             : ""
         }`
-      : uriMissing.length > 0
-        ? `Add ${uriMissing.length} profile link${uriMissing.length === 1 ? "" : "s"}${
+      : profileLinkMissing.length > 0
+        ? `Add ${profileLinkMissing.length} profile link${profileLinkMissing.length === 1 ? "" : "s"}${
             enumMissing.length > 0
               ? `, then set ${enumMissing.length} more in Google`
               : ""
@@ -333,9 +334,15 @@ export function buildAttributePlanContent(audit: Phase1AuditPayload): {
   const bullets = [
     ...coverage.missing.slice(0, 8).map((item) => {
       if (item.autoApplicable) return `Enable: ${item.displayName}`;
-      if (isUriAttributeType(item.valueType)) return `Add link: ${item.displayName}`;
+      if (isProfileLinkCoverageItem(item) || isUriAttributeType(item.valueType)) {
+        return `Add link: ${item.displayName}`;
+      }
       return `Set manually: ${item.displayName}`;
     }),
+    ...(profileLinkMissing
+      .filter((item) => !coverage.missing.some((missing) => missing.name === item.name))
+      .slice(0, 4)
+      .map((item) => `Add link: ${item.displayName}`)),
     ...(coverage.missing.length > 8
       ? [`+ ${coverage.missing.length - 8} more attribute${coverage.missing.length - 8 === 1 ? "" : "s"}`]
       : []),
@@ -350,11 +357,11 @@ export function buildAttributePlanContent(audit: Phase1AuditPayload): {
           },
         ]
       : []),
-    ...(uriMissing.length > 0
+    ...(profileLinkMissing.length > 0
       ? [
           {
-            label: `Profile links (${uriMissing.length})`,
-            content: uriMissing
+            label: `Profile links (${profileLinkMissing.length})`,
+            content: profileLinkMissing
               .map(
                 (item) =>
                   `• ${item.displayName}${item.groupDisplayName ? ` (${item.groupDisplayName})` : ""}`
