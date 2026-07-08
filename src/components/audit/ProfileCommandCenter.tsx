@@ -26,7 +26,7 @@ const STATUS_STYLES: Record<
   GbpLocationInventoryField["status"],
   { label: string; className: string }
 > = {
-  good: { label: "Good", className: "bg-[#e6f4ea] text-[#137333]" },
+  good: { label: "Active", className: "bg-[#e6f4ea] text-[#137333]" },
   needs_work: { label: "Needs work", className: "bg-[#fef7e0] text-[#e37400]" },
   missing: { label: "Missing", className: "bg-[#fce8e6] text-[#c5221f]" },
   conflict: { label: "Conflict", className: "bg-[#fce8e6] text-[#c5221f]" },
@@ -205,7 +205,7 @@ export default function ProfileCommandCenter({
       )}
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
-        <SummaryPill label="Good" value={inventory.summary.good} tone="good" isLight={isLight} />
+        <SummaryPill label="Active" value={inventory.summary.good} tone="good" isLight={isLight} />
         <SummaryPill
           label="Needs work"
           value={inventory.summary.needsWork}
