@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   attributeDisplayName,
   buildAttributeCoverage,
+  buildConfiguredProfileLinks,
   buildUserUriAttributeUpdates,
   chunkAttributeUpdates,
   isProfileLinkCoverageItem,
@@ -124,6 +125,48 @@ describe("attribute plan integration", () => {
     assert.ok(planContent.copyBlocks?.some((block) => block.label.includes("One-click")));
     assert.ok(planContent.copyBlocks?.some((block) => block.label.includes("Profile links")));
     assert.ok(planContent.copyBlocks?.some((block) => block.label.includes("Set manually")));
+  });
+
+  it("detects configured Facebook and Instagram and excludes them from gaps", () => {
+    const configuredCurrent = [
+      ...current,
+      {
+        name: "attributes/url_facebook",
+        valueType: "URL",
+        values: ["https://www.facebook.com/nlclasvegas"],
+      },
+      {
+        name: "attributes/url_instagram",
+        valueType: "URL",
+        values: ["https://www.instagram.com/northlearningcenter/"],
+      },
+    ];
+    const coverage = buildAttributeCoverage(available, configuredCurrent, {
+      websiteUri: "https://example.com/book",
+    });
+
+    assert.equal(coverage.configuredProfileLinks.length, 2);
+    assert.equal(coverage.configuredProfileLinks[0].uri, "https://www.facebook.com/nlclasvegas");
+    assert.ok(!coverage.profileLinkMissing.some((item) => item.displayName === "Facebook"));
+    assert.ok(!coverage.profileLinkMissing.some((item) => item.displayName === "Instagram"));
+    assert.ok(!resolveProfileLinkMissing(coverage).some((item) => item.displayName === "Facebook"));
+  });
+
+  it("buildConfiguredProfileLinks reads URIs from current GBP attributes", () => {
+    const links = buildConfiguredProfileLinks(
+      [
+        {
+          name: "attributes/url_facebook",
+          valueType: "URL",
+          values: ["https://www.facebook.com/nlclasvegas"],
+        },
+      ],
+      available
+    );
+
+    assert.equal(links.length, 1);
+    assert.equal(links[0].displayName, "Facebook");
+    assert.equal(links[0].uri, "https://www.facebook.com/nlclasvegas");
   });
 
   it("includes Facebook and Instagram in profile link gaps when not configured", () => {

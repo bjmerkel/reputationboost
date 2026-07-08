@@ -90,6 +90,9 @@ export default function PlanStepAttributes({
 
     const profileLinks = resolveProfileLinkMissing(coverage);
     const taskAttrs = readAttributeUpdates(task);
+    const configuredByName = new Map(
+      (coverage?.configuredProfileLinks ?? []).map((link) => [link.name, link.uri])
+    );
     const suggested = buildUserUriAttributeUpdates(profileLinks, {
       phone: businessPhone,
       websiteUri: businessWebsite,
@@ -97,9 +100,15 @@ export default function PlanStepAttributes({
 
     return suggested.map((update) => ({
       ...update,
-      uri: taskAttrs.find((item) => item.name === update.name)?.uri || update.uri || "",
+      uri:
+        configuredByName.get(update.name) ||
+        taskAttrs.find((item) => item.name === update.name)?.uri ||
+        update.uri ||
+        "",
     }));
   }, [task, coverage, requiresUriInput, businessPhone, businessWebsite]);
+
+  const configuredProfileLinks = coverage?.configuredProfileLinks ?? [];
 
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [uriValues, setUriValues] = useState<Record<string, string>>({});
@@ -245,6 +254,29 @@ export default function PlanStepAttributes({
           {task.status.replace(/_/g, " ")}
         </span>
       </div>
+
+      {configuredProfileLinks.length > 0 && (
+        <div className="mt-3">
+          <p className={`text-[10px] font-semibold uppercase tracking-wide ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+            Already on your Google profile
+          </p>
+          <ul className="mt-1.5 space-y-1.5">
+            {configuredProfileLinks.map((link) => (
+              <li
+                key={link.name}
+                className={`rounded-lg border px-3 py-2 text-xs ${
+                  isLight ? "border-[#ceead6] bg-[#f6faf7] text-[#137333]" : "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+                }`}
+              >
+                <div className="font-medium">{link.displayName}</div>
+                <p className={`mt-1 truncate ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                  {link.uri}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {task.status !== "completed" && (
         <>
