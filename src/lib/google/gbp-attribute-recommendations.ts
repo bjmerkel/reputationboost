@@ -413,7 +413,7 @@ export function attributeDisplayName(
 }
 
 function profilePlatformKey(
-  item: Pick<GbpAttributeCoverageItem, "displayName" | "name">
+  item: Pick<GbpAttributeCoverageItem, "displayName" | "groupDisplayName" | "name">
 ): string | null {
   const haystack = profileLinkHaystack(item);
   for (const platform of PROFILE_LINK_PLATFORM_KEYWORDS) {
