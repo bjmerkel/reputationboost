@@ -211,6 +211,11 @@ export async function sendReviewRequests(
       customer,
       businessName: input.business.name,
       reviewUrl,
+      focusKeyword,
+      location: {
+        city: input.business.location.city,
+        state: input.business.location.state,
+      },
     });
 
     if (input.dryRun) {

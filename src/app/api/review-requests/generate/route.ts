@@ -106,9 +106,7 @@ export async function POST(request: Request) {
       template = await generateReviewRequestMessage(audit, keywordMatchedSample ?? undefined, focusKeyword);
     } else {
       const firstName = keywordMatchedSample?.first_name?.trim() || "[FIRST_NAME]";
-      const service =
-        keywordMatchedSample?.service_notes?.trim() || focusKeyword || "[SERVICE]";
-      template = `Hi ${firstName}! Thanks for choosing [BUSINESS] for ${service}. If your experience was great, a quick Google review would mean a lot: [REVIEW_LINK]`;
+      template = `Hi ${firstName}! Thanks for choosing [BUSINESS] for [SERVICE]. If your experience was great, a quick Google review would mean a lot: [REVIEW_LINK]`;
     }
 
     const previewCustomer = keywordMatchedSample ?? sampleCustomer;
@@ -117,7 +115,11 @@ export async function POST(request: Request) {
       businessName: business.name,
       reviewUrl: reviewUrl ?? "https://example.com/review",
       customer: previewCustomer,
-      serviceFallback: focusKeyword,
+      focusKeyword,
+      location: {
+        city: business.location.city,
+        state: business.location.state,
+      },
     });
 
     return NextResponse.json({

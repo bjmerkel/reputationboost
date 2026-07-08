@@ -168,6 +168,11 @@ export async function scheduleReviewRequestForCustomer(input: {
     customer: input.customer,
     businessName: input.business.name,
     reviewUrl,
+    focusKeyword: input.focusKeyword,
+    location: {
+      city: input.business.location.city,
+      state: input.business.location.state,
+    },
   });
 
   const sendAt = addHours(new Date(), Math.max(0, input.delayHours));
