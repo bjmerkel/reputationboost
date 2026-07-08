@@ -22,15 +22,12 @@ import {
   type GbpPhotoJob,
 } from "./gbp-photos";
 
+import type { ReviewResponseKeywordWeave, ReviewResponseDraft } from "@/lib/review-responses/types";
+
 export interface AuditGeneratedContent {
   googlePosts: string[];
   gbpDescription: string;
-  reviewResponses: Array<{
-    reviewId: string;
-    rating: number;
-    response: string;
-    keywordWeave?: import("@/lib/review-responses/types").ReviewResponseKeywordWeave;
-  }>;
+  reviewResponses: ReviewResponseDraft[];
   reviewRequestSms: string;
   socialPost: string;
   gbpPhotoJobs: GbpPhotoJob[];

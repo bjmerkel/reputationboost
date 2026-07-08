@@ -11,7 +11,7 @@ import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { generateReviewResponses, mapActionToExecutionType } from "./content";
 import { SUPPLEMENTARY_GAP_IDS, tasksFromGbpPlan, tasksFromGoogleSuggestions, tasksFromMediaMaintenance, tasksFromNapDrift, tasksFromNotificationGaps, tasksFromPlaceActionGaps, tasksFromVideoGaps } from "./gbp-plan-tasks";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
-import { reviewResponseKeywordFields } from "@/lib/review-responses/payload";
+import { reviewResponseKeywordFields, optionalReviewResponseKeywordWeave } from "@/lib/review-responses/payload";
 
 function requiresApproval(type: ExecutionTask["type"]): boolean {
   return [
@@ -126,7 +126,7 @@ function tasksFromReviewResponses(
           r.reviewId,
           r.response,
           review?.text ?? "",
-          "keywordWeave" in r ? r.keywordWeave : undefined
+          optionalReviewResponseKeywordWeave(r)
         ),
       },
       isRedraft

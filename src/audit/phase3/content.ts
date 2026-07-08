@@ -34,11 +34,9 @@ export function generateGbpDescription(audit: FullAuditPayload): string {
     `Our experienced team delivers fast, reliable service on every visit.`;
 }
 
-export function generateReviewResponses(audit: FullAuditPayload): Array<{
-  reviewId: string;
-  rating: number;
-  response: string;
-}> {
+import type { ReviewResponseDraft } from "@/lib/review-responses/types";
+
+export function generateReviewResponses(audit: FullAuditPayload): ReviewResponseDraft[] {
   const pending = audit.reviews.reviews.filter(
     (r) => !r.responded || r.replyState === "REJECTED"
   );

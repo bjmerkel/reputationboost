@@ -5,9 +5,7 @@ import {
   weaveReasonLabel,
 } from "./keyword-context";
 import type { FullAuditPayload } from "@/audit/types";
-import type { ReviewResponseKeywordWeave } from "./types";
-
-export type { ReviewResponseKeywordWeave } from "./types";
+import type { ReviewResponseDraft, ReviewResponseKeywordWeave } from "./types";
 
 export function buildReviewResponseKeywordPayload(
   response: string,
@@ -31,6 +29,12 @@ export function buildReviewResponseKeywordPayload(
     weaveReason: weaveReasonLabel(context),
     targetKeywords: keywordsHit.length > 0 ? keywordsHit : suggested ? [suggested] : [],
   };
+}
+
+export function optionalReviewResponseKeywordWeave(
+  response: ReviewResponseDraft
+): ReviewResponseKeywordWeave | undefined {
+  return response.keywordWeave;
 }
 
 export function reviewResponseKeywordFields(

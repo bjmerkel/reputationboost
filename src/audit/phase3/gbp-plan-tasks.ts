@@ -33,7 +33,7 @@ import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { generateReviewResponses } from "@/audit/phase3/content";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
-import { reviewResponseKeywordFields } from "@/lib/review-responses/payload";
+import { reviewResponseKeywordFields, optionalReviewResponseKeywordWeave } from "@/lib/review-responses/payload";
 import { getPhaseForStep } from "./plan-phases";
 import { isCustomPlanStep } from "./plan-custom-steps";
 import { buildTaskPayloadContext } from "./step-context";
@@ -295,7 +295,7 @@ export function buildReviewResponseTasks(
             r.reviewId,
             r.response,
             review?.text ?? "",
-            "keywordWeave" in r ? r.keywordWeave : undefined
+            optionalReviewResponseKeywordWeave(r)
           ),
           ...customPayload,
         }

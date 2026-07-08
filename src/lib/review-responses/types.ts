@@ -4,3 +4,10 @@ export interface ReviewResponseKeywordWeave {
   weaveSkipped: boolean;
   weaveReason: string | null;
 }
+
+export interface ReviewResponseDraft {
+  reviewId: string;
+  rating: number;
+  response: string;
+  keywordWeave?: ReviewResponseKeywordWeave;
+}

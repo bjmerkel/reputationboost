@@ -59,9 +59,9 @@ export function resolveTargetKeywords(task: ExecutionTask, keywords: string[]): 
         const resolved = fromHit.filter((k): k is string => typeof k === "string" && k.length > 0);
         if (resolved.length > 0) return resolved;
       }
-      const fromDraft = keywordsHitInText(task.draftContent, keywords);
-      if (fromDraft.length > 0) return fromDraft;
-      break;
+      const fromDraftHits = keywordsHitInText(task.draftContent, keywords);
+      if (fromDraftHits.length > 0) return fromDraftHits;
+      return [];
     }
     case "gbp_description":
     case "gbp_services":
