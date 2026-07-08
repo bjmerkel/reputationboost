@@ -13,6 +13,7 @@ import { scheduleReviewRequestForCustomer } from "@/lib/review-requests/schedule
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildPrivateFeedbackTemplate } from "@/lib/sms/private-feedback";
 import { sendReviewRequests } from "@/lib/sms/send-review-requests";
+import { inferWebhookServiceNotes } from "./webhook-service";
 import { isOptOutEvent, normalizeWebhookPayload } from "./normalize-webhook-payload";
 import {
   getBusinessConfigForWebhook,
@@ -135,12 +136,22 @@ export async function processInboundWebhook(
   const payload = normalizeWebhookPayload(rawBody);
   const business = await getBusinessConfigForWebhook(settings);
 
+  const rawAudit = await loadLatestAuditForBusinessAdmin(
+    settings.userId,
+    settings.businessId,
+    business.id,
+    business.name
+  );
+  const audit = rawAudit ? ensureStrategy(rawAudit) : null;
+
+  const serviceNotes = inferWebhookServiceNotes(payload, audit) ?? payload.service;
+
   let customer = await upsertCustomerAdmin(settings.userId, settings.businessId, {
     firstName: payload.firstName,
     lastName: payload.lastName,
     phone: payload.phone,
     email: payload.email,
-    serviceNotes: payload.service,
+    serviceNotes,
     lastServiceDate: payload.serviceDate,
     source: payload.source ?? "webhook",
   });
@@ -191,13 +202,6 @@ export async function processInboundWebhook(
     };
   }
 
-  const rawAudit = await loadLatestAuditForBusinessAdmin(
-    settings.userId,
-    settings.businessId,
-    business.id,
-    business.name
-  );
-  const audit = rawAudit ? ensureStrategy(rawAudit) : null;
   const hasReviewGap = auditHasReviewGap(audit);
   const sentiment = readSentiment(payload as unknown as Record<string, unknown>);
 
@@ -258,6 +262,7 @@ export async function processInboundWebhook(
           business,
           template,
           customerIds: [customer.id],
+          focusKeyword,
           serviceRole: true,
           reviewUrlOverride,
         });

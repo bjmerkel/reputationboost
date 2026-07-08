@@ -51,18 +51,31 @@ describe("normalizePersonName", () => {
   });
 });
 
+interface SentSmsCandidate {
+  id: string;
+  customer_id: string | null;
+  sent_at: string;
+  focus_keyword?: string | null;
+  customers?: {
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
+}
+
 describe("pickAttributionCandidate", () => {
-  const messages = [
+  const messages: SentSmsCandidate[] = [
     {
       id: "sms-1",
       customer_id: "c1",
       sent_at: "2026-07-05T12:00:00.000Z",
+      focus_keyword: "after school programs las vegas",
       customers: { first_name: "Jane", last_name: "Doe" },
     },
     {
       id: "sms-2",
       customer_id: "c2",
       sent_at: "2026-07-04T12:00:00.000Z",
+      focus_keyword: "tutoring las vegas",
       customers: { first_name: "John", last_name: "Smith" },
     },
   ];
@@ -77,6 +90,17 @@ describe("pickAttributionCandidate", () => {
     const picked = pickAttributionCandidate(messages, new Set(), "Anonymous");
     assert.equal(picked?.candidate.id, "sms-1");
     assert.equal(picked?.method, "time_window");
+  });
+
+  it("prefers keyword match in review text when available", () => {
+    const picked = pickAttributionCandidate(
+      messages,
+      new Set(),
+      "Anonymous",
+      "Our kids love the after school program here"
+    );
+    assert.equal(picked?.candidate.id, "sms-1");
+    assert.equal(picked?.method, "keyword_match");
   });
 
   it("skips already attributed SMS rows", () => {

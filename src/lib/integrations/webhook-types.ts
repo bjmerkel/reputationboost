@@ -15,6 +15,8 @@ export interface WebhookPayload {
   name?: string;
   email?: string;
   service?: string;
+  jobType?: string;
+  lineItemTitle?: string;
   serviceDate?: string;
   externalId?: string;
   source?: string;

@@ -1,6 +1,10 @@
 import type { FullAuditPayload, KeywordRankAnalysis } from "@/audit/types";
 import type { CustomerRecord } from "@/lib/customers/types";
+import type { ReviewKeywordCampaign } from "@/lib/review-requests/campaign-storage";
 import { estimateStepHealthImpact } from "@/audit/phase2/score-impact";
+
+/** Minimum keyword-matched customers required before restricting sends to matches only. */
+export const KEYWORD_ONLY_SEND_MIN_MATCHED = 3;
 
 export interface ReviewKeywordTarget {
   keyword: string;
@@ -15,6 +19,12 @@ export interface ReviewKeywordTarget {
   reviewsRemaining: number;
   /** 0–100 progress toward mention target */
   progressPercent: number;
+  /** Active campaign start date, if any */
+  campaignStartedAt?: string | null;
+  /** Mentions in review text since campaign started */
+  newMentionsSinceCampaign?: number;
+  /** SMS-attributed reviews linked to this keyword campaign */
+  attributedSinceCampaign?: number;
   priority: "high" | "medium";
   recommendation: string;
 }
@@ -64,6 +74,52 @@ export function countReviewMentionsForKeyword(
     const lower = review.text.toLowerCase();
     return tokens.some((t) => lower.includes(t));
   }).length;
+}
+
+export function reviewTextMentionsKeyword(text: string, keyword: string): boolean {
+  const tokens = significantTokens(keyword);
+  const lower = text.toLowerCase();
+  if (tokens.length === 0) return lower.includes(keyword.toLowerCase());
+  return tokens.some((t) => lower.includes(t));
+}
+
+export function countReviewMentionsSince(
+  audit: FullAuditPayload,
+  keyword: string,
+  sinceIso: string
+): number {
+  const since = new Date(sinceIso).getTime();
+  const tokens = significantTokens(keyword);
+  if (tokens.length === 0) return 0;
+
+  return audit.reviews.reviews.filter((review) => {
+    const reviewTime = new Date(review.publishedAt).getTime();
+    if (Number.isNaN(reviewTime) || reviewTime < since) return false;
+    const lower = review.text.toLowerCase();
+    return tokens.some((t) => lower.includes(t));
+  }).length;
+}
+
+export function selectCustomersForCampaign<T extends Pick<CustomerRecord, "service_notes">>(
+  customers: T[],
+  focusKeyword: string | null | undefined,
+  batchSize: number
+): { customers: T[]; keywordFilterApplied: boolean } {
+  if (!focusKeyword?.trim()) {
+    return { customers: customers.slice(0, batchSize), keywordFilterApplied: false };
+  }
+
+  const keyword = focusKeyword.trim();
+  const matched = customers.filter((customer) => customerMatchesKeyword(customer, keyword));
+
+  if (matched.length >= Math.min(batchSize, KEYWORD_ONLY_SEND_MIN_MATCHED)) {
+    return { customers: matched.slice(0, batchSize), keywordFilterApplied: true };
+  }
+
+  return {
+    customers: prioritizeCustomersByKeyword(customers, keyword, batchSize),
+    keywordFilterApplied: false,
+  };
 }
 
 export function prioritizeCustomersByKeyword<T extends Pick<CustomerRecord, "service_notes">>(
@@ -132,16 +188,28 @@ function recommendationForKeyword(row: KeywordRankAnalysis, needed: number): str
 
 function rankKeywordTargets(
   rankings: KeywordRankAnalysis[],
-  audit: FullAuditPayload
+  audit: FullAuditPayload,
+  campaigns: ReviewKeywordCampaign[] = []
 ): ReviewKeywordTarget[] {
+  const campaignByKeyword = new Map(
+    campaigns.map((campaign) => [campaign.keyword.toLowerCase(), campaign])
+  );
+
   return rankings
     .map((row) => {
       const reviewsNeeded = reviewsNeededForKeyword(row);
+      const campaign = campaignByKeyword.get(row.keyword.toLowerCase());
       const reviewsMentioningKeyword = countReviewMentionsForKeyword(audit, row.keyword);
-      const reviewsRemaining = Math.max(0, reviewsNeeded - reviewsMentioningKeyword);
+      const newMentionsSinceCampaign = campaign
+        ? countReviewMentionsSince(audit, row.keyword, campaign.started_at)
+        : 0;
+      const effectiveMentions = campaign
+        ? Math.max(newMentionsSinceCampaign, reviewsMentioningKeyword - campaign.baseline_mention_count)
+        : reviewsMentioningKeyword;
+      const reviewsRemaining = Math.max(0, reviewsNeeded - effectiveMentions);
       const progressPercent =
         reviewsNeeded > 0
-          ? Math.min(100, Math.round((reviewsMentioningKeyword / reviewsNeeded) * 100))
+          ? Math.min(100, Math.round((effectiveMentions / reviewsNeeded) * 100))
           : 100;
 
       return {
@@ -150,9 +218,12 @@ function rankKeywordTargets(
         packLeaderReviews: row.packLeaderReviews,
         reviewGap: row.reviewGap,
         reviewsNeeded,
-        reviewsMentioningKeyword,
+        reviewsMentioningKeyword: effectiveMentions,
         reviewsRemaining,
         progressPercent,
+        campaignStartedAt: campaign?.started_at ?? null,
+        newMentionsSinceCampaign: campaign ? newMentionsSinceCampaign : undefined,
+        attributedSinceCampaign: campaign?.attributed_reviews ?? undefined,
         priority: priorityForKeyword(row),
         recommendation: recommendationForKeyword(row, reviewsRemaining || reviewsNeeded),
       };
@@ -170,22 +241,29 @@ function buildExecutionSteps(
   focusKeyword: string | null,
   batchSize: number,
   matchedCustomers: number,
-  eligibleCount: number
+  eligibleCount: number,
+  keywordFilterApplied: boolean
 ): string[] {
   const steps: string[] = [];
 
   if (focusKeyword) {
-    steps.push(
-      `Prioritize customers who used "${focusKeyword}" — set the Service field when importing or adding customers`
-    );
-    if (matchedCustomers > 0) {
+    if (keywordFilterApplied) {
       steps.push(
-        `Send this batch of ${batchSize} to the ${matchedCustomers} eligible customer${matchedCustomers === 1 ? "" : "s"} matched to "${focusKeyword}" first`
+        `Sending only to ${Math.min(batchSize, matchedCustomers)} customer${Math.min(batchSize, matchedCustomers) === 1 ? "" : "s"} tagged for "${focusKeyword}"`
       );
     } else {
       steps.push(
-        `No customers are tagged for "${focusKeyword}" yet — import recent customers and set Service to match this keyword before sending`
+        `Prioritize customers who used "${focusKeyword}" — set the Service field when importing or adding customers`
       );
+      if (matchedCustomers > 0) {
+        steps.push(
+          `Matched customers are prioritized first in this batch of ${batchSize} (${matchedCustomers} eligible for "${focusKeyword}")`
+        );
+      } else {
+        steps.push(
+          `No customers are tagged for "${focusKeyword}" yet — import recent customers and set Service to match this keyword before sending`
+        );
+      }
     }
   }
 
@@ -204,6 +282,8 @@ export interface BuildReviewCampaignPlanOptions {
   eligibleCount?: number;
   matchedToFocusKeyword?: number;
   focusKeywordOverride?: string | null;
+  keywordFilterApplied?: boolean;
+  campaigns?: ReviewKeywordCampaign[];
 }
 
 export function buildReviewCampaignPlan(
@@ -211,7 +291,7 @@ export function buildReviewCampaignPlan(
   options: BuildReviewCampaignPlanOptions = {}
 ): ReviewCampaignPlan {
   const rankings = audit.strategy.gbpPlan?.keywordRankings ?? [];
-  const keywordTargets = rankKeywordTargets(rankings, audit);
+  const keywordTargets = rankKeywordTargets(rankings, audit, options.campaigns ?? []);
   const focusKeyword =
     options.focusKeywordOverride ??
     keywordTargets.find((t) => t.priority === "high")?.keyword ??
@@ -256,7 +336,13 @@ export function buildReviewCampaignPlan(
     monthlyReviewTarget,
     batchSize,
     keywordTargets: keywordTargets.slice(0, 6),
-    executionSteps: buildExecutionSteps(focusKeyword, batchSize, matchedCustomers, eligibleCount),
+    executionSteps: buildExecutionSteps(
+      focusKeyword,
+      batchSize,
+      matchedCustomers,
+      eligibleCount,
+      options.keywordFilterApplied ?? false
+    ),
     expectedEffect,
     projectedScoreImpact,
   };

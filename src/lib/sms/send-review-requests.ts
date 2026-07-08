@@ -1,4 +1,6 @@
 import type { ClientConfig } from "@/audit/types";
+import { ensureStrategy } from "@/audit/ensure-strategy";
+import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import {
   getCustomersByIds,
   getEligibleCustomers,
@@ -8,15 +10,20 @@ import {
 } from "@/lib/customers/storage";
 import {
   getCustomersByIdsAdmin,
+  getEligibleCustomersAdmin,
   logSmsMessageAdmin,
   markCustomersReviewRequestedAdmin,
 } from "@/lib/customers/storage-admin";
 import type { CustomerRecord } from "@/lib/customers/types";
 import {
+  countReviewMentionsForKeyword,
+  selectCustomersForCampaign,
+} from "@/lib/review-requests/campaign-plan";
+import { ensureKeywordCampaignStarted } from "@/lib/review-requests/campaign-storage";
+import {
   evaluateReviewRequestEligibility,
   ineligibilityMessage,
 } from "@/lib/review-requests/eligibility";
-import { prioritizeCustomersByKeyword } from "@/lib/review-requests/campaign-plan";
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isTwilioConfigured, sendSms } from "@/lib/sms/twilio";
@@ -44,6 +51,7 @@ export interface SendReviewRequestsResult {
   failed: number;
   skipped: number;
   simulated: boolean;
+  keywordFilterApplied: boolean;
   reviewUrl: string | null;
   messages: Array<{
     customerId: string;
@@ -76,36 +84,59 @@ function resolveReviewUrl(business: ClientConfig): string | null {
 async function resolveCustomers(
   userId: string,
   businessId: string,
-  customerIds?: string[],
-  batchSize = 15,
-  serviceRole = false,
+  customerIds: string[] | undefined,
+  batchSize: number,
+  serviceRole: boolean,
   focusKeyword?: string | null
-): Promise<CustomerRecord[]> {
+): Promise<{ customers: CustomerRecord[]; keywordFilterApplied: boolean }> {
   if (customerIds && customerIds.length > 0) {
-    if (serviceRole) return getCustomersByIdsAdmin(businessId, customerIds);
-    return getCustomersByIds(userId, businessId, customerIds);
+    const customers = serviceRole
+      ? await getCustomersByIdsAdmin(businessId, customerIds)
+      : await getCustomersByIds(userId, businessId, customerIds);
+    return { customers, keywordFilterApplied: false };
   }
 
-  if (focusKeyword?.trim()) {
-    const poolSize = Math.max(batchSize * 4, 100);
-    const fetchEligible = serviceRole
-      ? async () => {
-          const { getEligibleCustomersAdmin } = await import("@/lib/customers/storage-admin");
-          return getEligibleCustomersAdmin(businessId, poolSize);
-        }
-      : async () => {
-          const { customers } = await listCustomers(userId, businessId, {
-            eligibleOnly: true,
-            limit: poolSize,
-          });
-          return customers;
-        };
+  const poolSize = focusKeyword?.trim() ? Math.max(batchSize * 4, 100) : batchSize;
+  const pool = serviceRole
+    ? await getEligibleCustomersAdmin(businessId, poolSize)
+    : await getEligibleCustomers(userId, businessId, poolSize);
 
-    const pool = await fetchEligible();
-    return prioritizeCustomersByKeyword(pool, focusKeyword.trim(), batchSize);
+  if (!focusKeyword?.trim()) {
+    return { customers: pool.slice(0, batchSize), keywordFilterApplied: false };
   }
 
-  return getEligibleCustomers(userId, businessId, batchSize);
+  return selectCustomersForCampaign(pool, focusKeyword, batchSize);
+}
+
+async function startCampaignIfNeeded(input: {
+  userId: string;
+  business: ClientConfig;
+  focusKeyword?: string | null;
+  serviceRole?: boolean;
+  sentCount: number;
+}): Promise<void> {
+  const keyword = input.focusKeyword?.trim();
+  if (!keyword || input.sentCount <= 0 || !input.business.businessId) return;
+
+  const rawAudit = await loadLatestAuditFromSupabase(input.userId, input.business.id, {
+    businessName: input.business.name,
+    businessUuid: input.business.businessId,
+  });
+  const audit = rawAudit ? ensureStrategy(rawAudit) : null;
+  if (!audit) return;
+
+  const target = audit.strategy.gbpPlan?.keywordRankings?.find(
+    (row) => row.keyword.toLowerCase() === keyword.toLowerCase()
+  );
+
+  await ensureKeywordCampaignStarted({
+    userId: input.userId,
+    businessId: input.business.businessId,
+    keyword,
+    baselineMentionCount: countReviewMentionsForKeyword(audit, keyword),
+    targetReviews: target ? Math.max(5, Math.ceil(target.reviewGap * 0.3)) : undefined,
+    serviceRole: input.serviceRole,
+  });
 }
 
 export async function sendReviewRequests(
@@ -123,12 +154,13 @@ export async function sendReviewRequests(
     );
   }
 
-  const customers = await resolveCustomers(
+  const batchSize = input.batchSize ?? 15;
+  const { customers, keywordFilterApplied } = await resolveCustomers(
     input.userId,
     businessId,
     input.customerIds,
-    input.batchSize ?? 15,
-    input.serviceRole,
+    batchSize,
+    input.serviceRole ?? false,
     input.focusKeyword
   );
 
@@ -137,6 +169,7 @@ export async function sendReviewRequests(
     failed: 0,
     skipped: 0,
     simulated: !isTwilioConfigured() && !input.dryRun,
+    keywordFilterApplied,
     reviewUrl,
     messages: [],
   };
@@ -144,6 +177,7 @@ export async function sendReviewRequests(
   const sentCustomerIds: string[] = [];
   const manualSend = input.manualSend !== false;
   const hasReviewGap = input.auditHasReviewGap ?? true;
+  const focusKeyword = input.focusKeyword?.trim() || null;
 
   for (const customer of customers) {
     const eligibility = evaluateReviewRequestEligibility({
@@ -188,6 +222,7 @@ export async function sendReviewRequests(
         businessId,
         customerId: customer.id,
         executionTaskId: input.executionTaskId,
+        focusKeyword,
         toPhone: customer.phone,
         body,
         status: "simulated",
@@ -211,6 +246,7 @@ export async function sendReviewRequests(
         businessId,
         customerId: customer.id,
         executionTaskId: input.executionTaskId,
+        focusKeyword,
         toPhone: sms.to,
         body,
         status: "sent",
@@ -230,6 +266,7 @@ export async function sendReviewRequests(
         businessId,
         customerId: customer.id,
         executionTaskId: input.executionTaskId,
+        focusKeyword,
         toPhone: customer.phone,
         body,
         status: "failed",
@@ -252,6 +289,14 @@ export async function sendReviewRequests(
     } else {
       await markCustomersReviewRequested(input.userId, businessId, sentCustomerIds);
     }
+
+    await startCampaignIfNeeded({
+      userId: input.userId,
+      business: input.business,
+      focusKeyword,
+      serviceRole: input.serviceRole,
+      sentCount: result.sent,
+    });
   }
 
   return result;

@@ -6,6 +6,7 @@ import {
   countReviewMentionsForKeyword,
   customerMatchesKeyword,
   prioritizeCustomersByKeyword,
+  selectCustomersForCampaign,
 } from "./campaign-plan";
 import type { FullAuditPayload } from "@/audit/types";
 
@@ -44,8 +45,8 @@ function minimalAudit(overrides: Partial<FullAuditPayload> = {}): FullAuditPaylo
     },
     reviews: {
       reviews: [
-        { text: "Great after school program for my kids", rating: 5, date: "2026-01-01", responded: true },
-        { text: "Excellent tutoring session", rating: 5, date: "2026-02-01", responded: true },
+        { text: "Great after school program for my kids", rating: 5, publishedAt: "2026-01-01T00:00:00.000Z", responded: true },
+        { text: "Excellent tutoring session", rating: 5, publishedAt: "2026-02-01T00:00:00.000Z", responded: true },
       ],
       sentiment: { positiveThemes: [] },
       unrespondedNegative: 0,
@@ -162,5 +163,24 @@ describe("buildReviewCampaignPlan", () => {
     assert.equal(batch.length, 2);
     assert.ok(customerMatchesKeyword(batch[0], keyword));
     assert.ok(customerMatchesKeyword(batch[1], keyword));
+  });
+
+  it("filters to keyword-matched customers only when enough exist", () => {
+    const keyword = "after school programs las vegas";
+    const customers = [
+      { service_notes: "after school enrichment" },
+      { service_notes: "after school program" },
+      { service_notes: "after school care" },
+      { service_notes: "math tutoring" },
+    ];
+
+    const { customers: batch, keywordFilterApplied } = selectCustomersForCampaign(
+      customers,
+      keyword,
+      3
+    );
+    assert.equal(keywordFilterApplied, true);
+    assert.equal(batch.length, 3);
+    assert.ok(batch.every((customer) => customerMatchesKeyword(customer, keyword)));
   });
 });

@@ -36,6 +36,7 @@ export default function ReviewRequestPanel({
   const [batchSize, setBatchSize] = useState(15);
   const [campaignPlan, setCampaignPlan] = useState<ReviewCampaignPlan | null>(null);
   const [focusKeyword, setFocusKeyword] = useState<string | null>(null);
+  const [keywordFilterApplied, setKeywordFilterApplied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +61,7 @@ export default function ReviewRequestPanel({
           eligibleCount: number;
           matchedCustomers: number;
           batchSize: number;
+          keywordFilterApplied?: boolean;
           focusKeyword: string | null;
           campaignPlan: ReviewCampaignPlan | null;
           error?: string;
@@ -71,6 +73,7 @@ export default function ReviewRequestPanel({
         setMatchedCustomers(data.matchedCustomers);
         setBatchSize(data.batchSize);
         setFocusKeyword(data.focusKeyword);
+        setKeywordFilterApplied(data.keywordFilterApplied ?? false);
         setCampaignPlan(data.campaignPlan);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to generate message");
@@ -106,16 +109,19 @@ export default function ReviewRequestPanel({
         sent: number;
         failed: number;
         simulated: boolean;
+        keywordFilterApplied?: boolean;
         twilioConfigured?: boolean;
         error?: string;
       }>(res);
       if (!res.ok) throw new Error(data.error ?? "Send failed");
 
       setTwilioConfigured(data.twilioConfigured ?? true);
+      setKeywordFilterApplied(data.keywordFilterApplied ?? keywordFilterApplied);
 
+      const filterNote = data.keywordFilterApplied ? " (keyword-matched customers only)" : "";
       const summary = data.simulated
-        ? `Simulated ${data.sent} message${data.sent === 1 ? "" : "s"}. Add Twilio credentials to send real texts.`
-        : `Sent ${data.sent} review request${data.sent === 1 ? "" : "s"}${data.failed ? ` (${data.failed} failed)` : ""}.`;
+        ? `Simulated ${data.sent} message${data.sent === 1 ? "" : "s"}${filterNote}. Add Twilio credentials to send real texts.`
+        : `Sent ${data.sent} review request${data.sent === 1 ? "" : "s"}${data.failed ? ` (${data.failed} failed)` : ""}${filterNote}.`;
 
       setResult(summary);
       onSent?.(summary);
@@ -254,7 +260,7 @@ export default function ReviewRequestPanel({
             >
               {sending
                 ? "Sending…"
-                : `Send batch of ${sendCount} SMS${focusKeyword ? ` · ${focusKeyword}` : ""}`}
+                : `Send batch of ${sendCount} SMS${focusKeyword ? ` · ${focusKeyword}` : ""}${keywordFilterApplied ? " · matched only" : ""}`}
             </button>
             <button
               type="button"

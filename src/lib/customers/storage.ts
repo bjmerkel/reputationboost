@@ -211,6 +211,7 @@ export interface SmsMessageInput {
   businessId: string;
   customerId?: string;
   executionTaskId?: string;
+  focusKeyword?: string | null;
   toPhone: string;
   body: string;
   status: "pending" | "sent" | "failed" | "simulated";
@@ -228,6 +229,7 @@ export async function logSmsMessage(
     user_id: userId,
     customer_id: input.customerId ?? null,
     execution_task_id: input.executionTaskId ?? null,
+    focus_keyword: input.focusKeyword ?? null,
     to_phone: input.toPhone,
     body: input.body,
     status: input.status,

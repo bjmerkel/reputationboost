@@ -6,7 +6,9 @@ import {
   buildReviewCampaignPlan,
   countCustomersMatchingKeyword,
   customerMatchesKeyword,
+  selectCustomersForCampaign,
 } from "@/lib/review-requests/campaign-plan";
+import { getActiveKeywordCampaigns } from "@/lib/review-requests/campaign-storage";
 import { getEligibleCustomers, listCustomers } from "@/lib/customers/storage";
 import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
@@ -43,6 +45,7 @@ export async function POST(request: Request) {
       businessUuid: business.businessId,
     });
     const audit = rawAudit ? ensureStrategy(rawAudit) : null;
+    const campaigns = await getActiveKeywordCampaigns(user.id, business.businessId);
 
     const address = [
       business.location.address,
@@ -69,12 +72,20 @@ export async function POST(request: Request) {
 
     const focusKeyword = body.focusKeyword ?? draftPlan?.focusKeyword ?? null;
     const matchedCustomers = countCustomersMatchingKeyword(eligibleCustomers, focusKeyword);
+    const batchSize = draftPlan?.batchSize ?? 15;
+    const { keywordFilterApplied } = selectCustomersForCampaign(
+      eligibleCustomers,
+      focusKeyword,
+      batchSize
+    );
 
     const campaignPlan = audit
       ? buildReviewCampaignPlan(audit, {
           eligibleCount,
           matchedToFocusKeyword: matchedCustomers,
           focusKeywordOverride: focusKeyword,
+          keywordFilterApplied,
+          campaigns,
         })
       : null;
 
@@ -110,7 +121,8 @@ export async function POST(request: Request) {
       eligibleCount,
       matchedCustomers,
       focusKeyword,
-      batchSize: campaignPlan?.batchSize ?? 15,
+      batchSize: campaignPlan?.batchSize ?? batchSize,
+      keywordFilterApplied,
       campaignPlan,
       placeholders: ["[FIRST_NAME]", "[NAME]", "[SERVICE]", "[BUSINESS]", "[REVIEW_LINK]"],
     });

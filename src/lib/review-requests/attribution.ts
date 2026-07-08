@@ -1,5 +1,7 @@
 import type { BusinessRecord } from "@/audit/businesses";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { reviewTextMentionsKeyword } from "@/lib/review-requests/campaign-plan";
+import { incrementCampaignAttributedReviews } from "@/lib/review-requests/campaign-storage";
 
 export const ATTRIBUTION_WINDOW_DAYS = 14;
 
@@ -9,6 +11,8 @@ export interface OutreachAttributionInput {
   reviewDetectedAt?: string;
   reviewAuthor?: string;
   reviewRating?: number;
+  reviewText?: string;
+  reviewId?: string;
   attributionMethod?: string;
 }
 
@@ -21,12 +25,17 @@ export interface OutreachAttributionRecord {
   review_rating: number | null;
   review_detected_at: string;
   attribution_method: string;
+  focus_keyword: string | null;
+  review_id: string | null;
+  review_text: string | null;
+  review_mentions_keyword: boolean | null;
 }
 
 interface SentSmsCandidate {
   id: string;
   customer_id: string | null;
   sent_at: string;
+  focus_keyword: string | null;
   customers?: {
     first_name: string | null;
     last_name: string | null;
@@ -79,7 +88,8 @@ export function namesMatchForAttribution(
 export function pickAttributionCandidate(
   messages: SentSmsCandidate[],
   attributedSmsIds: Set<string>,
-  reviewAuthor?: string
+  reviewAuthor?: string,
+  reviewText?: string
 ): { candidate: SentSmsCandidate; method: string } | null {
   const available = messages.filter((row) => !attributedSmsIds.has(row.id));
   if (!available.length) return null;
@@ -96,6 +106,15 @@ export function pickAttributionCandidate(
     });
     if (nameMatch) {
       return { candidate: nameMatch, method: "name_match" };
+    }
+  }
+
+  if (reviewText?.trim()) {
+    const keywordMatch = available.find(
+      (row) => row.focus_keyword && reviewTextMentionsKeyword(reviewText, row.focus_keyword)
+    );
+    if (keywordMatch) {
+      return { candidate: keywordMatch, method: "keyword_match" };
     }
   }
 
@@ -157,7 +176,7 @@ export async function attributeReviewToRecentOutreach(
 
   const { data: sentMessages, error: smsError } = await supabase
     .from("sms_messages")
-    .select("id, customer_id, sent_at, customers(first_name, last_name)")
+    .select("id, customer_id, sent_at, focus_keyword, customers(first_name, last_name)")
     .eq("business_id", input.businessId)
     .in("status", ["sent", "simulated"])
     .gte("sent_at", windowStart.toISOString())
@@ -185,18 +204,30 @@ export async function attributeReviewToRecentOutreach(
       id: record.id as string,
       customer_id: record.customer_id as string | null,
       sent_at: record.sent_at as string,
+      focus_keyword: (record.focus_keyword as string | null) ?? null,
       customers: Array.isArray(customer) ? (customer[0] ?? null) : (customer ?? null),
     };
   });
-  const picked = pickAttributionCandidate(candidates, attributed, input.reviewAuthor);
+  const picked = pickAttributionCandidate(
+    candidates,
+    attributed,
+    input.reviewAuthor,
+    input.reviewText
+  );
   if (!picked) return null;
 
   const { candidate, method } = picked;
   const attributionMethod = input.attributionMethod
-    ? method === "name_match"
-      ? `${input.attributionMethod}+name_match`
+    ? method === "name_match" || method === "keyword_match"
+      ? `${input.attributionMethod}+${method}`
       : input.attributionMethod
     : method;
+
+  const focusKeyword = candidate.focus_keyword;
+  const reviewMentionsKeyword =
+    input.reviewText && focusKeyword
+      ? reviewTextMentionsKeyword(input.reviewText, focusKeyword)
+      : null;
 
   let customerEventId: string | null = null;
   if (candidate.customer_id && candidate.sent_at) {
@@ -220,11 +251,20 @@ export async function attributeReviewToRecentOutreach(
       review_detected_at: detectedAt,
       attribution_method: attributionMethod,
       window_days: ATTRIBUTION_WINDOW_DAYS,
+      focus_keyword: focusKeyword,
+      review_id: input.reviewId ?? null,
+      review_text: input.reviewText ?? null,
+      review_mentions_keyword: reviewMentionsKeyword,
     })
     .select("*")
     .single();
 
   if (error) throw new Error(error.message);
+
+  if (focusKeyword) {
+    await incrementCampaignAttributedReviews(input.businessId, focusKeyword);
+  }
+
   return data as OutreachAttributionRecord;
 }
 

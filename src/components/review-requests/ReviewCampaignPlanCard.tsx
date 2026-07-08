@@ -149,6 +149,12 @@ export default function ReviewCampaignPlanCard({
                         <p className={`mt-1 text-[10px] ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
                           {target.reviewsRemaining} more mentioning &ldquo;{target.keyword}&rdquo; ·{" "}
                           {target.clientReviews} total vs {target.packLeaderReviews} leader
+                          {target.campaignStartedAt
+                            ? ` · campaign since ${new Date(target.campaignStartedAt).toLocaleDateString()}`
+                            : ""}
+                          {target.attributedSinceCampaign != null && target.attributedSinceCampaign > 0
+                            ? ` · ${target.attributedSinceCampaign} attributed from SMS`
+                            : ""}
                         </p>
                       )}
                     </div>

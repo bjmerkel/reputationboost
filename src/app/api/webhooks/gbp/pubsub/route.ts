@@ -82,6 +82,8 @@ export async function POST(request: Request) {
   let attributionId: string | null = null;
   let reviewAuthor: string | undefined;
   let reviewRating: number | undefined;
+  let reviewText: string | undefined;
+  let reviewId: string | null = null;
   let googleUpdateBusinessId: string | null = null;
   let googleUpdateSynced = false;
   let gbpEventId: string | null = null;
@@ -112,24 +114,29 @@ export async function POST(request: Request) {
     try {
       const businessRecord = await findBusinessRecordByGbpLocation(payload.locationName);
       if (businessRecord) {
-        const reviewId = payload.reviewName
+        const parsedReviewId = payload.reviewName
           ? parseReviewIdFromReviewName(payload.reviewName)
           : null;
 
-        if (reviewId) {
+        if (parsedReviewId) {
+          reviewId = parsedReviewId;
           try {
             const connection = await getValidGbpConnectionForRecord(businessRecord);
             if (connection) {
-              const review = await getGbpReview(connection, reviewId);
+              const review = await getGbpReview(connection, parsedReviewId);
               if (!review.isAnonymous && review.reviewer) {
                 reviewAuthor = review.reviewer;
               }
               if (review.rating > 0) {
                 reviewRating = review.rating;
               }
+              if (review.comment?.trim()) {
+                reviewText = review.comment.trim();
+              }
+              reviewId = review.reviewId;
             }
           } catch (error) {
-            console.warn("[gbp-pubsub] review fetch failed:", error);
+            console.warn("[gbp-pubsub] review prefetch failed:", error);
           }
         }
       }
@@ -146,33 +153,14 @@ export async function POST(request: Request) {
     try {
       const businessRecord = await findBusinessRecordByGbpLocation(payload.locationName);
       if (businessRecord) {
-        const reviewId = payload.reviewName
-          ? parseReviewIdFromReviewName(payload.reviewName)
-          : null;
-
-        if (reviewId && reviewAuthor == null && reviewRating == null) {
-          try {
-            const connection = await getValidGbpConnectionForRecord(businessRecord);
-            if (connection) {
-              const review = await getGbpReview(connection, reviewId);
-              if (!review.isAnonymous && review.reviewer) {
-                reviewAuthor = review.reviewer;
-              }
-              if (review.rating > 0) {
-                reviewRating = review.rating;
-              }
-            }
-          } catch (error) {
-            console.warn("[gbp-pubsub] review fetch failed, using time-window attribution:", error);
-          }
-        }
-
         const attribution = await attributeReviewToRecentOutreach({
           businessId: businessRecord.id,
           userId: businessRecord.user_id,
           reviewDetectedAt: envelope.message?.publishTime ?? new Date().toISOString(),
           reviewAuthor,
           reviewRating,
+          reviewText,
+          reviewId: reviewId ?? undefined,
           attributionMethod: "pubsub_review",
         });
         attributionId = attribution?.id ?? null;

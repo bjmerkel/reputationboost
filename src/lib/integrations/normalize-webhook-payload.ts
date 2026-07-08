@@ -1,4 +1,5 @@
 import type { WebhookPayload } from "./webhook-types";
+import { resolveWebhookServiceRaw } from "./webhook-service";
 
 export const OPT_OUT_EVENT_TYPES = new Set([
   "customer.opted_out",
@@ -80,7 +81,14 @@ export function normalizeWebhookPayload(data: unknown): WebhookPayload {
     lastName: lastName ?? parsedName.lastName,
     name: fullName,
     email: readString(record, ["email", "email_address"]),
-    service: readString(record, ["service", "serviceNotes", "service_notes", "job", "jobTitle", "job_title"]),
+    service: resolveWebhookServiceRaw(record),
+    jobType: readString(record, ["jobType", "job_type", "workType", "work_type"]),
+    lineItemTitle: readString(record, [
+      "lineItemTitle",
+      "line_item_title",
+      "lineItem",
+      "line_item",
+    ]),
     serviceDate: readString(record, ["serviceDate", "service_date", "completedAt", "completed_at", "date"]),
     externalId: readString(record, ["externalId", "external_id", "jobId", "job_id", "invoiceId", "invoice_id"]),
     source: readString(record, ["source", "integration", "crm"]) ?? "webhook",
