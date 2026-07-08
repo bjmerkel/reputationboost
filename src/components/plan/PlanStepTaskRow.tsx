@@ -27,6 +27,7 @@ const TYPE_LABELS: Partial<Record<ExecutionTask["type"], string>> = {
   gbp_photo: "Photo",
   gbp_video: "Video",
   gbp_attributes: "Attributes",
+  gbp_place_action: "Place action",
   gbp_website: "Website",
   gbp_checklist: "Checklist",
   gbp_accept_suggestion: "Accept Google change",

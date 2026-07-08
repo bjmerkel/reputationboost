@@ -677,7 +677,7 @@ export function detectGaps(
     );
   } else if (
     placeActions?.apiAvailable &&
-    placeActions.missingRecommendedTypes.length > 0
+    placeActions.missingAvailableTypes.length > 0
   ) {
     gaps.push(
       gap(
@@ -685,7 +685,7 @@ export function detectGaps(
         "P2",
         "gbp_profile",
         "Incomplete place action links",
-        `Missing: ${placeActions.missingRecommendedTypes
+        `Missing: ${placeActions.missingAvailableTypes
           .map((t) => t.replace(/_/g, " ").toLowerCase())
           .join(", ")}.`,
         4,

@@ -161,6 +161,11 @@ function ensurePlaceActionCoverage(audit: Phase1AuditPayload) {
       configuredTypes: [],
       availableTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
       missingRecommendedTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+      missingAvailableTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+      typeCatalog: [
+        { placeActionType: "APPOINTMENT", displayName: "Book appointment" },
+        { placeActionType: "ONLINE_APPOINTMENT", displayName: "Book online appointment" },
+      ],
       hasAppointmentLink: false,
       hasOnlineAppointmentLink: false,
       hasDiningReservationLink: false,
@@ -590,6 +595,7 @@ export function applyGapMutation(audit: Phase1AuditPayload, gap: GapFlag): void 
       coverage.apiAvailable = true;
       coverage.configuredTypes = ["APPOINTMENT", "ONLINE_APPOINTMENT"];
       coverage.missingRecommendedTypes = [];
+      coverage.missingAvailableTypes = [];
       coverage.coverageScore = 100;
       coverage.hasAppointmentLink = true;
       coverage.hasOnlineAppointmentLink = true;
@@ -600,6 +606,7 @@ export function applyGapMutation(audit: Phase1AuditPayload, gap: GapFlag): void 
     case "incomplete-place-action-links": {
       const coverage = ensurePlaceActionCoverage(audit);
       coverage.missingRecommendedTypes = [];
+      coverage.missingAvailableTypes = [];
       coverage.configuredTypes = [
         ...new Set([...coverage.configuredTypes, ...coverage.availableTypes.slice(0, 2)]),
       ];

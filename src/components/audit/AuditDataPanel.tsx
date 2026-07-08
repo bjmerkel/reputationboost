@@ -1073,6 +1073,22 @@ function PlaceActionsHealthPanel({
         ))}
       </div>
 
+      {report.typeStatus.length > 0 && (
+        <ul className={`mb-4 space-y-1.5 text-xs ${theme.body}`}>
+          {report.typeStatus.map((item) => (
+            <li
+              key={item.type}
+              className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 ${theme.listItem}`}
+            >
+              <span>{item.label}</span>
+              <span className={item.configured ? theme.okStatus : theme.warnStatus}>
+                {item.configured ? "configured" : item.recommended ? "recommended" : "available"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {links.length > 0 && (
         <ul className={`mb-4 space-y-2 text-xs ${theme.body}`}>
           {links.slice(0, 5).map((link) => (

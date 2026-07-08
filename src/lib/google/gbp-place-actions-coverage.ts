@@ -10,6 +10,11 @@ export interface GbpPlaceActionCoverage {
   configuredTypes: string[];
   availableTypes: string[];
   missingRecommendedTypes: string[];
+  missingAvailableTypes: string[];
+  typeCatalog: Array<{
+    placeActionType: string;
+    displayName: string;
+  }>;
   hasAppointmentLink: boolean;
   hasOnlineAppointmentLink: boolean;
   hasDiningReservationLink: boolean;
@@ -76,6 +81,10 @@ function hasType(links: GbpPlaceActionLink[], type: GbpPlaceActionType): boolean
   return links.some((link) => link.placeActionType === type && Boolean(link.uri));
 }
 
+function isConfiguredType(type: string): boolean {
+  return type !== "PLACE_ACTION_TYPE_UNSPECIFIED";
+}
+
 /** Score how fully place action links are configured for a location. */
 export function analyzeGbpPlaceActionCoverage(input: {
   links: GbpPlaceActionLink[];
@@ -87,13 +96,21 @@ export function analyzeGbpPlaceActionCoverage(input: {
   };
 }): GbpPlaceActionCoverage {
   const configuredTypes = uniqueConfiguredTypes(input.links);
-  const availableTypes = input.availableTypes.map((item) => item.placeActionType);
+  const typeCatalog = input.availableTypes
+    .filter((item) => isConfiguredType(item.placeActionType))
+    .map((item) => ({
+      placeActionType: item.placeActionType,
+      displayName: item.displayName || placeActionTypeLabel(item.placeActionType),
+    }));
+  const availableTypes = typeCatalog.map((item) => item.placeActionType);
   const availableSet = new Set(availableTypes);
+  const configuredSet = new Set(configuredTypes);
 
   const recommended = recommendedTypesForCategory(input.primaryCategory).filter((type) =>
     availableSet.has(type)
   );
-  const missingRecommendedTypes = recommended.filter((type) => !configuredTypes.includes(type));
+  const missingRecommendedTypes = recommended.filter((type) => !configuredSet.has(type));
+  const missingAvailableTypes = availableTypes.filter((type) => !configuredSet.has(type));
 
   const merchantLinkCount = input.links.filter(
     (link) => link.providerType !== "AGGREGATOR_3P" && Boolean(link.uri)
@@ -119,9 +136,9 @@ export function analyzeGbpPlaceActionCoverage(input: {
   if (!apiAvailable) {
     recommendations.push("Reconnect GBP with a manager account that has Place Actions API access.");
   } else {
-    if (missingRecommendedTypes.length > 0) {
+    if (missingAvailableTypes.length > 0) {
       recommendations.push(
-        `Add ${missingRecommendedTypes
+        `Add ${missingAvailableTypes
           .map((type) => placeActionTypeLabel(type))
           .join(", ")} links so customers can act directly from Maps.`
       );
@@ -150,6 +167,8 @@ export function analyzeGbpPlaceActionCoverage(input: {
     configuredTypes,
     availableTypes,
     missingRecommendedTypes,
+    missingAvailableTypes,
+    typeCatalog,
     hasAppointmentLink: hasType(input.links, "APPOINTMENT"),
     hasOnlineAppointmentLink: hasType(input.links, "ONLINE_APPOINTMENT"),
     hasDiningReservationLink: hasType(input.links, "DINING_RESERVATION"),

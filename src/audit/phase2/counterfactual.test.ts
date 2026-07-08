@@ -84,6 +84,11 @@ describe("counterfactual score simulation", () => {
             configuredTypes: [],
             availableTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
             missingRecommendedTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+            missingAvailableTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+            typeCatalog: [
+              { placeActionType: "APPOINTMENT", displayName: "Book appointment" },
+              { placeActionType: "ONLINE_APPOINTMENT", displayName: "Book online appointment" },
+            ],
             hasAppointmentLink: false,
             hasOnlineAppointmentLink: false,
             hasDiningReservationLink: false,

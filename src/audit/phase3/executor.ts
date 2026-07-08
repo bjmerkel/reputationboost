@@ -218,6 +218,31 @@ async function executeTaskLive(
       };
     }
     case "gbp_place_action": {
+      const batch = task.payload.placeActions as
+        | Array<{ placeActionType: string; uri: string }>
+        | undefined;
+
+      if (batch?.length) {
+        const published: string[] = [];
+        for (const item of batch) {
+          if (!item.uri?.startsWith("https://")) {
+            throw new Error("Each place action link requires a valid https:// URL.");
+          }
+          const link = await createGbpPlaceActionLink(connection, {
+            uri: item.uri,
+            placeActionType: item.placeActionType as GbpPlaceActionType,
+            isPreferred: true,
+          });
+          published.push(link.placeActionType.replace(/_/g, " ").toLowerCase());
+        }
+        return {
+          ...task,
+          status: "completed",
+          completedAt: now,
+          result: `Published ${published.length} place action link${published.length === 1 ? "" : "s"}: ${published.join(", ")}.`,
+        };
+      }
+
       const uri =
         task.draftContent
           .split("\n")

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PlanStep, GbpAttributeCoverage, GbpMediaCoverage } from "@/audit/types";
+import type { PlanStep, GbpAttributeCoverage, GbpMediaCoverage, GbpPlaceActionCoverage, GbpPlaceActionLinkSummary } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import { formatCurrency } from "@/audit/attribution/roi";
@@ -10,6 +10,7 @@ import PlanStepPhotos from "./PlanStepPhotos";
 import PlanStepVideos from "./PlanStepVideos";
 import PlanStepTaskRow from "./PlanStepTaskRow";
 import PlanStepAttributes from "./PlanStepAttributes";
+import PlanStepPlaceActions from "./PlanStepPlaceActions";
 import ReviewRequestPanel from "@/components/review-requests/ReviewRequestPanel";
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
 
@@ -31,6 +32,8 @@ export default function PlanStepCard({
   attributionByTaskId,
   mediaCoverage,
   attributeCoverage,
+  placeActionCoverage,
+  placeActionLinks,
   defaultExpanded = false,
   variant = "light",
   currency = "USD",
@@ -47,6 +50,8 @@ export default function PlanStepCard({
   attributionByTaskId: Record<string, ActionAttribution>;
   mediaCoverage?: GbpMediaCoverage;
   attributeCoverage?: GbpAttributeCoverage;
+  placeActionCoverage?: GbpPlaceActionCoverage;
+  placeActionLinks?: GbpPlaceActionLinkSummary[];
   defaultExpanded?: boolean;
   variant?: "light" | "dark";
   currency?: string;
@@ -67,12 +72,19 @@ export default function PlanStepCard({
   const attributeTasks = step.tasks.filter(
     (t) => t.type === "gbp_attributes" && t.status !== "completed"
   );
+  const placeActionTask = step.tasks.find(
+    (t) =>
+      t.type === "gbp_place_action" &&
+      t.status !== "completed" &&
+      (t.payload.requiresPlaceActionInput === true || Array.isArray(t.payload.placeActionTypes))
+  );
   const nonPhotoTasks = step.tasks.filter(
     (t) =>
       t.type !== "gbp_photo" &&
       t.type !== "gbp_video" &&
       t.type !== "review_request" &&
       t.type !== "gbp_attributes" &&
+      t.type !== "gbp_place_action" &&
       t.status !== "completed"
   );
   const statusStyle = STATUS_STYLES[step.status] ?? STATUS_STYLES.pending;
@@ -230,6 +242,19 @@ export default function PlanStepCard({
                   variant={variant}
                 />
               ))}
+            </div>
+          )}
+
+          {placeActionTask && (
+            <div className="mt-4">
+              <PlanStepPlaceActions
+                task={placeActionTask}
+                gbpConnected={gbpConnected}
+                actions={actions}
+                coverage={placeActionCoverage}
+                configuredLinks={placeActionLinks}
+                variant={variant}
+              />
             </div>
           )}
 

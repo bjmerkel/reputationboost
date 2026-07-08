@@ -271,6 +271,11 @@ export interface GbpPlaceActionCoverage {
   configuredTypes: string[];
   availableTypes: string[];
   missingRecommendedTypes: string[];
+  missingAvailableTypes: string[];
+  typeCatalog: Array<{
+    placeActionType: string;
+    displayName: string;
+  }>;
   hasAppointmentLink: boolean;
   hasOnlineAppointmentLink: boolean;
   hasDiningReservationLink: boolean;
