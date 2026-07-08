@@ -34,10 +34,18 @@ import { buildPlaceActionsHealthReport } from "@/lib/google/gbp-place-actions-he
 import { competitorMapRank } from "@/lib/google/local-rankings";
 import { detectPackFragility } from "@/audit/phase2/scoring";
 
-type DataTab = "profile" | "rankings" | "competitors" | "reviews" | "citations" | "trends";
+type DataTab =
+  | "profile"
+  | "performance"
+  | "rankings"
+  | "competitors"
+  | "reviews"
+  | "citations"
+  | "trends";
 
 const DATA_TABS: { id: DataTab; label: string }[] = [
   { id: "profile", label: "Profile" },
+  { id: "performance", label: "Performance" },
   { id: "rankings", label: "Rankings" },
   { id: "trends", label: "Trends" },
   { id: "competitors", label: "Competitors" },
@@ -127,6 +135,9 @@ export default function AuditDataPanel({
   const isCanvas = layout === "canvas";
   const profileGridClass = isCanvas
     ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+    : "grid grid-cols-1 gap-4";
+  const performanceGridClass = isCanvas
+    ? "grid gap-4 sm:grid-cols-2"
     : "grid grid-cols-1 gap-4";
   const fieldCalibration = useMemo(() => {
     const calibration = mergeCalibrations(
@@ -317,43 +328,6 @@ export default function AuditDataPanel({
                 ["Response rate", `${Math.round(audit.gbp.engagement.responseRate * 100)}%`],
               ]}
             />
-            <DataBlock
-              light={isLight}
-              title={`Performance (${audit.gbp.performance.periodDays}d)`}
-              rows={[
-                ["Profile views", String(audit.gbp.performance.profileViews)],
-                ["Maps impressions", String(audit.gbp.performance.impressionsMaps)],
-                ["Search impressions", String(audit.gbp.performance.impressionsSearch)],
-                ["Call clicks", String(audit.gbp.performance.calls)],
-                ["Direction requests", String(audit.gbp.performance.directionRequests)],
-                ["Website clicks", String(audit.gbp.performance.websiteClicks)],
-                ["Messages", String(audit.gbp.performance.conversations)],
-                ["Bookings", String(audit.gbp.performance.bookings)],
-                [
-                  "Data source",
-                  audit.gbp.performance.source === "api" ? "Google Performance API" : "Unavailable",
-                ],
-                ...(audit.gbp.performance.error
-                  ? [["API note", audit.gbp.performance.error] as [string, string]]
-                  : []),
-              ]}
-            />
-            {(audit.gbp.performance.searchKeywords?.length ?? 0) > 0 && (
-              <DataBlock
-                light={isLight}
-                title="Search keywords (Google)"
-                rows={audit.gbp.performance.searchKeywords!.slice(0, 12).map((kw) => [
-                  kw.keyword,
-                  kw.belowThreshold
-                    ? "< threshold"
-                    : String(kw.impressions ?? 0) + " impressions",
-                ])}
-              />
-            )}
-
-            {audit.gbp.performance.coverage && (
-              <PerformanceHealthPanel light={isLight} coverage={audit.gbp.performance.coverage} />
-            )}
 
             {audit.gbp.placeActions && (
               <PlaceActionsHealthPanel
@@ -390,6 +364,59 @@ export default function AuditDataPanel({
                   coverage={audit.gbp.content.mediaCoverage}
                 />
               </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === "performance" && (
+        <div className="space-y-4">
+          <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+            Customer actions and search terms from Google Performance API for the last{" "}
+            {audit.gbp.performance.periodDays} days.
+          </p>
+          <div className={performanceGridClass}>
+            <DataBlock
+              light={isLight}
+              title={`Performance (${audit.gbp.performance.periodDays}d)`}
+              rows={[
+                ["Profile views", String(audit.gbp.performance.profileViews)],
+                ["Maps impressions", String(audit.gbp.performance.impressionsMaps)],
+                ["Search impressions", String(audit.gbp.performance.impressionsSearch)],
+                ["Call clicks", String(audit.gbp.performance.calls)],
+                ["Direction requests", String(audit.gbp.performance.directionRequests)],
+                ["Website clicks", String(audit.gbp.performance.websiteClicks)],
+                ["Messages", String(audit.gbp.performance.conversations)],
+                ["Bookings", String(audit.gbp.performance.bookings)],
+                [
+                  "Data source",
+                  audit.gbp.performance.source === "api" ? "Google Performance API" : "Unavailable",
+                ],
+                ...(audit.gbp.performance.error
+                  ? [["API note", audit.gbp.performance.error] as [string, string]]
+                  : []),
+              ]}
+            />
+            {(audit.gbp.performance.searchKeywords?.length ?? 0) > 0 ? (
+              <DataBlock
+                light={isLight}
+                title="Search keywords (Google)"
+                rows={audit.gbp.performance.searchKeywords!.map((kw) => [
+                  kw.keyword,
+                  kw.belowThreshold
+                    ? "< threshold"
+                    : `${kw.impressions ?? 0} impressions`,
+                ])}
+              />
+            ) : (
+              <DataBlock
+                light={isLight}
+                title="Search keywords (Google)"
+                rows={[["Keywords", "No search terms returned for this period"]]}
+              />
+            )}
+            {audit.gbp.performance.coverage && (
+              <PerformanceHealthPanel light={isLight} coverage={audit.gbp.performance.coverage} />
             )}
           </div>
         </div>

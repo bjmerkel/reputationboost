@@ -415,7 +415,7 @@ export default function AuditDashboard({
             <div className="space-y-3 text-sm text-[#5f6368]">
               <p>
                 Raw audit signals are open in the main panel — use the sub-tabs there to explore
-                profile fields, rankings, competitors, and trends.
+                profile fields, rankings, performance, competitors, and trends.
               </p>
               <p className="text-xs text-[#80868b]">
                 {audit.period} audit · {audit.rankings.keywords.length} keywords tracked
