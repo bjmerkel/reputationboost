@@ -301,6 +301,7 @@ export default function CustomersPageClient({
       )}
 
       <ReviewCampaignDashboard
+        key={campaignRefreshKey}
         onFocusKeyword={(keyword) => {
           setFocusKeyword(keyword);
           void loadMessageTemplate(keyword);
