@@ -189,7 +189,7 @@ function PlaybookLauncher({
     <button
       type="button"
       onClick={onClick}
-      className="fixed bottom-5 left-4 z-30 flex items-center gap-2 rounded-full border border-[#dadce0] bg-white px-4 py-2.5 shadow-[0_4px_16px_rgba(60,64,67,0.18)] transition hover:shadow-[0_6px_20px_rgba(60,64,67,0.22)] sm:bottom-6 lg:left-[calc(408px+1.25rem)]"
+      className="fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#dadce0] bg-white px-4 py-2.5 shadow-[0_4px_16px_rgba(60,64,67,0.18)] transition hover:shadow-[0_6px_20px_rgba(60,64,67,0.22)] sm:bottom-6 lg:left-[calc(408px+(100%-408px)/2)]"
       aria-label="Open your playbook"
     >
       <span
