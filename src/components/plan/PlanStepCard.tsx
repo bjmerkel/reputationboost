@@ -65,15 +65,18 @@ export default function PlanStepCard({
   onReviewRequestSent?: () => void;
 }) {
   const isLight = variant === "light";
+  const reviewRequestTask = step.tasks.find(
+    (t) => t.type === "review_request" && t.status !== "completed"
+  );
   const [expanded, setExpanded] = useState(
-    defaultExpanded || step.status === "needs_approval" || step.status === "approved"
+    defaultExpanded ||
+      step.status === "needs_approval" ||
+      step.status === "approved" ||
+      reviewRequestTask != null
   );
 
   const hasPhotoTasks = step.tasks.some((t) => t.type === "gbp_photo");
   const hasVideoTasks = step.tasks.some((t) => t.type === "gbp_video");
-  const reviewRequestTask = step.tasks.find(
-    (t) => t.type === "review_request" && t.status !== "completed"
-  );
   const attributeTasks = step.tasks.filter(
     (t) => t.type === "gbp_attributes" && t.status !== "completed"
   );
