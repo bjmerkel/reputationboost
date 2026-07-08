@@ -3,6 +3,8 @@ import { getGoogleMapsApiKey } from "./config";
 const METERS_PER_MILE = 1609.34;
 const MAX_NEARBY_PAGES = 3;
 const PAGE_TOKEN_DELAY_MS = 2000;
+const NEARBY_SEARCH_MAX_RETRIES = 3;
+const TRANSIENT_NEARBY_STATUSES = new Set(["UNKNOWN_ERROR", "OVER_QUERY_LIMIT"]);
 
 export const SEARCH_RADII_MILES = [1, 3, 5, 10] as const;
 
@@ -152,6 +154,48 @@ function mapPlaceResult(
   };
 }
 
+async function fetchNearbySearchResponse(url: URL): Promise<GooglePlacesSearchResponse> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < NEARBY_SEARCH_MAX_RETRIES; attempt++) {
+    const res = await fetch(url.toString());
+    let data: GooglePlacesSearchResponse;
+
+    try {
+      data = (await res.json()) as GooglePlacesSearchResponse;
+    } catch {
+      lastError = new Error(`Places Nearby Search returned invalid JSON (HTTP ${res.status})`);
+      if (res.status >= 500 && attempt < NEARBY_SEARCH_MAX_RETRIES - 1) {
+        await sleep(1000 * (attempt + 1));
+        continue;
+      }
+      throw lastError;
+    }
+
+    if (data.status === "OK" || data.status === "ZERO_RESULTS") {
+      return data;
+    }
+
+    lastError = new Error(
+      `Places Nearby Search failed: ${data.status}${data.error_message ? ` — ${data.error_message}` : ""}`
+    );
+
+    const transient =
+      TRANSIENT_NEARBY_STATUSES.has(data.status) || res.status >= 500 || data.status === "INTERNAL_ERROR";
+
+    if (transient && attempt < NEARBY_SEARCH_MAX_RETRIES - 1) {
+      const delay =
+        data.status === "OVER_QUERY_LIMIT" ? PAGE_TOKEN_DELAY_MS * (attempt + 1) : 1000 * (attempt + 1);
+      await sleep(delay);
+      continue;
+    }
+
+    throw lastError;
+  }
+
+  throw lastError ?? new Error("Places Nearby Search failed");
+}
+
 /**
  * Places Nearby Search — primary ranking flow.
  * Paginates up to 3 pages (~60 results) to find businesses beyond the first 20.
@@ -178,14 +222,7 @@ export async function nearbySearch(
       url.searchParams.set("pagetoken", pageToken);
     }
 
-    const res = await fetch(url.toString());
-    const data = (await res.json()) as GooglePlacesSearchResponse;
-
-    if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-      throw new Error(
-        `Places Nearby Search failed for "${keyword}": ${data.status}${data.error_message ? ` — ${data.error_message}` : ""}`
-      );
-    }
+    const data = await fetchNearbySearchResponse(url);
 
     const pageResults = data.results ?? [];
     for (const place of pageResults) {
@@ -356,4 +393,19 @@ export async function searchPlaces(
   return mode === "text"
     ? textSearch(options?.textQuery ?? keyword, location, radiusMeters)
     : nearbySearch(keyword, location, radiusMeters);
+}
+
+/** Like searchPlaces but returns an empty list instead of failing the caller. */
+export async function searchPlacesSafe(
+  keyword: string,
+  location: GeoLocation,
+  radiusMeters: number,
+  mode: PlacesSearchMode = "nearby",
+  options?: SearchPlacesOptions
+): Promise<PlaceResult[]> {
+  try {
+    return await searchPlaces(keyword, location, radiusMeters, mode, options);
+  } catch {
+    return [];
+  }
 }

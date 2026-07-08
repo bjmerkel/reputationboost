@@ -5,7 +5,7 @@ import {
   findBusinessRank,
   type BusinessMatchOptions,
 } from "@/lib/google/local-rankings";
-import { milesToMeters, searchPlaces, type GeoLocation } from "@/lib/google/places";
+import { milesToMeters, searchPlacesSafe, type GeoLocation, type PlaceResult } from "@/lib/google/places";
 
 export type GridProfileKey = "compact" | "standard" | "extended";
 
@@ -68,7 +68,7 @@ export function offsetLocation(
 }
 
 function toLocalPackEntries(
-  results: Awaited<ReturnType<typeof searchPlaces>>,
+  results: PlaceResult[],
   matchOptions: BusinessMatchOptions
 ): GeoGridLocalPackEntry[] {
   return extractCompetitors(results, matchOptions, 3).map((place) => ({
@@ -104,7 +104,7 @@ export async function collectKeywordGeoGrid(
 
   return mapWithConcurrency(offsets, GRID_SEARCH_CONCURRENCY, async ({ northMiles, eastMiles }) => {
     const point = offsetLocation(center, northMiles, eastMiles);
-    const results = await searchPlaces(keyword, point, searchRadius, "nearby");
+    const results = await searchPlacesSafe(keyword, point, searchRadius, "nearby");
     const rank = findBusinessRank(results, matchOptions);
 
     const cell: GeoGridPoint = {

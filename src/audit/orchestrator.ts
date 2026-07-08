@@ -93,7 +93,9 @@ export async function runPhase1Audit(
     collectGbpSnapshot(client, connection, { userEmail: options.userEmail }),
     collectReviewSnapshot(client, connection),
     collectOffGoogleSnapshot(client),
-    useGooglePlaces ? collectPlacesRankData(client) : Promise.resolve(null),
+    useGooglePlaces
+      ? collectPlacesRankData(client).catch(() => null)
+      : Promise.resolve(null),
   ]);
 
   let rankings = placesData?.rankings;

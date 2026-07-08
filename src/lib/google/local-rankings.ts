@@ -151,7 +151,9 @@ export async function resolveCompetitorResults(
     // Skip re-fetching 1mi nearby when we already seeded from rankings.
     if (miles === 1 && options.initialResults) continue;
 
-    const nearbyResults = await searchPlaces(keyword, location, milesToMeters(miles), "nearby");
+    const nearbyResults = await searchPlaces(keyword, location, milesToMeters(miles), "nearby").catch(
+      () => [] as PlaceResult[]
+    );
     competitors = mergeCompetitorCandidates(competitors, nearbyResults, matchOptions, limit);
     if (competitors.length >= limit) return competitors;
   }
@@ -255,8 +257,12 @@ export async function searchKeywordAtAllRadii(
 
   const radiusResults = await Promise.all(
     SEARCH_RADII_MILES.map(async (miles) => {
-      const results = await searchPlaces(keyword, location, milesToMeters(miles), mode);
-      return { miles, results };
+      try {
+        const results = await searchPlaces(keyword, location, milesToMeters(miles), mode);
+        return { miles, results };
+      } catch {
+        return { miles, results: [] as PlaceResult[] };
+      }
     })
   );
 
@@ -314,31 +320,48 @@ export async function collectPlacesRankData(client: ClientConfig): Promise<{
     client.keywords,
     KEYWORD_COLLECTION_CONCURRENCY,
     async (keyword) => {
-      const { ranksByRadius, resultsByRadius } = await searchKeywordAtAllRadii(
-        keyword,
-        location,
-        matchOptions,
-        "nearby"
-      );
+      try {
+        const { ranksByRadius, resultsByRadius } = await searchKeywordAtAllRadii(
+          keyword,
+          location,
+          matchOptions,
+          "nearby"
+        );
 
-      const [geoGrid, competitorPlaces] = await Promise.all([
-        collectKeywordGeoGrid(keyword, location, matchOptions, {
-          profile: gridProfileForCollection("audit", client.heatmapProfile),
-          includeLocalPack: true,
-        }),
-        resolveCompetitorResults(keyword, location, matchOptions, {
-          limit: TOP_COMPETITORS,
-          initialResults: resultsByRadius[1],
-        }),
-      ]);
+        const [geoGrid, competitorPlaces] = await Promise.all([
+          collectKeywordGeoGrid(keyword, location, matchOptions, {
+            profile: gridProfileForCollection("audit", client.heatmapProfile),
+            includeLocalPack: true,
+          }),
+          resolveCompetitorResults(keyword, location, matchOptions, {
+            limit: TOP_COMPETITORS,
+            initialResults: resultsByRadius[1],
+          }),
+        ]);
 
-      return {
-        keyword,
-        ranksByRadius,
-        resultsByRadius,
-        geoGrid,
-        competitorPlaces,
-      };
+        return {
+          keyword,
+          ranksByRadius,
+          resultsByRadius,
+          geoGrid,
+          competitorPlaces,
+        };
+      } catch {
+        const emptyRanks = Object.fromEntries(
+          SEARCH_RADII_MILES.map((miles) => [miles, null])
+        ) as Record<SearchRadiusMiles, number | null>;
+        const emptyResults = Object.fromEntries(
+          SEARCH_RADII_MILES.map((miles) => [miles, [] as PlaceResult[]])
+        ) as Record<SearchRadiusMiles, PlaceResult[]>;
+
+        return {
+          keyword,
+          ranksByRadius: emptyRanks,
+          resultsByRadius: emptyResults,
+          geoGrid: undefined,
+          competitorPlaces: [] as PlaceResult[],
+        };
+      }
     }
   );
 
