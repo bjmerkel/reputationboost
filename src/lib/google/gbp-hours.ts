@@ -316,6 +316,8 @@ export function defaultUsHolidayDescriptions(
 }
 
 export interface EditableHolidayPeriod {
+  id?: string;
+  custom?: boolean;
   name: string;
   enabled: boolean;
   closed: boolean;
@@ -326,8 +328,94 @@ export interface EditableHolidayPeriod {
   day: number;
 }
 
+export function editableHolidayDateKey(period: EditableHolidayPeriod): string {
+  return `${period.year}-${period.month}-${period.day}`;
+}
+
+export function formatEditableHolidayDateInput(period: EditableHolidayPeriod): string {
+  return `${period.year}-${String(period.month).padStart(2, "0")}-${String(period.day).padStart(2, "0")}`;
+}
+
+export function parseEditableHolidayDateInput(
+  value: string,
+  fallbackYear = new Date().getFullYear()
+): Pick<EditableHolidayPeriod, "year" | "month" | "day"> | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return null;
+  }
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+
+  const parsed = new Date(year, month - 1, day);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return { year: year || fallbackYear, month, day };
+}
+
+export function createCustomEditableHolidayPeriod(
+  year = new Date().getFullYear()
+): EditableHolidayPeriod {
+  return {
+    id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    custom: true,
+    name: "",
+    enabled: true,
+    closed: true,
+    openTime: "09:00",
+    closeTime: "17:00",
+    year,
+    month: 1,
+    day: 1,
+  };
+}
+
+export function isEditableHolidayPeriodComplete(period: EditableHolidayPeriod): boolean {
+  if (!period.enabled) return true;
+  if (period.month < 1 || period.month > 12 || period.day < 1 || period.day > 31) {
+    return false;
+  }
+  if (period.custom && !period.name.trim()) {
+    return false;
+  }
+  if (!period.closed && (!period.openTime || !period.closeTime)) {
+    return false;
+  }
+  return true;
+}
+
+export function findEditableHolidayDateDuplicates(periods: EditableHolidayPeriod[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+
+  for (const period of periods) {
+    if (!period.enabled) continue;
+    const key = editableHolidayDateKey(period);
+    if (seen.has(key)) {
+      duplicates.add(key);
+    } else {
+      seen.add(key);
+    }
+  }
+
+  return [...duplicates];
+}
+
 export function defaultEditableHolidayPeriods(year = new Date().getFullYear()): EditableHolidayPeriod[] {
   return defaultUsHolidayDescriptions(year).map((holiday) => ({
+    custom: false,
     name: holiday.name,
     enabled: true,
     closed: isSpecialHourClosed(holiday.period),
@@ -343,6 +431,8 @@ function isEditableHolidayRecord(value: unknown): value is EditableHolidayPeriod
   if (!value || typeof value !== "object") return false;
   const record = value as EditableHolidayPeriod;
   return (
+    (record.id === undefined || typeof record.id === "string") &&
+    (record.custom === undefined || typeof record.custom === "boolean") &&
     typeof record.name === "string" &&
     typeof record.enabled === "boolean" &&
     typeof record.closed === "boolean" &&
@@ -358,16 +448,22 @@ export function parseEditableHolidayPeriods(
   raw: unknown,
   year = new Date().getFullYear()
 ): EditableHolidayPeriod[] {
-  if (!Array.isArray(raw) || !raw.every(isEditableHolidayRecord)) {
+  if (!Array.isArray(raw)) {
     return defaultEditableHolidayPeriods(year);
   }
-  return raw;
+
+  const valid = raw.filter(isEditableHolidayRecord);
+  if (valid.length === 0) {
+    return defaultEditableHolidayPeriods(year);
+  }
+
+  return valid;
 }
 
 export function specialHoursFromEditablePeriods(periods: EditableHolidayPeriod[]): SpecialHours {
   return {
     specialHourPeriods: periods
-      .filter((period) => period.enabled)
+      .filter((period) => period.enabled && isEditableHolidayPeriodComplete(period))
       .map((period) => {
         const mapped: SpecialHourPeriod = {
           startDate: { year: period.year, month: period.month, day: period.day },
@@ -387,6 +483,11 @@ export function formatEditableHolidaySchedule(period: EditableHolidayPeriod): st
   if (!period.enabled) return "Skipped";
   if (period.closed) return "Closed";
   return `${period.openTime} – ${period.closeTime}`;
+}
+
+export function formatEditableHolidayDateLabel(period: EditableHolidayPeriod): string {
+  const month = MONTH_NAMES[period.month] ?? String(period.month);
+  return `${month} ${period.day}, ${period.year}`;
 }
 
 export function mergeSpecialHours(
