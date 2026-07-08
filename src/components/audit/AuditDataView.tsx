@@ -15,6 +15,7 @@ export default function AuditDataView({
   gbpConnected = false,
   onNavigateToPlan,
   globalCalibration = {},
+  layout = "canvas",
 }: {
   audit: FullAuditPayload;
   clientId: string;
@@ -25,6 +26,7 @@ export default function AuditDataView({
   gbpConnected?: boolean;
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
   globalCalibration?: AttributionCalibration;
+  layout?: "sidebar" | "canvas";
 }) {
   return (
     <AuditDataPanel
@@ -34,6 +36,7 @@ export default function AuditDataView({
       activeKeyword={activeKeyword}
       onKeywordChange={onKeywordChange}
       variant="light"
+      layout={layout}
       gbpConnected={gbpConnected}
       onNavigateToPlan={onNavigateToPlan}
       attributions={attributions}

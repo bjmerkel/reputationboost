@@ -51,8 +51,8 @@ function auditDataTheme(light: boolean) {
       ? "rounded-xl border border-[#dadce0] bg-white p-4"
       : "rounded-xl border border-white/8 bg-white/[0.02] p-4",
     cardWide: light
-      ? "md:col-span-2 rounded-xl border border-[#dadce0] bg-white p-4"
-      : "md:col-span-2 rounded-xl border border-white/8 bg-white/[0.02] p-4",
+      ? "col-span-full rounded-xl border border-[#dadce0] bg-white p-4"
+      : "col-span-full rounded-xl border border-white/8 bg-white/[0.02] p-4",
     heading: light ? "text-sm font-semibold text-[#202124]" : "text-sm font-semibold text-slate-300",
     subheading: light ? "mt-1 text-xs text-[#5f6368]" : "mt-1 text-xs text-slate-500",
     scorePill: light
@@ -104,6 +104,7 @@ export default function AuditDataPanel({
   onKeywordChange,
   embedded = false,
   variant = "light",
+  layout = "canvas",
   gbpConnected = false,
   onNavigateToPlan,
   attributions = [],
@@ -116,12 +117,17 @@ export default function AuditDataPanel({
   onKeywordChange: (keyword: string) => void;
   embedded?: boolean;
   variant?: "dark" | "light";
+  layout?: "sidebar" | "canvas";
   gbpConnected?: boolean;
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
   attributions?: ActionAttribution[];
   globalCalibration?: AttributionCalibration;
 }) {
   const isLight = variant === "light";
+  const isCanvas = layout === "canvas";
+  const profileGridClass = isCanvas
+    ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+    : "grid grid-cols-1 gap-4";
   const fieldCalibration = useMemo(() => {
     const calibration = mergeCalibrations(
       buildAttributionCalibration(attributions),
@@ -190,7 +196,7 @@ export default function AuditDataPanel({
   }, [audit.auditId, gbpConnected, storedMedia.length, audit.gbp.content.photoCount]);
 
   return (
-    <div className="space-y-6">
+    <div className={`min-w-0 ${isCanvas ? "space-y-5" : "space-y-4"}`}>
       {!embedded && (
         <div>
           <h2 className={`text-xl font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
@@ -203,7 +209,7 @@ export default function AuditDataPanel({
       )}
 
       <div
-        className={`flex flex-wrap gap-2 border-b pb-3 ${
+        className={`-mx-1 flex gap-2 overflow-x-auto border-b px-1 pb-3 ${
           isLight ? "border-[#dadce0]" : "border-white/8"
         }`}
       >
@@ -212,7 +218,7 @@ export default function AuditDataPanel({
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+            className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition sm:px-4 ${
               tab === t.id
                 ? isLight
                   ? "bg-[#e8f0fe] text-[#1a73e8]"
@@ -239,152 +245,152 @@ export default function AuditDataPanel({
               onNavigateToPlan={onNavigateToPlan}
             />
           )}
-          <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-3">
+          <div className={profileGridClass}>
+            <div className="space-y-3">
+              <DataBlock
+                light={isLight}
+                title="Identity"
+                rows={[
+                  ["Name", audit.gbp.identity.name],
+                  ["Category", audit.gbp.identity.primaryCategory],
+                  ["Phone", audit.gbp.identity.phone],
+                  ["Website", audit.gbp.identity.website],
+                ]}
+              />
+              <GoogleMapsLink
+                mapsUrl={audit.gbp.identity.mapsUrl}
+                name={audit.gbp.identity.name}
+                address={audit.gbp.identity.address}
+              />
+            </div>
             <DataBlock
               light={isLight}
-              title="Identity"
+              title="Content & issues"
               rows={[
-                ["Name", audit.gbp.identity.name],
-                ["Category", audit.gbp.identity.primaryCategory],
-                ["Phone", audit.gbp.identity.phone],
-                ["Website", audit.gbp.identity.website],
+                ["Photos", String(audit.gbp.content.photoCount)],
+                ["Videos", String(audit.gbp.content.videoCount ?? 0)],
+                ["Last post", formatDate(audit.gbp.content.lastPostDate)],
+                ["Verified", audit.gbp.issues.isVerified ? "Yes" : "No"],
+                ["Completeness", `${audit.gbp.completeness.completenessScore}%`],
               ]}
             />
-            <GoogleMapsLink
-              mapsUrl={audit.gbp.identity.mapsUrl}
-              name={audit.gbp.identity.name}
-              address={audit.gbp.identity.address}
-            />
-          </div>
-          <DataBlock
-            light={isLight}
-            title="Content & issues"
-            rows={[
-              ["Photos", String(audit.gbp.content.photoCount)],
-              ["Videos", String(audit.gbp.content.videoCount ?? 0)],
-              ["Last post", formatDate(audit.gbp.content.lastPostDate)],
-              ["Verified", audit.gbp.issues.isVerified ? "Yes" : "No"],
-              ["Completeness", `${audit.gbp.completeness.completenessScore}%`],
-            ]}
-          />
-          {audit.gbp.notifications && (
+            {audit.gbp.notifications && (
+              <DataBlock
+                light={isLight}
+                title="Real-time alerts"
+                rows={[
+                  [
+                    "Pub/Sub",
+                    audit.gbp.notifications.configured ? "Configured" : "Not configured",
+                  ],
+                  ["Coverage", `${audit.gbp.notifications.coverageScore}%`],
+                  [
+                    "Review alerts",
+                    audit.gbp.notifications.hasReviewAlerts ? "On" : "Off",
+                  ],
+                  [
+                    "Google edit alerts",
+                    audit.gbp.notifications.hasGoogleUpdateAlerts ? "On" : "Off",
+                  ],
+                  [
+                    "Customer media alerts",
+                    audit.gbp.notifications.hasCustomerMediaAlerts ? "On" : "Off",
+                  ],
+                  [
+                    "Subscribed types",
+                    audit.gbp.notifications.enabledTypes.length > 0
+                      ? String(audit.gbp.notifications.enabledTypes.length)
+                      : "0",
+                  ],
+                ]}
+              />
+            )}
             <DataBlock
               light={isLight}
-              title="Real-time alerts"
+              title="Engagement"
               rows={[
                 [
-                  "Pub/Sub",
-                  audit.gbp.notifications.configured ? "Configured" : "Not configured",
+                  "Reviews",
+                  `${audit.gbp.engagement.reviewCount} (${audit.gbp.engagement.averageRating}★)`,
                 ],
-                ["Coverage", `${audit.gbp.notifications.coverageScore}%`],
-                [
-                  "Review alerts",
-                  audit.gbp.notifications.hasReviewAlerts ? "On" : "Off",
-                ],
-                [
-                  "Google edit alerts",
-                  audit.gbp.notifications.hasGoogleUpdateAlerts ? "On" : "Off",
-                ],
-                [
-                  "Customer media alerts",
-                  audit.gbp.notifications.hasCustomerMediaAlerts ? "On" : "Off",
-                ],
-                [
-                  "Subscribed types",
-                  audit.gbp.notifications.enabledTypes.length > 0
-                    ? String(audit.gbp.notifications.enabledTypes.length)
-                    : "0",
-                ],
+                ["New (30d)", String(audit.gbp.engagement.reviewsLast30Days)],
+                ["Response rate", `${Math.round(audit.gbp.engagement.responseRate * 100)}%`],
               ]}
             />
-          )}
-          <DataBlock
-            light={isLight}
-            title="Engagement"
-            rows={[
-              [
-                "Reviews",
-                `${audit.gbp.engagement.reviewCount} (${audit.gbp.engagement.averageRating}★)`,
-              ],
-              ["New (30d)", String(audit.gbp.engagement.reviewsLast30Days)],
-              ["Response rate", `${Math.round(audit.gbp.engagement.responseRate * 100)}%`],
-            ]}
-          />
-          <DataBlock
-            light={isLight}
-            title={`Performance (${audit.gbp.performance.periodDays}d)`}
-            rows={[
-              ["Profile views", String(audit.gbp.performance.profileViews)],
-              ["Maps impressions", String(audit.gbp.performance.impressionsMaps)],
-              ["Search impressions", String(audit.gbp.performance.impressionsSearch)],
-              ["Call clicks", String(audit.gbp.performance.calls)],
-              ["Direction requests", String(audit.gbp.performance.directionRequests)],
-              ["Website clicks", String(audit.gbp.performance.websiteClicks)],
-              ["Messages", String(audit.gbp.performance.conversations)],
-              ["Bookings", String(audit.gbp.performance.bookings)],
-              [
-                "Data source",
-                audit.gbp.performance.source === "api" ? "Google Performance API" : "Unavailable",
-              ],
-              ...(audit.gbp.performance.error
-                ? [["API note", audit.gbp.performance.error] as [string, string]]
-                : []),
-            ]}
-          />
-          {(audit.gbp.performance.searchKeywords?.length ?? 0) > 0 && (
             <DataBlock
               light={isLight}
-              title="Search keywords (Google)"
-              rows={audit.gbp.performance.searchKeywords!.slice(0, 12).map((kw) => [
-                kw.keyword,
-                kw.belowThreshold
-                  ? "< threshold"
-                  : String(kw.impressions ?? 0) + " impressions",
-              ])}
+              title={`Performance (${audit.gbp.performance.periodDays}d)`}
+              rows={[
+                ["Profile views", String(audit.gbp.performance.profileViews)],
+                ["Maps impressions", String(audit.gbp.performance.impressionsMaps)],
+                ["Search impressions", String(audit.gbp.performance.impressionsSearch)],
+                ["Call clicks", String(audit.gbp.performance.calls)],
+                ["Direction requests", String(audit.gbp.performance.directionRequests)],
+                ["Website clicks", String(audit.gbp.performance.websiteClicks)],
+                ["Messages", String(audit.gbp.performance.conversations)],
+                ["Bookings", String(audit.gbp.performance.bookings)],
+                [
+                  "Data source",
+                  audit.gbp.performance.source === "api" ? "Google Performance API" : "Unavailable",
+                ],
+                ...(audit.gbp.performance.error
+                  ? [["API note", audit.gbp.performance.error] as [string, string]]
+                  : []),
+              ]}
             />
-          )}
+            {(audit.gbp.performance.searchKeywords?.length ?? 0) > 0 && (
+              <DataBlock
+                light={isLight}
+                title="Search keywords (Google)"
+                rows={audit.gbp.performance.searchKeywords!.slice(0, 12).map((kw) => [
+                  kw.keyword,
+                  kw.belowThreshold
+                    ? "< threshold"
+                    : String(kw.impressions ?? 0) + " impressions",
+                ])}
+              />
+            )}
 
-          {audit.gbp.performance.coverage && (
-            <PerformanceHealthPanel light={isLight} coverage={audit.gbp.performance.coverage} />
-          )}
+            {audit.gbp.performance.coverage && (
+              <PerformanceHealthPanel light={isLight} coverage={audit.gbp.performance.coverage} />
+            )}
 
-          {audit.gbp.placeActions && (
-            <PlaceActionsHealthPanel
-              light={isLight}
-              coverage={audit.gbp.placeActions}
-              links={audit.gbp.placeActionLinks ?? []}
-            />
-          )}
+            {audit.gbp.placeActions && (
+              <PlaceActionsHealthPanel
+                light={isLight}
+                coverage={audit.gbp.placeActions}
+                links={audit.gbp.placeActionLinks ?? []}
+              />
+            )}
 
-          {audit.gbp.localPosts && (
-            <LocalPostsHealthPanel
-              light={isLight}
-              coverage={audit.gbp.localPosts}
-              recentPosts={audit.gbp.recentPosts ?? []}
-            />
-          )}
+            {audit.gbp.localPosts && (
+              <LocalPostsHealthPanel
+                light={isLight}
+                coverage={audit.gbp.localPosts}
+                recentPosts={audit.gbp.recentPosts ?? []}
+              />
+            )}
 
-          {(audit.gbp.content.photoCount > 0 || mediaPreviews.length > 0) && (
-            <>
-              {audit.gbp.content.mediaCoverage && (
-                <MediaHealthPanel
+            {(audit.gbp.content.photoCount > 0 || mediaPreviews.length > 0) && (
+              <>
+                {audit.gbp.content.mediaCoverage && (
+                  <MediaHealthPanel
+                    light={isLight}
+                    coverage={audit.gbp.content.mediaCoverage}
+                    photosByType={audit.gbp.content.photosByType}
+                    videoCount={audit.gbp.content.videoCount ?? 0}
+                  />
+                )}
+                <MediaGallery
                   light={isLight}
-                  coverage={audit.gbp.content.mediaCoverage}
-                  photosByType={audit.gbp.content.photosByType}
+                  photoCount={audit.gbp.content.photoCount}
                   videoCount={audit.gbp.content.videoCount ?? 0}
+                  photosByType={audit.gbp.content.photosByType}
+                  previews={mediaPreviews}
+                  coverage={audit.gbp.content.mediaCoverage}
                 />
-              )}
-              <MediaGallery
-              light={isLight}
-              photoCount={audit.gbp.content.photoCount}
-              videoCount={audit.gbp.content.videoCount ?? 0}
-              photosByType={audit.gbp.content.photosByType}
-              previews={mediaPreviews}
-              coverage={audit.gbp.content.mediaCoverage}
-            />
-            </>
-          )}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -397,10 +403,10 @@ export default function AuditDataPanel({
           </p>
         <div
           className={`overflow-x-auto rounded-xl border ${
-            isLight ? "border-[#dadce0]" : "border-white/8"
+            isLight ? "border-[#dadce0] bg-white" : "border-white/8"
           }`}
         >
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[36rem] text-left text-sm">
             <thead>
               <tr
                 className={`border-b text-xs uppercase tracking-wider ${
@@ -627,9 +633,9 @@ function DataBlock({
       <p className={theme.blockTitle}>{title}</p>
       <dl className="space-y-2">
         {rows.map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-4 text-sm">
+          <div key={k} className="grid gap-0.5 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] sm:gap-4">
             <dt className={theme.label}>{k}</dt>
-            <dd className={`text-right ${theme.value}`}>{v}</dd>
+            <dd className={`break-words sm:text-right ${theme.value}`}>{v}</dd>
           </div>
         ))}
       </dl>

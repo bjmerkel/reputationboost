@@ -349,6 +349,7 @@ export default function AuditDashboard({
           onPreviewCustomer={() => setPreviewOpen(true)}
           sparklines={attributionData.sparklines}
           industry={businessIndustry}
+          minimalChrome={view === "audit"}
         >
           {view === "report" && (
             <HomeView
@@ -411,21 +412,37 @@ export default function AuditDashboard({
           )}
 
           {view === "audit" && (
-            <AuditDataView
-              audit={audit}
-              clientId={clientId}
-              tasks={tasks}
-              attributions={attributionData.attributions}
-              activeKeyword={activeKeyword}
-              onKeywordChange={setActiveKeyword}
-              gbpConnected={gbpConnected}
-              onNavigateToPlan={openPlanStep}
-              globalCalibration={scoreHistory.globalCalibration}
-            />
+            <div className="space-y-3 text-sm text-[#5f6368]">
+              <p>
+                Raw audit signals are open in the main panel — use the sub-tabs there to explore
+                profile fields, rankings, competitors, and trends.
+              </p>
+              <p className="text-xs text-[#80868b]">
+                {audit.period} audit · {audit.rankings.keywords.length} keywords tracked
+              </p>
+            </div>
           )}
         </PlaceCard>
 
-        <div className="relative h-full w-full">
+        <div className="relative h-full min-h-0 w-full">
+          {view === "audit" ? (
+            <div className="h-full min-h-0 overflow-y-auto overscroll-y-contain bg-[#f8f9fa]">
+              <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
+                <AuditDataView
+                  audit={audit}
+                  clientId={clientId}
+                  tasks={tasks}
+                  attributions={attributionData.attributions}
+                  activeKeyword={activeKeyword}
+                  onKeywordChange={setActiveKeyword}
+                  gbpConnected={gbpConnected}
+                  onNavigateToPlan={openPlanStep}
+                  globalCalibration={scoreHistory.globalCalibration}
+                  layout="canvas"
+                />
+              </div>
+            </div>
+          ) : (
           <RankingMap
             lat={businessLocation.lat}
             lng={businessLocation.lng}
@@ -446,6 +463,7 @@ export default function AuditDashboard({
             diffActive={diffActive}
             onDiffChange={handleDiffChange}
           />
+          )}
         </div>
       </PlatformShell>
 

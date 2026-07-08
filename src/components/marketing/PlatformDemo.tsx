@@ -240,6 +240,7 @@ export default function PlatformDemo({
             planPendingCount={planPendingCount}
             onPreviewCustomer={() => setPreviewOpen(true)}
             industry={industry}
+            minimalChrome={view === "audit"}
           >
             {view === "report" && (
               <div className="space-y-6">
@@ -267,18 +268,26 @@ export default function PlatformDemo({
             )}
 
             {view === "audit" && (
-              <AuditDataView
-                audit={audit}
-                clientId={audit.clientId}
-                tasks={tasks}
-                attributions={[]}
-                activeKeyword={activeKeyword}
-                onKeywordChange={setActiveKeyword}
-              />
+              <p className="text-sm text-[#5f6368]">
+                Audit data opens in the main panel beside the map.
+              </p>
             )}
           </PlaceCard>
 
-          <div className="h-full w-full">
+          <div className="h-full min-h-0 w-full">
+            {view === "audit" ? (
+              <div className="h-full overflow-y-auto bg-[#f8f9fa] p-4">
+                <AuditDataView
+                  audit={audit}
+                  clientId={audit.clientId}
+                  tasks={tasks}
+                  attributions={[]}
+                  activeKeyword={activeKeyword}
+                  onKeywordChange={setActiveKeyword}
+                  layout="canvas"
+                />
+              </div>
+            ) : (
             <RankingMap
               lat={location.lat}
               lng={location.lng}
@@ -289,6 +298,7 @@ export default function PlatformDemo({
               activeKeyword={activeKeyword}
               disableGridFetch
             />
+            )}
           </div>
         </PlatformShell>
       </div>

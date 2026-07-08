@@ -20,6 +20,8 @@ interface PlaceCardProps {
   onPreviewCustomer?: () => void;
   sparklines?: Record<string, number[]>;
   industry?: string;
+  /** Hide hero, score breakdown, and metrics when content lives in the main panel. */
+  minimalChrome?: boolean;
   children: React.ReactNode;
 }
 
@@ -31,6 +33,7 @@ export default function PlaceCard({
   onPreviewCustomer,
   sparklines,
   industry,
+  minimalChrome = false,
   children,
 }: PlaceCardProps) {
   const { gbp } = audit;
@@ -43,7 +46,7 @@ export default function PlaceCard({
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain">
-        {heroPhoto && (
+        {heroPhoto && !minimalChrome && (
           <div className="relative h-36 w-full shrink-0 overflow-hidden bg-[#e8eaed]">
             <ExternalImage
               src={heroPhoto}
@@ -75,12 +78,16 @@ export default function PlaceCard({
             <p className="mt-1 text-sm text-[#5f6368]">{category}</p>
           )}
 
-          <div className="mt-4">
-            <ActionMetricsBar audit={audit} sparklines={sparklines} />
-          </div>
+          {!minimalChrome && (
+            <div className="mt-4">
+              <ActionMetricsBar audit={audit} sparklines={sparklines} />
+            </div>
+          )}
         </div>
 
-        <PlaceCardDetails audit={audit} onPreviewCustomer={onPreviewCustomer} />
+        {!minimalChrome && (
+          <PlaceCardDetails audit={audit} onPreviewCustomer={onPreviewCustomer} />
+        )}
 
         <PlaceCardTabNav
           activeView={activeView}
@@ -88,7 +95,7 @@ export default function PlaceCard({
           planPendingCount={planPendingCount}
         />
 
-        <div className="maps-panel-light px-4 py-5">
+        <div className={`maps-panel-light ${minimalChrome ? "px-3 py-4" : "px-4 py-5"}`}>
           {children}
         </div>
       </div>
