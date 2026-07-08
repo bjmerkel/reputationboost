@@ -2,16 +2,14 @@ import type { GbpMediaCategory, GbpMediaItem } from "./gbp-media";
 import { formatMediaViewCountLabel, parseMediaViewCount } from "./gbp-media";
 import {
   analyzeGbpMediaCoverage,
-  mediaCategoryLabel,
   type GbpMediaCoverage,
 } from "./gbp-media-coverage";
 
 export interface MediaMaintenanceAction {
-  type: "recategorize" | "delete";
+  type: "delete";
   mediaName: string;
   thumbnailUrl: string;
   currentCategory: GbpMediaCategory | null;
-  targetCategory?: GbpMediaCategory;
   reason: string;
   viewCount: number | null;
 }
@@ -35,7 +33,11 @@ function daysSince(iso: string): number | null {
   return Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
 }
 
-/** Suggest recategorize/delete actions to improve media coverage. */
+/**
+ * Suggest delete actions to improve media coverage.
+ * Google does not reliably support changing a photo's category after upload —
+ * missing categories should be filled with new uploads instead.
+ */
 export function buildMediaMaintenanceActions(
   items: GbpMediaItem[],
   coverage?: GbpMediaCoverage
@@ -48,24 +50,6 @@ export function buildMediaMaintenanceActions(
     (item) => item.mediaFormat === "PHOTO" && !isCustomerMedia(item)
   );
   const additionalPhotos = ownerPhotos.filter((item) => item.category === "ADDITIONAL");
-
-  for (const missingCategory of resolvedCoverage.missingCategories) {
-    const candidate = additionalPhotos.find((item) => !usedNames.has(item.name));
-    if (!candidate) continue;
-
-    usedNames.add(candidate.name);
-    actions.push({
-      type: "recategorize",
-      mediaName: candidate.name,
-      thumbnailUrl: candidate.thumbnailUrl || candidate.googleUrl,
-      currentCategory: candidate.category,
-      targetCategory: missingCategory as GbpMediaCategory,
-      reason: `Move this photo from Additional to ${mediaCategoryLabel(
-        missingCategory as GbpMediaCategory
-      )} to fill a category gap.`,
-      viewCount: parseMediaViewCount(candidate.viewCount),
-    });
-  }
 
   if (!resolvedCoverage.photoViewsAvailable) {
     return actions.slice(0, 4);

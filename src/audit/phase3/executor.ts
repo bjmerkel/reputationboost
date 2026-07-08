@@ -192,11 +192,9 @@ async function executeTaskLive(
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
     case "gbp_media_recategorize": {
-      const result = await applyGbpAction(connection, "recategorize_media", {
-        mediaName: String(task.payload.mediaName ?? ""),
-        category: task.payload.targetCategory as GbpMediaCategory,
-      });
-      return { ...task, status: "completed", completedAt: now, result: result.message };
+      throw new Error(
+        "Google does not support changing a photo's category after upload. Upload a new photo with the correct category instead, then remove the old one if needed."
+      );
     }
     case "gbp_media_delete": {
       const result = await applyGbpAction(connection, "delete_media", {

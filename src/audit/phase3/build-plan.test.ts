@@ -172,8 +172,8 @@ describe("buildPlan", () => {
         id: "media-maint-1",
         planStepNumber: 6,
         actionItemId: "media-maint-1",
-        type: "gbp_media_recategorize" as const,
-        title: "Recategorize photo to Exterior",
+        type: "gbp_media_delete" as const,
+        title: "Remove low-performing photo",
         status: "pending_approval" as const,
       },
     ];
@@ -193,7 +193,7 @@ describe("buildPlan", () => {
 
     const photoStep = plan!.steps.find((s) => s.stepNumber === 6);
     assert.ok(photoStep);
-    assert.ok(photoStep!.tasks.some((task) => task.type === "gbp_media_recategorize"));
+    assert.ok(photoStep!.tasks.some((task) => task.type === "gbp_media_delete"));
   });
 
   it("places custom steps in the ongoing phase and excludes them from score projection", () => {

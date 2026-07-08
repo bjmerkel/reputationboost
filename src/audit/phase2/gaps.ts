@@ -305,7 +305,7 @@ export function detectGaps(
           "P2",
           "gbp_profile",
           "Too many uncategorized photos",
-          `${additionalCount} photos are in Additional while key categories are missing. Recategorize or replace them.`,
+          `${additionalCount} photos are in Additional while key categories are missing. Upload new photos with the correct category — Google does not allow recategorizing existing photos.`,
           4,
           2
         )

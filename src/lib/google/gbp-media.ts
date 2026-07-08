@@ -244,7 +244,12 @@ export async function getGbpMedia(
   return mapMediaItem(data);
 }
 
-/** accounts.locations.media.patch — recategorize an existing media item. */
+/**
+ * accounts.locations.media.patch — update category on an existing media item.
+ * Unreliable in practice: Google often returns INVALID_ARGUMENT, and many
+ * categories are restricted by business type. Prefer uploading a new photo
+ * with the desired category instead of calling this.
+ */
 export async function patchGbpMediaCategory(
   connection: GbpConnection,
   mediaName: string,
@@ -255,7 +260,7 @@ export async function patchGbpMediaCategory(
     : `${mediaParent(connection)}/media/${mediaName}`;
 
   const url = new URL(`${GBP_V4}/${resource}`);
-  url.searchParams.set("updateMask", "locationAssociation");
+  url.searchParams.set("updateMask", "locationAssociation.category");
 
   const res = await fetch(url.toString(), {
     method: "PATCH",

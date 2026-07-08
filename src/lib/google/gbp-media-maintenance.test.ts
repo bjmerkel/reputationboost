@@ -23,7 +23,7 @@ function photo(
 }
 
 describe("buildMediaMaintenanceActions", () => {
-  it("suggests recategorizing additional photos into missing categories", () => {
+  it("does not suggest recategorizing photos into missing categories", () => {
     const items = [
       photo("accounts/a/locations/l/media/1", "ADDITIONAL"),
       photo("accounts/a/locations/l/media/2", "ADDITIONAL"),
@@ -32,8 +32,7 @@ describe("buildMediaMaintenanceActions", () => {
     const coverage = analyzeGbpMediaCoverage(items);
 
     const actions = buildMediaMaintenanceActions(items, coverage);
-    assert.ok(actions.some((action) => action.type === "recategorize"));
-    assert.ok(actions.some((action) => action.targetCategory === "INTERIOR"));
+    assert.ok(!actions.some((action) => (action as { type?: string }).type === "recategorize"));
   });
 
   it("suggests deleting stale zero-view additional photos", () => {

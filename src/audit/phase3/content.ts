@@ -142,7 +142,7 @@ export function mapActionToExecutionType(actionId: string): ExecutionType | null
     return "google_post";
   }
   if (actionId === "miscategorized-media" || actionId === "stale-media") {
-    return "gbp_media_recategorize";
+    return "gbp_photo";
   }
   if (actionId.startsWith("rank-outside-pack")) return "gbp_description";
   if (actionId === "unresponded-negative" || actionId === "low-response-rate") return "review_response";

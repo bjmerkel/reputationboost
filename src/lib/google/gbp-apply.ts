@@ -975,21 +975,13 @@ export async function applyMediaFromDraft(
 }
 
 export async function applyMediaRecategorize(
-  connection: GbpConnection,
-  mediaName: string,
-  category: GbpMediaCategory
+  _connection: GbpConnection,
+  _mediaName: string,
+  _category: GbpMediaCategory
 ): Promise<GbpApplyResult> {
-  const item = await patchGbpMediaCategory(connection, mediaName, category);
-
-  return {
-    success: true,
-    message: `Photo recategorized to ${category} on your Google Business Profile.`,
-    applied: {
-      mediaName: item.name,
-      category: item.category,
-      googleUrl: item.googleUrl,
-    },
-  };
+  throw new Error(
+    "Google does not reliably support changing a photo category after upload. Upload a new photo with the correct category instead."
+  );
 }
 
 export async function applyMediaDelete(

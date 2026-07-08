@@ -813,19 +813,11 @@ export function tasksFromMediaMaintenance(audit: FullAuditPayload): ExecutionTas
   };
 
   return actions.map((action, index) => {
-    const type = action.type === "recategorize" ? "gbp_media_recategorize" : "gbp_media_delete";
-    const title =
-      action.type === "recategorize"
-        ? `Recategorize photo to ${mediaCategoryLabel(action.targetCategory!)}`
-        : "Remove low-performing photo";
-
     const draftLines = [
       action.reason,
       "",
       `Current category: ${action.currentCategory ?? "ADDITIONAL"}`,
-      action.targetCategory
-        ? `Target category: ${mediaCategoryLabel(action.targetCategory)}`
-        : "After deleting, upload a better categorized replacement.",
+      "After deleting, upload a new photo with the correct category in the Photos section above.",
     ];
     if (action.viewCount !== null) {
       draftLines.push(`Views: ${formatMediaViewCountLabel(action.viewCount)}`);
@@ -834,12 +826,11 @@ export function tasksFromMediaMaintenance(audit: FullAuditPayload): ExecutionTas
     return buildGbpTask(
       audit,
       step,
-      type,
-      title,
+      "gbp_media_delete",
+      "Remove low-performing photo",
       draftLines.join("\n"),
       {
         mediaName: action.mediaName,
-        targetCategory: action.targetCategory,
         currentCategory: action.currentCategory,
         thumbnailUrl: action.thumbnailUrl,
         maintenanceIndex: index + 1,
