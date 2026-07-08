@@ -7,6 +7,7 @@ import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { computeKeywordScores } from "@/audit/phase2/keyword-scores";
 import { buildPlan } from "@/audit/phase3/build-plan";
 import ListingStrengthInsights from "@/components/audit/ListingStrengthInsights";
+import AuditDataView from "@/components/audit/AuditDataView";
 import { normalizeAuditView, type AuditView } from "@/components/audit/types";
 import HomeHealthSummary from "@/components/home/HomeHealthSummary";
 import HomeReviewInbox from "@/components/home/HomeReviewInbox";
@@ -260,6 +261,17 @@ export default function PlatformDemo({
             {view === "data" && (
               <PlatformDemoResults
                 audit={audit}
+                activeKeyword={activeKeyword}
+                onKeywordChange={setActiveKeyword}
+              />
+            )}
+
+            {view === "audit" && (
+              <AuditDataView
+                audit={audit}
+                clientId={audit.clientId}
+                tasks={tasks}
+                attributions={[]}
                 activeKeyword={activeKeyword}
                 onKeywordChange={setActiveKeyword}
               />

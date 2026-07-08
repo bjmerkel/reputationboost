@@ -10,6 +10,7 @@ import { analyzeCompetitorDominance, topCompetitorThreat } from "@/audit/geo/com
 import { buildVisibilitySummary } from "@/audit/geo";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import ResultsView from "@/components/results/ResultsView";
+import AuditDataView from "@/components/audit/AuditDataView";
 import { normalizeAuditView, type AuditView } from "@/components/audit/types";
 import MonthlyReportPanel from "@/components/MonthlyReportPanel";
 import GoogleUpdatesBanner from "@/components/audit/GoogleUpdatesBanner";
@@ -406,6 +407,15 @@ export default function AuditDashboard({
               attributions={attributionData.attributions}
               summary={attributionData.summary}
               attributionLoading={attributionLoading}
+            />
+          )}
+
+          {view === "audit" && (
+            <AuditDataView
+              audit={audit}
+              clientId={clientId}
+              tasks={tasks}
+              attributions={attributionData.attributions}
               activeKeyword={activeKeyword}
               onKeywordChange={setActiveKeyword}
               gbpConnected={gbpConnected}

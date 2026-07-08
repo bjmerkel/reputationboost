@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution, AttributionSummary } from "@/audit/types/timeseries";
 import { buildPlan } from "@/audit/phase3/build-plan";
 import { buildPlanTimeline } from "@/audit/phase3/build-timeline";
-import AuditDataPanel from "@/components/audit/AuditDataPanel";
 import ProfilePerformanceTrends from "@/components/audit/ProfilePerformanceTrends";
 import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
 import PlanResultsTimeline from "./PlanResultsTimeline";
@@ -17,11 +16,6 @@ export default function ResultsView({
   attributions,
   summary,
   attributionLoading = false,
-  activeKeyword,
-  onKeywordChange,
-  gbpConnected = false,
-  onNavigateToPlan,
-  globalCalibration = {},
 }: {
   audit: FullAuditPayload;
   clientId: string;
@@ -29,14 +23,7 @@ export default function ResultsView({
   attributions: ActionAttribution[];
   summary: AttributionSummary | null;
   attributionLoading?: boolean;
-  activeKeyword: string;
-  onKeywordChange: (keyword: string) => void;
-  gbpConnected?: boolean;
-  onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
-  globalCalibration?: import("@/audit/phase2/attribution-calibration").AttributionCalibration;
 }) {
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-
   const timelineEntries = useMemo(() => {
     const plan = buildPlan(audit, tasks, attributions);
     return buildPlanTimeline(audit, plan, attributions);
@@ -62,36 +49,6 @@ export default function ResultsView({
         attributionsById={attributionsById}
         loading={attributionLoading}
       />
-
-      <section className="border-t border-[#e8eaed] pt-4">
-        <button
-          type="button"
-          onClick={() => setAdvancedOpen((open) => !open)}
-          className="flex w-full items-center justify-between gap-2 text-left text-sm font-medium text-[#1a73e8] hover:underline"
-          aria-expanded={advancedOpen}
-        >
-          <span>Advanced: raw audit data</span>
-          <span className="text-xs text-[#80868b]">{advancedOpen ? "Hide" : "Show"}</span>
-        </button>
-
-        {advancedOpen && (
-          <div className="mt-4">
-            <AuditDataPanel
-              audit={audit}
-              clientId={clientId}
-              tasks={tasks}
-              activeKeyword={activeKeyword}
-              onKeywordChange={onKeywordChange}
-              embedded
-              variant="light"
-              gbpConnected={gbpConnected}
-              onNavigateToPlan={onNavigateToPlan}
-              attributions={attributions}
-              globalCalibration={globalCalibration}
-            />
-          </div>
-        )}
-      </section>
     </div>
   );
 }

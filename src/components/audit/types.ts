@@ -1,11 +1,11 @@
 "use client";
 
-export type AuditView = "report" | "strategy" | "data";
+export type AuditView = "report" | "strategy" | "data" | "audit";
 
 /** @deprecated Legacy views redirected to current tabs */
 export type LegacyAuditView = "photos" | "execute" | "reviews";
 
-export const AUDIT_VIEWS: AuditView[] = ["report", "strategy", "data"];
+export const AUDIT_VIEWS: AuditView[] = ["report", "strategy", "data", "audit"];
 
 const LEGACY_VIEW_REDIRECTS: Record<LegacyAuditView, AuditView> = {
   photos: "strategy",
@@ -38,6 +38,12 @@ export const AUDIT_STORY_STEPS: AuditStoryStep[] = [
     step: 3,
     title: "Results",
     subtitle: "Plan changelog and measured outcomes",
+  },
+  {
+    id: "audit",
+    step: 4,
+    title: "Audit Data",
+    subtitle: "Raw signals from Google Maps, GBP, and off-platform sources",
   },
 ];
 

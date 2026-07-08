@@ -143,7 +143,7 @@ export default function AuditDataPanel({
       {!embedded && (
         <div>
           <h2 className={`text-xl font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
-            Audit data
+            Audit Data
           </h2>
           <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
             Raw signals collected from Google Maps, your GBP, and off-platform sources.
