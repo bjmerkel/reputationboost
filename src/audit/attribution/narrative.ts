@@ -13,7 +13,6 @@ const TASK_LABELS: Partial<Record<ExecutionType, string>> = {
   gbp_primary_category: "Category updated",
   gbp_secondary_categories: "Categories updated",
   social_post: "Social post published",
-  qa_answer: "Q&A answer published",
 };
 
 function formatRank(rank: number | null): string {

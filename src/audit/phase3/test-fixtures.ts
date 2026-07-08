@@ -54,8 +54,6 @@ function minimalPhase1(): Phase1AuditPayload {
         lastPhotoUpload: null,
         postCount: 1,
         lastPostDate: "2026-05-01T00:00:00.000Z",
-        qaCount: 2,
-        unansweredQa: 1,
       },
       engagement: {
         reviewCount: 87,
@@ -94,7 +92,6 @@ function minimalPhase1(): Phase1AuditPayload {
         source: "places",
       },
       recentPosts: [],
-      qaItems: [],
     },
     rankings: {
       collectedAt: "2026-07-03T12:00:00.000Z",

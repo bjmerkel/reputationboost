@@ -27,7 +27,6 @@ export interface AuditGeneratedContent {
   gbpDescription: string;
   reviewResponses: Array<{ reviewId: string; rating: number; response: string }>;
   reviewRequestSms: string;
-  qaAnswer: string;
   socialPost: string;
   gbpPhotoJobs: GbpPhotoJob[];
   contentSource: "llm" | "template";
@@ -37,7 +36,6 @@ interface LlmContentResponse {
   googlePosts: unknown[];
   gbpDescription: unknown;
   reviewRequestSms: unknown;
-  qaAnswer: unknown;
   socialPost: unknown;
 }
 
@@ -55,7 +53,6 @@ export function buildTemplateContent(audit: FullAuditPayload): AuditGeneratedCon
     gbpDescription: templateGbpDescription(audit),
     reviewResponses: responses,
     reviewRequestSms: templateReviewRequestSms(audit),
-    qaAnswer: `Q: What areas do you serve?\nA: We proudly serve ${audit.gbp.identity.address} and surrounding neighborhoods. Call ${audit.gbp.identity.phone} for availability.`,
     socialPost: templateGooglePosts(audit)[0] ?? "",
     gbpPhotoJobs: buildTemplatePhotoJobs(audit),
     contentSource: "template",
@@ -97,7 +94,6 @@ Return JSON:
   "googlePosts": ["4 unique monthly Google Posts as plain strings"],
   "gbpDescription": "optimized business description",
   "reviewRequestSms": "SMS under 300 chars with [REVIEW_LINK], [FIRST_NAME], and [SERVICE] placeholders",
-  "qaAnswer": "Q: ... A: ... format for service area question",
   "socialPost": "1 Facebook/Instagram post as a plain string"
 }
 
@@ -118,7 +114,6 @@ Each googlePosts entry must be a string, not an object.`,
       ),
       reviewResponses,
       reviewRequestSms: normalizeOptionalText(llm.reviewRequestSms, fallback.reviewRequestSms),
-      qaAnswer: normalizeOptionalText(llm.qaAnswer, fallback.qaAnswer),
       socialPost: normalizeOptionalText(llm.socialPost, fallback.socialPost),
       gbpPhotoJobs,
       contentSource: "llm",

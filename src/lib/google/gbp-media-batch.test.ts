@@ -20,8 +20,6 @@ function auditWithCoverage(missingCategories: string[]): FullAuditPayload {
         lastPhotoUpload: null,
         postCount: 0,
         lastPostDate: null,
-        qaCount: 0,
-        unansweredQa: 0,
         mediaCoverage: {
           totalCount: 12,
           ownerPhotoCount: 10,

@@ -46,7 +46,6 @@ function gapLinksToStep(gap: GapFlag, stepNumber: number): boolean {
   if (gap.id === "stale-posts" && stepNumber === 8) return true;
   if (gap.id === "competitor-post-frequency" && stepNumber === 8) return true;
   if (gap.id === "posts-without-cta" && stepNumber === 8) return true;
-  if (gap.id === "unanswered-qa" && stepNumber === 9) return true;
   if (gap.id === "unresponded-negative" && stepNumber === 11) return true;
   if (gap.id === "low-response-rate" && stepNumber === 11) return true;
   if (gap.id === "missing-holiday-hours" && stepNumber === 12) return true;

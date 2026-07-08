@@ -18,37 +18,7 @@ export interface GbpEnrichment {
   postsApiOk: boolean;
   reviews: GbpReview[];
   reviewsApiOk: boolean;
-  questions: GbpQuestion[];
   media: GbpMediaSummary;
-}
-
-export interface GbpQuestion {
-  text: string;
-  answerCount: number;
-  topAnswer?: string;
-}
-
-async function fetchQuestions(connection: GbpConnection): Promise<GbpQuestion[]> {
-  const url = `https://mybusinessqanda.googleapis.com/v1/locations/${connection.locationId}/questions`;
-  const res = await fetch(url, { headers: authHeadersForConnection(connection) });
-  const data = (await res.json()) as {
-    questions?: Array<{
-      text?: string;
-      topAnswers?: Array<{ text?: string }>;
-      totalAnswerCount?: number;
-    }>;
-    error?: { message?: string };
-  };
-
-  if (!res.ok) {
-    throw new Error(data.error?.message ?? `Q&A API failed (${res.status})`);
-  }
-
-  return (data.questions ?? []).map((q) => ({
-    text: q.text ?? "",
-    answerCount: q.totalAnswerCount ?? 0,
-    topAnswer: q.topAnswers?.[0]?.text,
-  }));
 }
 
 /** Full GBP management data using per-business OAuth connection. */
@@ -72,11 +42,10 @@ export async function fetchGbpEnrichment(
     })
     .catch(() => [] as GbpReview[]);
 
-  const [performance, posts, reviews, questions, media] = await Promise.all([
+  const [performance, posts, reviews, media] = await Promise.all([
     fetchGbpPerformanceData(connection, 30, { platformEmail: options?.userEmail }),
     postsPromise,
     reviewsPromise,
-    fetchQuestions(connection).catch(() => []),
     fetchGbpMediaSummary(connection).catch(() => ({
       photoCount: 0,
       videoCount: 0,
@@ -87,5 +56,5 @@ export async function fetchGbpEnrichment(
     })),
   ]);
 
-  return { performance, posts, postsApiOk, reviews, reviewsApiOk, questions, media };
+  return { performance, posts, postsApiOk, reviews, reviewsApiOk, media };
 }

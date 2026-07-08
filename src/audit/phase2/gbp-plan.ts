@@ -208,22 +208,6 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       },
     },
     {
-      stepNumber: 9,
-      title: "Q&A Section",
-      instruction:
-        "Seed questions customers actually search for. Answer every question on your profile — unanswered Q&As hurt trust.",
-      current: `${audit.gbp.content.qaCount} questions · ${audit.gbp.content.unansweredQa} unanswered`,
-      recommended: "15-25 Q&A pairs covering each target keyword and service area",
-      copyBlocks: targetKeywords.slice(0, 3).map((kw) => ({
-        label: `Q: Do you provide ${kw.toLowerCase()}?`,
-        content: `Yes, ${audit.clientName} offers ${kw.toLowerCase()} throughout ${city} and surrounding areas. Call ${audit.gbp.identity.phone} for availability.`,
-      })),
-      bullets: [
-        ...(audit.gbp.qaItems ?? []).slice(0, 3).map((q) => `Existing: "${q.question}" (${q.answerCount} answers)`),
-        `Answer all ${audit.gbp.content.unansweredQa} unanswered Q&As`,
-      ],
-    },
-    {
       stepNumber: 10,
       title: "Reviews Strategy",
       instruction: `Reviews are one of the strongest ranking factors. Target ${reviewTarget}+ total reviews. Focus on keywords where you're behind the pack leader on review count.`,
@@ -315,7 +299,7 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       current: `${audit.rankings.keywordsInPack}/${audit.rankings.totalKeywords} keywords in 3-Pack (${audit.rankings.shareOfVoice}% share of voice)`,
       recommended: "Top 3 for all target keywords within 6-12 months",
       bullets: [
-        "Weekly: 5 new photos, 2 videos, 1 Google Post, respond to all reviews, answer new Q&As",
+        "Weekly: 5 new photos, 2 videos, 1 Google Post, respond to all reviews",
         "Monthly: add 3-5 services, add new products, upload event photos, refresh descriptions",
         ...keywordRankings
           .filter((k) => !k.inLocalPack)
@@ -356,7 +340,6 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
       "2 videos",
       "1 Google Post (rotate keywords outside 3-Pack)",
       "Respond to all new reviews",
-      "Answer new Q&A questions",
     ],
     monthlyCadence: [
       "Add 3-5 new GBP services for uncovered keywords",

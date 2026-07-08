@@ -174,7 +174,6 @@ async function collectGbpFromApi(
     insights: postInsights,
     probe: { endpoints: { list: enrichment.postsApiOk ? "ok" : "failed" } },
   });
-  const questions = enrichment.questions;
   const gbpReviews = enrichment.reviews;
   const reviewCoverage = analyzeGbpReviewCoverage({
     reviews: gbpReviews,
@@ -296,8 +295,6 @@ async function collectGbpFromApi(
       mediaInventory: mediaInventoryFromEnrichment(enrichment.media.items),
       postCount: posts.length,
       lastPostDate: sortedPosts[0]?.createTime ?? null,
-      qaCount: questions.length,
-      unansweredQa: questions.filter((q) => q.answerCount === 0).length,
     },
     engagement: {
       reviewCount: place?.reviewCount ?? gbpReviews.length,
@@ -377,11 +374,6 @@ async function collectGbpFromApi(
         ? localPostActionLabel(p.callToAction.actionType)
         : undefined,
     })),
-    qaItems: questions.slice(0, 10).map((q) => ({
-      question: q.text,
-      answerCount: q.answerCount,
-      topAnswer: q.topAnswer,
-    })),
     googleSuggestions,
     googleUpdateState,
     hasGoogleUpdated: liveProfile?.hasGoogleUpdated ?? false,
@@ -450,8 +442,6 @@ export async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<
     lastPhotoUpload: null,
     postCount: 0,
     lastPostDate: null,
-    qaCount: 0,
-    unansweredQa: 0,
   };
   const engagement = {
     reviewCount: place.reviewCount,
@@ -510,7 +500,6 @@ export async function collectGbpFromPlaceDetails(client: ClientConfig): Promise<
     }),
     liveProfile,
     recentPosts: [],
-    qaItems: [],
     googleSuggestions: [],
     hasGoogleUpdated: false,
   };

@@ -24,7 +24,6 @@ export const FIELD_PLAN_STEP_MAP: Record<string, FieldPlanStepLink> = {
   attributes: { planStepNumber: 13 },
   "content.photos": { planStepNumber: 6 },
   "content.posts": { planStepNumber: 8 },
-  "content.qa": { planStepNumber: 9 },
   "engagement.reviews": { planStepNumber: 11, alternateStepNumber: 10 },
   "metadata.hasGoogleUpdated": { planStepNumber: GOOGLE_UPDATES_STEP_NUMBER },
   "metadata.hasPendingEdits": { planStepNumber: GOOGLE_UPDATES_STEP_NUMBER },

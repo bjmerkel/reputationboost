@@ -27,7 +27,7 @@ function minimalAudit(overrides: Partial<FullAuditPayload> = {}): FullAuditPaylo
         noPendingEdits: true,
         completenessScore: 50,
       },
-      content: { photoCount: 1, videoCount: 0, photosByType: {}, lastPhotoUpload: null, postCount: 0, lastPostDate: null, qaCount: 0, unansweredQa: 0 },
+      content: { photoCount: 1, videoCount: 0, photosByType: {}, lastPhotoUpload: null, postCount: 0, lastPostDate: null },
       engagement: { reviewCount: 10, averageRating: 4.5, reviewsLast30Days: 1, reviewsLast90Days: 3, responseRate: 0.8, avgResponseTimeHours: 24 },
       performance: { source: "api", accessCheck: { severity: "ok", message: "ok" }, searchKeywords: [], warnings: [] },
     },

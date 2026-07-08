@@ -12,7 +12,6 @@ const pillars = [
       "Review count, rating & response rate",
       "Photos, videos & post recency",
       "Business description & categories",
-      "Q&A completeness",
       "Keyword relevance in profile",
     ],
     example: "Only 12 photos vs. competitor avg of 47",

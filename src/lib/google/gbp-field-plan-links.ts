@@ -76,11 +76,6 @@ const FIELD_PLAN_LINKS: Record<string, GbpFieldPlanLink> = {
     taskTypes: ["google_post"],
     fixLabel: "Create post",
   },
-  "content.qa": {
-    planStepNumber: 9,
-    taskTypes: ["qa_answer"],
-    fixLabel: "Answer Q&A",
-  },
   "engagement.reviews": {
     planStepNumber: 11,
     taskTypes: ["review_response", "review_delete_reply"],

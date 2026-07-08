@@ -141,8 +141,6 @@ export interface GbpContent {
   mediaInventory?: GbpMediaInventoryItem[];
   postCount: number;
   lastPostDate: string | null;
-  qaCount: number;
-  unansweredQa: number;
 }
 
 export interface GbpEngagement {
@@ -217,12 +215,6 @@ export interface GbpPostItem {
   state?: string;
   searchUrl?: string;
   actionType?: string;
-}
-
-export interface GbpQaItem {
-  question: string;
-  answerCount: number;
-  topAnswer?: string;
 }
 
 /** Live profile data pulled from GBP OAuth Business Information API. */
@@ -424,7 +416,6 @@ export interface GbpSnapshot {
   issues: GbpIssues;
   liveProfile?: GbpLiveProfile;
   recentPosts?: GbpPostItem[];
-  qaItems?: GbpQaItem[];
   googleSuggestions?: GbpGoogleSuggestion[];
   googleUpdateState?: GbpGoogleUpdateState;
   hasGoogleUpdated?: boolean;
@@ -1104,7 +1095,6 @@ export type ExecutionType =
   | "review_response"
   | "review_delete_reply"
   | "review_request"
-  | "qa_answer"
   | "schema_markup"
   | "citation_fix"
   | "social_post";

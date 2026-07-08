@@ -206,10 +206,6 @@ function createTaskForAction(
           "Upload GBP photos"
         ),
       ];
-    case "qa_answer":
-      return [
-        buildTask(audit, action, "qa_answer", content.qaAnswer, { qaTemplate: true }),
-      ];
     case "schema_markup":
       return [
         buildTask(

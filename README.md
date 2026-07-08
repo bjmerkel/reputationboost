@@ -43,7 +43,7 @@ OAuth tokens are stored per business in Supabase (not in env vars).
 ### Google Cloud setup
 
 1. Create a project and enable:
-   - **Google Business Profile APIs** (Account Management, Business Information, Performance, Q&A)
+   - **Google Business Profile APIs** (Account Management, Business Information, Performance)
    - **Places API** + **Geocoding API** (for rankings)
 2. Create **OAuth 2.0 Client** (Web application)
 3. Authorized redirect URI: `https://your-domain.com/api/google/gbp/callback`
@@ -81,7 +81,7 @@ Run migrations `001`, `002`, and `003` in the Supabase SQL Editor.
 
 Automated monthly data collection for local business audits:
 
-- **1A** — Google Business Profile (live via OAuth: performance, posts, Q&A, reviews)
+- **1A** — Google Business Profile (live via OAuth: performance, posts, reviews)
 - **1B** — Local 3-Pack rankings and geo-grid (1/3/5/10 mile) via **Google Places Nearby Search**
 - **1C** — Competitor intelligence (top 5 per keyword, discovered from same Places result list)
 - **1D** — Review sentiment and dispute candidates

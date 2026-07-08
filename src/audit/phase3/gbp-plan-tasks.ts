@@ -584,25 +584,6 @@ export function tasksFromGbpPlanStep(
       break;
   }
 
-  if (step.stepNumber === 9) {
-    const qaBlocks = step.copyBlocks ?? [];
-    if (qaBlocks.length > 0) {
-      return qaBlocks.map((block, i) =>
-        buildGbpTask(
-          audit,
-          step,
-          "qa_answer",
-          `${block.label}`,
-          `${block.label}\n\n${block.content}`,
-          { qaIndex: i + 1 }
-        )
-      );
-    }
-    return [
-      buildGbpTask(audit, step, "qa_answer", step.title, content.qaAnswer, { qaTemplate: true }),
-    ];
-  }
-
   if (step.stepNumber === 10) {
     return [
       buildGbpTask(audit, step, "review_request", step.title, content.reviewRequestSms, {
@@ -656,7 +637,7 @@ export function tasksFromGbpPlan(
   return tasks;
 }
 
-/** Gap-driven tasks not covered by the 16-step GBP plan (schema, citations, social). */
+/** Gap-driven tasks not covered by the 15-step GBP plan (schema, citations, social). */
 export function tasksFromNapDrift(audit: FullAuditPayload): ExecutionTask[] {
   const drifts = audit.gbp.napDrift ?? [];
   if (drifts.length === 0) return [];

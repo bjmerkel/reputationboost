@@ -11,7 +11,7 @@ const steps = [
     step: "02",
     title: "Get Your Plan",
     description:
-      "AI builds a prioritized 16-step action plan with projected score and revenue impact for each step. Review AI-drafted copy before anything goes live.",
+      "AI builds a prioritized 15-step action plan with projected score and revenue impact for each step. Review AI-drafted copy before anything goes live.",
   },
   {
     step: "03",
