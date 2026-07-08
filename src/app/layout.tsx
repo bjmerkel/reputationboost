@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { APP_LOGO_SRC } from "@/lib/constants";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -13,7 +14,8 @@ export const metadata: Metadata = {
   description:
     "Optimize your Google Business Profile to rank in the Local 3-Pack. Increase visibility, calls, direction requests, and website traffic from Google Maps.",
   icons: {
-    icon: "/favicon.svg",
+    icon: APP_LOGO_SRC,
+    apple: APP_LOGO_SRC,
   },
   openGraph: {
     title: "Reputation Boost | Rank Higher on Google Maps",

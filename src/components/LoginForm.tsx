@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import AppLogo from "@/components/AppLogo";
 import { createClient } from "@/lib/supabase/client";
 
 type Mode = "signin" | "signup";
@@ -64,13 +65,8 @@ export default function LoginForm() {
     <div className="maps-card w-full max-w-md overflow-hidden">
       <div className="p-8">
         <div className="mb-8 text-center">
-          <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1a73e8]">
-              <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
-              </svg>
-            </div>
-            <span className="text-xl font-semibold text-[#202124]">Reputation Boost</span>
+          <Link href="/" className="inline-flex items-center justify-center">
+            <AppLogo className="h-12 w-auto" />
           </Link>
           <p className="mt-4 text-sm text-[#5f6368]">
             {mode === "signin"
