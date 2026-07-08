@@ -6,6 +6,12 @@ import {
   isMapsAutocompleteAvailable,
   MAPS_SETUP_HELP,
 } from "@/lib/google/maps-loader";
+import {
+  buildBusinessAddress,
+  detectServiceAreaBusiness,
+  parseCityStateFromAreaText,
+  resolveServiceAreaLabel,
+} from "@/lib/google/parse-business-place";
 
 export interface BusinessPlaceSelection {
   placeId: string;
@@ -75,18 +81,27 @@ async function resolveServiceAreaCoordinates(input: {
   }
 }
 
-async function parsePlace(place: google.maps.places.Place): Promise<BusinessPlaceSelection | null> {
+function formatableText(value?: google.maps.places.FormattableText | null): string {
+  return value?.text?.trim() ?? "";
+}
+
+async function parsePlace(
+  place: google.maps.places.Place,
+  placePrediction?: google.maps.places.PlacePrediction
+): Promise<BusinessPlaceSelection | null> {
   await place.fetchFields({
     fields: [
       "id",
       "displayName",
       "formattedAddress",
+      "shortFormattedAddress",
       "addressComponents",
       "location",
       "nationalPhoneNumber",
       "websiteURI",
       "googleMapsURI",
       "types",
+      "isPureServiceAreaBusiness",
     ],
   });
 
@@ -98,31 +113,40 @@ async function parsePlace(place: google.maps.places.Place): Promise<BusinessPlac
   const route = componentFromAddress("route", components);
   const street = [streetNumber, route].filter(Boolean).join(" ");
   const formattedAddress = place.formattedAddress ?? "";
-  const hasCoordinates = Boolean(place.location);
-  const isServiceAreaBusiness = !hasCoordinates;
+  const predictionSecondary = formatableText(placePrediction?.secondaryText);
+  const serviceAreaLabel = resolveServiceAreaLabel(
+    place.shortFormattedAddress,
+    formattedAddress,
+    predictionSecondary
+  );
+  const isServiceAreaBusiness = detectServiceAreaBusiness({
+    isPureServiceAreaBusiness: place.isPureServiceAreaBusiness,
+    hasStreet: Boolean(street),
+    serviceAreaLabel,
+  });
 
   let city =
     componentFromAddress("locality", components) ||
     componentFromAddress("sublocality", components) ||
     componentFromAddress("administrative_area_level_2", components);
   let state = componentFromAddress("administrative_area_level_1", components);
-  const zip = componentFromAddress("postal_code", components);
+  let zip = componentFromAddress("postal_code", components);
 
-  if (isServiceAreaBusiness && (!city || !state) && formattedAddress) {
-    const areaText = formattedAddress.replace(/^Serves\s+/i, "").trim();
-    const [areaCity, areaState] = areaText.split(",").map((part) => part.trim());
-    if (!city && areaCity) city = areaCity;
-    if (!state && areaState) state = areaState.split(/\s+/)[0] ?? areaState;
+  if (!city || !state || (isServiceAreaBusiness && !zip)) {
+    const parsed = parseCityStateFromAreaText(serviceAreaLabel || predictionSecondary);
+    if (!city && parsed.city) city = parsed.city;
+    if (!state && parsed.state) state = parsed.state;
+    if (!zip && parsed.zip) zip = parsed.zip;
   }
 
   let lat = place.location?.lat() ?? 0;
   let lng = place.location?.lng() ?? 0;
 
-  if (isServiceAreaBusiness) {
+  if (isServiceAreaBusiness && (!lat || !lng)) {
     const resolved = await resolveServiceAreaCoordinates({
       placeId,
       name: place.displayName ?? "",
-      formattedAddress,
+      formattedAddress: serviceAreaLabel || formattedAddress,
       city,
       state,
     });
@@ -132,13 +156,18 @@ async function parsePlace(place: google.maps.places.Place): Promise<BusinessPlac
     }
   }
 
-  const serviceAreaLabel = formattedAddress.replace(/^Serves\s+/i, "").trim();
+  const displayAddress = formattedAddress || serviceAreaLabel || predictionSecondary;
 
   return {
     placeId,
     mapsUrl: place.googleMapsURI ?? undefined,
     name: place.displayName ?? "",
-    address: street || (isServiceAreaBusiness ? serviceAreaLabel : formattedAddress) || "",
+    address: buildBusinessAddress({
+      street,
+      formattedAddress,
+      serviceAreaLabel,
+      isServiceAreaBusiness,
+    }),
     city,
     state,
     zip,
@@ -147,7 +176,7 @@ async function parsePlace(place: google.maps.places.Place): Promise<BusinessPlac
     phone: place.nationalPhoneNumber ?? undefined,
     website: place.websiteURI ?? undefined,
     industry: industryFromTypes(place.types ?? []),
-    formattedAddress,
+    formattedAddress: displayAddress,
     isServiceAreaBusiness,
   };
 }
@@ -206,7 +235,7 @@ export default function GoogleBusinessAutocomplete({
 
           try {
             const place = placePrediction.toPlace();
-            const parsed = await parsePlace(place);
+            const parsed = await parsePlace(place, placePrediction);
             if (!parsed) {
               setError("Could not read that place. Try another result.");
               return;

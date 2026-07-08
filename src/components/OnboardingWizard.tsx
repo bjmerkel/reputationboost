@@ -272,9 +272,10 @@ export default function OnboardingWizard({
                 value={address}
                 onChange={setAddress}
                 required={!isServiceAreaBusiness}
+                readOnly={isServiceAreaBusiness}
                 hint={
                   isServiceAreaBusiness
-                    ? "Service-area businesses don't have a storefront — we'll use your service area for rank tracking."
+                    ? "Filled automatically from your Google listing."
                     : undefined
                 }
                 light={isLight}
@@ -469,6 +470,7 @@ function Field({
   value,
   onChange,
   required,
+  readOnly,
   placeholder,
   hint,
   light = false,
@@ -477,6 +479,7 @@ function Field({
   value: string;
   onChange: (v: string) => void;
   required?: boolean;
+  readOnly?: boolean;
   placeholder?: string;
   hint?: string;
   light?: boolean;
@@ -494,11 +497,16 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
+        readOnly={readOnly}
         placeholder={placeholder}
         className={`w-full rounded-xl border px-4 py-2.5 text-sm focus:outline-none ${
-          light
-            ? "border-[#dadce0] bg-white text-[#202124] placeholder:text-[#80868b] focus:border-[#1a73e8]"
-            : "border-white/10 bg-white/5 text-white placeholder:text-slate-500 focus:border-emerald-500/50"
+          readOnly
+            ? light
+              ? "border-[#e8eaed] bg-[#f8f9fa] text-[#5f6368]"
+              : "border-white/5 bg-white/[0.03] text-slate-400"
+            : light
+              ? "border-[#dadce0] bg-white text-[#202124] placeholder:text-[#80868b] focus:border-[#1a73e8]"
+              : "border-white/10 bg-white/5 text-white placeholder:text-slate-500 focus:border-emerald-500/50"
         }`}
       />
       {hint && (
