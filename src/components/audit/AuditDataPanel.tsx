@@ -23,6 +23,7 @@ import {
   mergeCalibrations,
   type AttributionCalibration,
 } from "@/audit/phase2/attribution-calibration";
+import { parseMediaViewCount } from "@/lib/google/gbp-media";
 import { buildFieldAttributionCalibration } from "@/audit/phase2/field-attribution-calibration";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import { formatCustomerAttribution } from "@/lib/google/gbp-media-display";
@@ -178,17 +179,22 @@ export default function AuditDataPanel({
         const previews: GbpMediaPreview[] = (data.items ?? [])
           .filter((item) => item.thumbnailUrl || item.googleUrl)
           .slice(0, 24)
-          .map((item) => ({
-            thumbnailUrl: item.thumbnailUrl || item.googleUrl || "",
-            googleUrl: item.googleUrl || item.thumbnailUrl || "",
-            mediaFormat: item.mediaFormat === "VIDEO" ? "VIDEO" : "PHOTO",
-            category: item.category ?? null,
-            description: item.description || undefined,
-            name: item.name,
-            viewCount: Number(item.insights?.viewCount ?? item.viewCount ?? 0),
-            isCustomerPhoto: Boolean(item.attribution?.profileName),
-            attributionName: item.attribution?.profileName || undefined,
-          }));
+          .map((item) => {
+            const viewCount = parseMediaViewCount(
+              item.insights?.viewCount ?? item.viewCount ?? null
+            );
+            return {
+              thumbnailUrl: item.thumbnailUrl || item.googleUrl || "",
+              googleUrl: item.googleUrl || item.thumbnailUrl || "",
+              mediaFormat: item.mediaFormat === "VIDEO" ? "VIDEO" : "PHOTO",
+              category: item.category ?? null,
+              description: item.description || undefined,
+              name: item.name,
+              ...(viewCount === null ? {} : { viewCount }),
+              isCustomerPhoto: Boolean(item.attribution?.profileName),
+              attributionName: item.attribution?.profileName || undefined,
+            };
+          });
 
         if (!cancelled && previews.length > 0) {
           setLiveMedia(previews);
@@ -1374,7 +1380,7 @@ function MediaGallery({
                   {formatCustomerAttribution(item.attributionName)}
                 </span>
               )}
-              {typeof item.viewCount === "number" && item.viewCount > 0 && (
+              {typeof item.viewCount === "number" && (
                 <span className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
                   {item.viewCount.toLocaleString()} views
                 </span>

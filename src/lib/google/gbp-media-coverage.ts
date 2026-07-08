@@ -1,4 +1,5 @@
 import type { GbpMediaCategory, GbpMediaItem } from "./gbp-media";
+import { parseMediaViewCount } from "./gbp-media";
 
 export interface GbpMediaCoverage {
   totalCount: number;
@@ -21,6 +22,8 @@ export interface GbpMediaCoverage {
   customerPhotoShare: number;
   engagementScore: number;
   daysSinceLastUpload: number | null;
+  /** False when Google does not return per-photo MediaInsights (deprecated API field). */
+  photoViewsAvailable: boolean;
 }
 
 /** Categories that strengthen trust for most local service businesses. */
@@ -98,28 +101,39 @@ export function analyzeGbpMediaCoverage(
     countScore * 0.45 + categoryScore * 0.35 + videoScore * 0.1 + recencyScore * 0.1
   );
 
-  const totalViews = items.reduce((sum, item) => sum + Number(item.viewCount || 0), 0);
-  const ownerTotalViews = ownerPhotos.reduce(
-    (sum, item) => sum + Number(item.viewCount || 0),
+  const totalViews = items.reduce(
+    (sum, item) => sum + (parseMediaViewCount(item.viewCount) ?? 0),
     0
   );
-  const ownerZeroViewCount = ownerPhotos.filter(
-    (item) => Number(item.viewCount || 0) === 0
+  const ownerPhotosWithViews = ownerPhotos.filter(
+    (item) => parseMediaViewCount(item.viewCount) !== null
+  );
+  const photoViewsAvailable = ownerPhotosWithViews.length > 0;
+  const ownerTotalViews = ownerPhotosWithViews.reduce(
+    (sum, item) => sum + (parseMediaViewCount(item.viewCount) ?? 0),
+    0
+  );
+  const ownerZeroViewCount = ownerPhotosWithViews.filter(
+    (item) => parseMediaViewCount(item.viewCount) === 0
   ).length;
   const ownerAvgViews =
-    ownerPhotos.length > 0 ? Math.round((ownerTotalViews / ownerPhotos.length) * 10) / 10 : 0;
+    ownerPhotosWithViews.length > 0
+      ? Math.round((ownerTotalViews / ownerPhotosWithViews.length) * 10) / 10
+      : 0;
   const customerPhotoShare =
     photos.length > 0 ? Math.round((customerPhotos.length / photos.length) * 100) : 0;
 
-  const avgViewScore = Math.min(100, (ownerAvgViews / 15) * 100);
+  const avgViewScore = photoViewsAvailable
+    ? Math.min(100, (ownerAvgViews / 15) * 100)
+    : 0;
   const zeroViewRatio =
-    ownerPhotos.length > 0 ? ownerZeroViewCount / ownerPhotos.length : 0;
-  const zeroViewScore = Math.max(0, 100 - zeroViewRatio * 100);
+    ownerPhotosWithViews.length > 0 ? ownerZeroViewCount / ownerPhotosWithViews.length : 0;
+  const zeroViewScore = photoViewsAvailable ? Math.max(0, 100 - zeroViewRatio * 100) : 0;
   const ownerShareScore =
     customerPhotoShare <= 40 ? 100 : customerPhotoShare <= 60 ? 70 : 40;
-  const engagementScore = Math.round(
-    avgViewScore * 0.6 + zeroViewScore * 0.25 + ownerShareScore * 0.15
-  );
+  const engagementScore = photoViewsAvailable
+    ? Math.round(avgViewScore * 0.6 + zeroViewScore * 0.25 + ownerShareScore * 0.15)
+    : ownerShareScore;
 
   return {
     totalCount: options?.totalCount ?? items.length,
@@ -142,6 +156,7 @@ export function analyzeGbpMediaCoverage(
     customerPhotoShare,
     engagementScore,
     daysSinceLastUpload: recencyDays,
+    photoViewsAvailable,
   };
 }
 

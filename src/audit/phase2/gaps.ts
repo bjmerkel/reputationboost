@@ -311,6 +311,7 @@ export function detectGaps(
     }
 
     if (
+      mediaCoverage.photoViewsAvailable &&
       mediaCoverage.ownerPhotoCount >= 10 &&
       mediaCoverage.engagementScore < 40
     ) {
@@ -345,6 +346,7 @@ export function detectGaps(
     }
 
     if (
+      mediaCoverage.photoViewsAvailable &&
       mediaCoverage.ownerZeroViewCount >= 5 &&
       mediaCoverage.ownerPhotoCount >= 10
     ) {

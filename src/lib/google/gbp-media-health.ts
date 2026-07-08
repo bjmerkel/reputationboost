@@ -63,7 +63,11 @@ export function buildMediaHealthReport(
   if (!coverage.hasVideo) {
     recommendations.push("Add a 30–60 second video showing your team or service in action.");
   }
-  if (coverage.engagementScore < 50 && coverage.ownerPhotoCount >= 10) {
+  if (
+    coverage.photoViewsAvailable &&
+    coverage.engagementScore < 50 &&
+    coverage.ownerPhotoCount >= 10
+  ) {
     recommendations.push(
       "Replace low-view photos with fresh, categorized images to improve engagement."
     );

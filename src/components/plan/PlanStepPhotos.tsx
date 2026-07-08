@@ -130,9 +130,17 @@ export default function PlanStepPhotos({
           </span>{" "}
           {mediaCoverage.ownerPhotoCount} owner · {mediaCoverage.customerPhotoCount} customer
           {mediaCoverage.customerPhotoShare > 0 ? ` (${mediaCoverage.customerPhotoShare}% customer)` : ""}
-          {" · "}
-          {mediaCoverage.totalViews.toLocaleString()} total views
-          {mediaCoverage.ownerAvgViews > 0 ? ` · ${mediaCoverage.ownerAvgViews} avg owner views` : ""}
+          {mediaCoverage.photoViewsAvailable ? (
+            <>
+              {" · "}
+              {mediaCoverage.totalViews.toLocaleString()} total views
+              {mediaCoverage.ownerAvgViews > 0
+                ? ` · ${mediaCoverage.ownerAvgViews} avg owner views`
+                : ""}
+            </>
+          ) : (
+            " · per-photo views unavailable from Google"
+          )}
           {" · "}
           engagement {mediaCoverage.engagementScore}%
         </div>

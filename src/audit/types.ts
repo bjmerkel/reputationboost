@@ -90,7 +90,7 @@ export interface GbpMediaPreview {
   category: string | null;
   description?: string;
   name?: string;
-  viewCount?: number;
+  viewCount?: number | null;
   isCustomerPhoto?: boolean;
   attributionName?: string;
 }
@@ -101,7 +101,7 @@ export interface GbpMediaInventoryItem {
   mediaFormat: "PHOTO" | "VIDEO";
   thumbnailUrl: string;
   googleUrl: string;
-  viewCount: number;
+  viewCount: number | null;
   isCustomerPhoto: boolean;
   attributionName?: string;
   createTime: string;
@@ -128,6 +128,7 @@ export interface GbpMediaCoverage {
   customerPhotoShare: number;
   engagementScore: number;
   daysSinceLastUpload: number | null;
+  photoViewsAvailable: boolean;
 }
 
 export interface GbpContent {

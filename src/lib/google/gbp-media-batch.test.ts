@@ -41,6 +41,7 @@ function auditWithCoverage(missingCategories: string[]): FullAuditPayload {
           customerPhotoShare: 17,
           engagementScore: 35,
           daysSinceLastUpload: 120,
+          photoViewsAvailable: true,
         },
       },
     },

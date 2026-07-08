@@ -16,6 +16,7 @@ import {
 import type { GbpMediaCategory } from "@/lib/google/gbp-media";
 import { buildMediaMaintenanceActions } from "@/lib/google/gbp-media-maintenance";
 import { mediaCategoryLabel } from "@/lib/google/gbp-media-coverage";
+import { formatMediaViewCountLabel } from "@/lib/google/gbp-media-maintenance";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { sanitizeGbpDescriptionDraft } from "@/lib/google/gbp-description";
 import { sanitizeGbpPostDraft } from "@/lib/google/gbp-post-content";
@@ -767,7 +768,7 @@ export function tasksFromMediaMaintenance(audit: FullAuditPayload): ExecutionTas
     thumbnailUrl: item.thumbnailUrl,
     createTime: item.createTime,
     description: "",
-    viewCount: String(item.viewCount),
+    viewCount: item.viewCount == null ? null : String(item.viewCount),
     attribution: item.isCustomerPhoto
       ? { profileName: item.attributionName ?? "customer" }
       : undefined,
@@ -790,20 +791,24 @@ export function tasksFromMediaMaintenance(audit: FullAuditPayload): ExecutionTas
         ? `Recategorize photo to ${mediaCategoryLabel(action.targetCategory!)}`
         : "Remove low-performing photo";
 
+    const draftLines = [
+      action.reason,
+      "",
+      `Current category: ${action.currentCategory ?? "ADDITIONAL"}`,
+      action.targetCategory
+        ? `Target category: ${mediaCategoryLabel(action.targetCategory)}`
+        : "After deleting, upload a better categorized replacement.",
+    ];
+    if (action.viewCount !== null) {
+      draftLines.push(`Views: ${formatMediaViewCountLabel(action.viewCount)}`);
+    }
+
     return buildGbpTask(
       audit,
       step,
       type,
       title,
-      [
-        action.reason,
-        "",
-        `Current category: ${action.currentCategory ?? "ADDITIONAL"}`,
-        action.targetCategory
-          ? `Target category: ${mediaCategoryLabel(action.targetCategory)}`
-          : "After deleting, upload a better categorized replacement.",
-        `Views: ${action.viewCount}`,
-      ].join("\n"),
+      draftLines.join("\n"),
       {
         mediaName: action.mediaName,
         targetCategory: action.targetCategory,

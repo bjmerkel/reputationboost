@@ -41,6 +41,7 @@ function auditWithoutVideo(): FullAuditPayload {
           customerPhotoShare: 20,
           engagementScore: 65,
           daysSinceLastUpload: 20,
+          photoViewsAvailable: true,
         },
       },
     },

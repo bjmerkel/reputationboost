@@ -1,4 +1,5 @@
 import type { GbpMediaCategory, GbpMediaItem } from "./gbp-media";
+import { formatMediaViewCountLabel, parseMediaViewCount } from "./gbp-media";
 import {
   analyzeGbpMediaCoverage,
   mediaCategoryLabel,
@@ -12,16 +13,20 @@ export interface MediaMaintenanceAction {
   currentCategory: GbpMediaCategory | null;
   targetCategory?: GbpMediaCategory;
   reason: string;
-  viewCount: number;
+  viewCount: number | null;
 }
 
 function isCustomerMedia(item: GbpMediaItem): boolean {
   return Boolean(item.attribution?.profileName);
 }
 
-function parseViewCount(value: string): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
+function compareViewCounts(a: GbpMediaItem, b: GbpMediaItem): number {
+  const av = parseMediaViewCount(a.viewCount);
+  const bv = parseMediaViewCount(b.viewCount);
+  if (av === null && bv === null) return 0;
+  if (av === null) return 1;
+  if (bv === null) return -1;
+  return av - bv;
 }
 
 function daysSince(iso: string): number | null {
@@ -58,8 +63,12 @@ export function buildMediaMaintenanceActions(
       reason: `Move this photo from Additional to ${mediaCategoryLabel(
         missingCategory as GbpMediaCategory
       )} to fill a category gap.`,
-      viewCount: parseViewCount(candidate.viewCount),
+      viewCount: parseMediaViewCount(candidate.viewCount),
     });
+  }
+
+  if (!resolvedCoverage.photoViewsAvailable) {
+    return actions.slice(0, 4);
   }
 
   if (
@@ -69,7 +78,7 @@ export function buildMediaMaintenanceActions(
   ) {
     const lowPerformer = [...additionalPhotos]
       .filter((item) => !usedNames.has(item.name))
-      .sort((a, b) => parseViewCount(a.viewCount) - parseViewCount(b.viewCount))[0];
+      .sort(compareViewCounts)[0];
 
     if (lowPerformer) {
       actions.push({
@@ -79,7 +88,7 @@ export function buildMediaMaintenanceActions(
         currentCategory: lowPerformer.category,
         reason:
           "Remove a low-performing uncategorized photo, then upload a categorized replacement.",
-        viewCount: parseViewCount(lowPerformer.viewCount),
+        viewCount: parseMediaViewCount(lowPerformer.viewCount),
       });
     }
   }
@@ -88,9 +97,10 @@ export function buildMediaMaintenanceActions(
     .filter((item) => item.category === "ADDITIONAL" && !usedNames.has(item.name))
     .filter((item) => {
       const age = daysSince(item.createTime);
-      return age !== null && age > 180 && parseViewCount(item.viewCount) === 0;
+      const views = parseMediaViewCount(item.viewCount);
+      return age !== null && age > 180 && views === 0;
     })
-    .sort((a, b) => parseViewCount(a.viewCount) - parseViewCount(b.viewCount))[0];
+    .sort(compareViewCounts)[0];
 
   if (staleCandidate && actions.length < 4) {
     actions.push({
@@ -100,9 +110,11 @@ export function buildMediaMaintenanceActions(
       currentCategory: staleCandidate.category,
       reason:
         "This uncategorized photo is over 6 months old with zero views. Replace it with fresh media.",
-      viewCount: 0,
+      viewCount: parseMediaViewCount(staleCandidate.viewCount),
     });
   }
 
   return actions.slice(0, 4);
 }
+
+export { formatMediaViewCountLabel };

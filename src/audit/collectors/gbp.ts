@@ -5,6 +5,7 @@ import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
 import { isReviewResponded } from "@/lib/google/gbp-reviews";
 import { analyzeGbpReviewCoverage } from "@/lib/google/gbp-reviews-coverage";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
+import { parseMediaViewCount } from "@/lib/google/gbp-media";
 import { analyzeGbpMediaCoverage } from "@/lib/google/gbp-media-coverage";
 import { getGbpNotificationSetting } from "@/lib/google/gbp-notifications";
 import { analyzeGbpNotificationCoverage } from "@/lib/google/gbp-notifications-coverage";
@@ -49,7 +50,7 @@ function mediaPreviewsFromEnrichment(
     mediaFormat: "PHOTO" | "VIDEO";
     category: string | null;
     description: string;
-    viewCount: string;
+    viewCount: string | null;
     attribution?: { profileName?: string };
   }>,
   limit = 24
@@ -57,17 +58,20 @@ function mediaPreviewsFromEnrichment(
   return items
     .filter((item) => item.thumbnailUrl || item.googleUrl)
     .slice(0, limit)
-    .map((item) => ({
-      thumbnailUrl: item.thumbnailUrl || item.googleUrl,
-      googleUrl: item.googleUrl || item.thumbnailUrl,
-      mediaFormat: item.mediaFormat,
-      category: item.category,
-      description: item.description || undefined,
-      name: item.name,
-      viewCount: Number(item.viewCount || 0),
-      isCustomerPhoto: Boolean(item.attribution?.profileName),
-      attributionName: item.attribution?.profileName || undefined,
-    }));
+    .map((item) => {
+      const viewCount = parseMediaViewCount(item.viewCount);
+      return {
+        thumbnailUrl: item.thumbnailUrl || item.googleUrl,
+        googleUrl: item.googleUrl || item.thumbnailUrl,
+        mediaFormat: item.mediaFormat,
+        category: item.category,
+        description: item.description || undefined,
+        name: item.name,
+        ...(viewCount === null ? {} : { viewCount }),
+        isCustomerPhoto: Boolean(item.attribution?.profileName),
+        attributionName: item.attribution?.profileName || undefined,
+      };
+    });
 }
 
 function mediaInventoryFromEnrichment(
@@ -78,7 +82,7 @@ function mediaInventoryFromEnrichment(
     mediaFormat: "PHOTO" | "VIDEO";
     category: string | null;
     description: string;
-    viewCount: string;
+    viewCount: string | null;
     createTime: string;
     attribution?: { profileName?: string };
   }>
@@ -89,7 +93,7 @@ function mediaInventoryFromEnrichment(
     mediaFormat: item.mediaFormat,
     thumbnailUrl: item.thumbnailUrl || item.googleUrl,
     googleUrl: item.googleUrl || item.thumbnailUrl,
-    viewCount: Number(item.viewCount || 0),
+    viewCount: parseMediaViewCount(item.viewCount),
     isCustomerPhoto: Boolean(item.attribution?.profileName),
     attributionName: item.attribution?.profileName || undefined,
     createTime: item.createTime,

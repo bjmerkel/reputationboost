@@ -50,7 +50,8 @@ export interface GbpMediaItem {
   thumbnailUrl: string;
   createTime: string;
   description: string;
-  viewCount: string;
+  /** Null when Google does not return MediaInsights (deprecated from the API since Feb 2023). */
+  viewCount: string | null;
   dimensions?: GbpMediaDimensions;
   attribution?: GbpMediaAttribution;
 }
@@ -101,7 +102,7 @@ function mapMediaItem(item: MediaApiItem): GbpMediaItem {
     thumbnailUrl,
     createTime: item.createTime ?? "",
     description: item.description ?? "",
-    viewCount: item.insights?.viewCount ?? "0",
+    viewCount: item.insights?.viewCount ?? null,
     dimensions,
     attribution: item.attribution?.profileName
       ? {
@@ -144,6 +145,21 @@ function mediaUploadUrl(resourceName: string): string {
 
 export function buildGbpMediaUploadUrl(resourceName: string): string {
   return mediaUploadUrl(resourceName);
+}
+
+/** Per-photo view counts from Google's MediaInsights API (removed Feb 2023). */
+export function parseMediaViewCount(value: string | null | undefined): number | null {
+  if (value == null || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function formatMediaViewCountLabel(value: string | number | null | undefined): string {
+  const parsed = typeof value === "number" ? value : parseMediaViewCount(value);
+  if (parsed === null) {
+    return "unavailable (Google API no longer reports per-photo views)";
+  }
+  return parsed.toLocaleString();
 }
 
 function normalizeCategory(category?: string): GbpMediaCategory | null {

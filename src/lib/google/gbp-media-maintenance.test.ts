@@ -52,4 +52,22 @@ describe("buildMediaMaintenanceActions", () => {
     const actions = buildMediaMaintenanceActions(items, coverage);
     assert.ok(actions.some((action) => action.type === "delete" && action.mediaName.includes("old")));
   });
+
+  it("does not suggest view-based deletes when Google omits photo insights", () => {
+    const items = [
+      photo("accounts/a/locations/l/media/exterior", "EXTERIOR", { viewCount: null }),
+      photo("accounts/a/locations/l/media/interior", "INTERIOR", { viewCount: null }),
+      photo("accounts/a/locations/l/media/atwork", "AT_WORK", { viewCount: null }),
+      photo("accounts/a/locations/l/media/team", "TEAMS", { viewCount: null }),
+      photo("accounts/a/locations/l/media/old", "ADDITIONAL", {
+        createTime: "2024-01-01T00:00:00Z",
+        viewCount: null,
+      }),
+    ];
+    const coverage = analyzeGbpMediaCoverage(items);
+
+    const actions = buildMediaMaintenanceActions(items, coverage);
+    assert.equal(coverage.photoViewsAvailable, false);
+    assert.ok(!actions.some((action) => action.type === "delete"));
+  });
 });

@@ -69,7 +69,22 @@ describe("analyzeGbpMediaCoverage", () => {
     assert.equal(coverage.ownerAvgViews, 10);
     assert.equal(coverage.ownerZeroViewCount, 2);
     assert.equal(coverage.customerPhotoShare, 20);
+    assert.equal(coverage.photoViewsAvailable, true);
     assert.ok(coverage.engagementScore > 0 && coverage.engagementScore < 100);
+  });
+
+  it("treats missing MediaInsights as unavailable photo views", () => {
+    const coverage = analyzeGbpMediaCoverage([
+      mediaItem({ category: "EXTERIOR", viewCount: null }),
+      mediaItem({ category: "INTERIOR", viewCount: null }),
+      mediaItem({ category: "AT_WORK", viewCount: null }),
+    ]);
+
+    assert.equal(coverage.photoViewsAvailable, false);
+    assert.equal(coverage.totalViews, 0);
+    assert.equal(coverage.ownerTotalViews, 0);
+    assert.equal(coverage.ownerZeroViewCount, 0);
+    assert.equal(coverage.engagementScore, 100);
   });
 });
 

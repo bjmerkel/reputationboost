@@ -25,6 +25,7 @@ function coverage(overrides: Partial<GbpMediaCoverage> = {}): GbpMediaCoverage {
     customerPhotoShare: 25,
     engagementScore: 60,
     daysSinceLastUpload: 45,
+    photoViewsAvailable: true,
     ...overrides,
   };
 }
@@ -53,5 +54,19 @@ describe("buildMediaHealthReport", () => {
 
     assert.ok(report.recommendations.some((r) => r.includes("engagement") || r.includes("low-view")));
     assert.ok(report.recommendations.some((r) => r.includes("120 days")));
+  });
+
+  it("skips low-view recommendations when photo views are unavailable", () => {
+    const report = buildMediaHealthReport(
+      coverage({
+        photoViewsAvailable: false,
+        engagementScore: 30,
+        ownerPhotoCount: 12,
+      })
+    );
+
+    assert.ok(
+      !report.recommendations.some((r) => r.includes("low-view") || r.includes("engagement"))
+    );
   });
 });
