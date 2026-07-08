@@ -27,6 +27,7 @@ interface MapGuidePanelProps {
   gridLoading: boolean;
   hasGridData: boolean;
   enabledRadii: Set<number>;
+  heatmapSearchRadiusMiles: number;
 }
 
 export default function MapGuidePanel({
@@ -35,6 +36,7 @@ export default function MapGuidePanel({
   gridLoading,
   hasGridData,
   enabledRadii,
+  heatmapSearchRadiusMiles,
 }: MapGuidePanelProps) {
   const [expanded, setExpanded] = useState(true);
   const [showQuickStart, setShowQuickStart] = useState(false);
@@ -109,11 +111,18 @@ export default function MapGuidePanel({
               <p className="mt-0.5 font-medium text-[#202124]">{keywordRank.keyword}</p>
               <p className="mt-0.5 text-[#5f6368]">
                 {keywordRank.inLocalPack
-                  ? `Rank #${keywordRank.localPackPosition} in Local 3-Pack`
-                  : "Not in Local 3-Pack at your location"}
+                  ? `Rank #${keywordRank.localPackPosition} in Local 3-Pack (1 mi)`
+                  : "Not in Local 3-Pack at 1 mi"}
               </p>
               {gridLoading && heatmapOn && (
-                <p className="mt-1 text-[#1a73e8]">Loading heatmap…</p>
+                <p className="mt-1 text-[#1a73e8]">
+                  Loading heatmap at {heatmapSearchRadiusMiles} mi…
+                </p>
+              )}
+              {heatmapOn && hasGridData && (
+                <p className="mt-1 text-[10px] text-[#80868b]">
+                  Heatmap uses {heatmapSearchRadiusMiles} mi search radius per cell
+                </p>
               )}
               {keywordRank.geoRanks.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -128,7 +137,7 @@ export default function MapGuidePanel({
                       title={
                         enabledRadii.has(g.distanceMiles)
                           ? "Rank ring visible on map"
-                          : "Enable rank rings in Layers to show on map"
+                          : "Enable in Layers to show this ring"
                       }
                     >
                       {g.distanceMiles} mi: {g.rank ?? "—"}

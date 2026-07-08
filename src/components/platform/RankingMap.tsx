@@ -116,7 +116,7 @@ export default function RankingMap({
   const [mapVisible, setMapVisible] = useState(false);
   const [layers, setLayers] = useState<MapLayerState>(createDefaultMapLayers);
   const [gridPoints, setGridPoints] = useState<GeoGridPoint[] | undefined>(
-    keywordRank?.geoGrid
+    disableGridFetch ? keywordRank?.geoGrid : undefined
   );
   const [gridLoading, setGridLoading] = useState(false);
   const [selectedCell, setSelectedCell] = useState<GeoGridPoint | null>(null);
@@ -141,13 +141,12 @@ export default function RankingMap({
   }, [selectedZoneId, visibilitySummary]);
 
   useEffect(() => {
-    setGridPoints(keywordRank?.geoGrid);
+    setGridPoints(disableGridFetch ? keywordRank?.geoGrid : undefined);
     setSelectedCell(null);
-  }, [keywordRank?.geoGrid, keywordRank?.keyword]);
+  }, [disableGridFetch, keywordRank?.geoGrid, keywordRank?.keyword, layers.heatmapSearchRadiusMiles]);
 
   useEffect(() => {
     if (!layers.showHeatmap || !activeKeyword || !ready || disableGridFetch) return;
-    if (gridPoints?.length) return;
 
     let cancelled = false;
 
@@ -155,7 +154,7 @@ export default function RankingMap({
       setGridLoading(true);
       try {
         const res = await fetch(
-          `/api/places/grid?keyword=${encodeURIComponent(activeKeyword!)}`
+          `/api/places/grid?keyword=${encodeURIComponent(activeKeyword!)}&radiusMiles=${layers.heatmapSearchRadiusMiles}`
         );
         const data = (await res.json()) as { geoGrid?: GeoGridPoint[] };
         if (!cancelled && res.ok && data.geoGrid?.length) {
@@ -172,7 +171,13 @@ export default function RankingMap({
     return () => {
       cancelled = true;
     };
-  }, [layers.showHeatmap, activeKeyword, ready, gridPoints?.length, disableGridFetch]);
+  }, [
+    layers.showHeatmap,
+    layers.heatmapSearchRadiusMiles,
+    activeKeyword,
+    ready,
+    disableGridFetch,
+  ]);
 
   useEffect(() => {
     if (!clientId || !HEATMAP_FLAGS.gbpServiceArea || disableGridFetch) {
@@ -629,6 +634,7 @@ export default function RankingMap({
         gridLoading={gridLoading}
         hasGridData={Boolean(gridPoints?.length)}
         enabledRadii={layers.enabledRadii}
+        heatmapSearchRadiusMiles={layers.heatmapSearchRadiusMiles}
       />
     </div>
   );

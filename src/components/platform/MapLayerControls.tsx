@@ -13,6 +13,8 @@ export type MapLayerState = {
   showCompetitorZones: boolean;
   showServiceArea: boolean;
   enabledRadii: Set<number>;
+  /** Nearby Search radius (mi) used when collecting rank heatmap cells */
+  heatmapSearchRadiusMiles: number;
 };
 
 interface MapLayerControlsProps {
@@ -27,7 +29,8 @@ export function createDefaultMapLayers(): MapLayerState {
     heatmapStyle: HEATMAP_FLAGS.heatmapLayer ? "gradient" : "cells",
     showCompetitorZones: false,
     showServiceArea: false,
-    enabledRadii: new Set(),
+    enabledRadii: new Set(SEARCH_RADII_MILES),
+    heatmapSearchRadiusMiles: Math.max(...SEARCH_RADII_MILES),
   };
 }
 
@@ -86,10 +89,11 @@ export default function MapLayerControls({ layers, onChange }: MapLayerControlsP
   }
 
   const advancedActive =
-    layers.enabledRadii.size > 0 ||
+    layers.enabledRadii.size !== SEARCH_RADII_MILES.length ||
     layers.showCompetitorZones ||
     layers.showServiceArea ||
-    layers.heatmapStyle === "cells";
+    layers.heatmapStyle === "cells" ||
+    layers.heatmapSearchRadiusMiles !== Math.max(...SEARCH_RADII_MILES);
 
   return (
     <div
@@ -147,6 +151,38 @@ export default function MapLayerControls({ layers, onChange }: MapLayerControlsP
                 );
               })}
             </div>
+
+            {layers.showHeatmap && (
+              <>
+                <p className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-[#80868b]">
+                  Heatmap search radius
+                </p>
+                <p className="mt-0.5 text-[10px] text-[#5f6368]">
+                  How far each grid cell searches — wider radii match service-area rankings.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {SEARCH_RADII_MILES.map((miles) => {
+                    const active = layers.heatmapSearchRadiusMiles === miles;
+                    return (
+                      <button
+                        key={`heatmap-${miles}`}
+                        type="button"
+                        onClick={() =>
+                          onChange({ ...layers, heatmapSearchRadiusMiles: miles })
+                        }
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${
+                          active
+                            ? "bg-[#1a73e8] text-white"
+                            : "border border-[#dadce0] bg-[#f8f9fa] text-[#3c4043] hover:bg-[#f1f3f4]"
+                        }`}
+                      >
+                        {miles} mi
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             <div className="mt-3 space-y-2 border-t border-[#e8eaed] pt-3">
               {HEATMAP_FLAGS.heatmapLayer && layers.showHeatmap && (

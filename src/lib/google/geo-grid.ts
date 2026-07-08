@@ -83,6 +83,8 @@ function toLocalPackEntries(
 export interface CollectGeoGridOptions {
   profile?: GridProfileKey;
   includeLocalPack?: boolean;
+  /** Nearby Search radius from each grid cell (default 1 mi). */
+  searchRadiusMiles?: number;
 }
 
 /**
@@ -96,7 +98,8 @@ export async function collectKeywordGeoGrid(
 ): Promise<GeoGridPoint[]> {
   const { size, spacing } = resolveGridProfile(options.profile ?? "compact");
   const offsets = buildGeoGridOffsets(size, spacing);
-  const searchRadius = milesToMeters(GRID_SEARCH_RADIUS_MILES);
+  const searchRadiusMiles = options.searchRadiusMiles ?? GRID_SEARCH_RADIUS_MILES;
+  const searchRadius = milesToMeters(searchRadiusMiles);
   const includeLocalPack = options.includeLocalPack !== false;
 
   return mapWithConcurrency(offsets, GRID_SEARCH_CONCURRENCY, async ({ northMiles, eastMiles }) => {
@@ -131,12 +134,14 @@ const DEMO_COMPETITORS = [
 export function buildDemoGeoGrid(
   center: GeoLocation,
   baseRank: number,
-  profile: GridProfileKey = "compact"
+  profile: GridProfileKey = "compact",
+  searchRadiusMiles = GRID_SEARCH_RADIUS_MILES
 ): GeoGridPoint[] {
   const { size, spacing } = resolveGridProfile(profile);
+  const radiusScale = searchRadiusMiles / GRID_SEARCH_RADIUS_MILES;
   return buildGeoGridOffsets(size, spacing).map(({ northMiles, eastMiles }) => {
     const dist = Math.sqrt(northMiles ** 2 + eastMiles ** 2);
-    const drift = Math.round(dist * 2.5);
+    const drift = Math.round(dist * 2.5 * radiusScale);
     const rank =
       baseRank === 0
         ? null
