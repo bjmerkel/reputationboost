@@ -236,6 +236,8 @@ export default function PlanStepCard({
                 businessName={businessName}
                 reviewUrl={reviewUrl}
                 executionTaskId={reviewRequestTask.id}
+                planContext={step.context}
+                planBullets={step.bullets}
                 variant={variant}
                 onSent={() => onReviewRequestSent?.()}
               />

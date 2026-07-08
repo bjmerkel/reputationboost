@@ -2,12 +2,17 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import type { PlanStepContext } from "@/audit/types";
+import ReviewCampaignPlanCard from "@/components/review-requests/ReviewCampaignPlanCard";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
+import type { ReviewCampaignPlan } from "@/lib/review-requests/campaign-plan";
 
 interface ReviewRequestPanelProps {
   businessName: string;
   reviewUrl?: string | null;
   executionTaskId?: string;
+  planContext?: PlanStepContext;
+  planBullets?: string[];
   variant?: "light" | "dark";
   onSent?: (summary: string) => void;
 }
@@ -16,6 +21,8 @@ export default function ReviewRequestPanel({
   businessName,
   reviewUrl,
   executionTaskId,
+  planContext,
+  planBullets,
   variant = "light",
   onSent,
 }: ReviewRequestPanelProps) {
@@ -23,53 +30,72 @@ export default function ReviewRequestPanel({
   const [template, setTemplate] = useState("");
   const [preview, setPreview] = useState("");
   const [eligibleCount, setEligibleCount] = useState(0);
+  const [matchedCustomers, setMatchedCustomers] = useState(0);
+  const [batchSize, setBatchSize] = useState(15);
+  const [campaignPlan, setCampaignPlan] = useState<ReviewCampaignPlan | null>(null);
+  const [focusKeyword, setFocusKeyword] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [twilioConfigured, setTwilioConfigured] = useState(true);
 
-  const loadMessageTemplate = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/review-requests/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await parseJsonResponse<{
-        template: string;
-        preview: string;
-        eligibleCount: number;
-        error?: string;
-      }>(res);
-      if (!res.ok) throw new Error(data.error ?? "Failed to generate message");
-      setTemplate(data.template);
-      setPreview(data.preview);
-      setEligibleCount(data.eligibleCount);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate message");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadMessageTemplate = useCallback(
+    async (keywordOverride?: string | null) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/review-requests/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            focusKeyword: keywordOverride ?? focusKeyword ?? planContext?.primaryKeyword ?? null,
+          }),
+        });
+        const data = await parseJsonResponse<{
+          template: string;
+          preview: string;
+          eligibleCount: number;
+          matchedCustomers: number;
+          batchSize: number;
+          focusKeyword: string | null;
+          campaignPlan: ReviewCampaignPlan | null;
+          error?: string;
+        }>(res);
+        if (!res.ok) throw new Error(data.error ?? "Failed to generate message");
+        setTemplate(data.template);
+        setPreview(data.preview);
+        setEligibleCount(data.eligibleCount);
+        setMatchedCustomers(data.matchedCustomers);
+        setBatchSize(data.batchSize);
+        setFocusKeyword(data.focusKeyword);
+        setCampaignPlan(data.campaignPlan);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to generate message");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [focusKeyword, planContext?.primaryKeyword]
+  );
 
   useEffect(() => {
-    void loadMessageTemplate();
-  }, [loadMessageTemplate]);
+    void loadMessageTemplate(planContext?.primaryKeyword ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
+  }, [planContext?.primaryKeyword]);
 
   async function handleSend() {
     setSending(true);
     setError(null);
     setResult(null);
+    const sendCount = Math.min(batchSize, eligibleCount);
     try {
       const res = await fetch("/api/review-requests/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           template,
-          batchSize: 15,
+          batchSize: sendCount,
           executionTaskId,
         }),
       });
@@ -90,13 +116,20 @@ export default function ReviewRequestPanel({
 
       setResult(summary);
       onSent?.(summary);
-      await loadMessageTemplate();
+      await loadMessageTemplate(focusKeyword);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Send failed");
     } finally {
       setSending(false);
     }
   }
+
+  function handleKeywordSelect(keyword: string) {
+    setFocusKeyword(keyword);
+    void loadMessageTemplate(keyword);
+  }
+
+  const sendCount = Math.min(batchSize, eligibleCount);
 
   return (
     <div className="space-y-4">
@@ -120,14 +153,45 @@ export default function ReviewRequestPanel({
         <p className={`text-sm ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>{result}</p>
       )}
 
+      {loading && !campaignPlan ? (
+        <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>Loading campaign plan…</p>
+      ) : (
+        campaignPlan && (
+          <ReviewCampaignPlanCard
+            plan={campaignPlan}
+            eligibleCount={eligibleCount}
+            matchedCustomers={matchedCustomers}
+            variant={variant}
+            selectedKeyword={focusKeyword}
+            onSelectKeyword={handleKeywordSelect}
+          />
+        )
+      )}
+
+      {planBullets && planBullets.length > 0 && (
+        <ul className={`list-disc space-y-1 pl-5 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+          {planBullets.slice(0, 4).map((bullet) => (
+            <li key={bullet}>{bullet}</li>
+          ))}
+        </ul>
+      )}
+
       <div>
         <p className={`text-xs font-semibold uppercase tracking-wide ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
-          Request more reviews
+          SMS message
         </p>
         <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-          Send a personalized Google review request by SMS to recent customers. Use placeholders:{" "}
-          <code className="text-xs">[FIRST_NAME]</code>, <code className="text-xs">[SERVICE]</code>,{" "}
+          Personalized per customer with{" "}
+          <code className="text-xs">[FIRST_NAME]</code>,{" "}
+          <code className="text-xs">[SERVICE]</code> (set on each customer), and{" "}
           <code className="text-xs">[REVIEW_LINK]</code>.
+          {focusKeyword ? (
+            <>
+              {" "}
+              Tag customers with a Service matching <strong>{focusKeyword}</strong> so messages feel
+              specific and reviews mention the right program.
+            </>
+          ) : null}
         </p>
       </div>
 
@@ -172,6 +236,7 @@ export default function ReviewRequestPanel({
                 }`}
               >
                 Sample preview
+                {focusKeyword ? ` · ${focusKeyword}` : ""}
               </span>
               <p className="mt-1">{preview}</p>
             </div>
@@ -186,32 +251,36 @@ export default function ReviewRequestPanel({
             >
               {sending
                 ? "Sending…"
-                : `Send to ${Math.min(15, eligibleCount)} customer${Math.min(15, eligibleCount) === 1 ? "" : "s"}`}
+                : `Send batch of ${sendCount} SMS${focusKeyword ? ` · ${focusKeyword}` : ""}`}
             </button>
             <button
               type="button"
               disabled={sending}
-              onClick={() => void loadMessageTemplate()}
+              onClick={() => void loadMessageTemplate(focusKeyword)}
               className={`rounded-full border px-4 py-2 text-sm font-semibold disabled:opacity-50 ${
                 isLight
                   ? "border-[#dadce0] text-[#3c4043] hover:bg-[#f8f9fa]"
                   : "border-white/10 text-slate-300 hover:bg-white/5"
               }`}
             >
-              Regenerate with AI
+              Regenerate SMS
             </button>
             <Link
               href="/platform/customers"
               className="text-sm font-medium text-[#1a73e8] hover:underline"
             >
-              Manage customers →
+              Import customers →
             </Link>
           </div>
 
           <p className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
             {eligibleCount} eligible customer{eligibleCount === 1 ? "" : "s"} for{" "}
-            <strong>{businessName}</strong>. Import or add customers on the Customers page if the
-            list is empty.
+            <strong>{businessName}</strong>
+            {matchedCustomers > 0 && focusKeyword
+              ? ` · ${matchedCustomers} tagged for "${focusKeyword}"`
+              : ""}
+            . Repeat weekly until you hit the monthly target
+            {campaignPlan ? ` of ${campaignPlan.monthlyReviewTarget} reviews` : ""}.
           </p>
         </>
       )}

@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import ReviewCampaignPlanCard from "@/components/review-requests/ReviewCampaignPlanCard";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
 import { REVIEW_REQUEST_COOLDOWN_DAYS } from "@/lib/review-requests/eligibility";
+import type { ReviewCampaignPlan } from "@/lib/review-requests/campaign-plan";
 
 interface Customer {
   id: string;
@@ -62,6 +64,10 @@ export default function CustomersPageClient({
   const [template, setTemplate] = useState("");
   const [preview, setPreview] = useState("");
   const [eligibleCount, setEligibleCount] = useState(0);
+  const [batchSize, setBatchSize] = useState(15);
+  const [matchedCustomers, setMatchedCustomers] = useState(0);
+  const [focusKeyword, setFocusKeyword] = useState<string | null>(null);
+  const [campaignPlan, setCampaignPlan] = useState<ReviewCampaignPlan | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sendResult, setSendResult] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -96,27 +102,35 @@ export default function CustomersPageClient({
     }
   }, []);
 
-  const loadMessageTemplate = useCallback(async () => {
+  const loadMessageTemplate = useCallback(async (keywordOverride?: string | null) => {
     try {
       const res = await fetch("/api/review-requests/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ focusKeyword: keywordOverride ?? focusKeyword ?? null }),
       });
       const data = await parseJsonResponse<{
         template: string;
         preview: string;
         eligibleCount: number;
+        matchedCustomers: number;
+        batchSize: number;
+        focusKeyword: string | null;
+        campaignPlan: ReviewCampaignPlan | null;
         error?: string;
       }>(res);
       if (!res.ok) throw new Error(data.error ?? "Failed to generate message");
       setTemplate(data.template);
       setPreview(data.preview);
       setEligibleCount(data.eligibleCount);
+      setMatchedCustomers(data.matchedCustomers);
+      setBatchSize(data.batchSize);
+      setFocusKeyword(data.focusKeyword);
+      setCampaignPlan(data.campaignPlan);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate message");
     }
-  }, []);
+  }, [focusKeyword]);
 
   useEffect(() => {
     void loadCustomers();
@@ -222,7 +236,7 @@ export default function CustomersPageClient({
         body: JSON.stringify({
           template,
           customerIds,
-          batchSize: 15,
+          batchSize: selectedIds.size > 0 ? selectedIds.size : batchSize,
           dryRun,
         }),
       });
@@ -361,10 +375,25 @@ export default function CustomersPageClient({
         </div>
 
         <div className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-[#202124]">Review request message</h2>
+          <h2 className="text-lg font-bold text-[#202124]">Review request campaign</h2>
+
+          {campaignPlan && (
+            <div className="mt-4">
+              <ReviewCampaignPlanCard
+                plan={campaignPlan}
+                eligibleCount={eligibleCount}
+                matchedCustomers={matchedCustomers}
+                selectedKeyword={focusKeyword}
+                onSelectKeyword={(keyword) => void loadMessageTemplate(keyword)}
+              />
+            </div>
+          )}
+
+          <h3 className="mt-6 text-sm font-bold text-[#202124]">SMS message</h3>
           <p className="mt-2 text-sm text-[#5f6368]">
-            Personalized for <strong>{businessName}</strong>. Use placeholders:{" "}
-            <code className="text-xs">[FIRST_NAME]</code>, <code className="text-xs">[SERVICE]</code>,{" "}
+            Personalized for <strong>{businessName}</strong>. Set each customer&apos;s Service field
+            to match your focus keyword so <code className="text-xs">[SERVICE]</code> drives
+            keyword-rich reviews. Also use <code className="text-xs">[FIRST_NAME]</code> and{" "}
             <code className="text-xs">[REVIEW_LINK]</code>.
           </p>
 
@@ -402,20 +431,21 @@ export default function CustomersPageClient({
             >
               {sending
                 ? "Sending…"
-                : `Send to ${selectedIds.size || Math.min(15, eligibleCount)} customer(s)`}
+                : `Send batch of ${selectedIds.size || Math.min(batchSize, eligibleCount)} customer(s)`}
             </button>
             <button
               type="button"
               disabled={sending || !template.trim()}
-              onClick={() => void loadMessageTemplate()}
+              onClick={() => void loadMessageTemplate(focusKeyword)}
               className="rounded-full border border-[#dadce0] px-4 py-2 text-sm font-semibold text-[#3c4043] hover:bg-[#f8f9fa]"
             >
-              Regenerate with AI
+              Regenerate SMS
             </button>
           </div>
 
           <p className="mt-2 text-xs text-[#80868b]">
-            {eligibleCount} eligible (not yet contacted). Select customers below or we send to the next 15.
+            {eligibleCount} eligible (not yet contacted). Campaign suggests batches of {batchSize}
+            {focusKeyword && matchedCustomers > 0 ? ` · ${matchedCustomers} match "${focusKeyword}"` : ""}.
           </p>
         </div>
       </div>

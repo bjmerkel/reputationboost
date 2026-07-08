@@ -53,8 +53,9 @@ function buildDraftCopy(gap: GapFlag): string | undefined {
   if (gap.id === "stale-posts") {
     return `Google Post draft: "Looking for [SERVICE] in [CITY]? We're your local experts with [X]+ 5-star reviews. Call today for a free estimate!"`;
   }
-  if (gap.id === "review-gap") {
-    return `Send review requests to 15 recent customers via text/email survey. Target 8 new Google reviews this month.`;
+  if (gap.id.startsWith("review-gap-")) {
+    const keyword = gap.id.replace("review-gap-", "");
+    return `Send review requests to 15 recent "${keyword}" customers via SMS. Target reviews that naturally mention this service — aim for 5–8 new Google reviews this month for "${keyword}".`;
   }
   return undefined;
 }

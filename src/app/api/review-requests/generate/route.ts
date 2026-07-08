@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { ensureStrategy } from "@/audit/ensure-strategy";
+import {
+  buildReviewCampaignPlan,
+  countCustomersMatchingKeyword,
+  customerMatchesKeyword,
+} from "@/lib/review-requests/campaign-plan";
 import { getEligibleCustomers, listCustomers } from "@/lib/customers/storage";
 import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
@@ -21,12 +26,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await parseJsonBody<{ customerId?: string }>(request);
-    const { total: eligibleCount } = await listCustomers(user.id, business.businessId, {
-      eligibleOnly: true,
-      limit: 1,
-    });
-    const eligible = await getEligibleCustomers(user.id, business.businessId, 1);
+    const body = await parseJsonBody<{ customerId?: string; focusKeyword?: string | null }>(request);
+    const { customers: eligibleCustomers, total: eligibleCount } = await listCustomers(
+      user.id,
+      business.businessId,
+      { eligibleOnly: true, limit: 100 }
+    );
+    const eligible = await getEligibleCustomers(user.id, business.businessId, 100);
     const sampleCustomer =
       (body.customerId
         ? eligible.find((c) => c.id === body.customerId) ?? eligible[0]
@@ -54,22 +60,44 @@ export async function POST(request: Request) {
       address,
     });
 
+    const draftPlan = audit
+      ? buildReviewCampaignPlan(audit, {
+          eligibleCount,
+          focusKeywordOverride: body.focusKeyword ?? null,
+        })
+      : null;
+
+    const focusKeyword = body.focusKeyword ?? draftPlan?.focusKeyword ?? null;
+    const matchedCustomers = countCustomersMatchingKeyword(eligibleCustomers, focusKeyword);
+
+    const campaignPlan = audit
+      ? buildReviewCampaignPlan(audit, {
+          eligibleCount,
+          matchedToFocusKeyword: matchedCustomers,
+          focusKeywordOverride: focusKeyword,
+        })
+      : null;
+
+    const keywordMatchedSample =
+      focusKeyword && eligible.length > 0
+        ? eligible.find((c) => customerMatchesKeyword(c, focusKeyword)) ?? sampleCustomer
+        : sampleCustomer;
+
     let template: string;
     if (audit) {
-      template = await generateReviewRequestMessage(
-        audit,
-        sampleCustomer ?? undefined
-      );
+      template = await generateReviewRequestMessage(audit, keywordMatchedSample ?? undefined, focusKeyword);
     } else {
-      const firstName = sampleCustomer?.first_name?.trim() || "[FIRST_NAME]";
-      const service = sampleCustomer?.service_notes?.trim() || "[SERVICE]";
-      template = `Hi ${firstName}! Thanks for choosing ${business.name} for ${service}. We'd love your feedback on Google — it helps neighbors find us: [REVIEW_LINK]`;
+      const firstName = keywordMatchedSample?.first_name?.trim() || "[FIRST_NAME]";
+      const service =
+        keywordMatchedSample?.service_notes?.trim() || focusKeyword || "[SERVICE]";
+      template = `Hi ${firstName}! Thanks for choosing ${business.name} for ${service}. If your experience was great, a quick Google review would mean a lot: [REVIEW_LINK]`;
     }
 
-    const preview = sampleCustomer
+    const previewCustomer = keywordMatchedSample ?? sampleCustomer;
+    const preview = previewCustomer
       ? personalizeReviewRequestSms({
           template,
-          customer: sampleCustomer,
+          customer: previewCustomer,
           businessName: business.name,
           reviewUrl: reviewUrl ?? "https://example.com/review",
         })
@@ -80,6 +108,10 @@ export async function POST(request: Request) {
       preview,
       reviewUrl,
       eligibleCount,
+      matchedCustomers,
+      focusKeyword,
+      batchSize: campaignPlan?.batchSize ?? 15,
+      campaignPlan,
       placeholders: ["[FIRST_NAME]", "[NAME]", "[SERVICE]", "[BUSINESS]", "[REVIEW_LINK]"],
     });
   } catch (error) {
