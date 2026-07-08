@@ -21,7 +21,9 @@ import { sanitizeGbpDescriptionDraft } from "@/lib/google/gbp-description";
 import { sanitizeGbpPostDraft } from "@/lib/google/gbp-post-content";
 import {
   attributeDisplayName,
+  buildUserUriAttributeUpdates,
   chunkAttributeUpdates,
+  isUriAttributeType,
 } from "@/lib/google/gbp-attribute-recommendations";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { generateReviewResponses } from "@/audit/phase3/content";
@@ -151,6 +153,8 @@ export function buildAttributeExecutionTasks(
     coverage?.autoUpdates ??
     [];
   const manualMissing = coverage?.missing.filter((item) => !item.autoApplicable) ?? [];
+  const uriMissing = manualMissing.filter((item) => isUriAttributeType(item.valueType));
+  const enumMissing = manualMissing.filter((item) => !isUriAttributeType(item.valueType));
   const tasks: ExecutionTask[] = [];
 
   if (payloadUpdates.length > 0) {
@@ -180,7 +184,31 @@ export function buildAttributeExecutionTasks(
     }
   }
 
-  if (manualMissing.length > 0) {
+  if (uriMissing.length > 0) {
+    const uriUpdates = buildUserUriAttributeUpdates(uriMissing, {
+      websiteUri: audit.gbp.identity.website,
+      phone: audit.gbp.identity.phone,
+    });
+    const labels = uriUpdates.map((update) =>
+      coverage ? attributeDisplayName(coverage, update.name) : update.name
+    );
+
+    tasks.push(
+      buildGbpTask(
+        audit,
+        step,
+        "gbp_attributes",
+        "Add profile links",
+        [
+          `Add ${uriUpdates.length} link${uriUpdates.length === 1 ? "" : "s"} to your Google Business Profile:`,
+          ...labels.map((label) => `• ${label}`),
+        ].join("\n"),
+        { attributes: uriUpdates, requiresUriInput: true }
+      )
+    );
+  }
+
+  if (enumMissing.length > 0) {
     tasks.push(
       buildGbpTask(
         audit,
@@ -189,12 +217,12 @@ export function buildAttributeExecutionTasks(
         "Set remaining GBP attributes",
         [
           "These attributes must be set manually in Google Business Profile:",
-          ...manualMissing.map(
+          ...enumMissing.map(
             (item) =>
               `• ${item.displayName}${item.groupDisplayName ? ` (${item.groupDisplayName})` : ""}`
           ),
         ].join("\n"),
-        { manual: true, attributeChecklist: manualMissing.map((item) => item.displayName) }
+        { manual: true, attributeChecklist: enumMissing.map((item) => item.displayName) }
       )
     );
   }

@@ -6,6 +6,7 @@ import type {
   GbpLocationFieldStatus,
   GbpSnapshot,
 } from "@/audit/types";
+import { isUriAttributeType } from "./gbp-attribute-recommendations";
 import { enrichLocationInventoryScores } from "./gbp-field-score-impact";
 import { GBP_DESCRIPTION_MAX_LENGTH } from "./gbp-description";
 import type { GbpLocationProfile } from "./gbp-location";
@@ -127,7 +128,10 @@ function buildAttributesInventoryField(
   if (attributeCoverage && attributeCoverage.availableCount > 0) {
     const { enabledCount, availableCount, enabled, missing, missingCount } = attributeCoverage;
     const autoMissingCount = missing.filter((item) => item.autoApplicable).length;
-    const manualMissingCount = missingCount - autoMissingCount;
+    const uriMissingCount = missing.filter(
+      (item) => !item.autoApplicable && isUriAttributeType(item.valueType)
+    ).length;
+    const manualMissingCount = missingCount - autoMissingCount - uriMissingCount;
 
     const current =
       enabledCount > 0
@@ -147,11 +151,19 @@ function buildAttributesInventoryField(
 
     const constraint =
       missingCount > 0
-        ? autoMissingCount > 0 && manualMissingCount > 0
-          ? `${autoMissingCount} can be enabled from your plan · ${manualMissingCount} need manual setup in Google`
-          : autoMissingCount > 0
-            ? `${autoMissingCount} can be enabled from your plan`
-            : `${manualMissingCount} need manual setup in Google Business Profile`
+        ? autoMissingCount > 0 && uriMissingCount > 0 && manualMissingCount > 0
+          ? `${autoMissingCount} can be enabled · ${uriMissingCount} links to add · ${manualMissingCount} need manual setup in Google`
+          : autoMissingCount > 0 && uriMissingCount > 0
+            ? `${autoMissingCount} can be enabled · ${uriMissingCount} links to add from your plan`
+            : autoMissingCount > 0 && manualMissingCount > 0
+              ? `${autoMissingCount} can be enabled from your plan · ${manualMissingCount} need manual setup in Google`
+              : uriMissingCount > 0 && manualMissingCount > 0
+                ? `${uriMissingCount} links to add from your plan · ${manualMissingCount} need manual setup in Google`
+                : autoMissingCount > 0
+                  ? `${autoMissingCount} can be enabled from your plan`
+                  : uriMissingCount > 0
+                    ? `${uriMissingCount} profile links can be added from your plan`
+                    : `${manualMissingCount} need manual setup in Google Business Profile`
         : "Enable booking, payment, and accessibility attributes where available";
 
     return {
