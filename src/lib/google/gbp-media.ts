@@ -124,7 +124,7 @@ function mediaParent(connection: GbpConnection): string {
 
 /** Decode a base64 data URL into raw bytes for GBP byte upload. */
 export function dataUrlToBytes(dataUrl: string): { bytes: ArrayBuffer; contentType: string } {
-  const match = dataUrl.match(/^data:([^;,]+)(?:;[^,]*)?;base64,(.+)$/s);
+  const match = dataUrl.match(/^data:([^;,]+)(?:;[^,]*)?;base64,([\s\S]+)$/);
   if (!match) throw new Error("Invalid image preview data.");
   const binary = Buffer.from(match[2], "base64");
   return {
