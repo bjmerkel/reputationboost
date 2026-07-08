@@ -1,3 +1,4 @@
+import { enrichLocationInventoryWithKeywords } from "@/lib/google/gbp-location-inventory";
 import type { FullAuditPayload, GbpOptimizationPlan, Phase1AuditPayload } from "@/audit/types";
 import { buildStrategy } from "@/audit/phase2/strategy";
 import { buildFirstAuditReport, buildMonthlyReport } from "@/audit/phase2/monthly-report";
@@ -67,9 +68,24 @@ export function ensureStrategy(
   audit: FullAuditPayload,
   priorAudit: Phase1AuditPayload | null = null
 ): FullAuditPayload {
-  const withStrategy = audit.strategy
-    ? audit
-    : { ...audit, strategy: buildStrategy(audit, priorAudit) };
+  const withInventory =
+    audit.gbp.locationInventory && audit.rankings.keywords.length > 0
+      ? {
+          ...audit,
+          gbp: {
+            ...audit.gbp,
+            locationInventory: enrichLocationInventoryWithKeywords(
+              audit.gbp.locationInventory,
+              audit.rankings.keywords.map((k) => k.keyword),
+              (audit.gbp.liveProfile?.services ?? []).map((s) => s.name)
+            ),
+          },
+        }
+      : audit;
+
+  const withStrategy = withInventory.strategy
+    ? withInventory
+    : { ...withInventory, strategy: buildStrategy(withInventory, priorAudit) };
 
   let strategy = withStrategy.strategy;
 
@@ -100,8 +116,8 @@ export function ensureStrategy(
     strategy: {
       ...normalizeStrategyDrafts({ ...withStrategy, strategy })!,
       gbpPlan: enrichGbpPlan(
-        audit,
-        strategy.gbpPlan ?? buildTemplateGbpPlan(audit)
+        withInventory,
+        strategy.gbpPlan ?? buildTemplateGbpPlan(withInventory)
       ),
     },
   };

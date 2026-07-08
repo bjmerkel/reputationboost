@@ -128,6 +128,24 @@ function findTaskForStep(
   )[0];
 }
 
+function hasActivePlanTasks(
+  tasks: ExecutionTask[],
+  planStepNumber: number,
+  taskTypes?: ExecutionType[]
+): boolean {
+  return tasks.some((task) => {
+    const step = resolvePlanStepNumber(task);
+    if (step !== planStepNumber) return false;
+    if (taskTypes && taskTypes.length > 0 && !taskTypes.includes(task.type)) return false;
+    return (
+      task.status === "pending_approval" ||
+      task.status === "failed" ||
+      task.status === "approved" ||
+      task.status === "scheduled"
+    );
+  });
+}
+
 function resolveFieldPlanLink(
   field: GbpLocationInventoryField,
   tasks: ExecutionTask[],
@@ -136,7 +154,13 @@ function resolveFieldPlanLink(
   GbpLocationInventoryField,
   "planStepNumber" | "planTaskId" | "planTaskStatus" | "planFixLabel" | "planScrollTarget"
 > {
-  if (field.status === "good" && !field.hasConflict) {
+  const config = planLinkForApiPath(field.apiPath);
+  const activeServiceTasks =
+    field.apiPath === "serviceItems" &&
+    config != null &&
+    hasActivePlanTasks(tasks, config.planStepNumber, config.taskTypes);
+
+  if (field.status === "good" && !field.hasConflict && !field.isProcessing && !activeServiceTasks) {
     return {};
   }
 
@@ -162,7 +186,6 @@ function resolveFieldPlanLink(
     };
   }
 
-  const config = planLinkForApiPath(field.apiPath);
   if (!config) return {};
 
   let task =
@@ -201,9 +224,28 @@ function resolveFieldPlanLink(
 function fixLabelForTask(task?: ExecutionTask): string {
   if (!task) return "Fix in plan";
   if (task.status === "pending_approval") return "Review fix";
-  if (task.status === "completed") return "View in plan";
   if (task.status === "failed") return "Retry in plan";
+  if (task.status === "completed") return "View in plan";
+  if (task.status === "approved" || task.status === "scheduled") return "Publish in plan";
   return "Fix in plan";
+}
+
+const PLAN_TASK_STATUS_STYLES: Record<
+  ExecutionTask["status"],
+  { label: string; className: string }
+> = {
+  pending_approval: { label: "Pending approval", className: "bg-[#fef7e0] text-[#e37400]" },
+  failed: { label: "Failed", className: "bg-[#fce8e6] text-[#c5221f]" },
+  approved: { label: "Approved", className: "bg-[#e8f0fe] text-[#1a73e8]" },
+  scheduled: { label: "Scheduled", className: "bg-[#e8f0fe] text-[#1a73e8]" },
+  completed: { label: "Published", className: "bg-[#e6f4ea] text-[#137333]" },
+  rejected: { label: "Skipped", className: "bg-[#f1f3f4] text-[#5f6368]" },
+};
+
+export function planTaskStatusStyle(
+  status: ExecutionTask["status"]
+): { label: string; className: string } {
+  return PLAN_TASK_STATUS_STYLES[status] ?? PLAN_TASK_STATUS_STYLES.pending_approval;
 }
 
 export function enrichInventoryWithPlanLinks(

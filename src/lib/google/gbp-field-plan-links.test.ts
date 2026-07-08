@@ -124,6 +124,39 @@ describe("gbp-field-plan-links", () => {
     assert.equal(planScrollElementId(0, "google-updates"), "google-updates-panel");
   });
 
+  it("enriches service fields with active plan tasks even when count looks good", () => {
+    const inventory: GbpLocationInventory = {
+      ...baseInventory,
+      fields: [
+        ...baseInventory.fields,
+        {
+          apiPath: "serviceItems",
+          label: "Services",
+          section: "services",
+          current:
+            "10 listed: Educational services, Field trips, Homework assistance, Meal preparation…",
+          status: "good",
+          editable: true,
+        },
+      ],
+      summary: { ...baseInventory.summary, good: 1, total: 4 },
+    };
+
+    const enriched = enrichInventoryWithPlanLinks(inventory, [
+      task({
+        id: "svc-task",
+        type: "gbp_services",
+        status: "pending_approval",
+        planStepNumber: 4,
+      }),
+    ]);
+
+    const services = enriched.fields.find((f) => f.apiPath === "serviceItems");
+    assert.equal(services?.planStepNumber, 4);
+    assert.equal(services?.planTaskId, "svc-task");
+    assert.equal(services?.planFixLabel, "Review fix");
+  });
+
   it("omits plan links when the target step is not in the current plan", () => {
     const enriched = enrichInventoryWithPlanLinks(
       baseInventory,

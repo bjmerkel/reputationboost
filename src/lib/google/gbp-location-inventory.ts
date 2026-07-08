@@ -9,6 +9,7 @@ import type {
 import { isProfileLinkCoverageItem, isUriAttributeType, resolveProfileLinkMissing } from "./gbp-attribute-recommendations";
 import { enrichLocationInventoryScores } from "./gbp-field-score-impact";
 import { GBP_DESCRIPTION_MAX_LENGTH } from "./gbp-description";
+import { missingServiceKeywords } from "./gbp-service-descriptions";
 import type { GbpLocationProfile } from "./gbp-location";
 import { maskIncludesField } from "./gbp-google-updated";
 import {
@@ -33,6 +34,8 @@ export interface BuildGbpLocationInventoryInput {
   monthlyActions?: number;
   avgCustomerValue?: number | null;
   attributeCoverage?: GbpAttributeCoverage;
+  /** Target ranking keywords — used to judge whether services cover keyword gaps. */
+  targetKeywords?: string[];
 }
 
 function fieldStatus(
@@ -207,9 +210,19 @@ export function buildGbpLocationInventory(
     attributeCoverage,
   } = input;
 
+  const targetKeywords = input.targetKeywords ?? [];
   const description =
     profile?.description ?? liveProfile?.description ?? "";
   const services = profile?.serviceItems ?? liveProfile?.services ?? [];
+  const serviceNames = services.map((s) => s.name);
+  const uncoveredKeywords =
+    targetKeywords.length > 0
+      ? missingServiceKeywords(targetKeywords, serviceNames)
+      : [];
+  const servicesGood =
+    completeness.hasServices &&
+    completeness.serviceCount >= 3 &&
+    uncoveredKeywords.length === 0;
   // Attributes come from the dedicated locations/{id}/attributes endpoint
   // (surfaced via liveProfile), not from locations.get, so prefer the
   // non-empty source instead of nullish fallback.
@@ -356,7 +369,7 @@ export function buildGbpLocationInventory(
       constraint: "Optional hours for departments (e.g. pharmacy, drive-through)",
       editable: false,
     },
-    {
+    inventoryField({
       apiPath: "serviceItems",
       label: "Services",
       section: "services",
@@ -364,12 +377,21 @@ export function buildGbpLocationInventory(
         ? `${services.length} listed: ${services
             .slice(0, 4)
             .map((s) => s.name)
-            .join(", ")}${services.length > 4 ? "…" : ""}`
-        : "No services on profile",
-      status: fieldStatus(completeness.hasServices, completeness.serviceCount >= 3),
+            .join(", ")}${services.length > 4 ? "…" : ""}${
+            uncoveredKeywords.length > 0
+              ? ` · missing keywords: ${uncoveredKeywords.slice(0, 3).join(", ")}${
+                  uncoveredKeywords.length > 3 ? "…" : ""
+                }`
+              : ""
+          }`
+        : uncoveredKeywords.length > 0
+          ? `No services on profile · missing: ${uncoveredKeywords.slice(0, 3).join(", ")}`
+          : "No services on profile",
+      status: fieldStatus(completeness.hasServices, servicesGood),
       constraint: "Add structured services — one per target keyword when possible",
       editable: profile?.canModifyServiceList !== false,
-    },
+      googleUpdateState,
+    }),
     inventoryField({
       apiPath: "attributes",
       label: "Attributes",
@@ -551,4 +573,57 @@ export function buildGbpLocationInventory(
       avgCustomerValue: input.avgCustomerValue,
     }
   );
+}
+
+/** Re-score the Services field once target keywords are known (after rankings collection). */
+export function enrichLocationInventoryWithKeywords(
+  inventory: GbpLocationInventory,
+  targetKeywords: string[],
+  serviceNames: string[]
+): GbpLocationInventory {
+  if (targetKeywords.length === 0) return inventory;
+
+  const uncovered = missingServiceKeywords(targetKeywords, serviceNames);
+  const servicesGood = serviceNames.length >= 3 && uncovered.length === 0;
+
+  const fields = inventory.fields.map((field) => {
+    if (field.apiPath !== "serviceItems") return field;
+
+    const hasServices = serviceNames.length > 0;
+    const listed = hasServices
+      ? `${serviceNames.length} listed: ${serviceNames
+          .slice(0, 4)
+          .join(", ")}${serviceNames.length > 4 ? "…" : ""}`
+      : "No services on profile";
+
+    const current =
+      uncovered.length > 0
+        ? `${listed} · missing keywords: ${uncovered.slice(0, 3).join(", ")}${
+            uncovered.length > 3 ? "…" : ""
+          }`
+        : listed;
+
+    const status: GbpLocationFieldStatus =
+      field.hasConflict
+        ? "conflict"
+        : field.isProcessing && hasServices
+          ? "processing"
+          : !hasServices
+            ? "missing"
+            : servicesGood
+              ? "good"
+              : "needs_work";
+
+    return {
+      ...field,
+      current,
+      status,
+    };
+  });
+
+  return {
+    ...inventory,
+    fields,
+    summary: summarize(fields),
+  };
 }

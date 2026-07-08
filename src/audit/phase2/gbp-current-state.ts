@@ -5,6 +5,7 @@ import type {
   Phase1AuditPayload,
 } from "../types";
 import { isProfileLinkCoverageItem, isUriAttributeType, resolveProfileLinkMissing } from "@/lib/google/gbp-attribute-recommendations";
+import { keywordCoveredByServices, missingServiceKeywords as missingServiceKeywordsForNames } from "@/lib/google/gbp-service-descriptions";
 import { detectPackFragility } from "./scoring";
 
 function profile(audit: Phase1AuditPayload) {
@@ -31,15 +32,15 @@ function keywordInProfile(audit: Phase1AuditPayload, keyword: string): boolean {
   const services = serviceNames(audit);
   const posts = (audit.gbp.recentPosts ?? []).map((p) => p.summary).join(" ");
   const combined = `${desc} ${services.join(" ")} ${posts} ${audit.gbp.identity.primaryCategory}`;
-  return textContainsKeyword(combined, keyword);
+  return (
+    textContainsKeyword(combined, keyword) ||
+    keywordCoveredByServices(services, keyword)
+  );
 }
 
 function missingServiceKeywords(audit: Phase1AuditPayload): string[] {
   const keywords = audit.rankings.keywords.map((k) => k.keyword);
-  const services = serviceNames(audit);
-  return keywords.filter(
-    (kw) => !services.some((s) => textContainsKeyword(s, kw))
-  );
+  return missingServiceKeywordsForNames(keywords, serviceNames(audit));
 }
 
 function daysSincePost(audit: Phase1AuditPayload): number | null {

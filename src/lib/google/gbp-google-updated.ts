@@ -9,6 +9,7 @@ const FIELD_LABELS: Record<string, string> = {
   storefrontAddress: "Address",
   regularHours: "Regular hours",
   specialHours: "Holiday hours",
+  serviceItems: "Services",
 };
 
 export const ATTRIBUTE_SUGGESTION_PREFIX = "attribute:";

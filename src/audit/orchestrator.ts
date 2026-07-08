@@ -1,4 +1,5 @@
 import { loadBusinessConfig } from "./businesses";
+import { enrichLocationInventoryWithKeywords } from "@/lib/google/gbp-location-inventory";
 import {
   collectCompetitorSnapshots,
   collectGbpSnapshot,
@@ -119,7 +120,17 @@ export async function runPhase1Audit(
     period: periodLabel(completedAt),
     startedAt: startedAt.toISOString(),
     completedAt: completedAt.toISOString(),
-    gbp,
+    gbp: {
+      ...gbp,
+      locationInventory:
+        gbp.locationInventory && rankings
+          ? enrichLocationInventoryWithKeywords(
+              gbp.locationInventory,
+              rankings.keywords.map((k) => k.keyword),
+              (gbp.liveProfile?.services ?? []).map((s) => s.name)
+            )
+          : gbp.locationInventory,
+    },
     rankings: rankings!,
     competitors: competitors!,
     reviews,

@@ -458,13 +458,15 @@ export function tasksFromGbpPlanStep(
     case "add_service_items": {
       const blocks = step.copyBlocks ?? [];
       if (blocks.length > 0) {
-        return blocks.map((block, i) =>
-          buildGbpTask(audit, step, "gbp_services", block.label, block.content, {
+        return blocks.map((block, i) => {
+          const serviceName = block.label.replace(/^Service #\d+:\s*/i, "");
+          return buildGbpTask(audit, step, "gbp_services", block.label, block.content, {
             serviceIndex: i + 1,
-            serviceName: block.label.replace(/^Service #\d+:\s*/i, ""),
+            serviceName,
             serviceDescription: block.content,
-          })
-        );
+            targetKeyword: block.label,
+          });
+        });
       }
       return [
         buildGbpTask(audit, step, "gbp_checklist", step.title, checklistContent(step), {
@@ -654,8 +656,9 @@ export function tasksFromGbpPlanStep(
     const blocks = step.copyBlocks ?? [];
     if (blocks.length > 0) {
       return blocks.map((block, i) =>
-        buildGbpTask(audit, step, "gbp_services", block.label, block.content, {
-          serviceIndex: i + 1,
+        buildGbpTask(audit, step, "gbp_checklist", block.label, block.content, {
+          checklistIndex: i + 1,
+          manual: true,
         })
       );
     }

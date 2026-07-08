@@ -1,6 +1,7 @@
 import type { GbpOptimizationPlan, GbpPlanStep, KeywordRankAnalysis, Phase1AuditPayload } from "../types";
 import { isStepSatisfied } from "./counterfactual";
 import { planStepsRequiredByInventory } from "@/lib/google/gbp-field-plan-map";
+import { buildServicePlanBlocks } from "@/lib/google/gbp-service-descriptions";
 import {
   buildAttributePlanContent,
   buildGbpCurrentState,
@@ -50,13 +51,9 @@ function descriptionDraft(audit: Phase1AuditPayload): string {
 }
 
 function serviceSteps(audit: Phase1AuditPayload): GbpPlanStep["copyBlocks"] {
-  const missing = missingKeywordsForServices(audit);
-  const toAdd = missing.length > 0 ? missing : keywords(audit);
-  const city = cityFromAddress(audit.gbp.identity.address);
-
-  return toAdd.map((kw, i) => ({
-    label: `Service #${i + 1}: ${kw}`,
-    content: `Add "${kw}" as a named service with a 2-3 sentence description mentioning ${city}, the specific use cases customers search for, and what makes ${audit.clientName} the trusted local choice.`,
+  return buildServicePlanBlocks(audit).map((block) => ({
+    label: block.label,
+    content: block.content,
   }));
 }
 

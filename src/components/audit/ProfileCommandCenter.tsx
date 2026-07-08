@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { ExecutionTask, FullAuditPayload, GbpLocationInventory, GbpLocationInventoryField } from "@/audit/types";
-import { enrichInventoryWithPlanLinks } from "@/lib/google/gbp-field-plan-links";
+import { enrichInventoryWithPlanLinks, planTaskStatusStyle } from "@/lib/google/gbp-field-plan-links";
 import { enrichLocationInventoryScores } from "@/lib/google/gbp-field-score-impact";
 import ProfilePerformanceTrends from "@/components/audit/ProfilePerformanceTrends";
 import ProfileAlertsPanel from "@/components/audit/ProfileAlertsPanel";
@@ -350,6 +350,15 @@ function FieldRow({
             )}
             {field.calibrationConfidence && (
               <CalibrationBadge confidence={field.calibrationConfidence} isLight={isLight} />
+            )}
+            {field.planTaskStatus && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  planTaskStatusStyle(field.planTaskStatus).className
+                }`}
+              >
+                Plan: {planTaskStatusStyle(field.planTaskStatus).label}
+              </span>
             )}
           </div>
           <p className={`mt-1 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
