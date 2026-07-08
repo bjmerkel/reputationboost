@@ -87,6 +87,56 @@ describe("buildScoreChangelogFromSnapshots", () => {
     assert.ok(rankEntry?.label.includes("1 mi"));
     assert.match(rankEntry?.label ?? "", /pack fragile beyond 3 mi/);
   });
+
+  it("labels wider-radius service-area gains when 1 mi rank is unchanged", () => {
+    const audit = createTestAudit();
+    const fragile = audit.rankings.keywords.find((k) => k.keyword === "plumber near me")!;
+    const improved = {
+      ...fragile,
+      geoRanks: [
+        { distanceMiles: 1, rank: 3, inLocalPack: true },
+        { distanceMiles: 3, rank: 2, inLocalPack: true },
+        { distanceMiles: 5, rank: 3, inLocalPack: true },
+        { distanceMiles: 10, rank: 4, inLocalPack: true },
+      ],
+    };
+
+    const entries = buildScoreChangelogFromSnapshots(
+      {
+        businessId: "b1",
+        date: "2026-07-02",
+        overall: 58,
+        visibility: 40,
+        conversion: 65,
+        revenueCapture: 30,
+        source: "ingest",
+      },
+      {
+        businessId: "b1",
+        date: "2026-07-01",
+        overall: 53,
+        visibility: 35,
+        conversion: 63,
+        revenueCapture: 28,
+        source: "ingest",
+      },
+      [
+        {
+          keyword: "plumber near me",
+          fromPosition: 3,
+          toPosition: 3,
+          improved: true,
+          fromServiceAreaVisibility: 40,
+          toServiceAreaVisibility: 52,
+          highlightRadiusMiles: 3,
+        },
+      ],
+      new Map([[fragile.keyword, improved]])
+    );
+
+    const rankEntry = entries.find((e) => e.keyword === "plumber near me");
+    assert.ok(rankEntry?.label.includes("Service-area visibility"));
+  });
 });
 
 describe("applyRankSnapshotsToAudit", () => {

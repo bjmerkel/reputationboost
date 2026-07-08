@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import {
-  buildRankMovementsFromSnapshots,
+  buildRankMovementsForChangelog,
   buildScoreChangelogFromSnapshots,
 } from "@/audit/phase2/score-changelog";
 import {
@@ -11,6 +11,8 @@ import {
   DEFAULT_RANK_MEDIAN_WINDOW_DAYS,
   smoothRankSnapshotsForDate,
 } from "@/audit/phase2/rank-median";
+import { keywordMapFromRankSnapshots } from "@/audit/phase2/service-area-attribution";
+import { radiusWeightsForAudit } from "@/audit/phase2/radius-profiles";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { loadGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import { loadGlobalScoreModel } from "@/audit/storage-score-model";
@@ -64,61 +66,84 @@ export async function GET(request: Request) {
     const businessId = await getBusinessIdForSlug(user.id, clientId);
 
     if (businessId) {
-      const [currentSnaps1mi, priorSnaps1mi, audit] = await Promise.all([
+      const [currentSnaps, priorSnaps, audit] = await Promise.all([
         listRankSnapshotsForBusinessDate(businessId, latest.date, {
-          multiRadius: false,
+          multiRadius: HEATMAP_FLAGS.dailyMultiRadius,
         }),
         listRankSnapshotsForBusinessDate(businessId, prior.date, {
-          multiRadius: false,
+          multiRadius: HEATMAP_FLAGS.dailyMultiRadius,
         }),
         loadLatestAuditForBusinessAdmin(businessId),
       ]);
 
       const keywords = audit?.rankings.keywords.map((k) => k.keyword) ?? [
-        ...new Set(currentSnaps1mi.map((s) => s.keyword)),
+        ...new Set(currentSnaps.map((s) => s.keyword)),
       ];
 
       const currentRanks = new Map<string, number | null>();
       const priorRanks = new Map<string, number | null>();
-      for (const s of currentSnaps1mi) currentRanks.set(s.keyword, s.rank);
-      for (const s of priorSnaps1mi) priorRanks.set(s.keyword, s.rank);
+      for (const s of currentSnaps.filter((r) => r.distanceMiles === 1)) {
+        currentRanks.set(s.keyword, s.rank);
+      }
+      for (const s of priorSnaps.filter((r) => r.distanceMiles === 1)) {
+        priorRanks.set(s.keyword, s.rank);
+      }
 
-      const rankMovements = buildRankMovementsFromSnapshots(
-        keywords,
-        currentRanks,
-        priorRanks
-      );
-
+      let priorKeywords: Map<string, import("@/audit/types").KeywordRankSnapshot> | undefined;
       let keywordRanks: Map<string, import("@/audit/types").KeywordRankSnapshot> | undefined;
+      const weights = audit ? radiusWeightsForAudit(audit) : undefined;
+
       if (audit) {
         const startDate = addDaysYmd(
           latest.date,
           -(DEFAULT_RANK_MEDIAN_WINDOW_DAYS - 1)
         );
-        const rangeSnaps = await listRankSnapshotsForBusinessRange(
-          businessId,
-          startDate,
-          latest.date,
-          { multiRadius: HEATMAP_FLAGS.dailyMultiRadius }
+        const priorStart = addDaysYmd(
+          prior.date,
+          -(DEFAULT_RANK_MEDIAN_WINDOW_DAYS - 1)
         );
-        const smoothed = smoothRankSnapshotsForDate(
-          rangeSnaps,
+
+        const [currentRangeSnaps, priorRangeSnaps, grids] = await Promise.all([
+          listRankSnapshotsForBusinessRange(businessId, startDate, latest.date, {
+            multiRadius: HEATMAP_FLAGS.dailyMultiRadius,
+          }),
+          listRankSnapshotsForBusinessRange(businessId, priorStart, prior.date, {
+            multiRadius: HEATMAP_FLAGS.dailyMultiRadius,
+          }),
+          loadLatestKeywordGridsAdmin(businessId, keywords, latest.date),
+        ]);
+
+        const currentSmoothed = smoothRankSnapshotsForDate(
+          currentRangeSnaps,
           latest.date,
           keywords,
           DEFAULT_RANK_MEDIAN_WINDOW_DAYS,
           { multiRadius: HEATMAP_FLAGS.dailyMultiRadius }
         );
-        let liveAudit = applyRankSnapshotsToAudit(audit, smoothed);
-        const grids = await loadLatestKeywordGridsAdmin(
-          businessId,
+        const priorSmoothed = smoothRankSnapshotsForDate(
+          priorRangeSnaps,
+          prior.date,
           keywords,
-          latest.date
+          DEFAULT_RANK_MEDIAN_WINDOW_DAYS,
+          { multiRadius: HEATMAP_FLAGS.dailyMultiRadius }
         );
+
+        let liveAudit = applyRankSnapshotsToAudit(audit, currentSmoothed);
         liveAudit = applyGridSnapshotsToAudit(liveAudit, grids);
-        keywordRanks = new Map(
-          liveAudit.rankings.keywords.map((kw) => [kw.keyword, kw])
-        );
+        keywordRanks = keywordMapFromRankSnapshots(liveAudit, currentSmoothed);
+
+        const priorAudit = applyRankSnapshotsToAudit(audit, priorSmoothed);
+        priorKeywords = keywordMapFromRankSnapshots(priorAudit, priorSmoothed);
       }
+
+      const rankMovements = buildRankMovementsForChangelog(
+        keywords,
+        priorKeywords,
+        keywordRanks,
+        currentRanks,
+        priorRanks,
+        weights
+      );
 
       changelog = buildScoreChangelogFromSnapshots(
         latest,

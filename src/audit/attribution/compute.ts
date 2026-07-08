@@ -17,7 +17,16 @@ import {
   computeObservedDriverImpact,
   computeObservedOutcomeImpact,
 } from "@/audit/phase2/projection-accuracy";
+import type { KeywordRankSnapshot } from "@/audit/types";
+import {
+  buildKeywordFromRadiusMedians,
+  medianRanksByRadius,
+  serviceAreaImproved,
+  weakestRadiusImproved,
+} from "@/audit/phase2/service-area-attribution";
 import { loadAuditByIdForBusiness } from "@/audit/storage-supabase";
+import { radiusWeightsForAudit, RADIUS_PROFILE_WEIGHTS } from "@/audit/phase2/radius-profiles";
+import { keywordServiceAreaVisibilityScore } from "@/audit/phase2/scoring";
 import { loadGlobalScoreCalibrationAdmin, refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import {
   getRankSnapshotsInRange,
@@ -57,9 +66,34 @@ async function rankMedianInWindow(
     businessId,
     keyword,
     formatDateYmd(start),
-    formatDateYmd(addDays(end, -1))
+    formatDateYmd(addDays(end, -1)),
+    { multiRadius: false }
   );
   return medianRank(snapshots.map((s) => s.rank));
+}
+
+async function keywordSnapshotAtWindowEnd(
+  businessId: string,
+  keyword: string,
+  start: Date,
+  end: Date,
+  template?: KeywordRankSnapshot
+): Promise<KeywordRankSnapshot | null> {
+  const snapshots = await getRankSnapshotsInRange(
+    businessId,
+    keyword,
+    formatDateYmd(start),
+    formatDateYmd(addDays(end, -1)),
+    { multiRadius: true }
+  );
+  if (snapshots.length === 0) return null;
+
+  const medians = medianRanksByRadius(
+    snapshots.map((s) => ({ distanceMiles: s.distanceMiles, rank: s.rank }))
+  );
+  if ([...medians.values()].every((r) => r == null)) return null;
+
+  return buildKeywordFromRadiusMedians(keyword, medians, template);
 }
 
 export async function computeAttributionForTask(
@@ -78,23 +112,68 @@ export async function computeAttributionForTask(
   const effectivePostEnd = now < postEnd ? now : postEnd;
 
   const targetKeywords = resolveTargetKeywords(task, keywords);
+  const audit = await loadAuditByIdForBusiness(businessId, task.auditId);
+  const weights = audit ? radiusWeightsForAudit(audit) : RADIUS_PROFILE_WEIGHTS.neighborhood;
+  const templateByKeyword = new Map(
+    (audit?.rankings.keywords ?? []).map((kw) => [kw.keyword.toLowerCase(), kw])
+  );
+
   const rankByKeyword = new Map<string, { before: number | null; after: number | null }>();
+  const visibilityByKeyword = new Map<
+    string,
+    { before: number; after: number; widerRadiusImproved: number | null }
+  >();
   let keywordsImproved = 0;
 
   for (const keyword of targetKeywords) {
-    const before = await rankMedianInWindow(businessId, keyword, preStart, preEnd);
-    const after = await rankMedianInWindow(businessId, keyword, postStart, effectivePostEnd);
-    rankByKeyword.set(keyword, { before, after });
+    const template = templateByKeyword.get(keyword.toLowerCase());
+    const beforeRank = await rankMedianInWindow(businessId, keyword, preStart, preEnd);
+    const afterRank = await rankMedianInWindow(businessId, keyword, postStart, effectivePostEnd);
+    rankByKeyword.set(keyword, { before: beforeRank, after: afterRank });
 
-    if (before !== null && after !== null && after < before) {
+    const beforeKw = await keywordSnapshotAtWindowEnd(
+      businessId,
+      keyword,
+      preStart,
+      preEnd,
+      template
+    );
+    const afterKw = await keywordSnapshotAtWindowEnd(
+      businessId,
+      keyword,
+      postStart,
+      effectivePostEnd,
+      template
+    );
+
+    if (beforeKw && afterKw) {
+      const visBefore = keywordServiceAreaVisibilityScore(beforeKw, weights);
+      const visAfter = keywordServiceAreaVisibilityScore(afterKw, weights);
+      visibilityByKeyword.set(keyword, {
+        before: visBefore,
+        after: visAfter,
+        widerRadiusImproved: weakestRadiusImproved(beforeKw, afterKw),
+      });
+
+      if (serviceAreaImproved(beforeKw, afterKw, weights)) {
+        keywordsImproved += 1;
+      }
+    } else if (
+      beforeRank !== null &&
+      afterRank !== null &&
+      afterRank < beforeRank
+    ) {
       keywordsImproved += 1;
-    } else if (before === null && after !== null && after <= 3) {
+    } else if (beforeRank === null && afterRank !== null && afterRank <= 3) {
       keywordsImproved += 1;
     }
   }
 
   const primaryKeyword = pickPrimaryKeyword(targetKeywords, rankByKeyword);
   const primaryRanks = primaryKeyword ? rankByKeyword.get(primaryKeyword) : undefined;
+  const primaryVisibility = primaryKeyword
+    ? visibilityByKeyword.get(primaryKeyword)
+    : undefined;
   const rankBefore = primaryRanks?.before ?? null;
   const rankAfter = primaryRanks?.after ?? null;
   const rankDelta =
@@ -177,6 +256,9 @@ export async function computeAttributionForTask(
     primaryKeyword,
     rankBefore,
     rankAfter,
+    serviceAreaVisibilityBefore: primaryVisibility?.before ?? null,
+    serviceAreaVisibilityAfter: primaryVisibility?.after ?? null,
+    widerRadiusImproved: primaryVisibility?.widerRadiusImproved ?? null,
     callsDelta,
     directionsDelta,
     websiteClicksDelta,
@@ -283,9 +365,12 @@ export async function computeAttributionForTask(
       ? rankAfter < rankBefore
       : rankBefore === null && rankAfter !== null && rankAfter <= 3;
 
+  const serviceAreaImprovedFlag =
+    primaryVisibility != null && primaryVisibility.after > primaryVisibility.before;
+
   void refreshGridAfterTaskIfNeeded(record, {
     primaryKeyword,
-    rankImproved,
+    rankImproved: rankImproved || serviceAreaImprovedFlag,
     taskId: task.id,
   }).catch((error) => {
     console.warn(

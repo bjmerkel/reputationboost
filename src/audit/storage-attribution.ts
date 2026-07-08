@@ -6,6 +6,8 @@ import type {
 } from "@/audit/types/timeseries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 
 const ENGAGEMENT_METRICS: PerformanceDailyMetric[] = [
@@ -183,24 +185,34 @@ export async function getRankSnapshotsInRange(
   businessId: string,
   keyword: string,
   startDate: string,
-  endDate: string
-): Promise<Array<{ date: string; rank: number | null }>> {
+  endDate: string,
+  options?: { multiRadius?: boolean }
+): Promise<Array<{ date: string; distanceMiles: number; rank: number | null }>> {
+  const multiRadius = options?.multiRadius ?? HEATMAP_FLAGS.dailyMultiRadius;
   const supabase = createAdminClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("rank_snapshots")
-    .select("date, rank")
+    .select("date, distance_miles, rank")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
-    .eq("distance_miles", 1)
     .eq("grid_north", 0)
     .eq("grid_east", 0)
     .gte("date", startDate)
     .lte("date", endDate)
     .order("date", { ascending: true });
 
+  if (!multiRadius) {
+    query = query.eq("distance_miles", 1);
+  } else {
+    query = query.in("distance_miles", [...SEARCH_RADII_MILES]);
+  }
+
+  const { data, error } = await query;
+
   if (error) throw new Error(`Failed to load rank_snapshots: ${error.message}`);
   return (data ?? []).map((row) => ({
     date: row.date as string,
+    distanceMiles: row.distance_miles as number,
     rank: row.rank as number | null,
   }));
 }

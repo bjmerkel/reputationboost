@@ -43,6 +43,15 @@ export {
 export type { PathOptimizationBlendWeights } from "../types";
 export { buildPathToHealthy } from "./path-to-healthy";
 export {
+  buildKeywordFromRadiusMedians,
+  buildServiceAreaRankMovements,
+  keywordMapFromRankSnapshots,
+  medianRanksByRadius,
+  serviceAreaImproved,
+  serviceAreaVisibilityDelta,
+  weakestRadiusImproved,
+} from "./service-area-attribution";
+export {
   buildAttributionCalibration,
   buildGapAttributionCalibration,
   calibratedRevenueGain,
@@ -54,7 +63,7 @@ export {
   resolveCalibrationConfidence,
 } from "./attribution-calibration";
 export { applyRankSnapshotsToAudit, applyGridSnapshotsToAudit, computeScoreDailySnapshot } from "./score-snapshot";
-export { buildScoreChangelogFromSnapshots, buildScoreChangelogFromHealthScores, buildRankMovementsFromSnapshots } from "./score-changelog";
+export { buildScoreChangelogFromSnapshots, buildScoreChangelogFromHealthScores, buildRankMovementsFromSnapshots, buildRankMovementsForChangelog } from "./score-changelog";
 export { ingestScoreDailyForBusiness } from "./score-ingest";
 export { detectGaps } from "./gaps";
 export { buildPlanStepCandidates, summarizePlanCandidates } from "./plan-candidates";

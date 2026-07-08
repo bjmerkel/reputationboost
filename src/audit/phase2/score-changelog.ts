@@ -8,6 +8,9 @@ import type {
 import type { ScoreDailySnapshot } from "../types/timeseries";
 import { detectPackFragility, positionVisibilityScore } from "./scoring";
 import { computeOutcomeIndex } from "./score-driver-outcome";
+import type { RadiusWeights } from "./radius-profiles";
+import { RADIUS_PROFILE_WEIGHTS } from "./radius-profiles";
+import { buildServiceAreaRankMovements } from "./service-area-attribution";
 
 const COMPONENT_LABELS: Record<ScoreComponent, string> = {
   visibility: "Visibility",
@@ -47,37 +50,63 @@ function packFragilityHint(
     : " — pack fragile beyond 1 mi";
 }
 
+function rankMovementLabel(
+  movement: RankMovement,
+  fragilityHint: string
+): string {
+  const from = movement.fromPosition;
+  const to = movement.toPosition;
+  const fromLabel = from == null ? "unranked" : `#${from}`;
+  const toLabel = to == null ? "unranked" : `#${to}`;
+  const radius = movement.highlightRadiusMiles;
+  const visDelta =
+    movement.fromServiceAreaVisibility != null && movement.toServiceAreaVisibility != null
+      ? movement.toServiceAreaVisibility - movement.fromServiceAreaVisibility
+      : null;
+
+  if (movement.improved) {
+    if (radius != null && radius > 1 && from === to && visDelta != null && visDelta > 0) {
+      return `Service-area visibility up on "${movement.keyword}" (+${visDelta} pts at ${radius} mi+)${fragilityHint}`;
+    }
+    if (radius != null && radius > 1) {
+      return `Ranking improved at ${radius} mi on "${movement.keyword}" (${fromLabel} → ${toLabel})${fragilityHint}`;
+    }
+    return `Ranking improved at 1 mi on "${movement.keyword}" (${fromLabel} → ${toLabel})${fragilityHint}`;
+  }
+
+  if (radius != null && radius > 1) {
+    return `Ranking dropped at ${radius} mi on "${movement.keyword}" (${fromLabel} → ${toLabel})${fragilityHint}`;
+  }
+  return `Ranking dropped at 1 mi on "${movement.keyword}" (${fromLabel} → ${toLabel})${fragilityHint}`;
+}
+
 function keywordRankEntry(
   movement: RankMovement,
   keywordRanks?: Map<string, KeywordRankSnapshot>
 ): ScoreChangelogEntry | null {
   const from = movement.fromPosition;
   const to = movement.toPosition;
-  if (from === to) return null;
+  const visFrom = movement.fromServiceAreaVisibility;
+  const visTo = movement.toServiceAreaVisibility;
 
-  const fromVis = from != null ? positionVisibilityScore(from) : 0;
-  const toVis = to != null ? positionVisibilityScore(to) : 0;
-  const delta = Math.round((toVis - fromVis) * 0.3);
+  if (from === to && (visFrom == null || visTo == null || visFrom === visTo)) return null;
+
   const fragilityHint = packFragilityHint(movement.keyword, keywordRanks);
+  let delta: number;
 
-  if (movement.improved) {
-    const fromLabel = from == null ? "unranked" : `#${from}`;
-    const toLabel = to == null ? "unranked" : `#${to}`;
-    return {
-      component: "outcome",
-      delta: Math.max(1, delta),
-      keyword: movement.keyword,
-      label: `Ranking improved at 1 mi on "${movement.keyword}" (${fromLabel} → ${toLabel})${fragilityHint}`,
-    };
+  if (visFrom != null && visTo != null) {
+    delta = Math.round((visTo - visFrom) * 0.3);
+  } else {
+    const fromVis = from != null ? positionVisibilityScore(from) : 0;
+    const toVis = to != null ? positionVisibilityScore(to) : 0;
+    delta = Math.round((toVis - fromVis) * 0.3);
   }
 
-  const fromLabel = from == null ? "unranked" : `#${from}`;
-  const toLabel = to == null ? "unranked" : `#${to}`;
   return {
     component: "outcome",
-    delta: Math.min(-1, delta),
+    delta: movement.improved ? Math.max(1, delta) : Math.min(-1, delta),
     keyword: movement.keyword,
-    label: `Ranking dropped at 1 mi on "${movement.keyword}" (${fromLabel} → ${toLabel})${fragilityHint}`,
+    label: rankMovementLabel(movement, fragilityHint),
   };
 }
 
@@ -210,6 +239,7 @@ export function buildRankMovementsFromSnapshots(
       fromPosition,
       toPosition,
       improved: curRank < prevRank,
+      highlightRadiusMiles: 1,
     });
   }
 
@@ -218,4 +248,19 @@ export function buildRankMovementsFromSnapshots(
     const bDelta = (b.fromPosition ?? 99) - (b.toPosition ?? 99);
     return bDelta - aDelta;
   });
+}
+
+/** Prefer service-area keyword snapshots when available; falls back to 1 mi rank maps. */
+export function buildRankMovementsForChangelog(
+  keywords: string[],
+  priorKeywords: Map<string, KeywordRankSnapshot> | undefined,
+  currentKeywords: Map<string, KeywordRankSnapshot> | undefined,
+  currentRanks: Map<string, number | null>,
+  priorRanks: Map<string, number | null>,
+  weights: RadiusWeights = RADIUS_PROFILE_WEIGHTS.neighborhood
+): RankMovement[] {
+  if (priorKeywords && currentKeywords && priorKeywords.size > 0 && currentKeywords.size > 0) {
+    return buildServiceAreaRankMovements(keywords, priorKeywords, currentKeywords, weights);
+  }
+  return buildRankMovementsFromSnapshots(keywords, currentRanks, priorRanks);
 }

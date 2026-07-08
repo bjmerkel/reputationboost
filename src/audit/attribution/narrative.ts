@@ -34,6 +34,9 @@ export interface NarrativeInput {
   primaryKeyword: string | null;
   rankBefore: number | null;
   rankAfter: number | null;
+  serviceAreaVisibilityBefore?: number | null;
+  serviceAreaVisibilityAfter?: number | null;
+  widerRadiusImproved?: number | null;
   callsDelta: number;
   directionsDelta: number;
   websiteClicksDelta: number;
@@ -52,12 +55,33 @@ export function buildAttributionNarrative(input: NarrativeInput): string {
 
   const parts: string[] = [`${action} ${date}`];
 
-  if (input.primaryKeyword && input.rankBefore !== input.rankAfter) {
-    parts.push(
-      `'${input.primaryKeyword}' moved ${formatRank(input.rankBefore)} → ${formatRank(input.rankAfter)}`
-    );
-  } else if (input.primaryKeyword) {
-    parts.push(`'${input.primaryKeyword}' holding at ${formatRank(input.rankAfter)}`);
+  if (input.primaryKeyword) {
+    if (input.rankBefore !== input.rankAfter) {
+      parts.push(
+        `'${input.primaryKeyword}' moved ${formatRank(input.rankBefore)} → ${formatRank(input.rankAfter)} at 1 mi`
+      );
+    } else if (
+      input.serviceAreaVisibilityBefore == null &&
+      input.serviceAreaVisibilityAfter == null &&
+      input.widerRadiusImproved == null
+    ) {
+      parts.push(`'${input.primaryKeyword}' holding at ${formatRank(input.rankAfter)}`);
+    }
+  }
+
+  if (
+    input.primaryKeyword &&
+    input.serviceAreaVisibilityBefore != null &&
+    input.serviceAreaVisibilityAfter != null &&
+    input.serviceAreaVisibilityAfter !== input.serviceAreaVisibilityBefore
+  ) {
+    const delta = input.serviceAreaVisibilityAfter - input.serviceAreaVisibilityBefore;
+    const sign = delta > 0 ? "+" : "";
+    parts.push(`service-area visibility ${input.serviceAreaVisibilityBefore} → ${input.serviceAreaVisibilityAfter} (${sign}${delta} pts)`);
+  }
+
+  if (input.primaryKeyword && input.widerRadiusImproved != null) {
+    parts.push(`pack strengthened at ${input.widerRadiusImproved} mi on '${input.primaryKeyword}'`);
   }
 
   if (

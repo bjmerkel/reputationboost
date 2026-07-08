@@ -71,21 +71,28 @@ async function backfillFromAudits(businessIdFilter?: string) {
 
     const keywords = payload.rankings?.keywords ?? [];
     if (keywords.length > 0) {
-      const snapshots = keywords.map((kw) => {
-        const rank = rankAt1Mi(kw);
-        const inLocalPack = rank !== null && rank <= 3;
-        return {
-          businessId: row.business_id,
-          keyword: kw.keyword,
-          date,
-          distanceMiles: 1,
-          gridNorth: 0,
-          gridEast: 0,
-          rank,
-          inLocalPack,
-          localPackPosition: inLocalPack ? rank : null,
-          source: "audit_backfill" as const,
-        };
+      const snapshots = keywords.flatMap((kw) => {
+        const geoRanks =
+          kw.geoRanks.length > 0
+            ? kw.geoRanks
+            : [{ distanceMiles: 1, rank: rankAt1Mi(kw), inLocalPack: false }];
+
+        return geoRanks.map((g) => {
+          const rank = g.rank;
+          const inLocalPack = rank !== null && rank <= 3;
+          return {
+            businessId: row.business_id,
+            keyword: kw.keyword,
+            date,
+            distanceMiles: g.distanceMiles,
+            gridNorth: 0,
+            gridEast: 0,
+            rank,
+            inLocalPack,
+            localPackPosition: inLocalPack ? rank : null,
+            source: "audit_backfill" as const,
+          };
+        });
       });
 
       rankRows += await upsertRankSnapshots(snapshots);

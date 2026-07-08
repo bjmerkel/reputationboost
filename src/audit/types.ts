@@ -814,6 +814,11 @@ export interface RankMovement {
   fromPosition: number | null;
   toPosition: number | null;
   improved: boolean;
+  /** Service-area visibility score (0–100) when multi-radius data is available */
+  fromServiceAreaVisibility?: number;
+  toServiceAreaVisibility?: number;
+  /** Radius to highlight in changelog copy (1 mi or widest improved ring) */
+  highlightRadiusMiles?: number | null;
 }
 
 export interface CompetitorDelta {
