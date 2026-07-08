@@ -262,6 +262,6 @@ describe("gbp-location-inventory", () => {
     assert.match(attributes?.missingCurrent ?? "", /Not enabled \(2\):/);
     assert.match(attributes?.missingCurrent ?? "", /Online appointments/);
     assert.match(attributes?.missingCurrent ?? "", /Payment options/);
-    assert.match(attributes?.constraint ?? "", /can be enabled from your plan/);
+    assert.match(attributes?.constraint ?? "", /1 can be enabled · 2 links to add · 1 need manual setup in Google/);
   });
 });

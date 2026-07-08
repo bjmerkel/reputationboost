@@ -5,7 +5,9 @@ import {
   buildAttributeCoverage,
   buildUserUriAttributeUpdates,
   chunkAttributeUpdates,
+  isProfileLinkCoverageItem,
   isUriAttributeType,
+  profileLinkUriPlaceholder,
   recommendAttributeUpdates,
   suggestUriForAttribute,
 } from "@/lib/google/gbp-attribute-recommendations";
@@ -123,6 +125,40 @@ describe("attribute plan integration", () => {
     assert.ok(planContent.copyBlocks?.some((block) => block.label.includes("Set manually")));
   });
 
+  it("includes Facebook and Instagram in profile link gaps when not configured", () => {
+    const coverage = buildAttributeCoverage(available, current, {
+      websiteUri: "https://example.com/book",
+    });
+
+    assert.ok(
+      coverage.profileLinkMissing.some((item) => item.displayName === "Facebook"),
+      "Facebook should appear in profile link gaps"
+    );
+    assert.ok(
+      coverage.profileLinkMissing.some((item) => item.displayName === "Instagram"),
+      "Instagram should appear in profile link gaps"
+    );
+    assert.ok(
+      coverage.profileLinkMissing.some((item) => item.displayName === "Linkedin"),
+      "LinkedIn should remain in profile link gaps"
+    );
+  });
+
+  it("suggests Facebook and Instagram URL prefixes", () => {
+    assert.equal(
+      suggestUriForAttribute({ name: "attributes/url_facebook", displayName: "Facebook" }),
+      "https://www.facebook.com/"
+    );
+    assert.equal(
+      suggestUriForAttribute({ name: "attributes/url_instagram", displayName: "Instagram" }),
+      "https://www.instagram.com/"
+    );
+    assert.equal(
+      profileLinkUriPlaceholder({ name: "attributes/url_facebook", displayName: "Facebook" }),
+      "https://www.facebook.com/your-page"
+    );
+  });
+
   it("creates execution tasks for auto, URI, and manual attribute gaps", () => {
     const audit = auditWithCoverage();
     const tasks = buildAttributeExecutionTasks(audit, {
@@ -141,6 +177,7 @@ describe("attribute plan integration", () => {
     assert.equal(tasks[2].type, "gbp_checklist");
     assert.ok(Array.isArray(tasks[0].payload.attributes));
     assert.ok(Array.isArray(tasks[1].payload.attributes));
+    assert.equal((tasks[1].payload.attributes as unknown[]).length, 4);
   });
 
   it("suggests WhatsApp links from the business phone", () => {
@@ -155,15 +192,18 @@ describe("attribute plan integration", () => {
     const coverage = buildAttributeCoverage(available, current, {
       websiteUri: "https://example.com/book",
     });
-    const uriMissing = coverage.missing.filter(
-      (item) => !item.autoApplicable && isUriAttributeType(item.valueType)
-    );
-    const updates = buildUserUriAttributeUpdates(uriMissing, { phone: "(214) 555-0100" });
+    const updates = buildUserUriAttributeUpdates(coverage.profileLinkMissing, {
+      phone: "(214) 555-0100",
+    });
 
-    assert.equal(updates.length, 2);
-    assert.equal(updates[0].name, "attributes/url_linkedin");
-    assert.equal(updates[0].uri, "");
-    assert.equal(updates[1].uri, "https://wa.me/2145550100");
+    assert.equal(updates.length, 4);
+    assert.ok(updates.some((update) => update.name === "attributes/url_facebook"));
+    assert.ok(updates.some((update) => update.name === "attributes/url_instagram"));
+    assert.ok(updates.some((update) => update.name === "attributes/url_linkedin"));
+    assert.equal(
+      updates.find((update) => update.name === "attributes/url_whatsapp")?.uri,
+      "https://wa.me/2145550100"
+    );
   });
 
   it("explains the reputation score impact in step context", () => {

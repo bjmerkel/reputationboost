@@ -23,6 +23,7 @@ import {
   attributeDisplayName,
   buildUserUriAttributeUpdates,
   chunkAttributeUpdates,
+  isProfileLinkCoverageItem,
   isUriAttributeType,
 } from "@/lib/google/gbp-attribute-recommendations";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
@@ -153,8 +154,10 @@ export function buildAttributeExecutionTasks(
     coverage?.autoUpdates ??
     [];
   const manualMissing = coverage?.missing.filter((item) => !item.autoApplicable) ?? [];
-  const uriMissing = manualMissing.filter((item) => isUriAttributeType(item.valueType));
-  const enumMissing = manualMissing.filter((item) => !isUriAttributeType(item.valueType));
+  const profileLinkMissing = coverage?.profileLinkMissing ?? [];
+  const enumMissing = manualMissing.filter(
+    (item) => !isProfileLinkCoverageItem(item) && !isUriAttributeType(item.valueType)
+  );
   const tasks: ExecutionTask[] = [];
 
   if (payloadUpdates.length > 0) {
@@ -184,8 +187,8 @@ export function buildAttributeExecutionTasks(
     }
   }
 
-  if (uriMissing.length > 0) {
-    const uriUpdates = buildUserUriAttributeUpdates(uriMissing, {
+  if (profileLinkMissing.length > 0) {
+    const uriUpdates = buildUserUriAttributeUpdates(profileLinkMissing, {
       websiteUri: audit.gbp.identity.website,
       phone: audit.gbp.identity.phone,
     });
