@@ -128,7 +128,7 @@ export async function approveAndPublishTask(
 ): Promise<ExecutionTask> {
   if (task.type === "review_response" && !isValidReviewId(task.payload.reviewId)) {
     throw new Error(
-      "This review reply is not linked to a specific review. Open the Reviews tab to respond to customers."
+      "This review reply is not linked to a specific review. Open Home or Plan to respond to customers."
     );
   }
 

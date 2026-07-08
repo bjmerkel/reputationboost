@@ -97,7 +97,7 @@ function tasksFromReviewResponses(
         audit,
         action,
         "gbp_checklist",
-        action.draftCopy ?? "Respond to reviews in the Reviews tab when new ones arrive.",
+        action.draftCopy ?? "Approve review replies on Home or in Plan when new ones arrive.",
         { manual: true }
       ),
     ];

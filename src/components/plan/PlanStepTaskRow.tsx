@@ -339,7 +339,7 @@ export default function PlanStepTaskRow({
         !isValidReviewId(task.payload.reviewId) &&
         task.status !== "completed" && (
           <p className={`mt-3 text-xs ${isLight ? "text-[#c5221f]" : "text-red-400"}`}>
-            Open the Reviews tab to reply to specific customers, or refresh your audit to
+            Open Home or Plan to reply to specific customers, or refresh your audit to
             regenerate review reply tasks.
           </p>
         )}

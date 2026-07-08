@@ -10,7 +10,6 @@ export type PlaybookActionKind =
   | "run_audit"
   | "review_approvals"
   | "open_plan"
-  | "open_reviews"
   | "open_report"
   | "open_map"
   | "open_settings_roi"
@@ -249,7 +248,7 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
       why: "Timely responses improve trust and can lift your local rankings.",
       priority: PRIORITY.high,
       status: reviewPending === 0 && unrespondedNegative === 0 ? "done" : "pending",
-      action: reviewPending > 0 ? "review_approvals" : "open_reviews",
+      action: reviewPending > 0 ? "review_approvals" : "open_plan",
       estimatedMinutes: Math.max(2, reviewPending * 2),
     });
   }

@@ -9,6 +9,7 @@ import ProfilePerformanceTrends from "@/components/audit/ProfilePerformanceTrend
 import ListingStrengthInsights from "@/components/audit/ListingStrengthInsights";
 import HomeApprovalCTA from "@/components/home/HomeApprovalCTA";
 import HomeHealthSummary from "@/components/home/HomeHealthSummary";
+import HomeReviewInbox from "@/components/home/HomeReviewInbox";
 import { pendingBatchTasks } from "@/lib/execution/pending-tasks";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 
@@ -58,6 +59,15 @@ export default function HomeView({
         dailyChangelog={scoreChangelog}
         estimatedMonthlyRevenue={estimatedMonthlyRevenue}
         currency={avgCustomerValueCurrency}
+      />
+
+      <HomeReviewInbox
+        audit={audit}
+        pendingReplyCount={tasks.filter(
+          (t) => t.type === "review_response" && t.status === "pending_approval"
+        ).length}
+        onReviewPending={onReviewPending}
+        onNavigateToPlan={() => onNavigateToPlan?.(11)}
       />
 
       <RoiSummaryCard summary={summary} loading={attributionLoading} />

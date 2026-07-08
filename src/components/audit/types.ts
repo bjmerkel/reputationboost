@@ -1,15 +1,16 @@
 "use client";
 
-export type AuditView = "report" | "reviews" | "strategy" | "data";
+export type AuditView = "report" | "strategy" | "data";
 
-/** @deprecated Legacy views redirected to strategy */
-export type LegacyAuditView = "photos" | "execute";
+/** @deprecated Legacy views redirected to current tabs */
+export type LegacyAuditView = "photos" | "execute" | "reviews";
 
-export const AUDIT_VIEWS: AuditView[] = ["report", "reviews", "strategy", "data"];
+export const AUDIT_VIEWS: AuditView[] = ["report", "strategy", "data"];
 
 const LEGACY_VIEW_REDIRECTS: Record<LegacyAuditView, AuditView> = {
   photos: "strategy",
   execute: "strategy",
+  reviews: "report",
 };
 
 export interface AuditStoryStep {
@@ -33,14 +34,8 @@ export const AUDIT_STORY_STEPS: AuditStoryStep[] = [
     subtitle: "15-step checklist — approve and publish in one place",
   },
   {
-    id: "reviews",
-    step: 3,
-    title: "Reviews",
-    subtitle: "Sentiment, replies, and response queue",
-  },
-  {
     id: "data",
-    step: 4,
+    step: 3,
     title: "Results",
     subtitle: "Plan changelog and measured outcomes",
   },

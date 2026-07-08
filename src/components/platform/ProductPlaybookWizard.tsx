@@ -130,9 +130,6 @@ export default function ProductPlaybookWizard({
         case "open_plan":
           onSetView("strategy");
           break;
-        case "open_reviews":
-          onSetView("reviews");
-          break;
         case "open_report":
           onSetView("report");
           break;
@@ -386,8 +383,6 @@ function actionLabel(action: PlaybookActionKind, loading: boolean): string {
       return "Review now →";
     case "open_plan":
       return "Open plan →";
-    case "open_reviews":
-      return "Open reviews →";
     case "open_report":
       return "View report →";
     case "open_results":

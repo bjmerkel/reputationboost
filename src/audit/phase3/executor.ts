@@ -326,7 +326,7 @@ async function executeTaskLive(
           status: "failed",
           completedAt: now,
           result:
-            "No review linked to this task — open the Reviews tab to reply to specific customers.",
+            "No review linked to this task — open Home or Plan to reply to specific customers.",
         };
       }
       const result = await applyGbpAction(connection, "reply_review", {

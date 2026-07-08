@@ -16,7 +16,6 @@ import GoogleUpdatesBanner from "@/components/audit/GoogleUpdatesBanner";
 import PerformancePermissionBanner from "@/components/PerformancePermissionBanner";
 import MapsSearchBar from "@/components/platform/MapsSearchBar";
 import PlaceCard from "@/components/platform/PlaceCard";
-import PlaceCardReviewsPanel from "@/components/platform/PlaceCardReviewsPanel";
 import PlatformShell from "@/components/platform/PlatformShell";
 import RankingMap from "@/components/platform/RankingMap";
 import ViewAsCustomerModal from "@/components/platform/ViewAsCustomerModal";
@@ -123,9 +122,6 @@ export default function AuditDashboard({
     audit?.execution?.tasks?.length ? audit.execution.tasks : initialExecutionTasks;
 
   const planPendingCount = tasks.filter((t) => t.status === "pending_approval").length;
-  const pendingReviewReplies = tasks.filter(
-    (t) => t.type === "review_response" && t.status === "pending_approval"
-  ).length;
 
   const keywordRank = useMemo(() => {
     if (!audit) return undefined;
@@ -379,14 +375,6 @@ export default function AuditDashboard({
             <p className="text-sm text-[#5f6368]">
               Your monthly overview will appear after your first audit completes.
             </p>
-          )}
-
-          {view === "reviews" && (
-            <PlaceCardReviewsPanel
-              audit={audit}
-              unrespondedCount={pendingReviewReplies}
-              onOpenPlan={openBatchReview}
-            />
           )}
 
           {view === "strategy" && audit.strategy && (

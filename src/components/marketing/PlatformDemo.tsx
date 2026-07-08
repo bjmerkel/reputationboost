@@ -9,9 +9,9 @@ import { buildPlan } from "@/audit/phase3/build-plan";
 import ListingStrengthInsights from "@/components/audit/ListingStrengthInsights";
 import { normalizeAuditView, type AuditView } from "@/components/audit/types";
 import HomeHealthSummary from "@/components/home/HomeHealthSummary";
+import HomeReviewInbox from "@/components/home/HomeReviewInbox";
 import MapsSearchBar from "@/components/platform/MapsSearchBar";
 import PlaceCard from "@/components/platform/PlaceCard";
-import PlaceCardReviewsPanel from "@/components/platform/PlaceCardReviewsPanel";
 import PlatformShell from "@/components/platform/PlatformShell";
 import RankingMap from "@/components/platform/RankingMap";
 import ViewAsCustomerModal from "@/components/platform/ViewAsCustomerModal";
@@ -208,7 +208,7 @@ export default function PlatformDemo({
         <div className="border-b border-[#d2e3fc] bg-[#e8f0fe] px-4 py-2 text-center text-sm text-[#1a73e8]">
           Live audit for <span className="font-semibold">{businessName}</span>
           {" — "}
-          pan the map, switch keywords, open Plan &amp; Reviews
+          pan the map, switch keywords, open Plan &amp; Results
         </div>
       )}
 
@@ -243,22 +243,19 @@ export default function PlatformDemo({
             {view === "report" && (
               <div className="space-y-6">
                 <HomeHealthSummary audit={audit} summary={null} />
+                <HomeReviewInbox
+                  audit={audit}
+                  pendingReplyCount={
+                    tasks.filter(
+                      (t) => t.type === "review_response" && t.status === "pending_approval"
+                    ).length
+                  }
+                />
                 <ListingStrengthInsights audit={audit} tasks={tasks} attributions={[]} />
               </div>
             )}
 
             {view === "strategy" && <PlatformDemoPlan audit={audit} />}
-
-            {view === "reviews" && (
-              <PlaceCardReviewsPanel
-                audit={audit}
-                unrespondedCount={
-                  tasks.filter(
-                    (t) => t.type === "review_response" && t.status === "pending_approval"
-                  ).length
-                }
-              />
-            )}
 
             {view === "data" && (
               <PlatformDemoResults
