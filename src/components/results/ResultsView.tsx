@@ -6,6 +6,8 @@ import type { ActionAttribution, AttributionSummary } from "@/audit/types/timese
 import { buildPlan } from "@/audit/phase3/build-plan";
 import { buildPlanTimeline } from "@/audit/phase3/build-timeline";
 import AuditDataPanel from "@/components/audit/AuditDataPanel";
+import ProfilePerformanceTrends from "@/components/audit/ProfilePerformanceTrends";
+import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
 import PlanResultsTimeline from "./PlanResultsTimeline";
 
 export default function ResultsView({
@@ -50,6 +52,10 @@ export default function ResultsView({
   return (
     <div className="space-y-6">
       {report && <ResultsMonthlySummary report={report} summary={summary} />}
+
+      <RoiSummaryCard summary={summary} loading={attributionLoading} />
+
+      <ProfilePerformanceTrends clientId={clientId} days={30} variant="light" />
 
       <PlanResultsTimeline
         entries={timelineEntries}

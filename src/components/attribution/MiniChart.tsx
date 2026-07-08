@@ -119,6 +119,90 @@ export function LineChart({
   );
 }
 
+const RADIUS_LINE_COLORS: Record<number, string> = {
+  1: "#188038",
+  3: "#1a73e8",
+  5: "#e37400",
+  10: "#9334e6",
+};
+
+export function MultiLineChart({
+  labels,
+  series,
+  width = 320,
+  height = 120,
+  nullRank = 20,
+}: {
+  labels: string[];
+  series: Array<{ name: string; values: Array<number | null>; distanceMiles?: number }>;
+  width?: number;
+  height?: number;
+  nullRank?: number;
+}) {
+  if (labels.length < 2 || series.length === 0) {
+    return (
+      <p className="text-sm text-[#5f6368]">Not enough data yet — check back after a few daily ingests.</p>
+    );
+  }
+
+  const normalizedSeries = series.map((s) => ({
+    ...s,
+    values: s.values.map((v) => v ?? nullRank),
+  }));
+
+  const allValues = normalizedSeries.flatMap((s) => s.values);
+  const max = Math.max(...allValues, 3);
+  const min = 1;
+  const range = max - min || 1;
+  const padding = 8;
+  const innerW = width - padding * 2;
+  const innerH = height - padding * 2;
+
+  return (
+    <div>
+      <svg width="100%" viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
+        {normalizedSeries.map((s) => {
+          const stroke =
+            (s.distanceMiles != null && RADIUS_LINE_COLORS[s.distanceMiles]) || "#5f6368";
+          const coords = s.values.map((value, index) => {
+            const x = padding + (index / (s.values.length - 1)) * innerW;
+            const y = padding + ((value - min) / range) * innerH;
+            return { x, y };
+          });
+          const linePoints = coords.map((c) => `${c.x},${c.y}`).join(" ");
+          return (
+            <polyline
+              key={s.name}
+              fill="none"
+              stroke={stroke}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              points={linePoints}
+            />
+          );
+        })}
+      </svg>
+      <div className="mt-2 flex flex-wrap gap-3">
+        {series.map((s) => {
+          const color =
+            (s.distanceMiles != null && RADIUS_LINE_COLORS[s.distanceMiles]) || "#5f6368";
+          return (
+            <span key={s.name} className="flex items-center gap-1.5 text-[10px] text-[#5f6368]">
+              <span className="inline-block h-0.5 w-3 rounded" style={{ background: color }} />
+              {s.name}
+            </span>
+          );
+        })}
+      </div>
+      <div className="mt-1 flex justify-between text-[10px] text-[#80868b]">
+        <span>{labels[0]}</span>
+        <span>{labels[labels.length - 1]}</span>
+      </div>
+    </div>
+  );
+}
+
 export function BarChart({
   labels,
   series,

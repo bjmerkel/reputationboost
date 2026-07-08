@@ -1,6 +1,7 @@
 "use client";
 
 import type { ActionAttribution } from "@/audit/types/timeseries";
+import { parseAttributionNarrativeHighlights } from "@/audit/attribution/narrative-parsing";
 import { formatCurrency } from "@/audit/attribution/roi";
 import ActionImpactComparison from "@/components/attribution/ActionImpactComparison";
 
@@ -45,7 +46,9 @@ export default function ActionAttributionFeed({
     <section className="space-y-3">
       <h4 className="text-sm font-semibold text-[#202124]">{title}</h4>
       <ul className="space-y-2">
-        {items.map((item) => (
+        {items.map((item) => {
+          const highlights = parseAttributionNarrativeHighlights(item.narrative);
+          return (
           <li
             key={item.id}
             className="rounded-lg border border-[#dadce0] bg-white px-4 py-3"
@@ -66,7 +69,21 @@ export default function ActionAttributionFeed({
               )}
               {item.rankBefore !== item.rankAfter && item.rankAfter !== null && (
                 <span className="text-[#188038]">
-                  Rank {formatRank(item.rankBefore)} → {formatRank(item.rankAfter)}
+                  1 mi: {formatRank(item.rankBefore)} → {formatRank(item.rankAfter)}
+                </span>
+              )}
+              {highlights.serviceAreaVisibility && (
+                <span className="text-[#188038]">
+                  Visibility {highlights.serviceAreaVisibility.before} →{" "}
+                  {highlights.serviceAreaVisibility.after}
+                  {highlights.serviceAreaVisibility.delta > 0
+                    ? ` (+${highlights.serviceAreaVisibility.delta})`
+                    : ""}
+                </span>
+              )}
+              {highlights.widerRadiusMiles != null && (
+                <span className="rounded-full bg-[#fef7e0] px-2 py-0.5 font-medium text-[#b06000]">
+                  Pack + at {highlights.widerRadiusMiles} mi
                 </span>
               )}
               {(item.callsDelta ?? 0) !== 0 && (
@@ -82,7 +99,8 @@ export default function ActionAttributionFeed({
               )}
             </div>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </section>
   );

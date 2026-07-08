@@ -13,6 +13,10 @@ export async function GET(request: Request) {
   let clientId = searchParams.get("clientId");
   const keyword = searchParams.get("keyword");
   const days = Number(searchParams.get("days") ?? "90");
+  const radiusMiles = searchParams.get("radiusMiles");
+  const multiRadius =
+    searchParams.get("multiRadius") === "true" ||
+    (searchParams.get("multiRadius") !== "false" && radiusMiles == null);
 
   if (!clientId) {
     const business = await getPrimaryBusiness(user.id);
@@ -27,6 +31,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "keyword is required" }, { status: 400 });
   }
 
-  const series = await listRankTrendForUser(user.id, clientId, keyword, days);
-  return NextResponse.json({ keyword, series, days });
+  const series = await listRankTrendForUser(user.id, clientId, keyword, days, {
+    multiRadius,
+    radiusMiles: radiusMiles != null ? Number(radiusMiles) : undefined,
+  });
+
+  return NextResponse.json({
+    keyword,
+    series,
+    days,
+    multiRadius,
+    radii: multiRadius ? [1, 3, 5, 10] : [radiusMiles != null ? Number(radiusMiles) : 1],
+  });
 }

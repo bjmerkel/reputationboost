@@ -6,6 +6,8 @@ import type {
 } from "@/audit/types/timeseries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 
 function performanceRowToDb(row: PerformanceDailyRow) {
@@ -86,12 +88,27 @@ export async function listPerformanceDailyForUser(
   }));
 }
 
+export interface RankTrendPoint {
+  date: string;
+  rank: number | null;
+  distanceMiles: number;
+}
+
+export interface ListRankTrendOptions {
+  /** When true, return center-point ranks at 1/3/5/10 mi */
+  multiRadius?: boolean;
+  /** Filter to a single search radius (ignored when multiRadius is true) */
+  radiusMiles?: number;
+}
+
 export async function listRankTrendForUser(
   userId: string,
   businessSlug: string,
   keyword: string,
-  days = 90
-): Promise<Array<{ date: string; rank: number | null }>> {
+  days = 90,
+  options: ListRankTrendOptions = {}
+): Promise<RankTrendPoint[]> {
+  const multiRadius = options.multiRadius ?? HEATMAP_FLAGS.dailyMultiRadius;
   const supabase = await createClient();
   const businessId = await getBusinessIdForSlug(userId, businessSlug);
   if (!businessId) return [];
@@ -99,22 +116,30 @@ export async function listRankTrendForUser(
   const start = new Date();
   start.setUTCDate(start.getUTCDate() - days);
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("rank_snapshots")
-    .select("date, rank")
+    .select("date, rank, distance_miles")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
-    .eq("distance_miles", 1)
     .eq("grid_north", 0)
     .eq("grid_east", 0)
     .gte("date", start.toISOString().slice(0, 10))
     .order("date", { ascending: true });
+
+  if (multiRadius) {
+    query = query.in("distance_miles", [...SEARCH_RADII_MILES]);
+  } else {
+    query = query.eq("distance_miles", options.radiusMiles ?? 1);
+  }
+
+  const { data, error } = await query;
 
   if (error || !data) return [];
 
   return data.map((row) => ({
     date: row.date as string,
     rank: row.rank as number | null,
+    distanceMiles: row.distance_miles as number,
   }));
 }
 

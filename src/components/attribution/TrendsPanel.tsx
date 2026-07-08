@@ -3,6 +3,7 @@
 import RankTrendChart from "@/components/attribution/RankTrendChart";
 import CoverageTrendChart from "@/components/attribution/CoverageTrendChart";
 import EngagementTrendChart from "@/components/attribution/EngagementTrendChart";
+import ScoreTrendChart from "@/components/attribution/ScoreTrendChart";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 
 export default function TrendsPanel({
@@ -19,9 +20,12 @@ export default function TrendsPanel({
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-[#dadce0] bg-white p-5">
-        <h4 className="text-sm font-semibold text-[#202124]">Engagement over time</h4>
-        <p className="mt-1 text-xs text-[#5f6368]">Daily calls, directions, and website clicks</p>
-        <div className="mt-4">
+        <h4 className="text-sm font-semibold text-[#202124]">Score & engagement</h4>
+        <p className="mt-1 text-xs text-[#5f6368]">
+          Reputation Boost Score alongside customer actions from GBP performance
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <ScoreTrendChart clientId={clientId} days={30} compact />
           <EngagementTrendChart clientId={clientId} days={30} />
         </div>
       </section>
@@ -30,7 +34,9 @@ export default function TrendsPanel({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h4 className="text-sm font-semibold text-[#202124]">Keyword rank trend</h4>
-            <p className="mt-1 text-xs text-[#5f6368]">1-mile Local Pack position over time</p>
+            <p className="mt-1 text-xs text-[#5f6368]">
+              Local Pack position by search radius — toggle 1/3/5/10 mi or view all
+            </p>
           </div>
           {keywords.length > 1 && (
             <select

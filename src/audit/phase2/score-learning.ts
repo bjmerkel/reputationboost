@@ -54,7 +54,7 @@ const MIN_CLICK_SHARE_SAMPLES = 40;
 const MIN_BLEND_SAMPLES = 30;
 
 function isCenterSnapshot(row: RankSnapshotRow): boolean {
-  return row.distanceMiles === 1 && row.gridNorth === 0 && row.gridEast === 0;
+  return row.gridNorth === 0 && row.gridEast === 0;
 }
 
 function median(values: number[]): number | null {

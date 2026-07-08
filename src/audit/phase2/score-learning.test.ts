@@ -77,6 +77,42 @@ describe("learnClickShareCurve", () => {
     assert.deepEqual(result.curve, DEFAULT_CLICK_SHARE_CURVE);
     assert.equal(result.sampleCount, 0);
   });
+
+  it("includes center snapshots at all search radii", () => {
+    const ranks: RankSnapshotRow[] = [];
+    const perf: PerformanceDailyRow[] = [];
+
+    for (let i = 0; i < 50; i++) {
+      const date = `2026-06-${String((i % 28) + 1).padStart(2, "0")}`;
+      const biz = "b1";
+      const rank1 = (i % 3) + 1;
+      const rank5 = rank1 + 4;
+
+      ranks.push(
+        rankRow({ businessId: biz, keyword: "plumber near me", date, rank: rank1, distanceMiles: 1 }),
+        rankRow({ businessId: biz, keyword: "plumber near me", date, rank: rank5, distanceMiles: 5 })
+      );
+
+      const impressions = 1000;
+      const rateBase = rank1 <= 1 ? 0.07 : rank1 <= 2 ? 0.045 : 0.03;
+      const actions = Math.round(impressions * rateBase);
+      perf.push(
+        perfRow(biz, date, "impressions_maps", impressions),
+        perfRow(biz, date, "calls", Math.round(actions * 0.5)),
+        perfRow(biz, date, "direction_requests", Math.round(actions * 0.3)),
+        perfRow(biz, date, "website_clicks", Math.round(actions * 0.2))
+      );
+    }
+
+    const only1mi = learnClickShareCurve(
+      ranks.filter((r) => r.distanceMiles === 1),
+      perf
+    );
+    const allRadii = learnClickShareCurve(ranks, perf);
+
+    assert.ok(allRadii.sampleCount > only1mi.sampleCount);
+    assert.ok(allRadii.curve.pack1 >= allRadii.curve.pack2);
+  });
 });
 
 describe("learnBlendWeights", () => {

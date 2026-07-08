@@ -103,7 +103,7 @@ export default function RoiSummaryCard({
       {summary.keywordsImproved > 0 && (
         <p className="mt-3 text-sm text-[#137333]">
           {summary.keywordsImproved} keyword{summary.keywordsImproved === 1 ? "" : "s"} improved in
-          rank after your actions.
+          service-area visibility after your actions.
         </p>
       )}
     </section>

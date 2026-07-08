@@ -180,7 +180,6 @@ export async function listAllRankSnapshotsAdmin(
       "business_id, keyword, date, distance_miles, grid_north, grid_east, rank, in_local_pack, local_pack_position, source"
     )
     .gte("date", start.toISOString().slice(0, 10))
-    .eq("distance_miles", 1)
     .eq("grid_north", 0)
     .eq("grid_east", 0)
     .order("date", { ascending: true });
