@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ExecutionTask, FullAuditPayload, Plan } from "@/audit/types";
 import {
   approveAllRoutineTasks,
@@ -21,6 +21,7 @@ interface UsePlanTasksOptions {
   initialTasks?: ExecutionTask[];
   initialPlan?: Plan | null;
   enabled?: boolean;
+  includePlan?: boolean;
 }
 
 export function usePlanTasks({
@@ -29,7 +30,13 @@ export function usePlanTasks({
   initialTasks = [],
   initialPlan = null,
   enabled = true,
+  includePlan = true,
 }: UsePlanTasksOptions) {
+  const initialTasksRef = useRef(initialTasks);
+  const initialPlanRef = useRef(initialPlan);
+  initialTasksRef.current = initialTasks;
+  initialPlanRef.current = initialPlan;
+
   const [tasks, setTasks] = useState<ExecutionTask[]>(initialTasks);
   const [plan, setPlan] = useState<Plan | null>(initialPlan);
   const [loading, setLoading] = useState(!initialPlan && initialTasks.length === 0);
@@ -38,18 +45,20 @@ export function usePlanTasks({
 
   const refresh = useCallback(async () => {
     if (!enabled || !auditId) {
-      return { tasks: initialTasks, plan: initialPlan };
+      return { tasks: initialTasksRef.current, plan: initialPlanRef.current };
     }
-    const data = await fetchExecutionState(clientId, auditId);
+    const data = await fetchExecutionState(clientId, auditId, { includePlan });
     setTasks(data.tasks);
-    setPlan(data.plan);
+    if (includePlan) {
+      setPlan(data.plan);
+    }
     return data;
-  }, [auditId, clientId, enabled, initialPlan, initialTasks]);
+  }, [auditId, clientId, enabled, includePlan]);
 
   useEffect(() => {
     if (!enabled || !auditId) {
-      setTasks(initialTasks);
-      setPlan(initialPlan);
+      setTasks(initialTasksRef.current);
+      setPlan(initialPlanRef.current);
       setLoading(false);
       return;
     }
@@ -60,10 +69,12 @@ export function usePlanTasks({
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchExecutionState(clientId, auditId);
+        const data = await fetchExecutionState(clientId, auditId, { includePlan });
         if (!cancelled) {
           setTasks(data.tasks);
-          setPlan(data.plan);
+          if (includePlan) {
+            setPlan(data.plan);
+          }
         }
       } catch (e) {
         if (!cancelled) {
@@ -78,7 +89,7 @@ export function usePlanTasks({
     return () => {
       cancelled = true;
     };
-  }, [auditId, clientId, enabled, initialPlan, initialTasks]);
+  }, [auditId, clientId, enabled, includePlan]);
 
   const runWithLoading = useCallback(
     async (taskId: string, action: () => Promise<void>) => {
@@ -242,6 +253,8 @@ export function usePlanTasks({
     regenerateReviewResponse,
   };
 }
+
+export type PlanTasksState = ReturnType<typeof usePlanTasks>;
 
 export type PlanTaskActions = Pick<
   ReturnType<typeof usePlanTasks>,

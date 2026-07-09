@@ -3,18 +3,43 @@ import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
 import { needsGbpDescriptionRepublish } from "@/lib/google/gbp-description";
 import { pendingRoutineTasks } from "./pending-tasks";
 
+type ExecutionState = { tasks: ExecutionTask[]; plan: Plan | null };
+
+const inflightExecutionFetches = new Map<string, Promise<ExecutionState>>();
+
 export async function fetchExecutionState(
   clientId: string,
-  auditId: string
-): Promise<{ tasks: ExecutionTask[]; plan: Plan | null }> {
-  const res = await fetch(
-    `/api/execution?clientId=${encodeURIComponent(clientId)}&auditId=${encodeURIComponent(auditId)}`
-  );
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error ?? "Failed to load tasks");
+  auditId: string,
+  options?: { includePlan?: boolean }
+): Promise<ExecutionState> {
+  const includePlan = options?.includePlan !== false;
+  const key = `${clientId}:${auditId}:${includePlan ? "plan" : "tasks"}`;
+  const inflight = inflightExecutionFetches.get(key);
+  if (inflight) return inflight;
+
+  const promise = (async () => {
+    const params = new URLSearchParams({
+      clientId,
+      auditId,
+    });
+    if (!includePlan) {
+      params.set("includePlan", "false");
+    }
+
+    const res = await fetch(`/api/execution?${params.toString()}`);
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Failed to load tasks");
+    }
+    return { tasks: data.tasks ?? [], plan: data.plan ?? null };
+  })();
+
+  inflightExecutionFetches.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    inflightExecutionFetches.delete(key);
   }
-  return { tasks: data.tasks ?? [], plan: data.plan ?? null };
 }
 
 export async function patchExecutionTask(

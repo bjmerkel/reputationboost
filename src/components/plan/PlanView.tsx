@@ -9,7 +9,7 @@ import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
-import { usePlanTasks } from "@/hooks/usePlanTasks";
+import { usePlanTasks, type PlanTasksState } from "@/hooks/usePlanTasks";
 import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 import GoogleUpdatesPanel from "./GoogleUpdatesPanel";
 import PlanPhaseSection from "./PlanPhaseSection";
@@ -31,6 +31,7 @@ export default function PlanView({
   focusScrollTarget = null,
   focusKeyword = null,
   onFocusHandled,
+  sharedPlanTasks,
 }: {
   audit: FullAuditPayload;
   clientId: string;
@@ -47,9 +48,16 @@ export default function PlanView({
   focusScrollTarget?: "google-updates" | null;
   focusKeyword?: string | null;
   onFocusHandled?: () => void;
+  sharedPlanTasks?: PlanTasksState;
 }) {
   const isLight = variant === "light";
   const [syncingGoogleUpdates, setSyncingGoogleUpdates] = useState(false);
+  const internalPlanTasks = usePlanTasks({
+    clientId,
+    auditId: audit.auditId,
+    initialTasks: audit.execution?.tasks ?? [],
+    enabled: !sharedPlanTasks,
+  });
   const {
     tasks,
     plan,
@@ -70,11 +78,7 @@ export default function PlanView({
     regenerateReviewResponse,
     loadingTaskId,
     refresh,
-  } = usePlanTasks({
-    clientId,
-    auditId: audit.auditId,
-    initialTasks: audit.execution?.tasks ?? [],
-  });
+  } = sharedPlanTasks ?? internalPlanTasks;
 
   const actions = useMemo(
     () => ({

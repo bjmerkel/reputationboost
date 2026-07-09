@@ -26,7 +26,7 @@ import PlanView from "@/components/plan/PlanView";
 import ProductPlaybookWizard from "@/components/platform/ProductPlaybookWizard";
 import { useAttributionDashboard } from "@/hooks/useAttributionDashboard";
 import { useLiveAudit } from "@/hooks/useLiveAudit";
-import { usePlanTasks } from "@/hooks/usePlanTasks";
+import { usePlanTasks, type PlanTasksState } from "@/hooks/usePlanTasks";
 import { useScoreHistory } from "@/hooks/useScoreHistory";
 import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 
@@ -107,15 +107,17 @@ export default function AuditDashboard({
 
   const reviewParam = searchParams.get("review");
 
-  const {
-    tasks: liveTasks,
-    refresh: refreshExecutionTasks,
-  } = usePlanTasks({
+  const planTasks = usePlanTasks({
     clientId,
     auditId: audit?.auditId ?? "",
     initialTasks: initialExecutionTasks,
     enabled: Boolean(audit?.auditId),
   });
+
+  const {
+    tasks: liveTasks,
+    refresh: refreshExecutionTasks,
+  } = planTasks;
 
   const openBatchReview = useCallback(() => {
     setBatchReviewOpen(true);
@@ -441,6 +443,7 @@ export default function AuditDashboard({
               focusStep={focusPlanStep}
               focusScrollTarget={focusPlanScrollTarget}
               focusKeyword={focusPlanKeyword}
+              sharedPlanTasks={planTasks}
               onFocusHandled={() => {
                 setFocusPlanStep(null);
                 setFocusPlanScrollTarget(null);
@@ -548,6 +551,7 @@ export default function AuditDashboard({
         initialTasks={tasks}
         attributionByTaskId={attributionData.attributionByTaskId}
         onTasksChange={handleExecutionTasksChange}
+        sharedPlanTasks={planTasks}
       />
 
       {view !== "audit" && (

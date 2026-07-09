@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ExecutionTask } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import { resolvePlanStepNumber } from "@/audit/phase3/plan-task-utils";
-import { usePlanTasks } from "@/hooks/usePlanTasks";
+import { usePlanTasks, type PlanTasksState } from "@/hooks/usePlanTasks";
 import { pendingBatchTasks, pendingRoutineTasks } from "@/lib/execution/pending-tasks";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import MediaTaskThumbnail, { isMediaMaintenanceTask } from "./MediaTaskThumbnail";
@@ -22,6 +22,7 @@ export default function BatchReviewSession({
   initialTasks,
   attributionByTaskId = {},
   onTasksChange,
+  sharedPlanTasks,
 }: {
   open: boolean;
   onClose: () => void;
@@ -31,7 +32,14 @@ export default function BatchReviewSession({
   initialTasks: ExecutionTask[];
   attributionByTaskId?: Record<string, ActionAttribution>;
   onTasksChange?: () => void;
+  sharedPlanTasks?: PlanTasksState;
 }) {
+  const internalPlanTasks = usePlanTasks({
+    clientId,
+    auditId,
+    initialTasks,
+    enabled: open && !sharedPlanTasks,
+  });
   const {
     tasks,
     loadingTaskId,
@@ -46,7 +54,7 @@ export default function BatchReviewSession({
     approveAllRoutine,
     regenerateReviewResponse,
     refresh,
-  } = usePlanTasks({ clientId, auditId, initialTasks });
+  } = sharedPlanTasks ?? internalPlanTasks;
 
   const [index, setIndex] = useState(0);
   const [bulkLoading, setBulkLoading] = useState(false);

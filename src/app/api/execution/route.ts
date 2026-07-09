@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPrimaryBusiness } from "@/audit/businesses";
+import { attachExecutionTasks } from "@/audit/attach-execution-tasks";
 import { buildPlan } from "@/audit/phase3/build-plan";
 import { listActionAttributionsForUser } from "@/audit/storage-attribution";
 import { listExecutionTasks } from "@/audit/storage-execution";
@@ -9,6 +10,8 @@ import {
 } from "@/audit/storage-supabase";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { getUser } from "@/lib/supabase/server";
+
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const user = await getUser();
@@ -44,7 +47,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ tasks, plan: null });
   }
 
-  const audit = ensureStrategy(rawAudit);
+  const audit = ensureStrategy(attachExecutionTasks(rawAudit, tasks));
   const attributions = await listActionAttributionsForUser(user.id, clientId, 100);
   const plan = buildPlan(audit, tasks, attributions);
 
