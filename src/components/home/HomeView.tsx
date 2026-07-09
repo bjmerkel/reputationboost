@@ -1,10 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import type { ExecutionTask, FullAuditPayload, ScoreChangelogEntry } from "@/audit/types";
 import type { ActionAttribution, AttributionSummary, DailyMetricPoint, ScoreDailySnapshot } from "@/audit/types/timeseries";
 import { estimateTotalMonthlyRevenue } from "@/audit/phase2/counterfactual";
+import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
 import ActionAttributionFeed from "@/components/attribution/ActionAttributionFeed";
 import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
+import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
 import ListingStrengthInsights from "@/components/audit/ListingStrengthInsights";
 import HomeApprovalCTA from "@/components/home/HomeApprovalCTA";
 import HomeHealthSummary from "@/components/home/HomeHealthSummary";
@@ -29,6 +32,7 @@ export default function HomeView({
   trendsLoading = false,
   onReviewPending,
   onNavigateToPlan,
+  onKeywordsUpdated,
   clientId,
 }: {
   audit: FullAuditPayload;
@@ -47,11 +51,24 @@ export default function HomeView({
   trendsLoading?: boolean;
   onReviewPending: () => void;
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
+  onKeywordsUpdated?: (keywords: string[]) => void;
   clientId: string;
 }) {
   const pendingCounts = getPendingApprovalCounts(tasks);
   const approvalCount = planApprovalBadgeCount(tasks);
   const estimatedMonthlyRevenue = estimateTotalMonthlyRevenue(audit, avgCustomerValue);
+  const keywordPortfolio = useMemo(
+    () => audit.keywordPortfolio ?? computeKeywordPortfolio(audit),
+    [audit]
+  );
+  const currentKeywords = useMemo(
+    () => audit.rankings.keywords.map((keyword) => keyword.keyword),
+    [audit.rankings.keywords]
+  );
+  const showKeywordPortfolio =
+    keywordPortfolio.shouldRotate ||
+    keywordPortfolio.untrackedDemandCount > 0 ||
+    keywordPortfolio.rankWithoutDemandCount > 0;
 
   return (
     <div className="space-y-6 min-w-0">
@@ -65,6 +82,15 @@ export default function HomeView({
         estimatedMonthlyRevenue={estimatedMonthlyRevenue}
         currency={avgCustomerValueCurrency}
       />
+
+      {showKeywordPortfolio && (
+        <KeywordPortfolioPanel
+          portfolio={keywordPortfolio}
+          currentKeywords={currentKeywords}
+          businessSlug={clientId}
+          onKeywordsUpdated={onKeywordsUpdated}
+        />
+      )}
 
       <HomeReviewInbox
         audit={audit}

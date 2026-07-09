@@ -411,6 +411,7 @@ export default function AuditDashboard({
               trendsLoading={attributionLoading || scoreHistoryLoading}
               onReviewPending={openBatchReview}
               onNavigateToPlan={openPlanStep}
+              onKeywordsUpdated={() => void refreshLiveAudit()}
               clientId={clientId}
             />
           )}
