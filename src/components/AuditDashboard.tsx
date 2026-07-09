@@ -25,6 +25,7 @@ import BatchReviewSession from "@/components/plan/BatchReviewSession";
 import PlanView from "@/components/plan/PlanView";
 import ProductPlaybookWizard from "@/components/platform/ProductPlaybookWizard";
 import { useAttributionDashboard } from "@/hooks/useAttributionDashboard";
+import { useLiveAudit } from "@/hooks/useLiveAudit";
 import { usePlanTasks } from "@/hooks/usePlanTasks";
 import { useScoreHistory } from "@/hooks/useScoreHistory";
 import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
@@ -67,9 +68,25 @@ export default function AuditDashboard({
   const paramView = searchParams.get("view");
   const normalizedView = normalizeAuditView(paramView);
 
-  const [audit, setAudit] = useState<FullAuditPayload | null>(
-    initialAudit ? ensureStrategy(initialAudit) : null
+  const preparedInitial = useMemo(
+    () => (initialAudit ? ensureStrategy(initialAudit) : null),
+    [initialAudit]
   );
+
+  const { data: attributionData, loading: attributionLoading } = useAttributionDashboard(clientId);
+  const { data: scoreHistory, loading: scoreHistoryLoading } = useScoreHistory(clientId);
+
+  const {
+    audit,
+    liveRefreshedAt,
+    loading: liveAuditLoading,
+    applyAudit,
+    refresh: refreshLiveAudit,
+  } = useLiveAudit(clientId, preparedInitial, {
+    scoreLatestDate: scoreHistory.latestDate,
+    enabled: Boolean(preparedInitial),
+  });
+
   const [view, setViewState] = useState<AuditView>(normalizedView);
   const [activeKeyword, setActiveKeyword] = useState(
     () => initialAudit?.rankings.keywords[0]?.keyword ?? ""
@@ -89,9 +106,6 @@ export default function AuditDashboard({
   const autoAuditStartedRef = useRef(false);
 
   const reviewParam = searchParams.get("review");
-
-  const { data: attributionData, loading: attributionLoading } = useAttributionDashboard(clientId);
-  const { data: scoreHistory, loading: scoreHistoryLoading } = useScoreHistory(clientId);
 
   const {
     tasks: liveTasks,
@@ -224,7 +238,8 @@ export default function AuditDashboard({
         if (!res.ok) throw new Error(data.error ?? "Audit failed");
         if (!data.audit) throw new Error("Audit completed but returned no data.");
         const nextAudit = ensureStrategy(data.audit);
-        setAudit(nextAudit);
+        applyAudit(nextAudit);
+        void refreshLiveAudit();
         if (nextAudit.rankings.keywords[0]) {
           setActiveKeyword(nextAudit.rankings.keywords[0].keyword);
         }
@@ -235,7 +250,7 @@ export default function AuditDashboard({
         setLoading(false);
       }
     },
-    [clientId, setView]
+    [clientId, setView, applyAudit, refreshLiveAudit]
   );
 
   useEffect(() => {
@@ -361,6 +376,9 @@ export default function AuditDashboard({
             </button>
             <p className="hidden text-[10px] text-[#80868b] sm:block">
               {audit.period} · {new Date(audit.completedAt).toLocaleDateString()}
+              {liveRefreshedAt && !liveAuditLoading
+                ? ` · rankings updated ${new Date(liveRefreshedAt).toLocaleDateString()}`
+                : ""}
             </p>
           </div>
         }
@@ -415,7 +433,7 @@ export default function AuditDashboard({
               attributionByTaskId={attributionData.attributionByTaskId}
               variant="light"
               onReviewPending={openBatchReview}
-              onAuditUpdated={setAudit}
+              onAuditUpdated={applyAudit}
               onTasksChange={handleExecutionTasksChange}
               avgCustomerValue={avgCustomerValue}
               currency={avgCustomerValueCurrency}

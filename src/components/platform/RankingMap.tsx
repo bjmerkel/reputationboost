@@ -61,8 +61,10 @@ interface RankingMapProps {
   keywordRank?: KeywordRankSnapshot;
   competitors?: CompetitorProfile[];
   activeKeyword?: string;
-  /** Skip authenticated /api/places/grid fetches (marketing preview). */
+  /** Skip authenticated grid fetches (marketing preview). */
   disableGridFetch?: boolean;
+  /** When true, fall back to live Places grid if no ingested snapshot exists. */
+  allowLivePlacesGrid?: boolean;
   visibilitySummary?: VisibilitySummary;
   selectedZoneId?: string | null;
   onZoneSelect?: (zoneId: string | null) => void;
@@ -85,6 +87,7 @@ export default function RankingMap({
   competitors = [],
   activeKeyword,
   disableGridFetch = false,
+  allowLivePlacesGrid = false,
   visibilitySummary,
   selectedZoneId = null,
   onZoneSelect,
@@ -141,9 +144,14 @@ export default function RankingMap({
   }, [selectedZoneId, visibilitySummary]);
 
   useEffect(() => {
-    setGridPoints(disableGridFetch ? keywordRank?.geoGrid : undefined);
+    if (disableGridFetch) {
+      setGridPoints(keywordRank?.geoGrid);
+      setSelectedCell(null);
+      return;
+    }
+    setGridPoints(keywordRank?.geoGrid);
     setSelectedCell(null);
-  }, [disableGridFetch, keywordRank?.geoGrid, keywordRank?.keyword, layers.heatmapSearchRadiusMiles]);
+  }, [disableGridFetch, keywordRank?.geoGrid, keywordRank?.keyword]);
 
   useEffect(() => {
     if (!layers.showHeatmap || !activeKeyword || !ready || disableGridFetch) return;
@@ -153,6 +161,26 @@ export default function RankingMap({
     async function loadGrid() {
       setGridLoading(true);
       try {
+        if (clientId) {
+          const storedRes = await fetch(
+            `/api/metrics/grid-latest?clientId=${encodeURIComponent(clientId)}&keyword=${encodeURIComponent(activeKeyword!)}`
+          );
+          const stored = (await storedRes.json()) as {
+            geoGrid?: GeoGridPoint[];
+          };
+          if (!cancelled && storedRes.ok && stored.geoGrid?.length) {
+            setGridPoints(stored.geoGrid);
+            return;
+          }
+        }
+
+        if (keywordRank?.geoGrid?.length) {
+          if (!cancelled) setGridPoints(keywordRank.geoGrid);
+          return;
+        }
+
+        if (!allowLivePlacesGrid) return;
+
         const res = await fetch(
           `/api/places/grid?keyword=${encodeURIComponent(activeKeyword!)}&radiusMiles=${layers.heatmapSearchRadiusMiles}`
         );
@@ -177,6 +205,9 @@ export default function RankingMap({
     activeKeyword,
     ready,
     disableGridFetch,
+    allowLivePlacesGrid,
+    clientId,
+    keywordRank?.geoGrid,
   ]);
 
   useEffect(() => {

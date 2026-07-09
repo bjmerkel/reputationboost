@@ -228,6 +228,40 @@ export async function loadLatestKeywordGridsAdmin(
   return result;
 }
 
+/** Latest stored geo-grid for a keyword (weekly ingest or audit), for map display. */
+export async function loadLatestKeywordGridForUser(
+  userId: string,
+  businessSlug: string,
+  keyword: string,
+  onOrBeforeDate?: string
+): Promise<{ date: string; geoGrid: GeoGridPoint[]; source: string } | null> {
+  const businessId = await getBusinessIdForSlug(userId, businessSlug);
+  if (!businessId) return null;
+
+  const targetDate = onOrBeforeDate ?? new Date().toISOString().slice(0, 10);
+  const grids = await loadLatestKeywordGridsAdmin(businessId, [keyword], targetDate);
+  const geoGrid = grids.get(keyword) ?? grids.get(keyword.toLowerCase());
+  if (!geoGrid?.length) return null;
+
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("grid_snapshots")
+    .select("date, source")
+    .eq("business_id", businessId)
+    .eq("keyword", keyword)
+    .lte("date", targetDate)
+    .gt("cells_total", 1)
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    date: (data?.date as string) ?? targetDate,
+    geoGrid,
+    source: (data?.source as string) ?? "weekly",
+  };
+}
+
 export async function listCoverageTrendForUser(
   userId: string,
   businessSlug: string,

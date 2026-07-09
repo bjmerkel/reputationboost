@@ -1,5 +1,6 @@
 import { listOnboardedBusinesses } from "@/audit/businesses-admin";
 import { recomputeAttributionsForBusiness } from "@/audit/attribution";
+import { buildAndPersistLiveAuditForBusiness } from "@/audit/live-audit";
 import { ingestScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
 import { refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import { refreshGlobalScoreModel } from "@/audit/storage-score-model";
@@ -228,6 +229,23 @@ async function ingestBusiness(
     result.errors.push({
       businessId: row.id,
       step: "score_daily",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  try {
+    const persisted = await buildAndPersistLiveAuditForBusiness(row, targetDate);
+    if (!persisted) {
+      result.errors.push({
+        businessId: row.id,
+        step: "live_audit",
+        message: "No audit snapshot to hydrate",
+      });
+    }
+  } catch (error) {
+    result.errors.push({
+      businessId: row.id,
+      step: "live_audit",
       message: error instanceof Error ? error.message : String(error),
     });
   }
