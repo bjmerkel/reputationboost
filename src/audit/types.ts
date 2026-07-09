@@ -606,6 +606,60 @@ export interface Phase1AuditPayload {
   offGoogle: OffGoogleSnapshot;
   /** Per-keyword profile relevance signals (LLM + heuristic), cached on audit payload. */
   keywordRelevance?: KeywordRelevanceFeatures[];
+  /** Demand vs rank alignment analysis — drives intelligent keyword rotation. */
+  keywordPortfolio?: KeywordPortfolioAnalysis;
+}
+
+export type KeywordPortfolioStatus =
+  | "proven_demand"
+  | "brand_anchor"
+  | "rank_without_demand"
+  | "growth_target"
+  | "low_priority";
+
+export interface TrackedKeywordPortfolioItem {
+  keyword: string;
+  status: KeywordPortfolioStatus;
+  inLocalPack: boolean;
+  localPackPosition: LocalPackPosition | number;
+  visibilityScore: number;
+  relevanceScore: number;
+  matchedImpressions: number | null;
+  packFragile: boolean;
+  reason: string;
+}
+
+export interface UntrackedGbpKeywordCandidate {
+  keyword: string;
+  sourceGbpTerm: string;
+  impressions: number | null;
+  belowThreshold: boolean;
+  opportunityScore: number;
+  reason: string;
+}
+
+export interface KeywordSwapRecommendation {
+  swapOut: string;
+  swapIn: string;
+  reason: string;
+  swapOutReason: string;
+  swapInReason: string;
+  priority: number;
+  estimatedImpressionGain: number | null;
+}
+
+export interface KeywordPortfolioAnalysis {
+  computedAt: string;
+  /** Share of tracked keywords with proven or brand demand (0–100). */
+  demandAlignmentScore: number;
+  rankWithoutDemandCount: number;
+  untrackedDemandCount: number;
+  tracked: TrackedKeywordPortfolioItem[];
+  untrackedCandidates: UntrackedGbpKeywordCandidate[];
+  recommendedSwaps: KeywordSwapRecommendation[];
+  recommendedKeywords: string[];
+  shouldRotate: boolean;
+  summary: string;
 }
 
 /** Structured relevance features for one tracked keyword — feeds conversion scoring. */

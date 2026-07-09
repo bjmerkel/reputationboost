@@ -302,6 +302,35 @@ export async function saveAvgCustomerValue(
   return businessRecordToClientConfig(data as BusinessRecord);
 }
 
+export async function updateBusinessKeywords(
+  userId: string,
+  businessId: string,
+  keywords: string[]
+): Promise<ClientConfig> {
+  const normalized = [...new Set(keywords.map((k) => k.trim().toLowerCase()).filter(Boolean))];
+  if (normalized.length < 3) {
+    throw new Error("At least 3 keywords are required.");
+  }
+  if (normalized.length > 8) {
+    throw new Error("Maximum 8 keywords allowed.");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("businesses")
+    .update({
+      keywords: normalized,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("id", businessId)
+    .select("*")
+    .single();
+
+  if (error) throw new Error(`Failed to update keywords: ${error.message}`);
+  return businessRecordToClientConfig(data as BusinessRecord);
+}
+
 export async function getBusinessIdForSlug(
   userId: string,
   slug: string

@@ -1,5 +1,7 @@
 import { listOnboardedBusinesses } from "@/audit/businesses-admin";
 import { businessRecordToClientConfig, type BusinessRecord } from "@/audit/businesses";
+import { prioritizeKeywordsForGrid } from "@/audit/phase2/keyword-portfolio";
+import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin";
 import {
   completeIngestRun,
   failIngestRun,
@@ -53,8 +55,24 @@ async function ingestGridForBusiness(
   }
 
   const client = businessRecordToClientConfig(row);
-  const keywords = client.keywords.filter(Boolean).slice(0, HEATMAP_FLAGS.weeklyKeywordLimit);
-  if (keywords.length === 0) return;
+  const allKeywords = client.keywords.filter(Boolean);
+  if (allKeywords.length === 0) return;
+
+  const gridKeywordLimit = HEATMAP_FLAGS.weeklyKeywordLimit;
+  let keywords = allKeywords.slice(0, gridKeywordLimit);
+  try {
+    const audit = await loadLatestAuditForBusinessAdmin(
+      row.user_id,
+      row.id,
+      row.slug,
+      row.name
+    );
+    if (audit) {
+      keywords = prioritizeKeywordsForGrid(audit, allKeywords, gridKeywordLimit);
+    }
+  } catch {
+    keywords = allKeywords.slice(0, gridKeywordLimit);
+  }
 
   const location = await resolveBusinessLocation(client);
   const matchOptions: BusinessMatchOptions = {

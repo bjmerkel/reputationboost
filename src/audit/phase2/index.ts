@@ -32,6 +32,14 @@ export {
 } from "./score-driver-outcome";
 export { computeKeywordScores } from "./keyword-scores";
 export {
+  applyKeywordPortfolioToClient,
+  buildOptimizedKeywordList,
+  computeKeywordPortfolio,
+  findTrackedKeywordForGbpTerm,
+  isBrandKeyword,
+  prioritizeKeywordsForGrid,
+} from "./keyword-portfolio";
+export {
   BALANCED_WEIGHTS_WITH_ACV,
   BALANCED_WEIGHTS_WITHOUT_ACV,
   compositeMarginalScore,

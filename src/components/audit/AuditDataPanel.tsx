@@ -34,6 +34,8 @@ import { buildLocalPostsHealthReport } from "@/lib/google/gbp-local-posts-health
 import { buildPlaceActionsHealthReport } from "@/lib/google/gbp-place-actions-health";
 import { competitorMapRank } from "@/lib/google/local-rankings";
 import { detectPackFragility } from "@/audit/phase2/scoring";
+import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
+import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
 
 type DataTab =
   | "profile"
@@ -132,6 +134,14 @@ export default function AuditDataPanel({
 }) {
   const isLight = variant === "light";
   const isCanvas = layout === "canvas";
+  const keywordPortfolio = useMemo(
+    () => audit.keywordPortfolio ?? computeKeywordPortfolio(audit),
+    [audit]
+  );
+  const currentKeywords = useMemo(
+    () => audit.rankings.keywords.map((keyword) => keyword.keyword),
+    [audit.rankings.keywords]
+  );
   const profileGridClass = isCanvas
     ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
     : "grid grid-cols-1 gap-4";
@@ -423,6 +433,16 @@ export default function AuditDataPanel({
               <PerformanceHealthPanel light={isLight} coverage={audit.gbp.performance.coverage} />
             )}
           </div>
+          {(keywordPortfolio.shouldRotate ||
+            keywordPortfolio.untrackedDemandCount > 0 ||
+            keywordPortfolio.rankWithoutDemandCount > 0) && (
+            <KeywordPortfolioPanel
+              portfolio={keywordPortfolio}
+              currentKeywords={currentKeywords}
+              businessSlug={clientId}
+              light={isLight}
+            />
+          )}
         </div>
       )}
 

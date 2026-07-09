@@ -635,6 +635,54 @@ export function detectGaps(
     );
   }
 
+  const portfolio = audit.keywordPortfolio;
+  if (portfolio?.shouldRotate && portfolio.recommendedSwaps.length > 0) {
+    const swapSummary = portfolio.recommendedSwaps
+      .slice(0, 2)
+      .map((swap) => `"${swap.swapOut}" → "${swap.swapIn}"`)
+      .join("; ");
+    gaps.push(
+      gap(
+        "keyword-portfolio-mismatch",
+        "P1",
+        "rankings",
+        "Tracked keywords don't match search demand",
+        `${portfolio.summary} Suggested swaps: ${swapSummary}.`,
+        9,
+        2
+      )
+    );
+  } else if (portfolio && portfolio.untrackedDemandCount > 0 && portfolio.demandAlignmentScore < 60) {
+    const topUntracked = portfolio.untrackedCandidates[0];
+    gaps.push(
+      gap(
+        "untracked-gbp-keywords",
+        "P2",
+        "rankings",
+        "GBP search terms not in your tracked set",
+        topUntracked
+          ? `${portfolio.untrackedDemandCount} Google search term(s) drive visibility but aren't tracked. Top opportunity: "${topUntracked.keyword}" — ${topUntracked.reason}`
+          : "Add high-impression GBP search terms to your tracked keyword portfolio.",
+        6,
+        2
+      )
+    );
+  }
+
+  for (const item of portfolio?.tracked.filter((t) => t.status === "rank_without_demand") ?? []) {
+    gaps.push(
+      gap(
+        `rank-without-demand-${item.keyword}`,
+        "P2",
+        "rankings",
+        `Ranked but no demand: "${item.keyword}"`,
+        `${item.reason} Consider swapping for a term Google is actually reporting.`,
+        5,
+        2
+      )
+    );
+  }
+
   if (
     perfCoverage?.apiAvailable &&
     perfCoverage.hasImpressionMetrics &&
