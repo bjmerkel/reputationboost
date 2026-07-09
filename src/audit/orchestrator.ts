@@ -7,7 +7,7 @@ import {
   collectRankSnapshot,
   collectReviewSnapshot,
 } from "./collectors";
-import { collectPlacesRankData } from "./collectors/places";
+import { collectPlacesSnapshots } from "./collectors/places";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { getValidGbpConnection } from "@/lib/google/token-store";
 import { generateStrategy } from "@/lib/llm/strategy";
@@ -97,7 +97,7 @@ export async function runPhase1Audit(
     collectReviewSnapshot(client, connection),
     collectOffGoogleSnapshot(client),
     useGooglePlaces
-      ? collectPlacesRankData(client).catch(() => null)
+      ? collectPlacesSnapshots(client).catch(() => null)
       : Promise.resolve(null),
   ]);
 

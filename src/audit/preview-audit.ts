@@ -15,12 +15,13 @@ import { buildPathToHealthy } from "./phase2/path-to-healthy";
 import { suggestKeywords } from "@/lib/llm/keywords";
 import {
   extractCompetitors,
+  findBusinessRank,
   isOwnBusiness,
-  searchKeywordAtAllRadii,
   type BusinessMatchOptions,
 } from "@/lib/google/local-rankings";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { collectKeywordGeoGrid } from "@/lib/google/geo-grid";
+import { milesToMeters, searchPlaces, type PlaceResult } from "@/lib/google/places";
 import { primaryCategoryFromTypes } from "@/lib/google/place-details";
 
 const PREVIEW_KEYWORD_COUNT = 3;
@@ -150,17 +151,12 @@ async function collectPreviewRankings(
 
   for (let index = 0; index < keywords.length; index++) {
     const keyword = keywords[index];
-    const { ranksByRadius, resultsByRadius } = await searchKeywordAtAllRadii(
-      keyword,
-      location,
-      matchOptions,
-      "nearby"
+    const resultsAt1Mi = await searchPlaces(keyword, location, milesToMeters(1), "nearby").catch(
+      () => [] as PlaceResult[]
     );
-
-    const rankAt1Mi = ranksByRadius[1];
-    const inLocalPack = rankAt1Mi !== null && rankAt1Mi <= 3;
-    const localPackPosition = inLocalPack ? (rankAt1Mi as 1 | 2 | 3) : "not_in_pack";
-    const resultsAt1Mi = resultsByRadius[1];
+    const rank = findBusinessRank(resultsAt1Mi, matchOptions);
+    const inLocalPack = rank !== null && rank <= 3;
+    const localPackPosition = inLocalPack ? (rank as 1 | 2 | 3) : "not_in_pack";
     const leader = resultsAt1Mi[0];
     const ownPlace = resultsAt1Mi.find((place) => isOwnBusiness(place, matchOptions));
 
@@ -173,14 +169,11 @@ async function collectPreviewRankings(
       keyword,
       localPackPosition,
       inLocalPack,
-      geoRanks: [1, 3, 5, 10].map((distanceMiles) => {
-        const rank = ranksByRadius[distanceMiles as 1 | 3 | 5 | 10];
-        return {
-          distanceMiles: distanceMiles as 1 | 3 | 5 | 10,
-          rank,
-          inLocalPack: rank !== null && rank <= 3,
-        };
-      }),
+      geoRanks: [1, 3, 5, 10].map((distanceMiles) => ({
+        distanceMiles: distanceMiles as 1 | 3 | 5 | 10,
+        rank: distanceMiles === 1 ? rank : null,
+        inLocalPack: distanceMiles === 1 ? inLocalPack : false,
+      })),
       packLeaderRating: leader?.rating ?? 0,
       packLeaderReviewCount: leader?.reviewCount ?? 0,
       clientRating: ownPlace?.rating ?? 0,

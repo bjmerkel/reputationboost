@@ -1,6 +1,7 @@
 import type { ClientConfig } from "@/audit/types";
 import type { CompetitorProfile, CompetitorSnapshot, GeoGridPoint, KeywordRankSnapshot, RankSnapshot } from "@/audit/types";
 import { mapWithConcurrency } from "@/lib/async/map-with-concurrency";
+import { gridProfileForCollection } from "@/lib/feature-flags";
 import {
   geocodeAddress,
   milesToMeters,
@@ -11,7 +12,6 @@ import {
   type SearchRadiusMiles,
 } from "./places";
 import { collectKeywordGeoGrid } from "./geo-grid";
-import { gridProfileForCollection } from "@/lib/feature-flags";
 
 const TOP_COMPETITORS = 5;
 /** Keywords collected in parallel during audits (each keyword still batches its own grid). */
@@ -174,6 +174,22 @@ export async function resolveBusinessLocation(client: ClientConfig): Promise<Geo
   return geocodeAddress(formatClientAddress(client));
 }
 
+async function loadAuditGeoGrid(
+  client: ClientConfig,
+  keyword: string,
+  location: GeoLocation,
+  matchOptions: BusinessMatchOptions,
+  resolveStoredGrid?: (keyword: string) => Promise<GeoGridPoint[] | null>
+): Promise<GeoGridPoint[]> {
+  const stored = resolveStoredGrid ? await resolveStoredGrid(keyword) : null;
+  if (stored?.length) return stored;
+
+  return collectKeywordGeoGrid(keyword, location, matchOptions, {
+    profile: gridProfileForCollection("audit", client.heatmapProfile),
+    includeLocalPack: true,
+  });
+}
+
 function primaryCategoryFromTypes(types: string[]): string {
   const skip = new Set(["point_of_interest", "establishment", "geocode"]);
   const category = types.find((t) => !skip.has(t));
@@ -301,7 +317,13 @@ export async function searchKeywordAtOneMile(
  * Full ranking + competitor harvest for all client keywords.
  * Uses Google Places directly — Local Maps ordering, not desktop organic SERP.
  */
-export async function collectPlacesRankData(client: ClientConfig): Promise<{
+export async function collectPlacesRankData(
+  client: ClientConfig,
+  options: {
+    /** Reuse a stored geo-grid instead of live Places calls (server-side audits). */
+    resolveStoredGrid?: (keyword: string) => Promise<GeoGridPoint[] | null>;
+  } = {}
+): Promise<{
   rankings: RankSnapshot;
   competitors: CompetitorSnapshot[];
 }> {
@@ -329,10 +351,7 @@ export async function collectPlacesRankData(client: ClientConfig): Promise<{
         );
 
         const [geoGrid, competitorPlaces] = await Promise.all([
-          collectKeywordGeoGrid(keyword, location, matchOptions, {
-            profile: gridProfileForCollection("audit", client.heatmapProfile),
-            includeLocalPack: true,
-          }),
+          loadAuditGeoGrid(client, keyword, location, matchOptions, options.resolveStoredGrid),
           resolveCompetitorResults(keyword, location, matchOptions, {
             limit: TOP_COMPETITORS,
             initialResults: resultsByRadius[1],

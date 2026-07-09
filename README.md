@@ -96,7 +96,20 @@ Automated monthly data collection for local business audits:
 open http://localhost:3000/platform/audit
 ```
 
-Set `GOOGLE_MAPS_API_KEY` for live Local 3-Pack rankings.
+### Places API cost controls
+
+`src/lib/feature-flags.ts` tunes how aggressively the app calls **Places Nearby Search**:
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `dailyMultiRadius` | `false` | Daily cron records 1-mile center rank only (was 1/3/5/10 mi) |
+| `weeklyKeywordLimit` | `3` | Weekly geo-grid cron keywords per business |
+| `auditReuseWeeklyGridDays` | `7` | Audits reuse a stored weekly grid instead of 25 live searches/keyword |
+| `gridProfile` | `compact` | On-demand map heatmap uses 5×5 grid (was 7×7) |
+
+Nearby Search also defaults to **one result page** (~20 businesses) and dedupes identical requests for 6 hours via an in-memory cache.
+
+Set `dailyMultiRadius: true` only if you need multi-radius trend lines in daily ingest.
 
 ### How rankings work
 

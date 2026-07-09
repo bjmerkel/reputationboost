@@ -342,6 +342,38 @@ export async function shouldRefreshGridAfterTask(
   return Date.now() - last >= debounceMs;
 }
 
+function addDaysYmd(date: Date, days: number): string {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().slice(0, 10);
+}
+
+/** Reuse a stored geo-grid when a full snapshot exists within maxAgeDays. */
+export async function loadFreshKeywordGridAdmin(
+  businessId: string,
+  keyword: string,
+  maxAgeDays: number
+): Promise<GeoGridPoint[] | null> {
+  if (maxAgeDays <= 0) return null;
+
+  const minDate = addDaysYmd(new Date(), -maxAgeDays);
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("grid_snapshots")
+    .select("date")
+    .eq("business_id", businessId)
+    .eq("keyword", keyword)
+    .gte("date", minDate)
+    .gt("cells_total", 1)
+    .order("date", { ascending: false })
+    .limit(1);
+
+  if (error || !data?.[0]?.date) return null;
+
+  const grid = await loadGridForDateAdmin(businessId, keyword, data[0].date as string);
+  return grid.length > 0 ? grid : null;
+}
+
 export async function persistKeywordGridFromCollection(
   businessId: string,
   keyword: string,

@@ -8,7 +8,7 @@ import {
 import { persistKeywordGridFromCollection } from "@/audit/storage-grid-snapshots";
 import type { IngestRunResult } from "@/audit/types/timeseries";
 import { ingestScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
-import { gridProfileForCollection } from "@/lib/feature-flags";
+import { gridProfileForCollection, HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { collectKeywordGeoGrid } from "@/lib/google/geo-grid";
 import {
@@ -53,7 +53,7 @@ async function ingestGridForBusiness(
   }
 
   const client = businessRecordToClientConfig(row);
-  const keywords = client.keywords.filter(Boolean).slice(0, 5);
+  const keywords = client.keywords.filter(Boolean).slice(0, HEATMAP_FLAGS.weeklyKeywordLimit);
   if (keywords.length === 0) return;
 
   const location = await resolveBusinessLocation(client);

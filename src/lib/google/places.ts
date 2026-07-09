@@ -1,6 +1,13 @@
 import { getGoogleMapsApiKey } from "./config";
+import {
+  getCachedPlacesSearch,
+  placesSearchCacheKey,
+  setCachedPlacesSearch,
+} from "./places-cache";
 
 const METERS_PER_MILE = 1609.34;
+/** Rank tracking only needs the first page (top ~20 results). */
+const DEFAULT_NEARBY_MAX_PAGES = 1;
 const MAX_NEARBY_PAGES = 3;
 const PAGE_TOKEN_DELAY_MS = 2000;
 const NEARBY_SEARCH_MAX_RETRIES = 3;
@@ -196,21 +203,40 @@ async function fetchNearbySearchResponse(url: URL): Promise<GooglePlacesSearchRe
   throw lastError ?? new Error("Places Nearby Search failed");
 }
 
+export interface NearbySearchOptions {
+  /** Result pages to fetch (20 results each). Rank checks default to 1. */
+  maxPages?: number;
+  /** Bypass the in-memory read-through cache. */
+  skipCache?: boolean;
+}
+
 /**
  * Places Nearby Search — primary ranking flow.
- * Paginates up to 3 pages (~60 results) to find businesses beyond the first 20.
+ * Defaults to a single page; pass maxPages up to 3 for deeper result lists.
  */
 export async function nearbySearch(
   keyword: string,
   location: GeoLocation,
-  radiusMeters: number
+  radiusMeters: number,
+  options: NearbySearchOptions = {}
 ): Promise<PlaceResult[]> {
+  const maxPages = Math.min(
+    Math.max(options.maxPages ?? DEFAULT_NEARBY_MAX_PAGES, 1),
+    MAX_NEARBY_PAGES
+  );
+
+  if (!options.skipCache) {
+    const cacheKey = placesSearchCacheKey(keyword, location.lat, location.lng, radiusMeters);
+    const cached = getCachedPlacesSearch(cacheKey);
+    if (cached) return cached;
+  }
+
   const key = apiKeyOrThrow();
   const locationString = `${location.lat},${location.lng}`;
   const results: PlaceResult[] = [];
   let pageToken: string | undefined;
 
-  for (let page = 0; page < MAX_NEARBY_PAGES; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const url = new URL("https://maps.googleapis.com/maps/api/place/nearbysearch/json");
     url.searchParams.set("location", locationString);
     url.searchParams.set("radius", String(radiusMeters));
@@ -231,6 +257,11 @@ export async function nearbySearch(
 
     if (!data.next_page_token) break;
     pageToken = data.next_page_token;
+  }
+
+  if (!options.skipCache) {
+    const cacheKey = placesSearchCacheKey(keyword, location.lat, location.lng, radiusMeters);
+    setCachedPlacesSearch(cacheKey, results);
   }
 
   return results;
@@ -381,6 +412,10 @@ export type PlacesSearchMode = "nearby" | "text";
 export interface SearchPlacesOptions {
   /** Override the Text Search query string (Nearby Search always uses keyword). */
   textQuery?: string;
+  /** Nearby Search only — pages to fetch (default 1). */
+  maxPages?: number;
+  /** Nearby Search only — skip read-through cache. */
+  skipCache?: boolean;
 }
 
 export async function searchPlaces(
@@ -392,7 +427,10 @@ export async function searchPlaces(
 ): Promise<PlaceResult[]> {
   return mode === "text"
     ? textSearch(options?.textQuery ?? keyword, location, radiusMeters)
-    : nearbySearch(keyword, location, radiusMeters);
+    : nearbySearch(keyword, location, radiusMeters, {
+        maxPages: options?.maxPages,
+        skipCache: options?.skipCache,
+      });
 }
 
 /** Like searchPlaces but returns an empty list instead of failing the caller. */
