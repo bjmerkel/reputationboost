@@ -8,9 +8,9 @@ import type {
   TrackedKeywordPortfolioItem,
   UntrackedGbpKeywordCandidate,
 } from "../types";
+import { SEARCH_RADII_MILES } from "@/lib/google/places";
 import {
   detectPackFragility,
-  impressionWeightFloor,
   keywordServiceAreaVisibilityScore,
   matchSearchKeywordImpressions,
 } from "./scoring";
@@ -481,6 +481,96 @@ export function computeKeywordPortfolio(audit: Phase1AuditPayload): KeywordPortf
     summary,
   };
 }
+
+function refreshRankingAggregates(audit: Phase1AuditPayload): void {
+  audit.rankings.keywordsInPack = audit.rankings.keywords.filter((k) => k.inLocalPack).length;
+  audit.rankings.shareOfVoice = audit.rankings.keywords.length
+    ? Math.round((audit.rankings.keywordsInPack / audit.rankings.keywords.length) * 100)
+    : 0;
+}
+
+function placeholderKeywordSnapshot(keyword: string, rank = 7): KeywordRankSnapshot {
+  const inLocalPack = rank <= 3;
+  return {
+    keyword,
+    localPackPosition: inLocalPack ? (rank as 1 | 2 | 3) : "not_in_pack",
+    inLocalPack,
+    geoRanks: SEARCH_RADII_MILES.map((distanceMiles) => ({
+      distanceMiles,
+      rank,
+      inLocalPack: rank <= 3,
+    })),
+    packLeaderRating: 4.7,
+    packLeaderReviewCount: 120,
+    clientRating: 4.5,
+    clientReviewCount: 40,
+  };
+}
+
+export interface ApplyKeywordPortfolioOptions {
+  /** Swap a single rank-without-demand keyword instead of the full portfolio. */
+  swapOutKeyword?: string;
+}
+
+/** Counterfactual + plan simulation: align tracked keywords with portfolio recommendations. */
+export function applyKeywordPortfolioToAudit(
+  audit: Phase1AuditPayload,
+  options: ApplyKeywordPortfolioOptions = {}
+): void {
+  const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
+  audit.keywordPortfolio = portfolio;
+
+  let targetKeywords = portfolio.recommendedKeywords;
+
+  if (options.swapOutKeyword) {
+    const swap = portfolio.recommendedSwaps.find(
+      (item) => item.swapOut.toLowerCase() === options.swapOutKeyword!.toLowerCase()
+    );
+    if (!swap) return;
+
+    targetKeywords = audit.rankings.keywords.map((item) => item.keyword);
+    const index = targetKeywords.findIndex(
+      (keyword) => keyword.toLowerCase() === swap.swapOut.toLowerCase()
+    );
+    if (index < 0) return;
+    targetKeywords[index] = swap.swapIn;
+  }
+
+  if (targetKeywords.length < MIN_KEYWORDS) return;
+
+  const existingByKey = new Map(
+    audit.rankings.keywords.map((item) => [item.keyword.toLowerCase(), item])
+  );
+  const swapRankByKeyword = new Map(
+    portfolio.recommendedSwaps.map((swap) => [swap.swapIn.toLowerCase(), 5])
+  );
+
+  audit.rankings.keywords = targetKeywords.map((keyword) => {
+    const existing = existingByKey.get(keyword.toLowerCase());
+    if (existing) return existing;
+    const projectedRank = swapRankByKeyword.get(keyword.toLowerCase()) ?? 7;
+    return placeholderKeywordSnapshot(keyword, projectedRank);
+  });
+
+  refreshRankingAggregates(audit);
+  audit.keywordPortfolio = computeKeywordPortfolio(audit);
+}
+
+export function portfolioStepIsSatisfied(audit: Phase1AuditPayload): boolean {
+  const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
+  if (!portfolio.shouldRotate && portfolio.demandAlignmentScore >= 60) {
+    return true;
+  }
+
+  const current = audit.rankings.keywords.map((item) => item.keyword.toLowerCase());
+  const recommended = portfolio.recommendedKeywords.map((item) => item.toLowerCase());
+  return (
+    current.length === recommended.length &&
+    current.every((keyword, index) => keyword === recommended[index])
+  );
+}
+
+export const KEYWORD_PORTFOLIO_PLAN_STEP = 17;
 
 export function applyKeywordPortfolioToClient(
   client: ClientConfig,

@@ -330,14 +330,19 @@ export function computeVisibilityScore(audit: Phase1AuditPayload): number {
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
   const weights = radiusWeightsForAudit(audit);
   const base = weightedKeywordVisibility(audit.rankings.keywords, searchKeywords, weights);
+  const portfolio = audit.keywordPortfolio;
+  const alignmentBlend =
+    portfolio != null
+      ? Math.round(base * 0.85 + portfolio.demandAlignmentScore * 0.15)
+      : base;
   const perfCoverage = audit.gbp.performance.coverage;
-  if (!perfCoverage) return clamp(base);
+  if (!perfCoverage) return clamp(alignmentBlend);
 
   // Modest confidence adjustment from Performance API data quality (±5 pts).
   const qualityBoost = (perfCoverage.coverageScore - 50) * 0.1;
   const keywordPenalty =
     perfCoverage.apiAvailable && !perfCoverage.hasSearchKeywords ? -3 : 0;
-  return clamp(base + qualityBoost + keywordPenalty);
+  return clamp(alignmentBlend + qualityBoost + keywordPenalty);
 }
 
 export function computeKeywordRelevanceScore(audit: Phase1AuditPayload): number {
@@ -595,6 +600,7 @@ export function computeHealthScores(
     visibility,
     conversion,
     revenueCapture,
+    demandAlignmentScore: audit.keywordPortfolio?.demandAlignmentScore,
     insight: buildScoreInsight(
       audit,
       driverScore,

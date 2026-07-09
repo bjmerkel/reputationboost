@@ -1,5 +1,5 @@
 /** First step number reserved for LLM custom GBP actions (see gbp-plan-merge). */
-export const CUSTOM_PLAN_STEP_START = 17;
+export const CUSTOM_PLAN_STEP_START = 18;
 
 export function isCustomPlanStep(stepNumber: number): boolean {
   return stepNumber >= CUSTOM_PLAN_STEP_START;

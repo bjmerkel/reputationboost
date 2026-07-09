@@ -59,6 +59,13 @@ export const SCORE_TOOLTIPS = {
     importance:
       "Tracks whether recent work on your profile and rankings is moving the needle over time.",
   },
+  demandAlignment: {
+    title: "Keyword demand alignment",
+    calculation:
+      "Share of tracked keywords that match measurable GBP search-term demand, blended into Visibility (15% weight).",
+    importance:
+      "Ranking for keywords nobody searches wastes tracking budget. Aligning with real demand improves score accuracy and weekly grid focus.",
+  },
   serviceAreaCoverage: {
     title: "Service area coverage",
     calculation:

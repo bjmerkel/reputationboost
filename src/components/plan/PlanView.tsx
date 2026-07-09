@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
+import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
+import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
@@ -155,6 +157,19 @@ export default function PlanView({
     [audit, plan, avgCustomerValue, currency]
   );
 
+  const keywordPortfolio = useMemo(
+    () => audit.keywordPortfolio ?? computeKeywordPortfolio(audit),
+    [audit]
+  );
+  const currentKeywords = useMemo(
+    () => audit.rankings.keywords.map((keyword) => keyword.keyword),
+    [audit.rankings.keywords]
+  );
+  const showKeywordPortfolio =
+    keywordPortfolio.shouldRotate ||
+    keywordPortfolio.untrackedDemandCount > 0 ||
+    keywordPortfolio.rankWithoutDemandCount > 0;
+
   const reviewUrl = useMemo(
     () =>
       googleReviewUrlForBusiness({
@@ -225,6 +240,16 @@ export default function PlanView({
         projectedMonthlyRevenue={path?.projectedMonthlyRevenue}
         currency={currency}
       />
+
+      {showKeywordPortfolio && (
+        <KeywordPortfolioPanel
+          portfolio={keywordPortfolio}
+          currentKeywords={currentKeywords}
+          businessSlug={clientId}
+          light={isLight}
+          onKeywordsUpdated={() => onAuditUpdated?.(audit)}
+        />
+      )}
 
       {audit.strategy?.executiveSummary && (
         <p className={`text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>

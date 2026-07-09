@@ -179,6 +179,16 @@ export default function ScoreBreakdown({
               variant={variant}
               compact
             />
+            {normalized.demandAlignmentScore != null && (
+              <ScoreBar
+                label="Keyword demand alignment"
+                value={normalized.demandAlignmentScore}
+                color="#b06000"
+                tooltip={SCORE_TOOLTIPS.demandAlignment}
+                variant={variant}
+                compact
+              />
+            )}
           </div>
         )}
       </div>

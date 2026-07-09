@@ -172,6 +172,8 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
       return "Enable online booking to create conversion signals inside Google.";
     case 16:
       return "Execute the weekly cadence consistently to move keywords into the Top 3.";
+    case 17:
+      return "Rotate tracked keywords toward GBP search terms that actually drive impressions.";
     default:
       if (isCustomPlanStep(step.stepNumber)) {
         return step.instruction.includes("Why this step:")

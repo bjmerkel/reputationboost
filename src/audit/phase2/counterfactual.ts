@@ -16,6 +16,12 @@ import {
   marginalScoreForMode,
   resolveBlendWeights,
 } from "./path-optimization";
+import {
+  applyKeywordPortfolioToAudit,
+  computeKeywordPortfolio,
+  KEYWORD_PORTFOLIO_PLAN_STEP,
+  portfolioStepIsSatisfied,
+} from "./keyword-portfolio";
 import { computeKeywordScores } from "./keyword-scores";
 import { detectPackFragility, resolveKeywordPositionAtRadius } from "./scoring";
 import { SEARCH_RADII_MILES, type SearchRadiusMiles } from "@/lib/google/places";
@@ -25,7 +31,7 @@ const POST_FRESH_DAYS = 14;
 const RESPONSE_RATE_TARGET = 0.85;
 const DESCRIPTION_MIN_LENGTH = 400;
 const DEFAULT_RANK_IMPROVEMENT = 2;
-const CUSTOM_PLAN_STEP_START = 17;
+const CUSTOM_PLAN_STEP_START = 18;
 
 function daysSince(iso: string | null): number {
   if (!iso) return 999;
@@ -304,6 +310,8 @@ export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): 
       return false;
     case 16:
       return false;
+    case KEYWORD_PORTFOLIO_PLAN_STEP:
+      return portfolioStepIsSatisfied(audit);
     default:
       return false;
   }
@@ -448,6 +456,9 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
       applyStepMutation(audit, 11);
       break;
     }
+    case KEYWORD_PORTFOLIO_PLAN_STEP:
+      applyKeywordPortfolioToAudit(audit);
+      break;
     default:
       break;
   }
@@ -456,6 +467,20 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
 /** Apply audit-input changes that closing this gap would represent. */
 export function applyGapMutation(audit: Phase1AuditPayload, gap: GapFlag): void {
   if (gap.id.startsWith("rank-outside-pack")) return;
+
+  if (
+    gap.id === "keyword-portfolio-mismatch" ||
+    gap.id === "untracked-gbp-keywords"
+  ) {
+    applyKeywordPortfolioToAudit(audit);
+    return;
+  }
+
+  if (gap.id.startsWith("rank-without-demand-")) {
+    const keyword = gap.id.replace("rank-without-demand-", "");
+    applyKeywordPortfolioToAudit(audit, { swapOutKeyword: keyword });
+    return;
+  }
 
   if (gap.id.startsWith("relevance-gap-")) {
     const keyword = gap.id.replace("relevance-gap-", "");
@@ -712,15 +737,28 @@ export function simulateStepDriverImpact(
   return Math.max(0, after - before);
 }
 
+function isPortfolioAlignmentGap(gap: GapFlag): boolean {
+  return (
+    gap.id === "keyword-portfolio-mismatch" ||
+    gap.id === "untracked-gbp-keywords" ||
+    gap.id.startsWith("rank-without-demand-")
+  );
+}
+
 /** Marginal driver-score gain from closing one gap, via computeHealthScores(). */
 export function simulateGapDriverImpact(audit: Phase1AuditPayload, gap: GapFlag): number {
   if (gap.id.startsWith("rank-outside-pack")) return 0;
 
-  const before = computeHealthScores(audit).driverScore;
+  const before = computeHealthScores(audit);
   const mutated = cloneAudit(audit);
   applyGapMutation(mutated, gap);
-  const after = computeHealthScores(mutated).driverScore;
-  return Math.max(0, after - before);
+  const after = computeHealthScores(mutated);
+
+  if (isPortfolioAlignmentGap(gap)) {
+    return Math.max(0, after.visibility - before.visibility);
+  }
+
+  return Math.max(0, after.driverScore - before.driverScore);
 }
 
 export interface ProjectedHealthScores {
@@ -960,6 +998,19 @@ export function applyOutcomeMutation(
   stepNumber: number,
   calibration?: AttributionCalibration
 ): void {
+  if (stepNumber === KEYWORD_PORTFOLIO_PLAN_STEP) {
+    if (portfolioStepIsSatisfied(audit)) return;
+    const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
+    const swapIns = new Set(
+      portfolio.recommendedSwaps.map((swap) => swap.swapIn.toLowerCase())
+    );
+    audit.rankings.keywords = audit.rankings.keywords.map((kw) =>
+      swapIns.has(kw.keyword.toLowerCase()) ? improveKeywordRank(kw, 2) : kw
+    );
+    refreshRankingAggregates(audit);
+    return;
+  }
+
   if (stepNumber >= CUSTOM_PLAN_STEP_START) return;
   if (isStepSatisfied(audit, stepNumber)) return;
 
@@ -981,6 +1032,22 @@ export function applyOutcomeGapMutation(
   gap: GapFlag,
   options?: CounterfactualProjectionOptions
 ): void {
+  if (
+    gap.id === "keyword-portfolio-mismatch" ||
+    gap.id === "untracked-gbp-keywords" ||
+    gap.id.startsWith("rank-without-demand-")
+  ) {
+    const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
+    const swapIns = new Set(
+      portfolio.recommendedSwaps.map((swap) => swap.swapIn.toLowerCase())
+    );
+    audit.rankings.keywords = audit.rankings.keywords.map((kw) =>
+      swapIns.has(kw.keyword.toLowerCase()) ? improveKeywordRank(kw, 2) : kw
+    );
+    refreshRankingAggregates(audit);
+    return;
+  }
+
   if (gap.id.startsWith("pack-fragility-")) {
     const keyword = gap.id.replace("pack-fragility-", "");
     audit.rankings.keywords = audit.rankings.keywords.map((kw) => {

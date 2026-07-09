@@ -128,6 +128,19 @@ export default function HomeHealthSummary({
               )}
             </p>
           )}
+          {scores.demandAlignmentScore != null && (
+            <p className="mt-1 inline-flex items-center gap-1 text-sm text-[#5f6368]">
+              Keyword demand alignment{" "}
+              <span
+                className={`font-medium ${
+                  scores.demandAlignmentScore < 50 ? "text-[#b06000]" : "text-[#137333]"
+                }`}
+              >
+                {scores.demandAlignmentScore}%
+              </span>
+              <InfoTooltip {...SCORE_TOOLTIPS.demandAlignment} />
+            </p>
+          )}
         </div>
       </div>
 

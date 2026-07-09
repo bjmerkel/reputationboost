@@ -32,11 +32,14 @@ export {
 } from "./score-driver-outcome";
 export { computeKeywordScores } from "./keyword-scores";
 export {
+  applyKeywordPortfolioToAudit,
   applyKeywordPortfolioToClient,
   buildOptimizedKeywordList,
   computeKeywordPortfolio,
   findTrackedKeywordForGbpTerm,
   isBrandKeyword,
+  KEYWORD_PORTFOLIO_PLAN_STEP,
+  portfolioStepIsSatisfied,
   prioritizeKeywordsForGrid,
 } from "./keyword-portfolio";
 export {

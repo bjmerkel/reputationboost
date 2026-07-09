@@ -835,6 +835,8 @@ export interface HealthScores {
   /** Raw 30d engagement totals (outcomes, not score inputs) */
   engagement: number;
   competitiveGap: number;
+  /** GBP demand alignment for tracked keywords (0–100), when portfolio is computed */
+  demandAlignmentScore?: number;
   engagementOutcomes: EngagementOutcomes;
 }
 
@@ -1164,6 +1166,7 @@ export type ExecutionType =
   | "gbp_title"
   | "gbp_address"
   | "gbp_checklist"
+  | "update_tracked_keywords"
   | "review_response"
   | "review_delete_reply"
   | "review_request"

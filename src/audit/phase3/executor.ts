@@ -1,4 +1,5 @@
 import type { ExecutionTask, GbpConnection, ClientConfig } from "../types";
+import { updateBusinessKeywords } from "@/audit/businesses";
 import { applyGbpAction, applyMediaFromBytes, applyMediaFromDraft } from "@/lib/google/gbp-apply";
 import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
 import type { NapDriftFieldName } from "@/lib/google/nap-drift";
@@ -29,6 +30,33 @@ export async function executeTask(
   context?: ExecuteTaskContext
 ): Promise<ExecutionTask> {
   const now = new Date().toISOString();
+
+  if (task.type === "update_tracked_keywords" && context) {
+    try {
+      const businessId = context.business.businessId;
+      const keywords = Array.isArray(task.payload.recommendedKeywords)
+        ? (task.payload.recommendedKeywords as string[])
+        : [];
+      if (!businessId || keywords.length < 3) {
+        throw new Error("Keyword portfolio update is missing business or keyword data.");
+      }
+      await updateBusinessKeywords(context.userId, businessId, keywords);
+      return {
+        ...task,
+        status: "completed",
+        completedAt: now,
+        result: `Updated tracked keywords: ${keywords.join(", ")}`,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Keyword update failed";
+      return {
+        ...task,
+        status: "failed",
+        completedAt: now,
+        result: message,
+      };
+    }
+  }
 
   if (task.type === "review_request" && context) {
     try {
@@ -98,6 +126,7 @@ export async function executeTask(
     gbp_title: "Synced business name on Google Business Profile.",
     gbp_address: "Synced business address on Google Business Profile.",
     gbp_checklist: `Completed: ${task.title}`,
+    update_tracked_keywords: `Updated tracked keywords from portfolio recommendations.`,
     review_response: `Posted review response for review ${task.payload.reviewId ?? "unknown"}.`,
     review_delete_reply: `Removed review reply for review ${task.payload.reviewId ?? "unknown"}.`,
     review_request: `Sent ${task.payload.batchSize ?? 15} SMS review requests.`,

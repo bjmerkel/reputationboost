@@ -9,6 +9,11 @@ import {
   inferRecommendedSecondaryCategories,
   missingKeywordsForServices,
 } from "./gbp-current-state";
+import {
+  computeKeywordPortfolio,
+  KEYWORD_PORTFOLIO_PLAN_STEP,
+  portfolioStepIsSatisfied,
+} from "./keyword-portfolio";
 
 function keywords(audit: Phase1AuditPayload): string[] {
   return audit.rankings.keywords.map((k) => k.keyword);
@@ -80,6 +85,39 @@ function currentPosts(audit: Phase1AuditPayload): string {
   return `Last post ${days} days ago: "${latest.summary.slice(0, 100)}${latest.summary.length > 100 ? "…" : ""}"`;
 }
 
+function buildKeywordPortfolioPlanStep(audit: Phase1AuditPayload): GbpPlanStep | null {
+  const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
+  if (portfolioStepIsSatisfied(audit)) return null;
+  if (
+    !portfolio.shouldRotate &&
+    portfolio.untrackedDemandCount === 0 &&
+    portfolio.rankWithoutDemandCount === 0
+  ) {
+    return null;
+  }
+
+  const currentKeywords = keywords(audit).join(", ");
+  const recommended = portfolio.recommendedKeywords.join(", ");
+
+  return {
+    stepNumber: KEYWORD_PORTFOLIO_PLAN_STEP,
+    title: "Align keyword portfolio",
+    instruction: `${portfolio.summary} Approve to update your tracked keywords to match Google search demand. Weekly rank tracking and heatmaps will follow the optimized set.`,
+    current: currentKeywords,
+    recommended,
+    bullets: [
+      `Demand alignment: ${portfolio.demandAlignmentScore}%`,
+      ...portfolio.recommendedSwaps.slice(0, 4).map(
+        (swap) => `Swap "${swap.swapOut}" → "${swap.swapIn}"${swap.estimatedImpressionGain ? ` (+${swap.estimatedImpressionGain} impressions/mo)` : ""}`
+      ),
+      ...(portfolio.untrackedCandidates[0]
+        ? [`Top untracked GBP term: "${portfolio.untrackedCandidates[0].keyword}"`]
+        : []),
+    ],
+    gbpAction: "manual",
+  };
+}
+
 export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
   const targetKeywords = keywords(audit);
   const city = cityFromAddress(audit.gbp.identity.address);
@@ -91,7 +129,7 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
   const liveSecondary =
     audit.gbp.liveProfile?.secondaryCategories ?? audit.gbp.identity.secondaryCategories;
 
-  return [
+  const steps: GbpPlanStep[] = [
     {
       stepNumber: 1,
       title: "Primary Category",
@@ -307,6 +345,13 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       ],
     },
   ];
+
+  const portfolioStep = buildKeywordPortfolioPlanStep(audit);
+  if (portfolioStep) {
+    steps.push(portfolioStep);
+  }
+
+  return steps;
 }
 
 export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimizationPlan {

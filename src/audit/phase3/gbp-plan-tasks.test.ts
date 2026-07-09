@@ -12,12 +12,12 @@ import { tasksFromGbpPlanStep } from "./gbp-plan-tasks";
 import { resolvePlanStepNumber } from "./plan-task-utils";
 
 describe("plan-custom-steps", () => {
-  it("identifies step numbers 17+ as custom", () => {
-    assert.equal(CUSTOM_PLAN_STEP_START, 17);
+  it("identifies step numbers 18+ as custom", () => {
+    assert.equal(CUSTOM_PLAN_STEP_START, 18);
     assert.equal(isCustomPlanStep(16), false);
-    assert.equal(isCustomPlanStep(17), true);
+    assert.equal(isCustomPlanStep(17), false);
     assert.equal(isCustomPlanStep(18), true);
-    assert.equal(customPlanStepActionItemId(17), "gbp-step-17");
+    assert.equal(customPlanStepActionItemId(18), "gbp-step-18");
   });
 });
 
@@ -27,7 +27,7 @@ describe("tasksFromGbpPlanStep custom actions", () => {
 
   function customStep(overrides: Partial<GbpPlanStep> = {}): GbpPlanStep {
     return {
-      stepNumber: 17,
+      stepNumber: 18,
       title: "Airport route video",
       instruction: "Upload a 45-second airport pickup video.\n\nWhy this step: Targets airport shuttle keyword gap.",
       gbpAction: "manual",
@@ -41,8 +41,8 @@ describe("tasksFromGbpPlanStep custom actions", () => {
     assert.equal(tasks.length, 1);
     const task = tasks[0];
     assert.equal(task.type, "gbp_checklist");
-    assert.equal(task.actionItemId, "gbp-step-17");
-    assert.equal(task.planStepNumber, 17);
+    assert.equal(task.actionItemId, "gbp-step-18");
+    assert.equal(task.planStepNumber, 18);
     assert.equal(task.planPhaseId, "ongoing");
     assert.equal(task.payload.customAction, true);
     assert.equal(task.payload.isCustomPlanStep, true);
@@ -106,7 +106,7 @@ describe("tasksFromGbpPlanStep custom actions", () => {
     const tasks = tasksFromGbpPlanStep(
       auditWithReviews,
       {
-        stepNumber: 17,
+        stepNumber: 18,
         title: "Increase Review Response Rate",
         instruction:
           "Respond to all reviews, especially negative ones, within 24 hours to improve response rates and customer trust.\n\nWhy this step: Improving the review response rate is critical to enhancing customer trust and engagement.",
@@ -119,25 +119,25 @@ describe("tasksFromGbpPlanStep custom actions", () => {
     assert.ok(tasks.every((t) => t.type === "review_response"));
     assert.ok(tasks.every((t) => t.payload.customAction === true));
     assert.ok(tasks.every((t) => t.payload.isCustomPlanStep === true));
-    assert.ok(tasks.every((t) => t.planStepNumber === 17));
+    assert.ok(tasks.every((t) => t.planStepNumber === 18));
     assert.ok(tasks.some((t) => t.title.includes("Jane")));
     assert.ok(tasks.some((t) => t.title.includes("Bob")));
     assert.ok(tasks.every((t) => t.type !== "gbp_photo"));
   });
 
   it("supports multiple custom steps with distinct action item ids", () => {
-    const step18 = customStep({
-      stepNumber: 18,
-      title: "Fleet branding photos",
-      instruction: "Upload branded vehicle photos.\n\nWhy this step: Differentiator for branded searches.",
+    const step19 = customStep({
+      stepNumber: 19,
+      title: "Service area map",
+      instruction: "Add a service area map to the profile.\n\nWhy this step: Reinforces geo coverage.",
     });
 
-    const tasks17 = tasksFromGbpPlanStep(audit, customStep(), content);
-    const tasks18 = tasksFromGbpPlanStep(audit, step18, content);
+    const tasks18 = tasksFromGbpPlanStep(audit, customStep(), content);
+    const tasks19 = tasksFromGbpPlanStep(audit, step19, content);
 
-    assert.equal(resolvePlanStepNumber(tasks17[0]), 17);
     assert.equal(resolvePlanStepNumber(tasks18[0]), 18);
-    assert.equal(tasks17[0].actionItemId, "gbp-step-17");
+    assert.equal(resolvePlanStepNumber(tasks19[0]), 19);
     assert.equal(tasks18[0].actionItemId, "gbp-step-18");
+    assert.equal(tasks19[0].actionItemId, "gbp-step-19");
   });
 });

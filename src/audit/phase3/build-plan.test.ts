@@ -16,9 +16,9 @@ describe("plan-phases", () => {
 
   it("defines all core plan steps across phases", () => {
     const covered = PLAN_PHASE_DEFINITIONS.flatMap((p) => p.stepNumbers);
-    assert.equal(covered.length, 17);
+    assert.equal(covered.length, 18);
     assert.deepEqual([...new Set(covered)].sort((a, b) => a - b), [
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
     ]);
   });
 
@@ -199,7 +199,7 @@ describe("buildPlan", () => {
   it("places custom steps in the ongoing phase and excludes them from score projection", () => {
     const audit = createTestAudit();
     const customStep = {
-      stepNumber: 17,
+      stepNumber: 18,
       title: "Airport route video",
       instruction: "Upload a 45-second airport pickup video.\n\nWhy this step: Targets airport shuttle keyword gap.",
       gbpAction: "manual" as const,
@@ -217,14 +217,14 @@ describe("buildPlan", () => {
 
     const customTask = {
       ...audit.execution!.tasks[0],
-      id: "custom-task-17",
-      actionItemId: "gbp-step-17",
-      planStepNumber: 17,
+      id: "custom-task-18",
+      actionItemId: "gbp-step-18",
+      planStepNumber: 18,
       planPhaseId: "ongoing" as const,
       type: "gbp_checklist" as const,
-      title: "Step 17: Airport route video",
+      title: "Step 18: Airport route video",
       payload: {
-        gbpStepNumber: 17,
+        gbpStepNumber: 18,
         isCustomPlanStep: true,
         customAction: true,
         expectedEffect: "Targets airport shuttle keyword gap.",
@@ -234,15 +234,15 @@ describe("buildPlan", () => {
     const plan = buildPlan(auditWithCustom, [...audit.execution!.tasks, customTask]);
     assert.ok(plan);
 
-    const step17 = plan!.steps.find((s) => s.stepNumber === 17);
-    assert.ok(step17);
-    assert.equal(step17!.phaseId, "ongoing");
-    assert.equal(step17!.context.healthScoreImpact, undefined);
-    assert.match(step17!.context.expectedEffect, /airport shuttle/i);
+    const step18 = plan!.steps.find((s) => s.stepNumber === 18);
+    assert.ok(step18);
+    assert.equal(step18!.phaseId, "ongoing");
+    assert.equal(step18!.context.healthScoreImpact, undefined);
+    assert.match(step18!.context.expectedEffect, /airport shuttle/i);
 
     const ongoingPhase = plan!.phases.find((p) => p.id === "ongoing");
     assert.ok(ongoingPhase);
-    assert.ok(ongoingPhase!.stepNumbers.includes(17));
+    assert.ok(ongoingPhase!.stepNumbers.includes(18));
     assert.ok(ongoingPhase!.stepNumbers.includes(16));
 
     const planWithoutCustomProjection = buildPlan(audit, audit.execution!.tasks);

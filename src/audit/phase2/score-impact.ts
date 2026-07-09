@@ -48,7 +48,10 @@ export function gapOutcomeScoreImpact(gap: GapFlag, audit: Phase1AuditPayload): 
     gap.id.startsWith("rank-outside-pack") ||
     gap.id.startsWith("pack-fragility-") ||
     gap.id === "no-search-keyword-data" ||
-    gap.id.startsWith("relevance-gap-")
+    gap.id.startsWith("relevance-gap-") ||
+    gap.id === "keyword-portfolio-mismatch" ||
+    gap.id === "untracked-gbp-keywords" ||
+    gap.id.startsWith("rank-without-demand-")
   ) {
     const projection = projectOutcomeScoresFromActions(audit, [gapActionRef(gap)]);
     return Math.max(0, projection.outcomeGain);

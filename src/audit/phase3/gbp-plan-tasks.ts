@@ -30,6 +30,7 @@ import {
   resolveProfileLinkMissing,
 } from "@/lib/google/gbp-attribute-recommendations";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
+import { computeKeywordPortfolio, KEYWORD_PORTFOLIO_PLAN_STEP } from "@/audit/phase2/keyword-portfolio";
 import { generateReviewResponses } from "@/audit/phase3/content";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
@@ -79,6 +80,7 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_reject_suggestion",
     "gbp_title",
     "gbp_address",
+    "update_tracked_keywords",
   ].includes(type);
 }
 
@@ -375,6 +377,32 @@ export function tasksFromGbpPlanStep(
     : buildTemplateGbpPlan(audit).steps.find((s) => s.stepNumber === step.stepNumber);
   const resolvedAction = resolvePlanStepAction(step, templateStep);
   const resolvedStep: GbpPlanStep = { ...step, gbpAction: resolvedAction };
+
+  if (resolvedStep.stepNumber === KEYWORD_PORTFOLIO_PLAN_STEP) {
+    const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
+    return [
+      buildGbpTask(
+        audit,
+        resolvedStep,
+        "update_tracked_keywords",
+        resolvedStep.title,
+        [
+          "Approve to update your tracked keyword portfolio to match Google search demand.",
+          "",
+          `Current: ${audit.rankings.keywords.map((item) => item.keyword).join(", ")}`,
+          `Recommended: ${portfolio.recommendedKeywords.join(", ")}`,
+          "",
+          ...portfolio.recommendedSwaps.map(
+            (swap) => `• ${swap.swapOut} → ${swap.swapIn}: ${swap.reason}`
+          ),
+        ].join("\n"),
+        {
+          applyRecommendations: true,
+          recommendedKeywords: portfolio.recommendedKeywords,
+        }
+      ),
+    ];
+  }
 
   if (isReviewResponsePlanStep(resolvedStep)) {
     return buildReviewResponseTasks(audit, resolvedStep, content);

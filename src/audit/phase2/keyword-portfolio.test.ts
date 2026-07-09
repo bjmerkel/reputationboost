@@ -3,12 +3,16 @@ import { describe, it } from "node:test";
 import type { Phase1AuditPayload } from "../types";
 import { createTestAudit } from "../phase3/test-fixtures";
 import {
+  applyKeywordPortfolioToAudit,
   buildOptimizedKeywordList,
   computeKeywordPortfolio,
   findTrackedKeywordForGbpTerm,
   isBrandKeyword,
+  portfolioStepIsSatisfied,
   prioritizeKeywordsForGrid,
 } from "./keyword-portfolio";
+import { simulateGapDriverImpact } from "./counterfactual";
+import { gapDriverScoreImpact, gapOutcomeScoreImpact } from "./score-impact";
 
 function wayneStyleAudit(): Phase1AuditPayload {
   const audit = createTestAudit();
@@ -136,5 +140,35 @@ describe("keyword-portfolio", () => {
 
     assert.equal(prioritized.length, 3);
     assert.ok(prioritized.some((keyword) => keyword.includes("wayne") || keyword.includes("ridgewood")));
+  });
+
+  it("projects score gains when portfolio gaps are closed", () => {
+    const audit = wayneStyleAudit();
+    const portfolio = computeKeywordPortfolio(audit);
+    audit.keywordPortfolio = portfolio;
+
+    const gap = {
+      id: "keyword-portfolio-mismatch",
+      priority: "P1" as const,
+      category: "rankings" as const,
+      title: "Tracked keywords don't match search demand",
+      description: portfolio.summary,
+      impact: 9,
+      effort: 2,
+      impactScore: 9,
+    };
+
+    assert.ok(simulateGapDriverImpact(audit, gap) >= 0);
+    assert.ok(gapOutcomeScoreImpact(gap, audit) >= 0);
+    assert.ok(gapDriverScoreImpact(gap, audit) > 0);
+  });
+
+  it("marks portfolio step satisfied after applying recommendations", () => {
+    const audit = wayneStyleAudit();
+    audit.keywordPortfolio = computeKeywordPortfolio(audit);
+    assert.equal(portfolioStepIsSatisfied(audit), false);
+
+    applyKeywordPortfolioToAudit(audit);
+    assert.equal(portfolioStepIsSatisfied(audit), true);
   });
 });
