@@ -24,7 +24,6 @@ export default function PlanView({
   variant = "light",
   onReviewPending,
   onAuditUpdated,
-  onTasksChange,
   avgCustomerValue,
   currency = "USD",
   focusStep = null,
@@ -41,7 +40,6 @@ export default function PlanView({
   variant?: "light" | "dark";
   onReviewPending?: () => void;
   onAuditUpdated?: (audit: FullAuditPayload) => void;
-  onTasksChange?: () => void;
   avgCustomerValue?: number | null;
   currency?: string;
   focusStep?: number | null;
@@ -126,10 +124,6 @@ export default function PlanView({
       setSyncingGoogleUpdates(false);
     }
   }, [onAuditUpdated, syncGoogleUpdates]);
-
-  useEffect(() => {
-    onTasksChange?.();
-  }, [onTasksChange, tasks]);
 
   const pendingApprovalCount = planApprovalBadgeCount(tasks);
 

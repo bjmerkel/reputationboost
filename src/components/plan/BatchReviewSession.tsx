@@ -21,7 +21,6 @@ export default function BatchReviewSession({
   gbpConnected,
   initialTasks,
   attributionByTaskId = {},
-  onTasksChange,
   sharedPlanTasks,
 }: {
   open: boolean;
@@ -31,7 +30,6 @@ export default function BatchReviewSession({
   gbpConnected: boolean;
   initialTasks: ExecutionTask[];
   attributionByTaskId?: Record<string, ActionAttribution>;
-  onTasksChange?: () => void;
   sharedPlanTasks?: PlanTasksState;
 }) {
   const internalPlanTasks = usePlanTasks({
@@ -68,12 +66,10 @@ export default function BatchReviewSession({
       setIndex(0);
       return;
     }
-    void refresh().then(() => onTasksChange?.());
-  }, [open, onTasksChange, refresh]);
-
-  useEffect(() => {
-    onTasksChange?.();
-  }, [onTasksChange, tasks]);
+    if (!sharedPlanTasks) {
+      void refresh();
+    }
+  }, [open, refresh, sharedPlanTasks]);
 
   useEffect(() => {
     if (index >= pending.length && pending.length > 0) {

@@ -14,6 +14,7 @@ import {
   publishPhotoBatch,
   regenerateReviewResponseTask,
 } from "@/lib/execution/client-actions";
+import { executionTasksEqual } from "@/lib/execution/task-equality";
 
 interface UsePlanTasksOptions {
   clientId: string;
@@ -48,17 +49,33 @@ export function usePlanTasks({
       return { tasks: initialTasksRef.current, plan: initialPlanRef.current };
     }
     const data = await fetchExecutionState(clientId, auditId, { includePlan });
-    setTasks(data.tasks);
+    setTasks((prev) => (executionTasksEqual(prev, data.tasks) ? prev : data.tasks));
     if (includePlan) {
       setPlan(data.plan);
     }
     return data;
   }, [auditId, clientId, enabled, includePlan]);
 
+  const prevIncludePlanRef = useRef(includePlan);
+
   useEffect(() => {
     if (!enabled || !auditId) {
       setTasks(initialTasksRef.current);
       setPlan(initialPlanRef.current);
+      setLoading(false);
+      return;
+    }
+
+    const includePlanUpgraded = !prevIncludePlanRef.current && includePlan;
+    prevIncludePlanRef.current = includePlan;
+
+    const hasInitialTasks = initialTasksRef.current.length > 0;
+    const hasInitialPlan = initialPlanRef.current != null;
+    if (hasInitialTasks && !includePlanUpgraded && (!includePlan || hasInitialPlan)) {
+      setTasks(initialTasksRef.current);
+      if (includePlan && hasInitialPlan) {
+        setPlan(initialPlanRef.current);
+      }
       setLoading(false);
       return;
     }
@@ -71,7 +88,7 @@ export function usePlanTasks({
       try {
         const data = await fetchExecutionState(clientId, auditId, { includePlan });
         if (!cancelled) {
-          setTasks(data.tasks);
+          setTasks((prev) => (executionTasksEqual(prev, data.tasks) ? prev : data.tasks));
           if (includePlan) {
             setPlan(data.plan);
           }

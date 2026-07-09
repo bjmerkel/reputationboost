@@ -112,6 +112,7 @@ export default function AuditDashboard({
     auditId: audit?.auditId ?? "",
     initialTasks: initialExecutionTasks,
     enabled: Boolean(audit?.auditId),
+    includePlan: view === "strategy",
   });
 
   const {
@@ -125,10 +126,6 @@ export default function AuditDashboard({
 
   const closeBatchReview = useCallback(() => {
     setBatchReviewOpen(false);
-    void refreshExecutionTasks();
-  }, [refreshExecutionTasks]);
-
-  const handleExecutionTasksChange = useCallback(() => {
     void refreshExecutionTasks();
   }, [refreshExecutionTasks]);
 
@@ -437,7 +434,6 @@ export default function AuditDashboard({
               variant="light"
               onReviewPending={openBatchReview}
               onAuditUpdated={applyAudit}
-              onTasksChange={handleExecutionTasksChange}
               avgCustomerValue={avgCustomerValue}
               currency={avgCustomerValueCurrency}
               focusStep={focusPlanStep}
@@ -550,7 +546,6 @@ export default function AuditDashboard({
         gbpConnected={gbpConnected}
         initialTasks={tasks}
         attributionByTaskId={attributionData.attributionByTaskId}
-        onTasksChange={handleExecutionTasksChange}
         sharedPlanTasks={planTasks}
       />
 
