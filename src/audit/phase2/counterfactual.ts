@@ -25,6 +25,7 @@ import {
 import { computeKeywordScores } from "./keyword-scores";
 import { detectPackFragility, resolveKeywordPositionAtRadius } from "./scoring";
 import { SEARCH_RADII_MILES, type SearchRadiusMiles } from "@/lib/google/places";
+import { primaryCategoryUpdateIsNoOp } from "./gbp-category";
 
 const PHOTO_TARGET = 60;
 const POST_FRESH_DAYS = 14;
@@ -250,7 +251,10 @@ export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): 
 
   switch (stepNumber) {
     case 1:
-      return resolveKeywordRelevance(audit).every((r) => r.categoryFit >= 75);
+      // Primary-category work is only needed when live differs from recommended.
+      // Keyword categoryFit gaps are handled via secondary categories (step 2), not a
+      // no-op "update" to the same primary label.
+      return primaryCategoryUpdateIsNoOp(audit);
     case 2: {
       const secondary =
         gbp.liveProfile?.secondaryCategories ?? gbp.identity.secondaryCategories;

@@ -29,8 +29,15 @@ import {
   isUriAttributeType,
   resolveProfileLinkMissing,
 } from "@/lib/google/gbp-attribute-recommendations";
+import {
+  categoryLabelsMatch,
+  primaryCategoryUpdateIsNoOp,
+  resolveLivePrimaryCategory,
+  resolveRecommendedPrimaryCategory,
+} from "@/audit/phase2/gbp-category";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { computeKeywordPortfolio, KEYWORD_PORTFOLIO_PLAN_STEP } from "@/audit/phase2/keyword-portfolio";
+import { isStepSatisfied } from "@/audit/phase2/counterfactual";
 import { generateReviewResponses } from "@/audit/phase3/content";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
@@ -446,17 +453,27 @@ export function tasksFromGbpPlanStep(
   const data = resolvedStep.actionData ?? {};
 
   switch (resolvedAction) {
-    case "update_primary_category":
+    case "update_primary_category": {
+      if (isStepSatisfied(audit, 1) || primaryCategoryUpdateIsNoOp(audit)) {
+        return [];
+      }
+      const recommended =
+        String(data.primaryCategory ?? step.recommended ?? resolveRecommendedPrimaryCategory(audit)).trim();
+      const live = resolveLivePrimaryCategory(audit);
+      if (categoryLabelsMatch(live, recommended)) {
+        return [];
+      }
       return [
         buildGbpTask(
           audit,
           step,
           "gbp_primary_category",
           step.title,
-          data.primaryCategory ?? step.recommended ?? step.title,
-          { primaryCategory: data.primaryCategory ?? step.recommended }
+          recommended || step.title,
+          { primaryCategory: recommended }
         ),
       ];
+    }
     case "add_secondary_categories":
       return [
         buildGbpTask(
