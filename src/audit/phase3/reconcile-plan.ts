@@ -12,11 +12,20 @@ import type {
   GbpOptimizationPlan,
   GbpPlanStep,
 } from "../types";
+import type { ClientConfig } from "../types";
 import {
+  appendExecutionTasks,
   appendExecutionTasksAdmin,
+  listExecutionTasks,
   listExecutionTasksForBusinessAdmin,
+  updateExecutionTask,
   updateExecutionTaskAdmin,
 } from "@/audit/storage-execution";
+import {
+  loadAuditByIdFromSupabase,
+  loadLatestAuditFromSupabase,
+  saveAuditToSupabase,
+} from "@/audit/storage-supabase";
 import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin";
 import { collectMissingReconcileTasks } from "./missing-tasks";
 import { resolvePlanStepNumber } from "./plan-task-utils";
@@ -252,19 +261,31 @@ export function computePlanReconcile(
   };
 }
 
-export interface ReconcilePlanForBusinessOptions {
+export interface ReconcilePlanOptions {
   content?: AuditGeneratedContent;
   /** Skip persistence (tests). */
   dryRun?: boolean;
+  /** When set, require this audit id (user-triggered refresh). */
+  auditId?: string;
+}
+
+function toReconcileResult(computation: PlanReconcileComputation): ReconcilePlanResult {
+  return {
+    audit: computation.nextAudit,
+    createdTasks: computation.missingTasks,
+    completedTasks: computation.tasksToComplete,
+    appendedStepNumbers: computation.appendedStepNumbers,
+    refreshedStepCount: computation.refreshedStepCount,
+  };
 }
 
 /**
- * Load latest audit + execution tasks, reconcile, append missing tasks,
- * auto-complete stale pending work, and patch the audit payload.
+ * Cron/admin path: load latest audit + execution tasks with service role,
+ * reconcile, append missing tasks, auto-complete stale pending work.
  */
 export async function reconcilePlanForBusiness(
   row: BusinessRecord,
-  options: ReconcilePlanForBusinessOptions = {}
+  options: ReconcilePlanOptions = {}
 ): Promise<ReconcilePlanResult | null> {
   if (!PLAN_RECONCILE_FLAGS.enabled) {
     return null;
@@ -277,6 +298,7 @@ export async function reconcilePlanForBusiness(
     row.name
   );
   if (!audit) return null;
+  if (options.auditId && audit.auditId !== options.auditId) return null;
 
   const existing = await listExecutionTasksForBusinessAdmin(
     row.user_id,
@@ -315,11 +337,54 @@ export async function reconcilePlanForBusiness(
     }
   }
 
-  return {
-    audit: computation.nextAudit,
-    createdTasks: computation.missingTasks,
-    completedTasks: computation.tasksToComplete,
-    appendedStepNumbers: computation.appendedStepNumbers,
-    refreshedStepCount: computation.refreshedStepCount,
-  };
+  return toReconcileResult(computation);
+}
+
+/**
+ * Authenticated user path: same reconcile logic via session-scoped storage.
+ */
+export async function reconcilePlanForUser(
+  userId: string,
+  client: ClientConfig,
+  options: ReconcilePlanOptions = {}
+): Promise<ReconcilePlanResult | null> {
+  if (!PLAN_RECONCILE_FLAGS.enabled) {
+    return null;
+  }
+  if (!client.businessId) {
+    throw new Error("Business id is required to reconcile the plan");
+  }
+
+  const raw = options.auditId
+    ? await loadAuditByIdFromSupabase(userId, client.id, options.auditId)
+    : await loadLatestAuditFromSupabase(userId, client.id, {
+        businessName: client.name,
+        businessUuid: client.businessId,
+      });
+
+  if (!raw) return null;
+  if (options.auditId && raw.auditId !== options.auditId) return null;
+
+  const existing = await listExecutionTasks(userId, client.id, raw.auditId);
+  const computation = computePlanReconcile(raw, existing, {
+    content: options.content,
+  });
+
+  if (!options.dryRun) {
+    if (computation.missingTasks.length > 0) {
+      await appendExecutionTasks(userId, client, computation.missingTasks);
+    }
+
+    for (const task of computation.tasksToComplete) {
+      await updateExecutionTask(userId, task.id, {
+        status: "completed",
+        completedAt: task.completedAt,
+        result: task.result,
+      });
+    }
+
+    await saveAuditToSupabase(userId, client.businessId, computation.nextAudit);
+  }
+
+  return toReconcileResult(computation);
 }

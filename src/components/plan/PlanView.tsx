@@ -54,12 +54,15 @@ export default function PlanView({
     clientId,
     auditId: audit.auditId,
     initialTasks: audit.execution?.tasks ?? [],
+    initialPlanReconciledAt: audit.strategy?.planReconciledAt ?? null,
     enabled: !sharedPlanTasks,
   });
   const {
     tasks,
     plan,
+    planReconciledAt,
     loading,
+    reconciling,
     error,
     approveAndPublish,
     rejectTask,
@@ -76,6 +79,7 @@ export default function PlanView({
     regenerateReviewResponse,
     loadingTaskId,
     refresh,
+    reconcilePlanNow,
   } = sharedPlanTasks ?? internalPlanTasks;
 
   const actions = useMemo(
@@ -237,6 +241,15 @@ export default function PlanView({
         estimatedMonthlyRevenue={path?.estimatedMonthlyRevenue}
         projectedMonthlyRevenue={path?.projectedMonthlyRevenue}
         currency={currency}
+        planReconciledAt={planReconciledAt ?? audit.strategy?.planReconciledAt ?? null}
+        onRefreshPlan={() => {
+          void reconcilePlanNow()
+            .then((result) => {
+              if (result.audit) onAuditUpdated?.(result.audit);
+            })
+            .catch(() => undefined);
+        }}
+        refreshingPlan={reconciling}
       />
 
       {showKeywordPortfolio && (

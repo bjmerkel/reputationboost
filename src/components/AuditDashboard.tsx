@@ -111,6 +111,7 @@ export default function AuditDashboard({
     clientId,
     auditId: audit?.auditId ?? "",
     initialTasks: initialExecutionTasks,
+    initialPlanReconciledAt: audit?.strategy?.planReconciledAt ?? null,
     enabled: Boolean(audit?.auditId),
     includePlan: view === "strategy",
   });

@@ -1,9 +1,13 @@
-import type { ExecutionTask, Plan } from "@/audit/types";
+import type { ExecutionTask, FullAuditPayload, Plan } from "@/audit/types";
 import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
 import { needsGbpDescriptionRepublish } from "@/lib/google/gbp-description";
 import { pendingRoutineTasks } from "./pending-tasks";
 
-type ExecutionState = { tasks: ExecutionTask[]; plan: Plan | null };
+type ExecutionState = {
+  tasks: ExecutionTask[];
+  plan: Plan | null;
+  planReconciledAt: string | null;
+};
 
 const inflightExecutionFetches = new Map<string, Promise<ExecutionState>>();
 
@@ -31,7 +35,11 @@ export async function fetchExecutionState(
     if (!res.ok) {
       throw new Error(data.error ?? "Failed to load tasks");
     }
-    return { tasks: data.tasks ?? [], plan: data.plan ?? null };
+    return {
+      tasks: data.tasks ?? [],
+      plan: data.plan ?? null,
+      planReconciledAt: data.planReconciledAt ?? null,
+    };
   })();
 
   inflightExecutionFetches.set(key, promise);
@@ -40,6 +48,30 @@ export async function fetchExecutionState(
   } finally {
     inflightExecutionFetches.delete(key);
   }
+}
+
+export async function reconcilePlan(
+  clientId: string,
+  auditId: string
+): Promise<{
+  planReconciledAt: string | null;
+  createdTasks: number;
+  completedTasks: number;
+  audit?: FullAuditPayload;
+}> {
+  const res = await fetch("/api/execution/reconcile", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clientId, auditId }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Failed to refresh plan");
+  return {
+    planReconciledAt: data.planReconciledAt ?? null,
+    createdTasks: data.createdTasks ?? 0,
+    completedTasks: data.completedTasks ?? 0,
+    audit: data.audit,
+  };
 }
 
 export async function patchExecutionTask(
