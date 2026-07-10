@@ -49,7 +49,7 @@ export default function PlanStepVideos({
       {pending.map((task) => (
         <label
           key={task.id}
-          className={`flex cursor-pointer flex-col gap-2 rounded-lg border px-3 py-3 sm:flex-row sm:items-center sm:justify-between ${
+          className={`flex cursor-pointer flex-col gap-3 rounded-lg border px-3 py-3 ${
             isLight ? "border-[#dadce0] bg-white" : "border-white/8 bg-white/[0.02]"
           }`}
         >
@@ -66,7 +66,7 @@ export default function PlanStepVideos({
           <input
             type="file"
             accept="video/mp4,video/quicktime,video/*"
-            className="text-xs"
+            className="block w-full min-w-0 max-w-full text-xs"
             disabled={actions.loadingTaskId === task.id || uploading}
             onChange={(e) => {
               const file = e.target.files?.[0];
