@@ -31,6 +31,11 @@ import { collectMissingReconcileTasks } from "./missing-tasks";
 import { resolvePlanStepNumber } from "./plan-task-utils";
 import { isMutableByReconcile } from "./task-identity";
 import { PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
+import {
+  categoryLabelsMatch,
+  primaryCategoryUpdateIsNoOp,
+  resolveLivePrimaryCategory,
+} from "@/audit/phase2/gbp-category";
 
 /** Task types safe to auto-complete when live profile already satisfies the step/intent. */
 const AUTO_COMPLETE_TYPES = new Set<ExecutionTask["type"]>([
@@ -198,6 +203,19 @@ export function selectTasksToAutoComplete(
         if (!napFieldStillDrifting(audit, napField)) completed.push(task);
         continue;
       }
+    }
+
+    if (task.type === "gbp_primary_category") {
+      const payloadCategory = String(task.payload.primaryCategory ?? task.draftContent ?? "");
+      const live = resolveLivePrimaryCategory(audit);
+      if (
+        primaryCategoryUpdateIsNoOp(audit) ||
+        categoryLabelsMatch(live, payloadCategory) ||
+        (stepNumber != null && isStepSatisfied(audit, stepNumber))
+      ) {
+        completed.push(task);
+      }
+      continue;
     }
 
     if (stepNumber != null && isStepSatisfied(audit, stepNumber)) {

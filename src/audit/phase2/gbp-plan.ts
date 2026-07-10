@@ -43,6 +43,18 @@ function cityFromAddress(address: string): string {
   return parts.length > 1 ? parts[parts.length - 2]?.trim() ?? "your area" : "your area";
 }
 
+export {
+  categoryLabelsMatch,
+  normalizeCategoryLabel,
+  primaryCategoryUpdateIsNoOp,
+  resolveLivePrimaryCategory,
+  resolveRecommendedPrimaryCategory,
+} from "./gbp-category";
+import {
+  resolveLivePrimaryCategory,
+  resolveRecommendedPrimaryCategory,
+} from "./gbp-category";
+
 function descriptionDraft(audit: Phase1AuditPayload): string {
   const city = cityFromAddress(audit.gbp.identity.address);
   const kwList = keywords(audit).join(", ");
@@ -135,15 +147,15 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       title: "Primary Category",
       instruction:
         "The primary category carries the most weight for Google Maps relevance. Your current category is shown below — update only if audit keywords suggest a better fit.",
-      current: audit.gbp.liveProfile?.primaryCategory || category,
-      recommended: category,
+      current: resolveLivePrimaryCategory(audit) || category,
+      recommended: resolveRecommendedPrimaryCategory(audit) || category,
       bullets: [
-        `Current: ${audit.gbp.liveProfile?.primaryCategory || category}`,
+        `Current: ${resolveLivePrimaryCategory(audit) || category}`,
         "Primary category should match your core revenue service and top keywords",
         "Do not switch categories frequently — stability signals trust",
       ],
       gbpAction: "update_primary_category",
-      actionData: { primaryCategory: category },
+      actionData: { primaryCategory: resolveRecommendedPrimaryCategory(audit) || category },
     },
     {
       stepNumber: 2,
