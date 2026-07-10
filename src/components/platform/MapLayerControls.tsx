@@ -97,7 +97,7 @@ export default function MapLayerControls({ layers, onChange }: MapLayerControlsP
   return (
     <div
       ref={panelRef}
-      className="absolute top-14 left-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-1.5 sm:top-16"
+      className="absolute top-20 left-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-1.5 sm:top-24"
     >
       <LayerPill
         active={layers.showHeatmap}
