@@ -26,6 +26,8 @@ import {
 import { parseMediaViewCount } from "@/lib/google/gbp-media";
 import { buildFieldAttributionCalibration } from "@/audit/phase2/field-attribution-calibration";
 import type { ActionAttribution } from "@/audit/types/timeseries";
+import type { EngagementPeriodSummary } from "@/audit/engagement-period";
+import { formatPerformanceIngestLabel, formatPerformanceIngestTimestamp } from "@/audit/engagement-period";
 import { formatCustomerAttribution } from "@/lib/google/gbp-media-display";
 import { buildMediaHealthReport } from "@/lib/google/gbp-media-health";
 import { buildPerformanceHealthReport } from "@/lib/google/gbp-performance-health";
@@ -121,6 +123,7 @@ export default function AuditDataPanel({
   onKeywordsUpdated,
   attributions = [],
   globalCalibration = {},
+  engagement = null,
 }: {
   audit: FullAuditPayload;
   clientId: string;
@@ -135,6 +138,7 @@ export default function AuditDataPanel({
   onKeywordsUpdated?: KeywordsUpdatedHandler;
   attributions?: ActionAttribution[];
   globalCalibration?: AttributionCalibration;
+  engagement?: EngagementPeriodSummary | null;
 }) {
   const isLight = variant === "light";
   const isCanvas = layout === "canvas";
@@ -227,6 +231,10 @@ export default function AuditDataPanel({
       cancelled = true;
     };
   }, [audit.auditId, gbpConnected, storedMedia.length, audit.gbp.content.photoCount]);
+
+  const performanceFreshnessLabel =
+    (engagement && formatPerformanceIngestLabel(engagement)) ||
+    `Audit collected ${formatPerformanceIngestTimestamp(audit.completedAt)}`;
 
   return (
     <div className={`min-w-0 ${isCanvas ? "space-y-5" : "space-y-4"}`}>
@@ -393,10 +401,15 @@ export default function AuditDataPanel({
 
       {tab === "performance" && (
         <div className="space-y-4">
-          <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-            Customer actions and search terms from Google Performance API for the last{" "}
-            {audit.gbp.performance.periodDays} days.
-          </p>
+          <div className="space-y-1">
+            <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+              Customer actions and search terms from Google Performance API for the last{" "}
+              {audit.gbp.performance.periodDays} days.
+            </p>
+            <p className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+              {performanceFreshnessLabel}
+            </p>
+          </div>
           <div className={performanceGridClass}>
             <DataBlock
               light={isLight}
