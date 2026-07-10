@@ -145,19 +145,24 @@ function sumMetricInRange(
     .reduce((sum, p) => sum + p.value, 0);
 }
 
-function hasActionMetricsInRange(
+function sumActionMetricsInRange(
+  points: DailyMetricPoint[],
+  startDate: string,
+  endDate: string
+): number {
+  return (
+    sumMetricInRange(points, "calls", startDate, endDate) +
+    sumMetricInRange(points, "direction_requests", startDate, endDate) +
+    sumMetricInRange(points, "website_clicks", startDate, endDate)
+  );
+}
+
+function hasUsableIngestedActionMetrics(
   points: DailyMetricPoint[],
   startDate: string,
   endDate: string
 ): boolean {
-  return points.some(
-    (p) =>
-      (p.metric === "calls" ||
-        p.metric === "direction_requests" ||
-        p.metric === "website_clicks") &&
-      p.date >= startDate &&
-      p.date <= endDate
-  );
+  return sumActionMetricsInRange(points, startDate, endDate) > 0;
 }
 
 /**
@@ -208,7 +213,7 @@ export function buildEngagementPeriodSummary(
     ),
   };
 
-  if (hasActionMetricsInRange(points, bounds.startDate, bounds.endDate)) {
+  if (hasUsableIngestedActionMetrics(points, bounds.startDate, bounds.endDate)) {
     const ingestFields = resolveIngestMeta("ingest", options.ingestMeta, options.audit);
     return {
       periodDays,

@@ -108,6 +108,45 @@ describe("buildEngagementPeriodSummary", () => {
     assert.match(formatPerformanceIngestLabel(summary) ?? "", /Performance ingested/);
     assert.match(formatPerformanceIngestLabel(summary) ?? "", /data through Jul 9, 2026/);
   });
+
+  it("falls back to audit when ingest rows exist but action totals are zero", () => {
+    const bounds = rollingPeriodBounds(30, REF);
+    const zeroIngest: DailyMetricPoint[] = [];
+    const cursor = new Date(`${bounds.startDate}T12:00:00.000Z`);
+    const endDate = new Date(`${bounds.endDate}T12:00:00.000Z`);
+    while (cursor <= endDate) {
+      const date = cursor.toISOString().slice(0, 10);
+      zeroIngest.push({ date, metric: "calls", value: 0 });
+      zeroIngest.push({ date, metric: "direction_requests", value: 0 });
+      zeroIngest.push({ date, metric: "website_clicks", value: 0 });
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    const audit = {
+      completedAt: "2026-07-01T12:00:00.000Z",
+      gbp: {
+        performance: {
+          calls: 2,
+          directionRequests: 0,
+          websiteClicks: 3,
+          source: "api",
+        },
+      },
+      strategy: { monthlyReport: null },
+    } as FullAuditPayload;
+
+    const summary = buildEngagementPeriodSummary(zeroIngest, 30, {
+      audit,
+      referenceDate: REF,
+      ingestMeta: {
+        latestDataDate: bounds.endDate,
+        lastIngestedAt: "2026-07-10T04:00:00.000Z",
+      },
+    });
+
+    assert.equal(summary.source, "audit_fallback");
+    assert.equal(summary.calls.current, 2);
+    assert.equal(summary.websiteClicks.current, 3);
+  });
 });
 
 describe("formatDateRange", () => {
