@@ -2,18 +2,7 @@
 
 import type { Plan } from "@/audit/types";
 import { formatCurrency } from "@/audit/attribution/roi";
-
-function formatReconciledAt(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
+import { formatPlanTimestamp } from "./plan-timestamps";
 
 export default function PlanProgressHeader({
   plan,
@@ -42,7 +31,7 @@ export default function PlanProgressHeader({
   const { progress } = plan;
   const approvalCount = pendingApprovalCount ?? progress.needsApproval;
   const pct = progress.totalSteps > 0 ? Math.round((progress.completedSteps / progress.totalSteps) * 100) : 0;
-  const reconciledLabel = formatReconciledAt(planReconciledAt);
+  const reconciledLabel = formatPlanTimestamp(planReconciledAt);
 
   return (
     <div
@@ -74,7 +63,7 @@ export default function PlanProgressHeader({
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {reconciledLabel && (
                 <p className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
-                  Plan last updated {reconciledLabel}
+                  Recommendations updated {reconciledLabel}
                 </p>
               )}
               {onRefreshPlan && (

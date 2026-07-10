@@ -22,6 +22,7 @@ import {
   isGoogleUpdateTask,
 } from "@/lib/google/gbp-update-helpers";
 import { buildAllGbpPlanSteps } from "../phase2/gbp-plan";
+import { resolveRecommendationTimestamp } from "./recommendation-timestamp";
 
 function groupTasksByStep(tasks: ExecutionTask[]): Map<number, ExecutionTask[]> {
   const grouped = new Map<number, ExecutionTask[]>();
@@ -58,13 +59,23 @@ function buildPlanStep(
   const status = deriveStepStatus(tasks);
   const outcome =
     status === "completed" ? findStepOutcome(step.stepNumber, tasks, attributions) : undefined;
+  const context = buildStepContext(audit, step, calibration, avgCustomerValue);
+  const recommendedAt = resolveRecommendationTimestamp({
+    tasks,
+    planReconciledAt: audit.strategy.planReconciledAt,
+    strategyGeneratedAt: audit.strategy.generatedAt,
+    auditCompletedAt: audit.completedAt,
+  });
 
   return {
     stepNumber: step.stepNumber,
     phaseId: getPhaseForStep(step.stepNumber),
     title: step.title,
     instruction: step.instruction,
-    context: buildStepContext(audit, step, calibration, avgCustomerValue),
+    context: {
+      ...context,
+      ...(recommendedAt ? { recommendedAt } : {}),
+    },
     gbpAction: step.gbpAction,
     actionData: step.actionData,
     copyBlocks: step.copyBlocks,
