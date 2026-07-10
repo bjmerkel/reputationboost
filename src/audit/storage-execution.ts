@@ -225,3 +225,32 @@ export async function getExecutionTaskAdmin(taskId: string): Promise<ExecutionTa
   if (error || !data) return null;
   return rowToTask(data);
 }
+
+/** Admin status/content updates for cron reconcile (no user session). */
+export async function updateExecutionTaskAdmin(
+  taskId: string,
+  updates: Partial<
+    Pick<ExecutionTask, "status" | "draftContent" | "completedAt" | "result" | "scheduledFor" | "payload">
+  >
+): Promise<ExecutionTask | null> {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (updates.status) patch.status = updates.status;
+  if (updates.draftContent) patch.draft_content = updates.draftContent;
+  if (updates.completedAt !== undefined) patch.completed_at = updates.completedAt;
+  if (updates.result !== undefined) patch.result = updates.result;
+  if (updates.scheduledFor !== undefined) patch.scheduled_for = updates.scheduledFor;
+  if (updates.payload !== undefined) patch.payload = updates.payload;
+
+  const { data, error } = await supabase
+    .from("execution_tasks")
+    .update(patch)
+    .eq("id", taskId)
+    .select("*")
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return rowToTask(data);
+}
