@@ -21,6 +21,13 @@ export interface SuggestKeywordsInput {
   gbpSearchTerms?: string[];
 }
 
+export interface SuggestKeywordsResult {
+  keywords: KeywordSuggestion[];
+  source: "llm" | "template";
+  llmConfigured: boolean;
+  warning?: string;
+}
+
 interface LlmKeywordResponse {
   keywords: KeywordSuggestion[];
 }
@@ -30,69 +37,160 @@ Suggest keywords real customers type into Google Maps when looking for this busi
 Focus on local intent: city names, "near me", service-specific terms, and problem-aware searches.
 Return valid JSON only.`;
 
+function normalizeKeyword(keyword: string): string {
+  return keyword.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function industryShort(industry: string): string {
+  return industry
+    .toLowerCase()
+    .replace(/\b(contractor|company|service|services|inc|llc)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .slice(0, 2)
+    .join(" ");
+}
+
 function templateKeywords(input: SuggestKeywordsInput): KeywordSuggestion[] {
   const { industry, city, state } = input;
+  const short = industryShort(industry) || industry.toLowerCase();
   const cityState = city && state ? `${city} ${state}` : city || state || "local area";
 
   return [
     {
-      keyword: `${industry} ${city}`.trim(),
+      keyword: `${short} ${city}`.trim(),
       reason: "Core local search — service plus city where customers look on Google Maps.",
     },
     {
-      keyword: `${industry} near me`,
+      keyword: `${short} near me`,
       reason: "High-volume mobile Maps query when searchers want the closest provider.",
     },
     {
-      keyword: `best ${industry} ${city}`.trim(),
+      keyword: `best ${short} ${city}`.trim(),
       reason: "Comparison intent — searchers evaluating top-rated businesses in the area.",
     },
     {
-      keyword: `${industry} ${cityState}`.trim(),
+      keyword: `${short} ${cityState}`.trim(),
       reason: "Broader geo match for users who include state in their search.",
     },
     {
-      keyword: `emergency ${industry} ${city}`.trim(),
+      keyword: `emergency ${short} ${city}`.trim(),
       reason: "Urgent-intent variant if applicable — captures high-converting searches.",
     },
     {
-      keyword: `${industry} services ${city}`.trim(),
+      keyword: `${short} repair ${city}`.trim(),
+      reason: "Problem-aware local query common in Maps and Local Pack results.",
+    },
+    {
+      keyword: `${short} installation ${city}`.trim(),
+      reason: "Project-intent search that often converts for local service businesses.",
+    },
+    {
+      keyword: `${short} services ${city}`.trim(),
       reason: "Service-category phrasing common in Local Pack results.",
     },
-  ].filter((k) => k.keyword.length > 3);
+  ]
+    .map((item) => ({ ...item, keyword: normalizeKeyword(item.keyword) }))
+    .filter((k) => k.keyword.length > 3);
 }
 
 function portfolioTemplateKeywords(input: SuggestKeywordsInput): KeywordSuggestion[] {
-  const existing = new Set((input.existingKeywords ?? []).map((k) => k.toLowerCase()));
+  const replaceLower = input.replaceKeyword ? normalizeKeyword(input.replaceKeyword) : null;
+  const blocked = new Set(
+    (input.existingKeywords ?? [])
+      .map(normalizeKeyword)
+      .filter((keyword) => keyword && keyword !== replaceLower)
+  );
+
   const fromGbp = (input.gbpSearchTerms ?? [])
-    .map((term) => term.trim().toLowerCase())
-    .filter((term) => term.length >= 3 && !existing.has(term))
-    .slice(0, 4)
+    .map(normalizeKeyword)
+    .filter((term) => term.length >= 3 && !blocked.has(term) && term !== replaceLower)
+    .slice(0, 6)
     .map((keyword) => ({
       keyword,
       reason: "Appears in your Google Business Profile search terms.",
     }));
 
-  const base = templateKeywords(input).filter((item) => !existing.has(item.keyword.toLowerCase()));
-  if (input.replaceKeyword) {
-    return [...fromGbp, ...base].slice(0, 6);
+  const base = templateKeywords(input).filter(
+    (item) => !blocked.has(item.keyword) && item.keyword !== replaceLower
+  );
+
+  const merged = [...fromGbp, ...base];
+  const seen = new Set<string>();
+  const unique: KeywordSuggestion[] = [];
+  for (const item of merged) {
+    if (seen.has(item.keyword)) continue;
+    seen.add(item.keyword);
+    unique.push(item);
   }
-  return [...fromGbp, ...base].slice(0, 8);
+
+  // Last-resort unique variants so the UI never gets an empty list.
+  if (unique.length === 0) {
+    const short = industryShort(input.industry) || "local service";
+    const city = input.city || "near me";
+    for (const suffix of ["quotes", "cost", "company", "pros", "experts"]) {
+      const keyword = normalizeKeyword(`${short} ${suffix} ${city}`);
+      if (blocked.has(keyword) || keyword === replaceLower) continue;
+      unique.push({
+        keyword,
+        reason: "Fallback local-intent variant to keep your portfolio moving.",
+      });
+      if (unique.length >= 4) break;
+    }
+  }
+
+  return unique.slice(0, input.replaceKeyword ? 6 : 8);
+}
+
+function sanitizeSuggestions(
+  items: KeywordSuggestion[],
+  input: SuggestKeywordsInput
+): KeywordSuggestion[] {
+  const replaceLower = input.replaceKeyword ? normalizeKeyword(input.replaceKeyword) : null;
+  const blocked = new Set(
+    (input.existingKeywords ?? [])
+      .map(normalizeKeyword)
+      .filter((keyword) => keyword && keyword !== replaceLower)
+  );
+
+  const seen = new Set<string>();
+  const out: KeywordSuggestion[] = [];
+  for (const item of items) {
+    const keyword = normalizeKeyword(item.keyword ?? "");
+    const reason = item.reason?.trim();
+    if (!keyword || keyword.length < 3 || !reason) continue;
+    if (keyword === replaceLower) continue;
+    if (blocked.has(keyword)) continue;
+    if (seen.has(keyword)) continue;
+    seen.add(keyword);
+    out.push({ keyword, reason });
+  }
+  return out;
 }
 
 export async function suggestKeywords(
   input: SuggestKeywordsInput
-): Promise<{ keywords: KeywordSuggestion[]; source: "llm" | "template" }> {
+): Promise<SuggestKeywordsResult> {
   const isPortfolio = Boolean(input.existingKeywords?.length || input.replaceKeyword);
-  const fallback = isPortfolio ? portfolioTemplateKeywords(input) : templateKeywords(input);
+  const fallback = sanitizeSuggestions(
+    isPortfolio ? portfolioTemplateKeywords(input) : templateKeywords(input),
+    input
+  );
+  const llmConfigured = isLlmConfigured();
 
-  if (!isLlmConfigured()) {
-    return { keywords: fallback.slice(0, isPortfolio ? 6 : 6), source: "template" };
+  if (!llmConfigured) {
+    return {
+      keywords: fallback.slice(0, isPortfolio ? 6 : 6),
+      source: "template",
+      llmConfigured: false,
+      warning: "OPENAI_API_KEY is not configured — using template suggestions.",
+    };
   }
 
   try {
     const replaceBlock = input.replaceKeyword
-      ? `Suggest 4-6 replacements for the tracked keyword "${input.replaceKeyword}". Prefer demand-backed local service queries over city-only or street-address terms.`
+      ? `Suggest 4-6 replacements for the tracked keyword "${input.replaceKeyword}". Prefer demand-backed local service queries over city-only or street-address terms. Each suggestion must be different from the current tracked set.`
       : `Suggest 6-8 target keywords for Local 3-Pack rank tracking.`;
 
     const portfolioBlock = isPortfolio
@@ -100,10 +198,13 @@ export async function suggestKeywords(
 CURRENT TRACKED KEYWORDS:
 ${JSON.stringify(input.existingKeywords ?? [], null, 2)}
 
+KEYWORD BEING REPLACED (if any):
+${JSON.stringify(input.replaceKeyword ?? null)}
+
 GBP SEARCH TERMS (prefer these when relevant):
 ${JSON.stringify(input.gbpSearchTerms ?? [], null, 2)}
 
-Do not suggest exact duplicates of currently tracked keywords unless replacing one.
+Do not suggest exact duplicates of currently tracked keywords.
 Avoid city-only navigational queries and street addresses.
 `
       : "";
@@ -146,29 +247,39 @@ Return JSON:
       { maxTokens: 1200, temperature: 0.5 }
     );
 
-    const existing = new Set((input.existingKeywords ?? []).map((k) => k.toLowerCase()));
-    const replaceLower = input.replaceKeyword?.trim().toLowerCase();
+    const keywords = sanitizeSuggestions(llm.keywords ?? [], input).slice(
+      0,
+      input.replaceKeyword ? 6 : 8
+    );
 
-    const keywords = (llm.keywords ?? [])
-      .filter((k) => k.keyword?.trim() && k.reason?.trim())
-      .map((k) => ({
-        keyword: k.keyword.trim().toLowerCase(),
-        reason: k.reason.trim(),
-      }))
-      .filter((k) => {
-        if (replaceLower && k.keyword === replaceLower) return false;
-        if (!replaceLower && existing.has(k.keyword)) return false;
-        return true;
-      })
-      .slice(0, replaceLower ? 6 : 8);
-
-    if (keywords.length < (replaceLower ? 2 : 3)) {
-      return { keywords: fallback.slice(0, 6), source: "template" };
+    if (keywords.length === 0) {
+      return {
+        keywords: fallback.slice(0, 6),
+        source: "template",
+        llmConfigured: true,
+        warning: "AI returned no usable keywords — showing template suggestions.",
+      };
     }
 
-    return { keywords, source: "llm" };
+    // Top up with templates if the model returned too few.
+    if (keywords.length < (input.replaceKeyword ? 2 : 3)) {
+      const seen = new Set(keywords.map((item) => item.keyword));
+      for (const item of fallback) {
+        if (seen.has(item.keyword)) continue;
+        keywords.push(item);
+        if (keywords.length >= 4) break;
+      }
+    }
+
+    return { keywords, source: "llm", llmConfigured: true };
   } catch (error) {
+    const message = error instanceof Error ? error.message : "LLM request failed";
     console.error("[llm] keyword suggestion failed, using templates:", error);
-    return { keywords: fallback.slice(0, 6), source: "template" };
+    return {
+      keywords: fallback.slice(0, 6),
+      source: "template",
+      llmConfigured: true,
+      warning: `AI suggestion failed (${message}) — using template suggestions.`,
+    };
   }
 }

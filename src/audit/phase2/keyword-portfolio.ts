@@ -562,6 +562,7 @@ export function computeKeywordPortfolio(audit: Phase1AuditPayload): KeywordPortf
 }
 
 function refreshRankingAggregates(audit: Phase1AuditPayload): void {
+  audit.rankings.totalKeywords = audit.rankings.keywords.length;
   audit.rankings.keywordsInPack = audit.rankings.keywords.filter((k) => k.inLocalPack).length;
   audit.rankings.shareOfVoice = audit.rankings.keywords.length
     ? Math.round((audit.rankings.keywordsInPack / audit.rankings.keywords.length) * 100)
@@ -584,6 +585,33 @@ function placeholderKeywordSnapshot(keyword: string, rank = 7): KeywordRankSnaps
     clientRating: 4.5,
     clientReviewCount: 40,
   };
+}
+
+/** Optimistically sync audit rankings to a newly saved tracked keyword list. */
+export function applyTrackedKeywordsToAudit(
+  audit: Phase1AuditPayload,
+  keywords: string[]
+): Phase1AuditPayload {
+  const normalized = [...new Set(keywords.map((k) => k.trim().toLowerCase()).filter(Boolean))];
+  if (normalized.length < MIN_KEYWORDS) return audit;
+
+  const existingByKey = new Map(
+    audit.rankings.keywords.map((item) => [item.keyword.toLowerCase(), item])
+  );
+
+  const next: Phase1AuditPayload = {
+    ...audit,
+    rankings: {
+      ...audit.rankings,
+      keywords: normalized.map((keyword) => {
+        const existing = existingByKey.get(keyword);
+        return existing ?? placeholderKeywordSnapshot(keyword, 7);
+      }),
+    },
+  };
+  refreshRankingAggregates(next);
+  next.keywordPortfolio = computeKeywordPortfolio(next);
+  return next;
 }
 
 export interface ApplyKeywordPortfolioOptions {

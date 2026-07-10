@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getPrimaryBusiness, loadBusinessConfig } from "@/audit/businesses";
 import { suggestKeywords } from "@/lib/llm/keywords";
 import { getUser } from "@/lib/supabase/server";
 
@@ -10,18 +11,44 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as {
-      name: string;
-      industry: string;
-      city: string;
-      state: string;
+      name?: string;
+      industry?: string;
+      city?: string;
+      state?: string;
       address?: string;
       website?: string;
+      slug?: string;
       existingKeywords?: string[];
       replaceKeyword?: string;
       gbpSearchTerms?: string[];
     };
 
-    if (!body.name?.trim() || !body.industry?.trim()) {
+    const business = body.slug
+      ? await loadBusinessConfig(user.id, body.slug).catch(() => null)
+      : await getPrimaryBusiness(user.id);
+
+    const name = body.name?.trim() || business?.name || "";
+    const industry = body.industry?.trim() || business?.industry || "";
+    const city = body.city?.trim() || business?.location?.city || "";
+    const state = body.state?.trim() || business?.location?.state || "";
+    const address =
+      body.address?.trim() ||
+      [
+        business?.location?.address,
+        business?.location?.city,
+        business?.location?.state,
+        business?.location?.zip,
+      ]
+        .filter(Boolean)
+        .join(", ") ||
+      undefined;
+    const website = body.website?.trim() || business?.website || undefined;
+    const existingKeywords =
+      body.existingKeywords?.map((k) => k.trim()).filter(Boolean) ??
+      business?.keywords ??
+      [];
+
+    if (!name || !industry) {
       return NextResponse.json(
         { error: "Business name and industry are required" },
         { status: 400 }
@@ -29,13 +56,13 @@ export async function POST(request: Request) {
     }
 
     const result = await suggestKeywords({
-      name: body.name.trim(),
-      industry: body.industry.trim(),
-      city: body.city?.trim() ?? "",
-      state: body.state?.trim() ?? "",
-      address: body.address?.trim(),
-      website: body.website?.trim(),
-      existingKeywords: body.existingKeywords?.map((k) => k.trim()).filter(Boolean),
+      name,
+      industry,
+      city,
+      state,
+      address,
+      website,
+      existingKeywords,
       replaceKeyword: body.replaceKeyword?.trim(),
       gbpSearchTerms: body.gbpSearchTerms?.map((k) => k.trim()).filter(Boolean),
     });
