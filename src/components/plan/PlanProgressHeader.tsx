@@ -3,6 +3,18 @@
 import type { Plan } from "@/audit/types";
 import { formatCurrency } from "@/audit/attribution/roi";
 
+function formatReconciledAt(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default function PlanProgressHeader({
   plan,
   variant = "light",
@@ -11,6 +23,9 @@ export default function PlanProgressHeader({
   estimatedMonthlyRevenue,
   projectedMonthlyRevenue,
   currency = "USD",
+  planReconciledAt,
+  onRefreshPlan,
+  refreshingPlan = false,
 }: {
   plan: Plan;
   variant?: "light" | "dark";
@@ -19,11 +34,15 @@ export default function PlanProgressHeader({
   estimatedMonthlyRevenue?: number | null;
   projectedMonthlyRevenue?: number | null;
   currency?: string;
+  planReconciledAt?: string | null;
+  onRefreshPlan?: () => void;
+  refreshingPlan?: boolean;
 }) {
   const isLight = variant === "light";
   const { progress } = plan;
   const approvalCount = pendingApprovalCount ?? progress.needsApproval;
   const pct = progress.totalSteps > 0 ? Math.round((progress.completedSteps / progress.totalSteps) * 100) : 0;
+  const reconciledLabel = formatReconciledAt(planReconciledAt);
 
   return (
     <div
@@ -51,6 +70,29 @@ export default function PlanProgressHeader({
                 {formatCurrency(projectedMonthlyRevenue, currency)}/mo
               </p>
             )}
+          {(reconciledLabel || onRefreshPlan) && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {reconciledLabel && (
+                <p className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                  Plan last updated {reconciledLabel}
+                </p>
+              )}
+              {onRefreshPlan && (
+                <button
+                  type="button"
+                  onClick={onRefreshPlan}
+                  disabled={refreshingPlan}
+                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition disabled:opacity-60 ${
+                    isLight
+                      ? "border-[#dadce0] text-[#1a73e8] hover:bg-[#e8f0fe]"
+                      : "border-white/15 text-sky-300 hover:bg-white/5"
+                  }`}
+                >
+                  {refreshingPlan ? "Refreshing…" : "Refresh plan"}
+                </button>
+              )}
+            </div>
+          )}
         </div>
         {approvalCount > 0 && (
           onReviewPending ? (

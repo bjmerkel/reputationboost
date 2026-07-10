@@ -51,5 +51,9 @@ export async function GET(request: Request) {
   const attributions = await listActionAttributionsForUser(user.id, clientId, 100);
   const plan = buildPlan(audit, tasks, attributions);
 
-  return NextResponse.json({ tasks, plan });
+  return NextResponse.json({
+    tasks,
+    plan,
+    planReconciledAt: audit.strategy.planReconciledAt ?? null,
+  });
 }

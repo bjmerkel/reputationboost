@@ -13,6 +13,7 @@ import {
   publishVideoFile,
   publishPhotoBatch,
   regenerateReviewResponseTask,
+  reconcilePlan,
 } from "@/lib/execution/client-actions";
 import { executionTasksEqual } from "@/lib/execution/task-equality";
 
@@ -21,6 +22,7 @@ interface UsePlanTasksOptions {
   auditId: string;
   initialTasks?: ExecutionTask[];
   initialPlan?: Plan | null;
+  initialPlanReconciledAt?: string | null;
   enabled?: boolean;
   includePlan?: boolean;
 }
@@ -30,6 +32,7 @@ export function usePlanTasks({
   auditId,
   initialTasks = [],
   initialPlan = null,
+  initialPlanReconciledAt = null,
   enabled = true,
   includePlan = true,
 }: UsePlanTasksOptions) {
@@ -40,19 +43,28 @@ export function usePlanTasks({
 
   const [tasks, setTasks] = useState<ExecutionTask[]>(initialTasks);
   const [plan, setPlan] = useState<Plan | null>(initialPlan);
+  const [planReconciledAt, setPlanReconciledAt] = useState<string | null>(
+    initialPlanReconciledAt
+  );
   const [loading, setLoading] = useState(!initialPlan && initialTasks.length === 0);
+  const [reconciling, setReconciling] = useState(false);
   const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!enabled || !auditId) {
-      return { tasks: initialTasksRef.current, plan: initialPlanRef.current };
+      return {
+        tasks: initialTasksRef.current,
+        plan: initialPlanRef.current,
+        planReconciledAt: null as string | null,
+      };
     }
     const data = await fetchExecutionState(clientId, auditId, { includePlan });
     setTasks((prev) => (executionTasksEqual(prev, data.tasks) ? prev : data.tasks));
     if (includePlan) {
       setPlan(data.plan);
     }
+    setPlanReconciledAt(data.planReconciledAt);
     return data;
   }, [auditId, clientId, enabled, includePlan]);
 
@@ -92,6 +104,7 @@ export function usePlanTasks({
           if (includePlan) {
             setPlan(data.plan);
           }
+          setPlanReconciledAt(data.planReconciledAt);
         }
       } catch (e) {
         if (!cancelled) {
@@ -247,14 +260,35 @@ export function usePlanTasks({
     }
   }, [tasks, refresh]);
 
+  const reconcilePlanNow = useCallback(async () => {
+    setReconciling(true);
+    setError(null);
+    try {
+      const result = await reconcilePlan(clientId, auditId);
+      if (result.planReconciledAt) {
+        setPlanReconciledAt(result.planReconciledAt);
+      }
+      await refresh();
+      return result;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to refresh plan");
+      throw e;
+    } finally {
+      setReconciling(false);
+    }
+  }, [auditId, clientId, refresh]);
+
   return {
     tasks,
     plan,
+    planReconciledAt,
     loading,
+    reconciling,
     loadingTaskId,
     error,
     setError,
     refresh,
+    reconcilePlanNow,
     approveAndPublish,
     rejectTask,
     updateDraft,

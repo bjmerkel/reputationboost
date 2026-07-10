@@ -19,6 +19,7 @@ export { collectMissingReconcileTasks } from "./missing-tasks";
 export {
   computePlanReconcile,
   reconcilePlanForBusiness,
+  reconcilePlanForUser,
   refreshGbpPlanForReconcile,
   selectTasksToAutoComplete,
 } from "./reconcile-plan";
