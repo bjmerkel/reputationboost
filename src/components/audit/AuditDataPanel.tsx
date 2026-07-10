@@ -454,24 +454,20 @@ export default function AuditDataPanel({
               <PerformanceHealthPanel light={isLight} coverage={audit.gbp.performance.coverage} />
             )}
           </div>
-          {(keywordPortfolio.shouldRotate ||
-            keywordPortfolio.untrackedDemandCount > 0 ||
-            keywordPortfolio.rankWithoutDemandCount > 0) && (
-            <KeywordPortfolioPanel
-              portfolio={keywordPortfolio}
-              currentKeywords={currentKeywords}
-              businessSlug={clientId}
-              businessName={audit.clientName}
-              industry={audit.gbp.identity.primaryCategory}
-              city={audit.gbp.identity.address.split(",")[1]?.trim()}
-              state={audit.gbp.identity.address.match(/,\s*([A-Z]{2})\s+\d{5}/)?.[1]}
-              address={audit.gbp.identity.address}
-              website={audit.gbp.identity.website ?? undefined}
-              untrackedGbpSearchTerms={untrackedGbpSearchTerms}
-              light={isLight}
-              onKeywordsUpdated={onKeywordsUpdated}
-            />
-          )}
+          <KeywordPortfolioPanel
+            portfolio={keywordPortfolio}
+            currentKeywords={currentKeywords}
+            businessSlug={clientId}
+            businessName={audit.clientName}
+            industry={audit.gbp.identity.primaryCategory}
+            city={audit.gbp.identity.address.split(",")[1]?.trim()}
+            state={audit.gbp.identity.address.match(/,\s*([A-Z]{2})\s+\d{5}/)?.[1]}
+            address={audit.gbp.identity.address}
+            website={audit.gbp.identity.website ?? undefined}
+            untrackedGbpSearchTerms={untrackedGbpSearchTerms}
+            light={isLight}
+            onKeywordsUpdated={onKeywordsUpdated}
+          />
         </div>
       )}
 
