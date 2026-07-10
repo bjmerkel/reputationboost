@@ -40,6 +40,7 @@ import { computeKeywordPortfolio, KEYWORD_PORTFOLIO_PLAN_STEP, portfolioStepIsSa
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
 import { generateReviewResponses } from "@/audit/phase3/content";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
+import { parsePlanServiceBlock } from "@/lib/google/gbp-service-descriptions";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
 import { reviewResponseKeywordFields, optionalReviewResponseKeywordWeave } from "@/lib/review-responses/payload";
 import { getPhaseForStep } from "./plan-phases";
@@ -514,13 +515,20 @@ export function tasksFromGbpPlanStep(
       const blocks = step.copyBlocks ?? [];
       if (blocks.length > 0) {
         return blocks.map((block, i) => {
-          const serviceName = block.label.replace(/^Service #\d+:\s*/i, "");
-          return buildGbpTask(audit, step, "gbp_services", block.label, block.content, {
-            serviceIndex: i + 1,
-            serviceName,
-            serviceDescription: block.content,
-            targetKeyword: block.label,
-          });
+          const parsed = parsePlanServiceBlock(block.label, block.content, audit);
+          return buildGbpTask(
+            audit,
+            step,
+            "gbp_services",
+            parsed.serviceName,
+            parsed.serviceDescription,
+            {
+              serviceIndex: i + 1,
+              serviceName: parsed.serviceName,
+              serviceDescription: parsed.serviceDescription,
+              targetKeyword: parsed.keyword ?? block.label,
+            }
+          );
         });
       }
       return [
@@ -705,18 +713,6 @@ export function tasksFromGbpPlanStep(
 
   if (step.stepNumber === 11) {
     return buildReviewResponseTasks(audit, step, content);
-  }
-
-  if (step.stepNumber === 5) {
-    const blocks = step.copyBlocks ?? [];
-    if (blocks.length > 0) {
-      return blocks.map((block, i) =>
-        buildGbpTask(audit, step, "gbp_checklist", block.label, block.content, {
-          checklistIndex: i + 1,
-          manual: true,
-        })
-      );
-    }
   }
 
   if (step.copyBlocks?.length) {

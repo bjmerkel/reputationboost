@@ -1,4 +1,4 @@
-import type { Phase1AuditPayload } from "@/audit/types";
+import type { KeywordRankAnalysis, Phase1AuditPayload } from "@/audit/types";
 import { sanitizeServiceText, FREE_FORM_DESCRIPTION_MAX_LENGTH } from "./gbp-service-items";
 
 /** Generic words that should not count as keyword coverage in service names. */
@@ -142,6 +142,10 @@ function descriptionForKeyword(keyword: string, audit: Pick<Phase1AuditPayload, 
   if (/\bhomework|study/i.test(lower)) {
     return `Structured homework support and study skills coaching that helps students build confidence, stay on track, and succeed academically at ${name}.`;
   }
+  if (/\bhvac|air conditioning|heating|refrigeration|furnace|ac repair|heat pump/i.test(lower)) {
+    const serviceLabel = keywordToServiceName(keyword, audit);
+    return `${name} provides ${serviceLabel.toLowerCase()} for homes and businesses in ${city}, with licensed technicians, fast response times, and dependable heating and cooling solutions year-round.`;
+  }
 
   const serviceLabel = keywordToServiceName(keyword, audit);
   return `${name} offers ${serviceLabel.toLowerCase()} for customers in ${city} and surrounding areas, with experienced staff and a focus on quality, safety, and results.`;
@@ -162,6 +166,108 @@ export interface ServicePlanBlock {
   keyword: string;
 }
 
+export interface ParsedPlanServiceBlock {
+  serviceName: string;
+  serviceDescription: string;
+  keyword?: string;
+}
+
+const PLAN_SERVICE_LABEL_PATTERNS: Array<{ pattern: RegExp; keywordFromCapture?: boolean }> = [
+  { pattern: /^Service #\d+:\s*(.+)$/i },
+  { pattern: /^Product Description for\s+(.+)$/i, keywordFromCapture: true },
+  { pattern: /^Product:\s*(.+)$/i, keywordFromCapture: true },
+  { pattern: /^Service:\s*(.+)$/i },
+];
+
+/** Whether a plan copy block label should publish as a GBP service (not manual checklist). */
+export function isPlanServiceCopyBlockLabel(label: string): boolean {
+  return PLAN_SERVICE_LABEL_PATTERNS.some(({ pattern }) => pattern.test(label.trim()));
+}
+
+/**
+ * Parse plan copy block labels into GBP serviceItems fields.
+ * Handles legacy "Product Description for …" labels from the old Products step.
+ */
+export function parsePlanServiceBlock(
+  label: string,
+  content: string,
+  audit?: Pick<Phase1AuditPayload, "clientName" | "gbp">
+): ParsedPlanServiceBlock {
+  let keyword: string | undefined;
+  let serviceName: string | undefined;
+
+  for (const { pattern, keywordFromCapture } of PLAN_SERVICE_LABEL_PATTERNS) {
+    const match = label.match(pattern);
+    if (!match?.[1]) continue;
+    const captured = match[1].trim();
+    if (keywordFromCapture) {
+      keyword = captured;
+      serviceName = audit ? keywordToServiceName(captured, audit) : captured;
+    } else {
+      serviceName = captured;
+    }
+    break;
+  }
+
+  if (!serviceName) {
+    keyword = label.trim();
+    serviceName = audit ? keywordToServiceName(label, audit) : label.trim();
+  }
+
+  return {
+    serviceName,
+    serviceDescription: sanitizeServiceText(content, FREE_FORM_DESCRIPTION_MAX_LENGTH),
+    keyword,
+  };
+}
+
+function dedupeServiceBlocks(blocks: ServicePlanBlock[], existingNames: string[]): ServicePlanBlock[] {
+  const seenNames = new Set(existingNames.map((name) => name.toLowerCase()));
+  return blocks.filter((block) => {
+    const key = block.serviceName.toLowerCase();
+    if (seenNames.has(key)) return false;
+    seenNames.add(key);
+    return true;
+  });
+}
+
+/** Keywords outside the 3-Pack or pack-fragile at wider radii. */
+function outcomePriorityKeywords(
+  audit: Phase1AuditPayload,
+  keywordRankings?: KeywordRankAnalysis[]
+): string[] {
+  const rankings =
+    keywordRankings ??
+    audit.rankings.keywords.map((item) => ({
+      keyword: item.keyword,
+      inLocalPack: item.inLocalPack,
+      packFragile: false,
+    }));
+
+  return rankings.filter((item) => !item.inLocalPack || item.packFragile).map((item) => item.keyword);
+}
+
+/** Plan copy blocks for step 5 — priority keywords as publishable GBP services. */
+export function buildOutcomePriorityServiceBlocks(
+  audit: Phase1AuditPayload,
+  keywordRankings?: KeywordRankAnalysis[]
+): ServicePlanBlock[] {
+  const priorityKeywords = outcomePriorityKeywords(audit, keywordRankings);
+  const serviceNames = (audit.gbp.liveProfile?.services ?? []).map((service) => service.name);
+
+  const blocks = priorityKeywords.slice(0, 5).map((keyword, index) => {
+    const serviceName = keywordToServiceName(keyword, audit);
+    return {
+      label: `Service #${index + 1}: ${serviceName}`,
+      content: generateServiceDescription(keyword, audit),
+      serviceName,
+      keyword,
+    };
+  });
+
+  return dedupeServiceBlocks(blocks, serviceNames);
+}
+
 /** Plan copy blocks for step 4 — one per uncovered keyword. */
 export function buildServicePlanBlocks(audit: Phase1AuditPayload): ServicePlanBlock[] {
   const keywords = audit.rankings.keywords.map((k) => k.keyword);
@@ -174,22 +280,15 @@ export function buildServicePlanBlocks(audit: Phase1AuditPayload): ServicePlanBl
   const missing = missingServiceKeywords(keywords, serviceNames, cityTokens);
   const toAdd = missing.length > 0 ? missing : keywords;
 
-  const seenNames = new Set(serviceNames.map((n) => n.toLowerCase()));
+  const blocks = toAdd.map((keyword, i) => {
+    const serviceName = keywordToServiceName(keyword, audit);
+    return {
+      label: `Service #${i + 1}: ${serviceName}`,
+      content: generateServiceDescription(keyword, audit),
+      serviceName,
+      keyword,
+    };
+  });
 
-  return toAdd
-    .map((keyword, i) => {
-      const serviceName = keywordToServiceName(keyword, audit);
-      return {
-        label: `Service #${i + 1}: ${serviceName}`,
-        content: generateServiceDescription(keyword, audit),
-        serviceName,
-        keyword,
-      };
-    })
-    .filter((block) => {
-      const key = block.serviceName.toLowerCase();
-      if (seenNames.has(key)) return false;
-      seenNames.add(key);
-      return true;
-    });
+  return dedupeServiceBlocks(blocks, serviceNames);
 }

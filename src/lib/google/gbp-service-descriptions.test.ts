@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  buildOutcomePriorityServiceBlocks,
   buildServicePlanBlocks,
   generateServiceDescription,
+  isPlanServiceCopyBlockLabel,
   keywordToServiceName,
   missingServiceKeywords,
+  parsePlanServiceBlock,
   serviceCoversKeyword,
 } from "./gbp-service-descriptions";
 import type { Phase1AuditPayload } from "@/audit/types";
@@ -147,5 +150,40 @@ describe("gbp-service-descriptions", () => {
     assert.ok(missing.includes("tutoring services las vegas"));
     assert.ok(missing.includes("after school programs las vegas"));
     assert.ok(missing.includes("learning center near me"));
+  });
+
+  it("parses legacy product description labels into service fields", () => {
+    const audit = learningCenterAudit();
+    const label = "Product Description for HVAC Air Conditioning Heating Repair Near Newark NJ";
+    const content =
+      "Wayne Refrigeration Air and Heat specializes in HVAC air conditioning and heating repair services near Newark, NJ.";
+
+    assert.equal(isPlanServiceCopyBlockLabel(label), true);
+    const parsed = parsePlanServiceBlock(label, content, audit);
+    assert.ok(parsed.serviceName.length > 0);
+    assert.ok(parsed.serviceName.length <= 140);
+    assert.equal(parsed.serviceDescription, content);
+    assert.match(parsed.keyword ?? "", /hvac air conditioning/i);
+  });
+
+  it("parses standard service block labels", () => {
+    const audit = learningCenterAudit();
+    const parsed = parsePlanServiceBlock(
+      "Service #1: Tutoring Services",
+      "Personalized tutoring sessions for Las Vegas students.",
+      audit
+    );
+
+    assert.equal(parsed.serviceName, "Tutoring Services");
+    assert.match(parsed.serviceDescription, /Personalized tutoring/i);
+  });
+
+  it("builds priority keyword service blocks for outside-pack terms", () => {
+    const audit = learningCenterAudit();
+    const blocks = buildOutcomePriorityServiceBlocks(audit);
+
+    assert.ok(blocks.length >= 2);
+    assert.ok(blocks.every((block) => /^Service #\d+:/.test(block.label)));
+    assert.ok(blocks.every((block) => block.content.length <= 250));
   });
 });

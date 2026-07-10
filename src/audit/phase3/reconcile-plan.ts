@@ -48,6 +48,10 @@ import {
   looksLikeKeywordStuffedDescription,
 } from "@/lib/google/gbp-description-draft";
 import { sanitizeGbpDescriptionDraft } from "@/lib/google/gbp-description";
+import {
+  isPlanServiceCopyBlockLabel,
+  parsePlanServiceBlock,
+} from "@/lib/google/gbp-service-descriptions";
 
 /** Task types safe to auto-complete when live profile already satisfies the step/intent. */
 const AUTO_COMPLETE_TYPES = new Set<ExecutionTask["type"]>([
@@ -306,6 +310,64 @@ export function selectDescriptionDraftsToRefresh(
   return refreshed;
 }
 
+/** Upgrade legacy step-5 product/checklist tasks to publishable GBP service tasks. */
+export function selectStep5ServiceTasksToUpgrade(
+  audit: FullAuditPayload,
+  existing: ExecutionTask[]
+): ExecutionTask[] {
+  const upgraded: ExecutionTask[] = [];
+
+  for (const task of existing) {
+    if (!isMutableByReconcile(task)) continue;
+    if (resolvePlanStepNumber(task) !== 5) continue;
+
+    const label = task.title.replace(/^Step \d+:\s*/i, "").trim();
+    if (!isPlanServiceCopyBlockLabel(label)) continue;
+
+    const parsed = parsePlanServiceBlock(label, task.draftContent, audit);
+    const currentName = String(task.payload.serviceName ?? label);
+
+    if (task.type === "gbp_services") {
+      if (currentName === parsed.serviceName && task.draftContent === parsed.serviceDescription) {
+        continue;
+      }
+      upgraded.push({
+        ...task,
+        title: `Step 5: ${parsed.serviceName}`,
+        draftContent: parsed.serviceDescription,
+        payload: {
+          ...task.payload,
+          serviceName: parsed.serviceName,
+          serviceDescription: parsed.serviceDescription,
+          targetKeyword: parsed.keyword ?? label,
+          upgradedFromChecklist: true,
+        },
+      });
+      continue;
+    }
+
+    if (task.type !== "gbp_checklist") continue;
+
+    upgraded.push({
+      ...task,
+      type: "gbp_services",
+      title: `Step 5: ${parsed.serviceName}`,
+      draftContent: parsed.serviceDescription,
+      payload: {
+        ...task.payload,
+        serviceName: parsed.serviceName,
+        serviceDescription: parsed.serviceDescription,
+        targetKeyword: parsed.keyword ?? label,
+        manual: undefined,
+        checklistIndex: undefined,
+        upgradedFromChecklist: true,
+      },
+    });
+  }
+
+  return upgraded;
+}
+
 /**
  * Pure reconcile computation: refresh plan metadata, find missing tasks,
  * and select stale pending tasks to complete. No I/O.
@@ -342,9 +404,10 @@ export function computePlanReconcile(
     withReconcileCompletion(task, now)
   );
   const completedIds = new Set(tasksToComplete.map((task) => task.id));
-  const tasksToUpdate = selectDescriptionDraftsToRefresh(nextAudit, existing).filter(
-    (task) => !completedIds.has(task.id)
-  );
+  const tasksToUpdate = [
+    ...selectDescriptionDraftsToRefresh(nextAudit, existing),
+    ...selectStep5ServiceTasksToUpgrade(nextAudit, existing),
+  ].filter((task) => !completedIds.has(task.id));
 
   return {
     nextAudit,

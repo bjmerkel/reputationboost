@@ -1,7 +1,7 @@
 import type { GbpOptimizationPlan, GbpPlanStep, KeywordRankAnalysis, Phase1AuditPayload } from "../types";
 import { isStepSatisfied } from "./counterfactual";
 import { planStepsRequiredByInventory } from "@/lib/google/gbp-field-plan-map";
-import { buildServicePlanBlocks } from "@/lib/google/gbp-service-descriptions";
+import { buildServicePlanBlocks, buildOutcomePriorityServiceBlocks } from "@/lib/google/gbp-service-descriptions";
 import {
   buildAttributePlanContent,
   buildGbpCurrentState,
@@ -58,6 +58,16 @@ function descriptionDraft(audit: Phase1AuditPayload): string {
 
 function serviceSteps(audit: Phase1AuditPayload): GbpPlanStep["copyBlocks"] {
   return buildServicePlanBlocks(audit).map((block) => ({
+    label: block.label,
+    content: block.content,
+  }));
+}
+
+function priorityServiceSteps(
+  audit: Phase1AuditPayload,
+  keywordRankings: KeywordRankAnalysis[]
+): GbpPlanStep["copyBlocks"] {
+  return buildOutcomePriorityServiceBlocks(audit, keywordRankings).map((block) => ({
     label: block.label,
     content: block.content,
   }));
@@ -188,17 +198,19 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
     },
     {
       stepNumber: 5,
-      title: "Products Section",
+      title: "Priority Keyword Services",
       instruction:
-        "Most local businesses ignore Products. Create one product per core keyword to reinforce relevance for keywords outside the 3-Pack or fragile at wider search radii.",
-      current: "Check Products tab in GBP — not synced via API",
-      recommended: `Create products for: ${outcomePriorityRankings(keywordRankings).map((k) => k.keyword).join(", ") || targetKeywords[0]}`,
-      copyBlocks: outcomePriorityRankings(keywordRankings)
-        .slice(0, 5)
-        .map((kw) => ({
-          label: `Product: ${kw.keyword}`,
-          content: `Create a product titled "${kw.keyword}" with a starting price, photo, and a 2-sentence description focused on ${city} customers.`,
-        })),
+        "Reinforce keywords outside the 3-Pack or fragile at wider search radii by adding dedicated GBP services. Each service needs a display name (≤140 characters) and a unique description (≤250 characters, plain text — no phone numbers or URLs). Approve & publish adds them via the Google Business Profile Services API.",
+      current: currentServices(audit),
+      recommended: `Add services for: ${outcomePriorityRankings(keywordRankings).map((k) => k.keyword).join(", ") || targetKeywords[0]}`,
+      copyBlocks: priorityServiceSteps(audit, keywordRankings),
+      bullets: [
+        `Currently listed: ${currentServices(audit)}`,
+        `Priority keywords: ${outcomePriorityRankings(keywordRankings).map((k) => k.keyword).join(", ") || "none"}`,
+        "Use copyBlocks with label format Service #N: {displayName} and a paste-ready description",
+        "Do not duplicate services already on your profile",
+      ],
+      gbpAction: "add_service_items",
     },
     {
       stepNumber: 6,

@@ -20,6 +20,7 @@ const ACTION_BY_STEP: Partial<Record<number, GbpPlanActionType>> = {
   2: "add_secondary_categories",
   3: "update_description",
   4: "add_service_items",
+  5: "add_service_items",
   6: "upload_photo",
   7: "upload_video",
   8: "create_post",

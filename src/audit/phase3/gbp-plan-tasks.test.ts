@@ -10,6 +10,7 @@ import {
 } from "./plan-custom-steps";
 import { tasksFromGbpPlanStep } from "./gbp-plan-tasks";
 import { resolvePlanStepNumber } from "./plan-task-utils";
+import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 
 describe("plan-custom-steps", () => {
   it("identifies step numbers 18+ as custom", () => {
@@ -139,5 +140,46 @@ describe("tasksFromGbpPlanStep custom actions", () => {
     assert.equal(resolvePlanStepNumber(tasks19[0]), 19);
     assert.equal(tasks18[0].actionItemId, "gbp-step-18");
     assert.equal(tasks19[0].actionItemId, "gbp-step-19");
+  });
+});
+
+describe("tasksFromGbpPlanStep step 5 services", () => {
+  const audit = createTestAudit();
+  const content = buildTemplateContent(audit);
+
+  it("creates gbp_services tasks that publish via the Services API", () => {
+    const templateStep = buildTemplateGbpPlan(audit).steps.find((step) => step.stepNumber === 5);
+    assert.ok(templateStep);
+    assert.equal(templateStep.gbpAction, "add_service_items");
+
+    const tasks = tasksFromGbpPlanStep(audit, templateStep, content);
+    assert.ok(tasks.length > 0);
+    assert.ok(tasks.every((task) => task.type === "gbp_services"));
+    assert.ok(tasks.every((task) => typeof task.payload.serviceName === "string"));
+    assert.ok(tasks.every((task) => task.payload.serviceName !== task.title));
+  });
+
+  it("parses legacy product description copy blocks into service tasks", () => {
+    const tasks = tasksFromGbpPlanStep(
+      audit,
+      {
+        stepNumber: 5,
+        title: "Priority Keyword Services",
+        instruction: "Add GBP services for priority keywords.",
+        gbpAction: "add_service_items",
+        copyBlocks: [
+          {
+            label: "Product Description for HVAC repair near Newark NJ",
+            content: "Licensed HVAC repair for homes and businesses in Newark and nearby communities.",
+          },
+        ],
+      },
+      content
+    );
+
+    assert.equal(tasks.length, 1);
+    assert.equal(tasks[0].type, "gbp_services");
+    assert.match(String(tasks[0].payload.serviceName), /Hvac|Repair/i);
+    assert.equal(tasks[0].draftContent, tasks[0].payload.serviceDescription);
   });
 });
