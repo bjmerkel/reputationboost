@@ -11,6 +11,7 @@ import { upsertRankSnapshots } from "@/audit/storage-timeseries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
+import { isRadialRankGrid } from "@/lib/google/radial-rankings";
 
 export interface GridSnapshotMeta {
   date: string;
@@ -19,6 +20,21 @@ export interface GridSnapshotMeta {
   cellsInPack: number;
   source: string;
   triggerTaskId?: string | null;
+}
+
+async function loadBusinessCenterAdmin(
+  businessId: string
+): Promise<{ lat: number; lng: number } | undefined> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("businesses")
+    .select("location")
+    .eq("id", businessId)
+    .maybeSingle();
+  const location = data?.location as { lat?: number; lng?: number } | null;
+  return location?.lat != null && location?.lng != null
+    ? { lat: Number(location.lat), lng: Number(location.lng) }
+    : undefined;
 }
 
 function gridMetaToDb(params: {
@@ -152,27 +168,37 @@ export async function loadGridForDateAdmin(
   center?: { lat: number; lng: number }
 ): Promise<GeoGridPoint[]> {
   const supabase = createAdminClient();
+  const resolvedCenter = center ?? (await loadBusinessCenterAdmin(businessId));
   const { data, error } = await supabase
     .from("rank_snapshots")
-    .select("grid_north, grid_east, rank, in_local_pack")
+    .select("distance_miles, grid_north, grid_east, rank, in_local_pack")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
-    .eq("date", date)
-    .eq("distance_miles", 1);
+    .eq("date", date);
 
   if (error || !data?.length) return [];
 
-  // Daily ingest stores only center (0,0); full grids have multiple cells.
-  if (data.length === 1) return [];
+  const hasRadialCenter = data.some((row) => Number(row.distance_miles) === 0);
+  const gridRows = hasRadialCenter
+    ? data.filter(
+        (row) =>
+          Number(row.distance_miles) === 0 ||
+          Number(row.grid_north) !== 0 ||
+          Number(row.grid_east) !== 0
+      )
+    : data.filter((row) => Number(row.distance_miles) === 1);
+
+  // Daily ingest stores one center row; full legacy/radial scans have multiple samples.
+  if (gridRows.length <= 1) return [];
 
   const grid = rankRowsToGeoGrid(
-    data.map((r) => ({
+    gridRows.map((r) => ({
       grid_north: Number(r.grid_north),
       grid_east: Number(r.grid_east),
       rank: r.rank as number | null,
       in_local_pack: r.in_local_pack as boolean,
     })),
-    center
+    resolvedCenter
   );
 
   const leaders = await loadCellLeadersForDate(businessId, keyword, date);
@@ -371,7 +397,7 @@ export async function loadFreshKeywordGridAdmin(
   if (error || !data?.[0]?.date) return null;
 
   const grid = await loadGridForDateAdmin(businessId, keyword, data[0].date as string);
-  return grid.length > 0 ? grid : null;
+  return isRadialRankGrid(grid) ? grid : null;
 }
 
 export async function persistKeywordGridFromCollection(

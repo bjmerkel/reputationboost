@@ -13,11 +13,11 @@ const QUICK_START = [
   },
   {
     title: "Read the colors",
-    body: "Green = top 3 in the Local Pack. Dark red = page 1. Bright red = buried or not found.",
+    body: "Green = top 3 in sampled Places results. Red = weak or not visible in the top 20.",
   },
   {
-    title: "Tap a zone or cell",
-    body: "Weak areas appear bottom-left — tap to highlight. Tap any heatmap cell for the local 3-pack.",
+    title: "Tap a sample",
+    body: "Each colored point is a measured search origin at 1, 3, or 5 miles.",
   },
 ] as const;
 
@@ -27,7 +27,6 @@ interface MapGuidePanelProps {
   gridLoading: boolean;
   hasGridData: boolean;
   enabledRadii: Set<number>;
-  heatmapSearchRadiusMiles: number;
 }
 
 export default function MapGuidePanel({
@@ -36,7 +35,6 @@ export default function MapGuidePanel({
   gridLoading,
   hasGridData,
   enabledRadii,
-  heatmapSearchRadiusMiles,
 }: MapGuidePanelProps) {
   const [expanded, setExpanded] = useState(true);
   const [showQuickStart, setShowQuickStart] = useState(false);
@@ -110,18 +108,16 @@ export default function MapGuidePanel({
               </p>
               <p className="mt-0.5 font-medium text-[#202124]">{keywordRank.keyword}</p>
               <p className="mt-0.5 text-[#5f6368]">
-                {keywordRank.inLocalPack
-                  ? `Rank #${keywordRank.localPackPosition} in Local 3-Pack (1 mi)`
-                  : "Not in Local 3-Pack at 1 mi"}
+                {keywordRank.centerRank != null
+                  ? `Estimated rank #${keywordRank.centerRank} at the business pin`
+                  : "Not visible in the top 20 at the business pin"}
               </p>
               {gridLoading && heatmapOn && (
-                <p className="mt-1 text-[#1a73e8]">
-                  Loading heatmap at {heatmapSearchRadiusMiles} mi…
-                </p>
+                <p className="mt-1 text-[#1a73e8]">Loading radial rank samples…</p>
               )}
               {heatmapOn && hasGridData && (
                 <p className="mt-1 text-[10px] text-[#80868b]">
-                  Heatmap uses {heatmapSearchRadiusMiles} mi search radius per cell
+                  One center point plus eight samples on each distance ring
                 </p>
               )}
               {keywordRank.geoRanks.length > 0 && (
@@ -140,7 +136,7 @@ export default function MapGuidePanel({
                           : "Enable in Layers to show this ring"
                       }
                     >
-                      {g.distanceMiles} mi: {g.rank ?? "—"}
+                      {g.distanceMiles} mi median: {g.rank ?? "20+"}
                     </span>
                   ))}
                 </div>
@@ -150,17 +146,17 @@ export default function MapGuidePanel({
 
           <div className="mb-3">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-[#80868b]">
-              What &ldquo;top 3&rdquo; means
+              What &ldquo;top 3 coverage&rdquo; means
             </p>
             <p className="mt-1 text-[10px] leading-relaxed text-[#5f6368]">
-              Google shows three businesses first in Maps search. Green areas mean you&apos;re one
-              of them when someone searches nearby.
+              Green samples mean the business appeared in the first three Places Text Search
+              results from that measured location. Personalized Maps results can differ.
             </p>
           </div>
 
           <div className="mb-3">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-[#80868b]">
-              Heatmap colors
+              Sample colors
             </p>
             <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
               {[
@@ -183,7 +179,7 @@ export default function MapGuidePanel({
             </div>
             {heatmapOn && hasGridData && (
               <p className="mt-2 text-[10px] text-[#80868b]">
-                Tap any colored cell to see who ranks in that area.
+                Tap any colored point to inspect that measured location.
               </p>
             )}
           </div>

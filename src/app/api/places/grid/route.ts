@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const keyword = searchParams.get("keyword");
-  const radiusMiles = Number(searchParams.get("radiusMiles") ?? "10");
+  const biasRadiusMiles = 1;
   if (!keyword) {
     return NextResponse.json({ error: "keyword is required" }, { status: 400 });
   }
@@ -39,18 +39,28 @@ export async function GET(request: Request) {
       location,
       4,
       gridProfileForCollection("api", business.heatmapProfile),
-      radiusMiles
+      biasRadiusMiles
     );
-    return NextResponse.json({ keyword, geoGrid, source: "demo", radiusMiles });
+    return NextResponse.json({
+      keyword,
+      geoGrid,
+      source: "demo",
+      rankingModel: "radial_text_v2",
+    });
   }
 
   try {
     const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions, {
       profile: gridProfileForCollection("api", business.heatmapProfile),
       includeLocalPack: true,
-      searchRadiusMiles: radiusMiles,
+      searchRadiusMiles: biasRadiusMiles,
     });
-    return NextResponse.json({ keyword, geoGrid, source: "api", radiusMiles });
+    return NextResponse.json({
+      keyword,
+      geoGrid,
+      source: "api",
+      rankingModel: "radial_text_v2",
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Grid collection failed";
     return NextResponse.json({ error: message }, { status: 500 });

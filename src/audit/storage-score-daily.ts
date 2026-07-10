@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 
 const SCORE_DAILY_BASE_COLUMNS =
   "business_id, date, overall, visibility, conversion, revenue_capture, source";
@@ -20,9 +20,9 @@ function isMissingScoreDailyColumnError(message: string): boolean {
 }
 
 export interface RankSnapshotQueryOptions {
-  /** Business pin only (grid 0,0) — excludes spatial geo-grid cells */
+  /** Aggregate rows only (grid 0,0) — excludes raw radial sample points. */
   centerPointOnly?: boolean;
-  /** When true, include 1/3/5/10 mi center ranks. When false, 1 mi only. */
+  /** When true, include center plus 1/3/5-mile ring medians. */
   multiRadius?: boolean;
 }
 
@@ -153,9 +153,9 @@ export async function listRankSnapshotsForBusinessRange(
   }
 
   if (!multiRadius) {
-    query = query.eq("distance_miles", 1);
+    query = query.eq("distance_miles", 0);
   } else if (centerPointOnly) {
-    query = query.in("distance_miles", [...SEARCH_RADII_MILES]);
+    query = query.in("distance_miles", [0, ...RADIAL_RING_MILES]);
   }
 
   const { data, error } = await query.order("date", { ascending: true });

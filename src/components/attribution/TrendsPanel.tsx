@@ -35,7 +35,7 @@ export default function TrendsPanel({
           <div>
             <h4 className="text-sm font-semibold text-[#202124]">Keyword rank trend</h4>
             <p className="mt-1 text-xs text-[#5f6368]">
-              Local Pack position by search radius — toggle 1/3/5/10 mi or view all
+              Weekly median Places visibility at sampled 1/3/5-mile rings
             </p>
           </div>
           {keywords.length > 1 && (
@@ -67,7 +67,7 @@ export default function TrendsPanel({
             <div>
               <h4 className="text-sm font-semibold text-[#202124]">Grid coverage over time</h4>
               <p className="mt-1 text-xs text-[#5f6368]">
-                Share of service area in Local 3-Pack (full geo-grid snapshots)
+                Share of measured locations where you appeared in the sampled top three
               </p>
             </div>
             {keywords.length > 1 && (

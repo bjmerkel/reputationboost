@@ -98,30 +98,32 @@ open http://localhost:3000/platform/audit
 
 ### Places API cost controls
 
-`src/lib/feature-flags.ts` tunes how aggressively the app calls **Places Nearby Search**:
+`src/lib/feature-flags.ts` tunes how aggressively the app collects Places visibility:
 
 | Flag | Default | Effect |
 |------|---------|--------|
-| `dailyMultiRadius` | `false` | Daily cron records 1-mile center rank only (was 1/3/5/10 mi) |
-| `weeklyKeywordLimit` | `3` | Weekly geo-grid cron keywords per business |
-| `auditReuseWeeklyGridDays` | `7` | Audits reuse a stored weekly grid instead of 25 live searches/keyword |
-| `gridProfile` | `compact` | On-demand map heatmap uses 5×5 grid (was 7×7) |
+| `dailyMultiRadius` | `false` | Deprecated; daily cron records the business-pin Text Search baseline |
+| `weeklyKeywordLimit` | `3` | Weekly 25-point radial scans per business |
+| `auditReuseWeeklyGridDays` | `7` | Audits reuse a stored radial scan instead of 25 live searches/keyword |
+| `gridProfile` | `compact` | Legacy preference for pre-radial stored grids |
 
-Nearby Search also defaults to **one result page** (~20 businesses) and dedupes identical requests for 6 hours via an in-memory cache.
-
-Set `dailyMultiRadius: true` only if you need multi-radius trend lines in daily ingest.
+Radial Text Search requests use one result page (up to 20 businesses) and a minimal field mask
+(`places.id`, `places.displayName`) to control API cost.
 
 ### How rankings work
 
 For each keyword and business address:
 
 1. **Geocode** the address to lat/lng (skipped if coordinates are already on the client)
-2. **Places Nearby Search** at 1, 3, 5, and 10 mile radii
-3. **Rank** = position in Google's ordered result list (1-indexed); `null` = not found in that set
-4. **Local 3-Pack** = rank ≤ 3 at the 1-mile radius
-5. **Competitors** = other businesses in the same result list (not pre-registered)
+2. Generate the business pin plus eight compass bearings at **1, 3, and 5 miles**
+3. Run one-page **Places Text Search (New)** with location bias from each of the 25 origins
+4. **Rank** = position in the API result list; `null` = not visible in the first 20 results
+5. Aggregate median rank, top-three coverage, visible coverage, and best/worst rank per ring
+6. Collect competitor details separately with Nearby Search
 
-This measures **Google Maps / Local Pack ordering**, not desktop organic web results. Nearby Search and Text Search can return different orderings for the same keyword.
+This is a sampled **Places visibility estimate**, not a guarantee of personalized Google Maps or
+Local Pack ordering. Historical audits without `rankingModel: "radial_text_v2"` retain their
+legacy business-pin radius semantics.
 
 ```bash
 # Places search proxy (requires sign-in)

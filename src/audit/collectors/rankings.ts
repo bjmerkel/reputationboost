@@ -3,15 +3,14 @@ import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { buildDemoGeoGrid } from "@/lib/google/geo-grid";
 import { gridProfileForCollection } from "@/lib/feature-flags";
 import { collectPlacesRankData } from "@/lib/google/local-rankings";
-
-const DISTANCES = [1, 3, 5, 10] as const;
+import { summarizeRadialRanks } from "@/lib/google/radial-rankings";
 
 /**
- * Collects Local 3-Pack positions and geo-grid rankings per keyword.
- * Uses Google Places (Nearby Search) when GOOGLE_MAPS_API_KEY is set; otherwise demo data.
+ * Collects business-pin and radial Places visibility estimates per keyword.
+ * Uses Text Search (New) when GOOGLE_MAPS_API_KEY is set; otherwise demo data.
  *
- * Ranking = position in Google's ordered Places result list for keyword + radius.
- * Rank null / not in pack = business not found in that result set.
+ * Ranking = position in Google's ordered Places result page from a sampled location.
+ * Rank null = business not visible in the first returned page.
  */
 export async function collectRankSnapshot(client: ClientConfig): Promise<RankSnapshot> {
   if (isGoogleMapsConfigured()) {
@@ -40,24 +39,22 @@ function collectRanksDemo(client: ClientConfig): RankSnapshot {
   const keywords: KeywordRankSnapshot[] = keywordData.map((kw) => {
     const center = client.location;
     const baseRank = kw.packPos === "not_in_pack" ? kw.baseRank : (kw.packPos as number);
-    return {
-    keyword: kw.keyword,
-    localPackPosition: kw.packPos,
-    inLocalPack: kw.packPos !== "not_in_pack",
-    geoRanks: DISTANCES.map((distanceMiles) => {
-      const drift = distanceMiles > 5 ? 2 : 0;
-      const rank = kw.packPos === "not_in_pack" ? kw.baseRank + drift : (kw.baseRank as number) + drift;
-      return {
-        distanceMiles,
-        rank,
-        inLocalPack: rank <= 3,
-      };
-    }),
-    geoGrid: buildDemoGeoGrid(
+    const geoGrid = buildDemoGeoGrid(
       { lat: center.lat || 32.7157, lng: center.lng || -117.1611 },
       baseRank,
       gridProfileForCollection("audit")
-    ),
+    );
+    const radial = summarizeRadialRanks(geoGrid);
+    return {
+    keyword: kw.keyword,
+    localPackPosition: radial.centerInTop3
+      ? (radial.centerRank as 1 | 2 | 3)
+      : "not_in_pack",
+    inLocalPack: radial.centerInTop3,
+    rankingModel: "radial_text_v2",
+    centerRank: radial.centerRank,
+    geoRanks: radial.rings,
+    geoGrid,
     packLeaderRating: 4.8,
     packLeaderReviewCount: kw.leaderReviews,
     clientRating: 4.6,

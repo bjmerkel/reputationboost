@@ -1,6 +1,6 @@
 import type { KeywordRankSnapshot, RankMovement } from "../types";
 import type { RankSnapshotRow } from "../types/timeseries";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 import { medianOf } from "./rank-median";
 import type { RadiusWeights } from "./radius-profiles";
 import {
@@ -28,7 +28,7 @@ export function medianRanksByRadius(
   }
 
   const result = new Map<number, number | null>();
-  for (const miles of SEARCH_RADII_MILES) {
+  for (const miles of RADIAL_RING_MILES) {
     result.set(miles, medianOf(byRadius.get(miles) ?? []));
   }
   return result;
@@ -40,7 +40,7 @@ export function buildKeywordFromRadiusMedians(
   radiusMedians: Map<number, number | null>,
   template?: KeywordRankSnapshot
 ): KeywordRankSnapshot {
-  const geoRanks = SEARCH_RADII_MILES.map((distanceMiles) => {
+  const geoRanks = RADIAL_RING_MILES.map((distanceMiles) => {
     const rank = radiusMedians.get(distanceMiles) ?? null;
     const inLocalPack = rank !== null && rank <= 3;
     return { distanceMiles, rank, inLocalPack };

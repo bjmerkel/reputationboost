@@ -6,7 +6,7 @@ import type {
 } from "@/audit/types/timeseries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 
@@ -202,9 +202,9 @@ export async function getRankSnapshotsInRange(
     .order("date", { ascending: true });
 
   if (!multiRadius) {
-    query = query.eq("distance_miles", 1);
+    query = query.eq("distance_miles", 0);
   } else {
-    query = query.in("distance_miles", [...SEARCH_RADII_MILES]);
+    query = query.in("distance_miles", [...RADIAL_RING_MILES]);
   }
 
   const { data, error } = await query;

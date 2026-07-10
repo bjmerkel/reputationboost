@@ -23,6 +23,7 @@ import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { collectKeywordGeoGrid } from "@/lib/google/geo-grid";
 import { milesToMeters, searchPlaces, type PlaceResult } from "@/lib/google/places";
 import { primaryCategoryFromTypes } from "@/lib/google/place-details";
+import { summarizeRadialRanks } from "@/lib/google/radial-rankings";
 
 const PREVIEW_KEYWORD_COUNT = 3;
 const HEALTHY_TARGET = 70;
@@ -164,16 +165,23 @@ async function collectPreviewRankings(
       index === 0
         ? await collectKeywordGeoGrid(keyword, location, matchOptions).catch(() => undefined)
         : undefined;
+    const radial = geoGrid ? summarizeRadialRanks(geoGrid) : null;
 
     keywordSnapshots.push({
       keyword,
-      localPackPosition,
-      inLocalPack,
-      geoRanks: [1, 3, 5, 10].map((distanceMiles) => ({
-        distanceMiles: distanceMiles as 1 | 3 | 5 | 10,
-        rank: distanceMiles === 1 ? rank : null,
-        inLocalPack: distanceMiles === 1 ? inLocalPack : false,
-      })),
+      localPackPosition: radial?.centerInTop3
+        ? (radial.centerRank as 1 | 2 | 3)
+        : localPackPosition,
+      inLocalPack: radial?.centerInTop3 ?? inLocalPack,
+      rankingModel: radial ? "radial_text_v2" : undefined,
+      centerRank: radial?.centerRank,
+      geoRanks:
+        radial?.rings ??
+        [1, 3, 5].map((distanceMiles) => ({
+          distanceMiles,
+          rank: distanceMiles === 1 ? rank : null,
+          inLocalPack: distanceMiles === 1 ? inLocalPack : false,
+        })),
       packLeaderRating: leader?.rating ?? 0,
       packLeaderReviewCount: leader?.reviewCount ?? 0,
       clientRating: ownPlace?.rating ?? 0,

@@ -7,8 +7,8 @@ import type {
 } from "@/audit/types/timeseries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 
 function performanceRowToDb(row: PerformanceDailyRow) {
@@ -132,9 +132,9 @@ export interface RankTrendPoint {
 }
 
 export interface ListRankTrendOptions {
-  /** When true, return center-point ranks at 1/3/5/10 mi */
+  /** When true, return weekly median ranks at the 1/3/5-mile sample rings. */
   multiRadius?: boolean;
-  /** Filter to a single search radius (ignored when multiRadius is true) */
+  /** Filter to the business pin (0) or one sample ring. */
   radiusMiles?: number;
 }
 
@@ -164,9 +164,9 @@ export async function listRankTrendForUser(
     .order("date", { ascending: true });
 
   if (multiRadius) {
-    query = query.in("distance_miles", [...SEARCH_RADII_MILES]);
+    query = query.in("distance_miles", [...RADIAL_RING_MILES]);
   } else {
-    query = query.eq("distance_miles", options.radiusMiles ?? 1);
+    query = query.eq("distance_miles", options.radiusMiles ?? 0);
   }
 
   const { data, error } = await query;

@@ -2,6 +2,11 @@ import type { GeoGridPoint } from "@/audit/types";
 import type { RankSnapshotRow } from "@/audit/types/timeseries";
 import { resolveGridProfile, type GridProfileKey } from "@/lib/google/geo-grid";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
+import {
+  isRadialRankGrid,
+  radialDirectionForOffset,
+  summarizeRadialRanks,
+} from "@/lib/google/radial-rankings";
 
 /** Share of grid cells in the Local 3-Pack (0–100). */
 export function gridCoveragePercent(geoGrid: GeoGridPoint[]): number {
@@ -17,11 +22,15 @@ export function geoGridToRankRows(params: {
   geoGrid: GeoGridPoint[];
   source: RankSnapshotRow["source"];
 }): RankSnapshotRow[] {
-  return params.geoGrid.map((point) => ({
+  const radial = isRadialRankGrid(params.geoGrid);
+  const rawRows = params.geoGrid.map((point) => ({
     businessId: params.businessId,
     keyword: params.keyword,
     date: params.date,
-    distanceMiles: 1,
+    distanceMiles: radial
+      ? (point.sampleDistanceMiles ??
+        Math.round(Math.sqrt(point.offsetNorthMiles ** 2 + point.offsetEastMiles ** 2)))
+      : 1,
     gridNorth: point.offsetNorthMiles,
     gridEast: point.offsetEastMiles,
     rank: point.rank,
@@ -29,6 +38,24 @@ export function geoGridToRankRows(params: {
     localPackPosition: point.inLocalPack && point.rank != null ? point.rank : null,
     source: params.source,
   }));
+
+  if (!radial) return rawRows;
+
+  const summaries = summarizeRadialRanks(params.geoGrid);
+  const summaryRows: RankSnapshotRow[] = summaries.rings.map((ring) => ({
+    businessId: params.businessId,
+    keyword: params.keyword,
+    date: params.date,
+    distanceMiles: ring.distanceMiles,
+    gridNorth: 0,
+    gridEast: 0,
+    rank: ring.rank,
+    inLocalPack: ring.inLocalPack,
+    localPackPosition: ring.inLocalPack ? ring.rank : null,
+    source: params.source,
+  }));
+
+  return [...rawRows, ...summaryRows];
 }
 
 export function rankRowsToGeoGrid(
@@ -48,6 +75,7 @@ export function rankRowsToGeoGrid(
   return rows.map((row) => {
     const north = Number(row.grid_north);
     const east = Number(row.grid_east);
+    const distance = Math.sqrt(north ** 2 + east ** 2);
     return {
       lat: center ? center.lat + north * latPerMile : 0,
       lng: center ? center.lng + east * lngPerMile : 0,
@@ -55,6 +83,8 @@ export function rankRowsToGeoGrid(
       offsetEastMiles: east,
       rank: row.rank,
       inLocalPack: row.in_local_pack,
+      sampleDistanceMiles: Number(distance.toFixed(3)),
+      sampleDirection: radialDirectionForOffset(north, east),
     };
   });
 }

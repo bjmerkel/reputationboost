@@ -1,6 +1,6 @@
 import type { RankSnapshotRow } from "../types/timeseries";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 
 export const DEFAULT_RANK_MEDIAN_WINDOW_DAYS = 7;
 
@@ -69,7 +69,7 @@ export function medianRankSnapshotForKeyword(
 }
 
 export interface SmoothRankSnapshotOptions {
-  /** When true, smooth center-point ranks at 1/3/5/10 mi */
+  /** When true, smooth the business pin and weekly 1/3/5-mile ring medians. */
   multiRadius?: boolean;
 }
 
@@ -82,7 +82,7 @@ export function smoothRankSnapshotsForDate(
   options: SmoothRankSnapshotOptions = {}
 ): RankSnapshotRow[] {
   const multiRadius = options.multiRadius ?? HEATMAP_FLAGS.dailyMultiRadius;
-  const radii = multiRadius ? [...SEARCH_RADII_MILES] : [1];
+  const radii = multiRadius ? [0, ...RADIAL_RING_MILES] : [0];
   const rows: RankSnapshotRow[] = [];
 
   for (const keyword of keywords) {

@@ -458,6 +458,14 @@ export interface GeoRankPoint {
   distanceMiles: number;
   rank: number | null;
   inLocalPack: boolean;
+  /** Number of sampled search origins represented by this aggregate. */
+  sampleCount?: number;
+  /** Samples where the business appeared in the first three API results. */
+  inLocalPackCount?: number;
+  /** Samples where the business appeared in the returned result page. */
+  visibleCount?: number;
+  bestRank?: number | null;
+  worstRank?: number | null;
 }
 
 /** Competitor in the Local 3-Pack at a geo-grid cell. */
@@ -477,6 +485,9 @@ export interface GeoGridPoint {
   offsetEastMiles: number;
   rank: number | null;
   inLocalPack: boolean;
+  /** Distance and bearing of a radial-v2 simulated search origin. */
+  sampleDistanceMiles?: number;
+  sampleDirection?: "center" | "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
   /** Top competitors in this cell's result set (when collected with local pack data). */
   localPack?: GeoGridLocalPackEntry[];
 }
@@ -486,7 +497,11 @@ export interface KeywordRankSnapshot {
   localPackPosition: LocalPackPosition | number;
   inLocalPack: boolean;
   geoRanks: GeoRankPoint[];
-  /** 5×5 spatial grid for heatmap visualization (optional on older audits). */
+  /** Collection methodology; absent on legacy business-pin radius snapshots. */
+  rankingModel?: "radial_text_v2";
+  /** Text Search rank measured directly at the business pin. */
+  centerRank?: number | null;
+  /** Spatial samples for the map (optional on older audits). */
   geoGrid?: GeoGridPoint[];
   packLeaderRating: number;
   packLeaderReviewCount: number;
@@ -734,9 +749,9 @@ export interface KeywordScoreCard {
   potentialAtRank1: number | null;
   scoreImpactIfRank1: number;
   suggestedAction: string;
-  /** Share of geo-grid cells in Local 3-Pack, when grid data exists */
+  /** Share of sampled locations in the first three Places results. */
   gridCoveragePercent?: number | null;
-  /** Ranks at 1/3/5/10 mi used for service-area scoring */
+  /** Median ranks at sampled 1/3/5-mile rings used for service-area scoring. */
   radiusRanks: Array<{
     distanceMiles: number;
     rank: number | "not_in_pack";

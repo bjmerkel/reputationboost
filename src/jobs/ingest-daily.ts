@@ -17,15 +17,13 @@ import {
   upsertRankSnapshots,
 } from "@/audit/storage-timeseries";
 import type { IngestRunResult } from "@/audit/types/timeseries";
-import { HEATMAP_FLAGS, PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
+import { PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { fetchGbpPerformanceDailySeries } from "@/lib/google/gbp-performance";
 import {
   resolveBusinessLocation,
-  searchKeywordAtAllRadii,
   searchKeywordAtOneMile,
 } from "@/lib/google/local-rankings";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
 import { getValidGbpConnectionForRecord } from "@/lib/google/token-store";
 
 const KEYWORD_SEARCH_DELAY_MS = 150;
@@ -153,50 +151,24 @@ async function ingestRanksForBusiness(
 
   const rows = [];
   for (const keyword of keywords) {
-    if (HEATMAP_FLAGS.dailyMultiRadius) {
-      const { ranksByRadius } = await searchKeywordAtAllRadii(
-        keyword,
-        location,
-        matchOptions,
-        "nearby"
-      );
+    const { rank, inLocalPack, localPackPosition } = await searchKeywordAtOneMile(
+      keyword,
+      location,
+      matchOptions
+    );
 
-      for (const miles of SEARCH_RADII_MILES) {
-        const rank = ranksByRadius[miles];
-        const inLocalPack = rank !== null && rank <= 3;
-        rows.push({
-          businessId: row.id,
-          keyword,
-          date: targetDate,
-          distanceMiles: miles,
-          gridNorth: 0,
-          gridEast: 0,
-          rank,
-          inLocalPack,
-          localPackPosition: inLocalPack ? rank : null,
-          source: "api" as const,
-        });
-      }
-    } else {
-      const { rank, inLocalPack, localPackPosition } = await searchKeywordAtOneMile(
-        keyword,
-        location,
-        matchOptions
-      );
-
-      rows.push({
-        businessId: row.id,
-        keyword,
-        date: targetDate,
-        distanceMiles: 1,
-        gridNorth: 0,
-        gridEast: 0,
-        rank,
-        inLocalPack,
-        localPackPosition,
-        source: "api" as const,
-      });
-    }
+    rows.push({
+      businessId: row.id,
+      keyword,
+      date: targetDate,
+      distanceMiles: 0,
+      gridNorth: 0,
+      gridEast: 0,
+      rank,
+      inLocalPack,
+      localPackPosition,
+      source: "api" as const,
+    });
 
     await sleep(KEYWORD_SEARCH_DELAY_MS);
   }
@@ -299,8 +271,8 @@ async function ingestBusiness(
 }
 
 /**
- * Daily ingest: pull yesterday's GBP performance + keyword ranks
- * (1/3/5/10 mi when dailyMultiRadius is enabled) for all onboarded businesses,
+ * Daily ingest: pull yesterday's GBP performance + business-pin keyword estimates
+ * for all onboarded businesses,
  * then reconcile the Plan tab (append missing tasks / auto-complete stale work).
  */
 export async function ingestDailyMetrics(

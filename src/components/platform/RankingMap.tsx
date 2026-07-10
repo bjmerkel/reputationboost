@@ -29,6 +29,7 @@ import {
 } from "@/lib/google/map-marker-icons";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { competitorMapRank } from "@/lib/google/local-rankings";
+import { isRadialRankGrid } from "@/lib/google/radial-rankings";
 
 export { rankColor } from "@/components/platform/heatmap/rank-colors";
 
@@ -113,6 +114,7 @@ export default function RankingMap({
   const territoryPolygonsRef = useRef<google.maps.Polygon[]>([]);
   const gridListenersRef = useRef<google.maps.MapsEventListener[]>([]);
   const centerRef = useRef<google.maps.LatLngLiteral | null>(null);
+  const lastFittedKeywordRef = useRef<string | null>(null);
   const lastSizeRef = useRef({ width: 0, height: 0 });
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -486,6 +488,28 @@ export default function RankingMap({
   ]);
 
   useEffect(() => {
+    if (
+      !ready ||
+      !layers.showHeatmap ||
+      !mapInstance.current ||
+      !centerRef.current ||
+      !gridPoints?.length ||
+      !isRadialRankGrid(gridPoints) ||
+      lastFittedKeywordRef.current === activeKeyword
+    ) {
+      return;
+    }
+
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend(centerRef.current);
+    for (const point of gridPoints) {
+      bounds.extend({ lat: point.lat, lng: point.lng });
+    }
+    mapInstance.current.fitBounds(bounds, 48);
+    lastFittedKeywordRef.current = activeKeyword ?? null;
+  }, [activeKeyword, gridPoints, layers.showHeatmap, ready]);
+
+  useEffect(() => {
     gridServiceAreaRef.current?.setMap(null);
     gbpServiceAreaRef.current?.setMap(null);
     gridServiceAreaRef.current = null;
@@ -665,7 +689,6 @@ export default function RankingMap({
         gridLoading={gridLoading}
         hasGridData={Boolean(gridPoints?.length)}
         enabledRadii={layers.enabledRadii}
-        heatmapSearchRadiusMiles={layers.heatmapSearchRadiusMiles}
       />
     </div>
   );
