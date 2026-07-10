@@ -64,6 +64,7 @@ export default function KeywordPortfolioPanel({
   const [addDraft, setAddDraft] = useState("");
   const [suggestions, setSuggestions] = useState<KeywordSuggestion[]>([]);
   const [suggestSource, setSuggestSource] = useState<"llm" | "template" | null>(null);
+  const [suggestWarning, setSuggestWarning] = useState<string | null>(null);
   const [suggestingFor, setSuggestingFor] = useState<string | "add" | null>(null);
 
   const keywordsChanged =
@@ -145,17 +146,24 @@ export default function KeywordPortfolioPanel({
   }
 
   async function fetchSuggestions(replaceKeyword?: string) {
-    if (!businessName?.trim() || !industry?.trim()) {
-      setError("Business name and industry are required for AI suggestions.");
-      return;
-    }
     setSuggestingFor(replaceKeyword ?? "add");
     setError(null);
+    setSuggestWarning(null);
     try {
+      if (replaceKeyword) {
+        setEditingKeyword(replaceKeyword);
+        setDraftKeyword(replaceKeyword);
+        setAdding(false);
+      } else {
+        setAdding(true);
+        setEditingKeyword(null);
+      }
+
       const res = await fetch("/api/keywords/suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          slug: businessSlug,
           name: businessName,
           industry,
           city: city ?? "",
@@ -171,12 +179,34 @@ export default function KeywordPortfolioPanel({
         error?: string;
         keywords?: KeywordSuggestion[];
         source?: "llm" | "template";
+        warning?: string;
+        llmConfigured?: boolean;
       };
       if (!res.ok) throw new Error(data.error ?? "Failed to suggest keywords");
-      setSuggestions(data.keywords ?? []);
+
+      const nextSuggestions = data.keywords ?? [];
+      setSuggestions(nextSuggestions);
       setSuggestSource(data.source ?? null);
+      setSuggestWarning(data.warning ?? null);
+
+      if (nextSuggestions.length === 0) {
+        setError("No keyword suggestions returned. Try again or type a keyword manually.");
+        return;
+      }
+
+      // Immediately fill the draft so the user sees a change without an extra click.
+      const top = nextSuggestions[0]?.keyword;
+      if (top) {
+        if (replaceKeyword) {
+          setDraftKeyword(top);
+        } else {
+          setAddDraft(top);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to suggest keywords");
+      setSuggestions([]);
+      setSuggestSource(null);
     } finally {
       setSuggestingFor(null);
     }
@@ -188,6 +218,7 @@ export default function KeywordPortfolioPanel({
     setAdding(false);
     setSuggestions([]);
     setSuggestSource(null);
+    setSuggestWarning(null);
     setError(null);
   }
 
@@ -197,6 +228,7 @@ export default function KeywordPortfolioPanel({
     setEditingKeyword(null);
     setSuggestions([]);
     setSuggestSource(null);
+    setSuggestWarning(null);
     setError(null);
   }
 
@@ -475,6 +507,16 @@ export default function KeywordPortfolioPanel({
                       <div className="ml-auto flex gap-1">
                         <button
                           type="button"
+                          disabled={saving || Boolean(suggestingFor)}
+                          onClick={() => void fetchSuggestions(keyword)}
+                          className={`rounded px-2 py-0.5 text-[11px] font-medium ${
+                            light ? "text-[#1a73e8] hover:bg-[#e8f0fe]" : "text-sky-300 hover:bg-white/10"
+                          } disabled:opacity-50`}
+                        >
+                          {suggestingFor === keyword ? "Suggesting…" : "AI suggest"}
+                        </button>
+                        <button
+                          type="button"
                           disabled={saving}
                           onClick={() => beginEdit(keyword)}
                           className={`rounded px-2 py-0.5 text-[11px] font-medium ${
@@ -561,9 +603,15 @@ export default function KeywordPortfolioPanel({
           {suggestions.length > 0 && (
             <div className="mt-3 space-y-2">
               <p className={`text-xs ${light ? "text-[#80868b]" : "text-slate-500"}`}>
-                {suggestSource === "llm" ? "AI suggestions" : "Suggested keywords"}
+                {suggestSource === "llm" ? "AI suggestions" : "Template suggestions"}
                 {editingKeyword ? ` for “${editingKeyword}”` : ""}
+                {" · click one to apply"}
               </p>
+              {suggestWarning && (
+                <p className={`text-xs ${light ? "text-[#b06000]" : "text-amber-300"}`}>
+                  {suggestWarning}
+                </p>
+              )}
               {suggestions.map((suggestion) => (
                 <button
                   key={suggestion.keyword}
