@@ -1,5 +1,5 @@
 import type { FullAuditPayload } from "@/audit/types";
-import type { DailyMetricPoint } from "@/audit/types/timeseries";
+import type { DailyMetricPoint, PerformanceIngestMeta } from "@/audit/types/timeseries";
 
 export interface EngagementMetricDelta {
   current: number;
@@ -17,6 +17,10 @@ export interface EngagementPeriodSummary {
   priorStartDate: string;
   priorEndDate: string;
   source: EngagementPeriodSource;
+  /** Latest ingested performance day included in totals (when source is ingest). */
+  latestDataDate: string | null;
+  /** When customer-action metrics were last written by nightly ingest. */
+  lastIngestedAt: string | null;
   calls: EngagementMetricDelta;
   directions: EngagementMetricDelta;
   websiteClicks: EngagementMetricDelta;
@@ -70,6 +74,59 @@ export function formatEngagementPeriodLabel(summary: EngagementPeriodSummary): s
   return formatDateRange(summary.startDate, summary.endDate);
 }
 
+export function formatPerformanceIngestTimestamp(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function formatPerformanceIngestLabel(summary: EngagementPeriodSummary): string | null {
+  if (!summary.lastIngestedAt) return null;
+
+  const ingested = formatPerformanceIngestTimestamp(summary.lastIngestedAt);
+
+  if (summary.source === "audit_fallback") {
+    return `Audit snapshot from ${ingested}`;
+  }
+
+  if (summary.latestDataDate && summary.latestDataDate !== summary.lastIngestedAt.slice(0, 10)) {
+    const dataThrough = new Date(`${summary.latestDataDate}T12:00:00.000Z`).toLocaleDateString(
+      "en-US",
+      { month: "short", day: "numeric", year: "numeric" }
+    );
+    return `Performance ingested ${ingested} · data through ${dataThrough}`;
+  }
+
+  return `Performance ingested ${ingested}`;
+}
+
+function resolveIngestMeta(
+  source: EngagementPeriodSource,
+  ingestMeta: PerformanceIngestMeta | null | undefined,
+  audit: FullAuditPayload | null | undefined
+): Pick<EngagementPeriodSummary, "latestDataDate" | "lastIngestedAt"> {
+  if (source === "ingest" && ingestMeta) {
+    return {
+      latestDataDate: ingestMeta.latestDataDate,
+      lastIngestedAt: ingestMeta.lastIngestedAt,
+    };
+  }
+
+  if (source === "audit_fallback" && audit) {
+    const auditEnd = audit.completedAt.slice(0, 10);
+    return {
+      latestDataDate: auditEnd,
+      lastIngestedAt: audit.completedAt,
+    };
+  }
+
+  return { latestDataDate: null, lastIngestedAt: null };
+}
+
 function metricDelta(current: number, prior: number): EngagementMetricDelta {
   const change = current - prior;
   const changePercent =
@@ -110,7 +167,11 @@ function hasActionMetricsInRange(
 export function buildEngagementPeriodSummary(
   points: DailyMetricPoint[],
   periodDays = 30,
-  options: { audit?: FullAuditPayload | null; referenceDate?: Date } = {}
+  options: {
+    audit?: FullAuditPayload | null;
+    referenceDate?: Date;
+    ingestMeta?: PerformanceIngestMeta | null;
+  } = {}
 ): EngagementPeriodSummary {
   const referenceDate = options.referenceDate ?? new Date();
   const bounds = rollingPeriodBounds(periodDays, referenceDate);
@@ -148,10 +209,12 @@ export function buildEngagementPeriodSummary(
   };
 
   if (hasActionMetricsInRange(points, bounds.startDate, bounds.endDate)) {
+    const ingestFields = resolveIngestMeta("ingest", options.ingestMeta, options.audit);
     return {
       periodDays,
       ...bounds,
       source: "ingest",
+      ...ingestFields,
       calls: metricDelta(currentFromPoints.calls, priorFromPoints.calls),
       directions: metricDelta(currentFromPoints.directions, priorFromPoints.directions),
       websiteClicks: metricDelta(
@@ -176,6 +239,7 @@ export function buildEngagementPeriodSummary(
       priorStartDate: bounds.priorStartDate,
       priorEndDate: bounds.priorEndDate,
       source: "audit_fallback",
+      ...resolveIngestMeta("audit_fallback", null, audit),
       calls: metricDelta(perf.calls, report?.engagement?.calls.prior ?? 0),
       directions: metricDelta(
         perf.directionRequests,
@@ -192,6 +256,8 @@ export function buildEngagementPeriodSummary(
     periodDays,
     ...bounds,
     source: "unavailable",
+    latestDataDate: null,
+    lastIngestedAt: null,
     calls: metricDelta(0, 0),
     directions: metricDelta(0, 0),
     websiteClicks: metricDelta(0, 0),

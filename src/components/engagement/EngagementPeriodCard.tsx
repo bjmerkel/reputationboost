@@ -1,7 +1,10 @@
 "use client";
 
 import type { EngagementPeriodSummary } from "@/audit/engagement-period";
-import { formatEngagementPeriodLabel } from "@/audit/engagement-period";
+import {
+  formatEngagementPeriodLabel,
+  formatPerformanceIngestLabel,
+} from "@/audit/engagement-period";
 import type { AttributionSummary } from "@/audit/types/timeseries";
 
 function formatDelta(change: number, suffix = ""): string {
@@ -46,6 +49,8 @@ export default function EngagementPeriodCard({
 
   if (!hasTotals && !hasDelta && !attribution?.tasksCompleted) return null;
 
+  const ingestLabel = formatPerformanceIngestLabel(engagement);
+
   const wrapperClass =
     variant === "section"
       ? "rounded-xl border border-[#dadce0] bg-white p-5 shadow-sm"
@@ -63,9 +68,19 @@ export default function EngagementPeriodCard({
         <p className="text-xs text-[#80868b]">{formatEngagementPeriodLabel(engagement)}</p>
       </div>
 
-      {engagement.source === "audit_fallback" && (
+      {ingestLabel && engagement.source !== "audit_fallback" && (
+        <p className="mt-1 text-xs text-[#80868b]">{ingestLabel}</p>
+      )}
+
+      {engagement.source === "audit_fallback" && ingestLabel && (
         <p className="mt-1 text-xs text-[#80868b]">
-          Totals from your last audit — daily ingest will refresh these automatically.
+          {ingestLabel} — nightly ingest will replace these totals.
+        </p>
+      )}
+
+      {!ingestLabel && engagement.source === "ingest" && (
+        <p className="mt-1 text-xs text-[#80868b]">
+          Daily performance ingest has not run yet for this profile.
         </p>
       )}
 

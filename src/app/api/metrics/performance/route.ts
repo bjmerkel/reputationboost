@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listPerformanceDailyForUser } from "@/audit/storage-timeseries";
+import { listPerformanceDailyForUser, getPerformanceIngestMetaForUser } from "@/audit/storage-timeseries";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { getUser } from "@/lib/supabase/server";
 
@@ -22,6 +22,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "No business configured" }, { status: 400 });
   }
 
-  const series = await listPerformanceDailyForUser(user.id, clientId, days);
-  return NextResponse.json({ series, days });
+  const [series, ingestMeta] = await Promise.all([
+    listPerformanceDailyForUser(user.id, clientId, days),
+    getPerformanceIngestMetaForUser(user.id, clientId),
+  ]);
+  return NextResponse.json({ series, days, ingestMeta });
 }

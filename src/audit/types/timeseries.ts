@@ -15,6 +15,14 @@ export interface DailyMetricPoint {
   value: number;
 }
 
+/** When nightly ingest last wrote customer-action metrics for a business. */
+export interface PerformanceIngestMeta {
+  /** Latest calendar date with ingested action metrics (YYYY-MM-DD). */
+  latestDataDate: string | null;
+  /** When rows for latestDataDate were written (ISO timestamp). */
+  lastIngestedAt: string | null;
+}
+
 export interface PerformanceDailyRow {
   businessId: string;
   date: string;
