@@ -1,12 +1,14 @@
 "use client";
 
-import type { FullAuditPayload, MonthlyReport, ScoreChangelogEntry } from "@/audit/types";
+import type { FullAuditPayload, ScoreChangelogEntry } from "@/audit/types";
 import type { AttributionSummary } from "@/audit/types/timeseries";
+import type { EngagementPeriodSummary } from "@/audit/engagement-period";
 import { aggregateGridCoverage } from "@/audit/geo";
 import { formatCurrency } from "@/audit/attribution/roi";
 import { formatAvgCoverageLabel } from "@/components/platform/heatmap/coverage-labels";
 import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
 import ScoreChangelog from "@/components/audit/ScoreChangelog";
+import EngagementPeriodCard from "@/components/engagement/EngagementPeriodCard";
 import InfoTooltip from "@/components/ui/InfoTooltip";
 import { SCORE_TOOLTIPS } from "@/lib/scores/score-tooltips";
 
@@ -24,6 +26,8 @@ function gradeColor(grade: string): string {
 export default function HomeHealthSummary({
   audit,
   summary,
+  engagement,
+  engagementLoading = false,
   loading = false,
   liveScore,
   liveScoreDate,
@@ -33,6 +37,8 @@ export default function HomeHealthSummary({
 }: {
   audit: FullAuditPayload;
   summary: AttributionSummary | null;
+  engagement: EngagementPeriodSummary | null;
+  engagementLoading?: boolean;
   loading?: boolean;
   liveScore?: number | null;
   liveScoreDate?: string | null;
@@ -42,7 +48,6 @@ export default function HomeHealthSummary({
 }) {
   const scores = audit.strategy?.scores;
   const mom = audit.strategy?.monthOverMonth;
-  const report = audit.strategy?.monthlyReport;
 
   if (loading && !scores) {
     return (
@@ -154,59 +159,11 @@ export default function HomeHealthSummary({
         </div>
       )}
 
-      {report && <EngagementStrip report={report} />}
-
-      {summary && summary.tasksCompleted > 0 && (
-        <p className="mt-4 text-sm text-[#3c4043]">
-          Last {summary.periodDays} days:{" "}
-          <span className="font-medium text-[#188038]">
-            +{summary.totalCallsDelta} calls
-          </span>
-          {summary.totalDirectionsDelta > 0 && (
-            <span className="text-[#188038]"> · +{summary.totalDirectionsDelta} directions</span>
-          )}
-          {summary.totalWebsiteClicksDelta > 0 && (
-            <span className="text-[#188038]"> · +{summary.totalWebsiteClicksDelta} clicks</span>
-          )}
-        </p>
-      )}
+      <EngagementPeriodCard
+        engagement={engagement}
+        attribution={summary}
+        loading={engagementLoading || loading}
+      />
     </section>
-  );
-}
-
-function EngagementStrip({ report }: { report: MonthlyReport }) {
-  const { calls, directions, websiteClicks } = report.engagement;
-  const hasDelta = calls.change !== 0 || directions.change !== 0 || websiteClicks.change !== 0;
-
-  if (!report.hasPriorPeriod && !hasDelta) return null;
-
-  return (
-    <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[#e8eaed] pt-4">
-      <Metric label="Calls" value={calls.current} delta={calls.change} />
-      <Metric label="Directions" value={directions.current} delta={directions.change} />
-      <Metric label="Clicks" value={websiteClicks.current} delta={websiteClicks.change} />
-    </div>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  delta,
-}: {
-  label: string;
-  value: number;
-  delta: number;
-}) {
-  return (
-    <div className="rounded-lg bg-[#f8f9fa] px-3 py-2 text-center">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-[#80868b]">{label}</p>
-      <p className="text-base font-semibold text-[#202124]">{value}</p>
-      {delta !== 0 && (
-        <p className={`text-xs ${delta > 0 ? "text-[#137333]" : "text-[#d93025]"}`}>
-          {formatDelta(delta)} this month
-        </p>
-      )}
-    </div>
   );
 }

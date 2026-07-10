@@ -3,9 +3,12 @@
 import { useMemo } from "react";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution, AttributionSummary } from "@/audit/types/timeseries";
+import type { EngagementPeriodSummary } from "@/audit/engagement-period";
+import { buildRollingEngagementHeadline } from "@/audit/engagement-period";
 import { buildPlan } from "@/audit/phase3/build-plan";
 import { buildPlanTimeline } from "@/audit/phase3/build-timeline";
 import ProfilePerformanceTrends from "@/components/audit/ProfilePerformanceTrends";
+import EngagementPeriodCard from "@/components/engagement/EngagementPeriodCard";
 import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
 import PlanResultsTimeline from "./PlanResultsTimeline";
 
@@ -15,14 +18,18 @@ export default function ResultsView({
   tasks,
   attributions,
   summary,
+  engagement,
   attributionLoading = false,
+  engagementLoading = false,
 }: {
   audit: FullAuditPayload;
   clientId: string;
   tasks: ExecutionTask[];
   attributions: ActionAttribution[];
   summary: AttributionSummary | null;
+  engagement: EngagementPeriodSummary | null;
   attributionLoading?: boolean;
+  engagementLoading?: boolean;
 }) {
   const timelineEntries = useMemo(() => {
     const plan = buildPlan(audit, tasks, attributions);
@@ -34,11 +41,17 @@ export default function ResultsView({
     [attributions]
   );
 
-  const report = audit.strategy?.monthlyReport;
+  const rollingHeadline = engagement ? buildRollingEngagementHeadline(engagement) : null;
 
   return (
     <div className="space-y-6">
-      {report && <ResultsMonthlySummary report={report} summary={summary} />}
+      <EngagementPeriodCard
+        engagement={engagement}
+        attribution={summary}
+        loading={engagementLoading || attributionLoading}
+        variant="section"
+        headline={rollingHeadline}
+      />
 
       <RoiSummaryCard summary={summary} loading={attributionLoading} />
 
@@ -54,74 +67,6 @@ export default function ResultsView({
         attributionsById={attributionsById}
         loading={attributionLoading}
       />
-    </div>
-  );
-}
-
-function ResultsMonthlySummary({
-  report,
-  summary,
-}: {
-  report: NonNullable<FullAuditPayload["strategy"]>["monthlyReport"];
-  summary: AttributionSummary | null;
-}) {
-  if (!report) return null;
-
-  const { calls, directions, websiteClicks } = report.engagement;
-
-  return (
-    <section className="rounded-xl border border-[#dadce0] bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#80868b]">
-          This period
-        </p>
-        {!report.hasPriorPeriod && (
-          <span className="rounded-full bg-[#fef7e0] px-2 py-0.5 text-[10px] font-medium text-[#e37400]">
-            Baseline
-          </span>
-        )}
-      </div>
-
-      <p className="mt-2 text-base font-semibold leading-snug text-[#202124]">{report.headline}</p>
-
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <Metric label="Calls" value={calls.current} delta={calls.change} />
-        <Metric label="Directions" value={directions.current} delta={directions.change} />
-        <Metric label="Clicks" value={websiteClicks.current} delta={websiteClicks.change} />
-      </div>
-
-      {summary && summary.tasksCompleted > 0 && (
-        <p className="mt-4 text-sm text-[#3c4043]">
-          Plan actions ({summary.periodDays}d):{" "}
-          <span className="font-medium text-[#188038]">{summary.tasksCompleted} published</span>
-          {summary.keywordsImproved > 0 && (
-            <span className="text-[#188038]"> · {summary.keywordsImproved} keywords improved</span>
-          )}
-        </p>
-      )}
-    </section>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  delta,
-}: {
-  label: string;
-  value: number;
-  delta: number;
-}) {
-  return (
-    <div className="rounded-lg bg-[#f8f9fa] px-3 py-2 text-center">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-[#80868b]">{label}</p>
-      <p className="text-base font-semibold text-[#202124]">{value}</p>
-      {delta !== 0 && (
-        <p className={`text-xs ${delta > 0 ? "text-[#137333]" : "text-[#d93025]"}`}>
-          {delta > 0 ? "+" : ""}
-          {delta} this month
-        </p>
-      )}
     </div>
   );
 }

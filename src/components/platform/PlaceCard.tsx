@@ -1,5 +1,6 @@
 "use client";
 
+import type { EngagementPeriodSummary } from "@/audit/engagement-period";
 import type { FullAuditPayload } from "@/audit/types";
 import type { AuditView } from "@/components/audit/types";
 import { resolveDisplayCategory } from "@/lib/business/display-category";
@@ -19,6 +20,7 @@ interface PlaceCardProps {
   planPendingCount?: number;
   onPreviewCustomer?: () => void;
   sparklines?: Record<string, number[]>;
+  engagement?: EngagementPeriodSummary | null;
   industry?: string;
   /** Hide hero, score breakdown, and metrics when content lives in the main panel. */
   minimalChrome?: boolean;
@@ -32,6 +34,7 @@ export default function PlaceCard({
   planPendingCount = 0,
   onPreviewCustomer,
   sparklines,
+  engagement,
   industry,
   minimalChrome = false,
   children,
@@ -80,7 +83,7 @@ export default function PlaceCard({
 
           {!minimalChrome && (
             <div className="mt-4">
-              <ActionMetricsBar audit={audit} sparklines={sparklines} />
+              <ActionMetricsBar audit={audit} engagement={engagement} sparklines={sparklines} />
             </div>
           )}
         </div>

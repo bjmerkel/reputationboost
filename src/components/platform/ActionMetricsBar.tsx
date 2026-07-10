@@ -1,10 +1,12 @@
 "use client";
 
+import type { EngagementPeriodSummary } from "@/audit/engagement-period";
 import type { FullAuditPayload } from "@/audit/types";
 import Sparkline from "@/components/attribution/MiniChart";
 
 interface ActionMetricsBarProps {
   audit: FullAuditPayload;
+  engagement?: EngagementPeriodSummary | null;
   sparklines?: Record<string, number[]>;
 }
 
@@ -15,11 +17,13 @@ interface MetricItem {
   icon: React.ReactNode;
 }
 
-export default function ActionMetricsBar({ audit, sparklines }: ActionMetricsBarProps) {
+export default function ActionMetricsBar({
+  audit,
+  engagement,
+  sparklines,
+}: ActionMetricsBarProps) {
   const { performance } = audit.gbp;
-  const { strategy } = audit;
 
-  const engagement = strategy?.monthlyReport?.engagement;
   const formatDelta = (change: number | undefined) => {
     if (change === undefined || change === 0) return null;
     const positive = change > 0;
@@ -31,23 +35,27 @@ export default function ActionMetricsBar({ audit, sparklines }: ActionMetricsBar
     );
   };
 
+  const calls = engagement?.calls.current ?? performance.calls ?? 0;
+  const directions = engagement?.directions.current ?? performance.directionRequests ?? 0;
+  const websiteClicks = engagement?.websiteClicks.current ?? performance.websiteClicks ?? 0;
+
   const metrics: MetricItem[] = [
     {
       id: "calls",
       label: "Calls",
-      value: String(performance.calls ?? 0),
+      value: String(calls),
       icon: <PhoneIcon />,
     },
     {
       id: "directions",
       label: "Directions",
-      value: String(performance.directionRequests ?? 0),
+      value: String(directions),
       icon: <DirectionsIcon />,
     },
     {
       id: "website",
       label: "Website",
-      value: String(performance.websiteClicks ?? 0),
+      value: String(websiteClicks),
       icon: <WebsiteIcon />,
     },
     {

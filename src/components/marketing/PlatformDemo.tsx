@@ -10,6 +10,7 @@ import ListingStrengthInsights from "@/components/audit/ListingStrengthInsights"
 import AuditDataView from "@/components/audit/AuditDataView";
 import { normalizeAuditView, type AuditView } from "@/components/audit/types";
 import HomeHealthSummary from "@/components/home/HomeHealthSummary";
+import { buildEngagementPeriodSummary } from "@/audit/engagement-period";
 import HomeReviewInbox from "@/components/home/HomeReviewInbox";
 import MapsSearchBar from "@/components/platform/MapsSearchBar";
 import PlaceCard from "@/components/platform/PlaceCard";
@@ -187,6 +188,10 @@ export default function PlatformDemo({
 
   const tasks = audit.execution?.tasks ?? [];
   const planPendingCount = planApprovalBadgeCount(tasks);
+  const demoEngagement = useMemo(
+    () => buildEngagementPeriodSummary([], 30, { audit }),
+    [audit]
+  );
 
   const keywordRank = useMemo(() => {
     return (
@@ -246,7 +251,7 @@ export default function PlatformDemo({
           >
             {view === "report" && (
               <div className="space-y-6">
-                <HomeHealthSummary audit={audit} summary={null} />
+                <HomeHealthSummary audit={audit} summary={null} engagement={demoEngagement} />
                 <HomeReviewInbox
                   audit={audit}
                   pendingReplyCount={

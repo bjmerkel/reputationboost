@@ -17,10 +17,13 @@ const priorityStylesLight: Record<string, string> = {
 
 export default function MonthlyReportPanel({
   report,
+  auditPeriod,
   embedded = false,
   variant = "dark",
 }: {
   report: MonthlyReport;
+  /** Current audit period label (e.g. "July 2026") for since-last-audit copy */
+  auditPeriod?: string | null;
   embedded?: boolean;
   variant?: "dark" | "light";
 }) {
@@ -42,9 +45,15 @@ export default function MonthlyReportPanel({
             isLight ? "text-[#188038]" : "text-emerald-400"
           }`}
         >
-          Monthly Report
+          Since last audit
         </span>
-        {report.hasPriorPeriod && report.priorPeriod && (
+        {auditPeriod && (
+          <span className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+            {auditPeriod}
+            {report.hasPriorPeriod && report.priorPeriod ? ` · vs. ${report.priorPeriod}` : ""}
+          </span>
+        )}
+        {!auditPeriod && report.hasPriorPeriod && report.priorPeriod && (
           <span className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
             vs. {report.priorPeriod}
           </span>
@@ -81,7 +90,7 @@ export default function MonthlyReportPanel({
         <ReportBlock title="Rank movement" icon="📈" variant={variant}>
           {report.rankMovements.length === 0 ? (
             <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-              No rank changes this period.
+              No rank changes since your last audit.
             </p>
           ) : (
             <ul className="space-y-2">
@@ -109,7 +118,7 @@ export default function MonthlyReportPanel({
           )}
         </ReportBlock>
 
-        <ReportBlock title="Engagement lift" icon="📞" variant={variant}>
+        <ReportBlock title="Engagement since last audit" icon="📞" variant={variant}>
           <div className="space-y-3">
             <EngagementRow label="Calls" metric={report.engagement.calls} variant={variant} embedded={embedded} />
             <EngagementRow
@@ -131,8 +140,8 @@ export default function MonthlyReportPanel({
           {report.competitorDeltas.length === 0 ? (
             <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
               {report.hasPriorPeriod
-                ? "No tracked competitor changes this period."
-                : "Competitor tracking starts on your next monthly audit."}
+                ? "No tracked competitor changes since your last audit."
+                : "Competitor tracking starts on your next audit."}
             </p>
           ) : (
             <ul className="space-y-2">
