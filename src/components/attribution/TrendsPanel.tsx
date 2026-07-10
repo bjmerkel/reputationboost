@@ -26,7 +26,7 @@ export default function TrendsPanel({
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <ScoreTrendChart clientId={clientId} days={30} compact />
-          <EngagementTrendChart clientId={clientId} days={30} />
+          <EngagementTrendChart clientId={clientId} days={30} compact />
         </div>
       </section>
 

@@ -47,6 +47,7 @@ export default function ProfilePerformanceTrends({
           <EngagementTrendChart
             clientId={clientId}
             days={days}
+            compact
             points={performancePoints}
             loading={loading}
             audit={audit}

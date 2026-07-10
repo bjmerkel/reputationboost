@@ -97,7 +97,13 @@ export function LineChart({
 
   return (
     <div>
-      <svg width="100%" viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
+      <svg
+        width="100%"
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="xMidYMid meet"
+        className="overflow-visible"
+      >
         <polygon points={areaPoints} fill={fill} />
         <polyline
           fill="none"
@@ -222,11 +228,17 @@ export function BarChart({
   const max = Math.max(...totals, 1);
   const gap = 4;
   const barWidth = Math.max(6, Math.min(20, 300 / labels.length - gap));
-  const chartWidth = labels.length * (barWidth + gap);
+  const chartWidth = Math.max(300, labels.length * (barWidth + gap));
 
   return (
     <div>
-      <svg width="100%" viewBox={`0 0 ${chartWidth} ${height}`} className="overflow-visible">
+      <svg
+        width="100%"
+        height={height}
+        viewBox={`0 0 ${chartWidth} ${height}`}
+        preserveAspectRatio="xMidYMid meet"
+        className="overflow-visible"
+      >
         {labels.map((label, i) => {
           const x = i * (barWidth + gap);
           let yBottom = height - 6;

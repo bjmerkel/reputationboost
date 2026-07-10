@@ -32,12 +32,14 @@ function aggregateByDate(
 export default function EngagementTrendChart({
   clientId,
   days = 30,
+  compact = false,
   points: pointsProp,
   loading: loadingProp,
   audit,
 }: {
   clientId: string;
   days?: number;
+  compact?: boolean;
   points?: DailyMetricPoint[];
   loading?: boolean;
   audit?: FullAuditPayload | null;
@@ -135,8 +137,12 @@ export default function EngagementTrendChart({
   }
 
   return (
-    <div className="space-y-4">
-      <BarChart labels={chartData.labels} series={chartData.series} />
+    <div className={compact ? "space-y-2" : "space-y-4"}>
+      <BarChart
+        labels={chartData.labels}
+        series={chartData.series}
+        height={compact ? 88 : 120}
+      />
       <p className="text-xs text-[#80868b]">
         {totalActions} total customer actions in the last {days} days
         {usingAuditFallback ? " · showing latest audit period totals" : ""}

@@ -193,15 +193,17 @@ export default function ProfileCommandCenter({
       )}
 
       {clientId && (
-        <ProfilePerformanceTrends
-          clientId={clientId}
-          days={30}
-          variant={variant}
-          audit={audit}
-          performancePoints={performancePoints}
-          scoreSeries={scoreSeries}
-          loading={trendsLoading}
-        />
+        <div className="mt-4">
+          <ProfilePerformanceTrends
+            clientId={clientId}
+            days={30}
+            variant={variant}
+            audit={audit}
+            performancePoints={performancePoints}
+            scoreSeries={scoreSeries}
+            loading={trendsLoading}
+          />
+        </div>
       )}
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
