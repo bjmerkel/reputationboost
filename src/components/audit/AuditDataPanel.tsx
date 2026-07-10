@@ -596,8 +596,7 @@ export default function AuditDataPanel({
                       #{competitorMapRank(c.mapPositions, snap.keyword, i)} {c.name}
                     </span>
                     <span className={`text-sm ${theme.muted}`}>
-                      {c.averageRating}★ · {c.reviewCount} reviews · {c.postsLast30Days}{" "}
-                      posts/mo
+                      {c.averageRating}★ · {c.reviewCount} reviews
                     </span>
                   </div>
                 ))}
