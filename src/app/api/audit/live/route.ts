@@ -34,13 +34,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Business not found" }, { status: 404 });
   }
 
-  const businessRow = refreshGbp
-    ? await getBusinessRecord(user.id, businessId)
-    : null;
+  // Always load the business row so live audit can sync rankings to the
+  // current tracked keyword list (not only when refreshGbp=true).
+  const businessRow = await getBusinessRecord(user.id, businessId);
 
   try {
     const bundle = await buildLiveAudit(businessId, {
-      refreshGbp: Boolean(businessRow),
+      refreshGbp: refreshGbp && Boolean(businessRow),
       businessRow: businessRow ?? undefined,
       userId: user.id,
       clientSlug: clientId,

@@ -1,5 +1,6 @@
 import type { ExecutionTask, GbpConnection, ClientConfig } from "../types";
 import { updateBusinessKeywords } from "@/audit/businesses";
+import { persistTrackedKeywordsToLatestAudit } from "@/audit/live-audit";
 import { applyGbpAction, applyMediaFromBytes, applyMediaFromDraft } from "@/lib/google/gbp-apply";
 import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
 import type { NapDriftFieldName } from "@/lib/google/nap-drift";
@@ -41,6 +42,12 @@ export async function executeTask(
         throw new Error("Keyword portfolio update is missing business or keyword data.");
       }
       await updateBusinessKeywords(context.userId, businessId, keywords);
+      await persistTrackedKeywordsToLatestAudit({
+        businessId,
+        keywords,
+      }).catch((error) => {
+        console.error("[executor] failed to sync audit rankings after keyword update:", error);
+      });
       return {
         ...task,
         status: "completed",
