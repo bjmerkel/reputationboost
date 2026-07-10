@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { KeywordRankSnapshot } from "@/audit/types";
+import { keywordVisibilityLabel } from "@/audit/geo/keyword-visibility-label";
 
 interface MapsSearchBarProps {
   businessName: string;
@@ -103,7 +104,7 @@ export default function MapsSearchBar({
                   }`}
                 >
                   <span className="truncate">{kw.keyword}</span>
-                  <RankBadge inPack={kw.inLocalPack} position={kw.localPackPosition} />
+                  <RankBadge keyword={kw} />
                 </button>
               </li>
             );
@@ -114,24 +115,21 @@ export default function MapsSearchBar({
   );
 }
 
-function RankBadge({
-  inPack,
-  position,
-}: {
-  inPack: boolean;
-  position: number | "not_in_pack";
-}) {
-  if (inPack && typeof position === "number") {
-    return (
-      <span className="shrink-0 rounded-full bg-[#e6f4ea] px-2 py-0.5 text-xs font-medium text-[#188038]">
-        #{position} in pack
-      </span>
-    );
-  }
+function RankBadge({ keyword }: { keyword: KeywordRankSnapshot }) {
+  const label = keywordVisibilityLabel(keyword);
+  const toneClass =
+    label.tone === "good"
+      ? "bg-[#e6f4ea] text-[#188038]"
+      : label.tone === "warning"
+        ? "bg-[#fef7e0] text-[#b06000]"
+        : "bg-[#fce8e6] text-[#d93025]";
 
   return (
-    <span className="shrink-0 rounded-full bg-[#fce8e6] px-2 py-0.5 text-xs font-medium text-[#d93025]">
-      Not in pack
+    <span
+      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${toneClass}`}
+      title={label.title}
+    >
+      {label.text}
     </span>
   );
 }
