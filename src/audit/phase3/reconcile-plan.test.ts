@@ -130,8 +130,9 @@ describe("selectTasksToAutoComplete", () => {
     if (audit.reviews.reviews[0]) {
       audit.reviews.reviews[0] = {
         ...audit.reviews.reviews[0],
+        responded: true,
         replyText: "Thanks for the feedback!",
-        replyState: "LIVE",
+        replyState: "APPROVED",
       };
     } else {
       audit.reviews.reviews = [
@@ -140,10 +141,12 @@ describe("selectTasksToAutoComplete", () => {
           author: "Pat",
           rating: 2,
           text: "Late",
-          createTime: "2026-07-01T00:00:00.000Z",
-          updateTime: "2026-07-01T00:00:00.000Z",
+          publishedAt: "2026-07-01T00:00:00.000Z",
+          responded: true,
           replyText: "Thanks!",
-          replyState: "LIVE",
+          replyState: "APPROVED",
+          responseTimeHours: 1,
+          sentiment: "negative",
         },
       ];
     }
