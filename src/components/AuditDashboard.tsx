@@ -9,6 +9,8 @@ import type { GridDiff } from "@/audit/geo/grid-diff";
 import { analyzeCompetitorDominance, topCompetitorThreat } from "@/audit/geo/competitor-dominance";
 import { buildVisibilitySummary } from "@/audit/geo";
 import { ensureStrategy } from "@/audit/ensure-strategy";
+import { cloneAudit } from "@/audit/phase2/counterfactual";
+import { applyKeywordPortfolioToAudit } from "@/audit/phase2/keyword-portfolio";
 import ResultsView from "@/components/results/ResultsView";
 import AuditDataView from "@/components/audit/AuditDataView";
 import { normalizeAuditView, type AuditView } from "@/components/audit/types";
@@ -411,7 +413,11 @@ export default function AuditDashboard({
               trendsLoading={attributionLoading || scoreHistoryLoading}
               onReviewPending={openBatchReview}
               onNavigateToPlan={openPlanStep}
-              onKeywordsUpdated={() => void refreshLiveAudit()}
+              onKeywordsUpdated={() => {
+                const next = cloneAudit(audit);
+                applyKeywordPortfolioToAudit(next);
+                applyAudit(next);
+              }}
               clientId={clientId}
             />
           )}

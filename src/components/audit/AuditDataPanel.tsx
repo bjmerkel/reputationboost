@@ -34,7 +34,10 @@ import { buildLocalPostsHealthReport } from "@/lib/google/gbp-local-posts-health
 import { buildPlaceActionsHealthReport } from "@/lib/google/gbp-place-actions-health";
 import { competitorMapRank } from "@/lib/google/local-rankings";
 import { detectPackFragility } from "@/audit/phase2/scoring";
-import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
+import {
+  computeKeywordPortfolio,
+  portfolioStepIsSatisfied,
+} from "@/audit/phase2/keyword-portfolio";
 import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
 
 type DataTab =
@@ -433,9 +436,10 @@ export default function AuditDataPanel({
               <PerformanceHealthPanel light={isLight} coverage={audit.gbp.performance.coverage} />
             )}
           </div>
-          {(keywordPortfolio.shouldRotate ||
-            keywordPortfolio.untrackedDemandCount > 0 ||
-            keywordPortfolio.rankWithoutDemandCount > 0) && (
+          {!portfolioStepIsSatisfied(audit) &&
+            (keywordPortfolio.shouldRotate ||
+              keywordPortfolio.untrackedDemandCount > 0 ||
+              keywordPortfolio.rankWithoutDemandCount > 0) && (
             <KeywordPortfolioPanel
               portfolio={keywordPortfolio}
               currentKeywords={currentKeywords}

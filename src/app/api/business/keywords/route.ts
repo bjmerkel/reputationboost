@@ -4,7 +4,12 @@ import {
   loadBusinessConfig,
   updateBusinessKeywords,
 } from "@/audit/businesses";
-import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
+import { cloneAudit } from "@/audit/phase2/counterfactual";
+import {
+  applyKeywordPortfolioToAudit,
+  computeKeywordPortfolio,
+} from "@/audit/phase2/keyword-portfolio";
+import { persistLiveAuditSnapshot } from "@/audit/live-audit";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { getUser } from "@/lib/supabase/server";
 
@@ -69,9 +74,9 @@ export async function PATCH(request: Request) {
     }
 
     let keywords = body.keywords?.filter(Boolean);
+    const audit = await loadLatestAuditFromSupabase(user.id, business.id);
 
     if (body.applyRecommendations) {
-      const audit = await loadLatestAuditFromSupabase(user.id, business.id);
       if (!audit) {
         return NextResponse.json(
           { error: "Run an audit before applying keyword recommendations." },
@@ -87,6 +92,19 @@ export async function PATCH(request: Request) {
     }
 
     const updated = await updateBusinessKeywords(user.id, businessId, keywords);
+
+    // Keep the latest audit rankings/portfolio in sync so Plan/Home hide the
+    // keyword portfolio panel after recommendations are applied.
+    if (body.applyRecommendations && audit && business.businessId) {
+      try {
+        const next = cloneAudit(audit);
+        applyKeywordPortfolioToAudit(next);
+        await persistLiveAuditSnapshot(business.businessId, next);
+      } catch {
+        // Non-fatal: business keywords were already saved.
+      }
+    }
+
     return NextResponse.json({ business: updated });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update keywords";
