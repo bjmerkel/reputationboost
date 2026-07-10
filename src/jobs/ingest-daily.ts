@@ -2,6 +2,7 @@ import { listOnboardedBusinesses } from "@/audit/businesses-admin";
 import { recomputeAttributionsForBusiness } from "@/audit/attribution";
 import { buildAndPersistLiveAuditForBusiness } from "@/audit/live-audit";
 import { ingestScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
+import { reconcilePlanForBusiness } from "@/audit/phase3/reconcile-plan";
 import { refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import { refreshGlobalScoreModel } from "@/audit/storage-score-model";
 import { businessRecordToClientConfig, type BusinessRecord } from "@/audit/businesses";
@@ -13,7 +14,7 @@ import {
   upsertRankSnapshots,
 } from "@/audit/storage-timeseries";
 import type { IngestRunResult } from "@/audit/types/timeseries";
-import { HEATMAP_FLAGS } from "@/lib/feature-flags";
+import { HEATMAP_FLAGS, PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { fetchGbpPerformanceDailySeries } from "@/lib/google/gbp-performance";
 import {
@@ -55,8 +56,22 @@ function emptyResult(): IngestRunResult {
     rankRowsUpserted: 0,
     scoreRowsUpserted: 0,
     calibrationStepsUpdated: 0,
+    planTasksCreated: 0,
+    planTasksAutoCompleted: 0,
+    planReconcileBusinesses: 0,
     errors: [],
   };
+}
+
+/** Apply reconcile counts onto the ingest run result (exported for tests). */
+export function recordPlanReconcileMetrics(
+  result: IngestRunResult,
+  createdCount: number,
+  completedCount: number
+): void {
+  result.planTasksCreated = (result.planTasksCreated ?? 0) + createdCount;
+  result.planTasksAutoCompleted = (result.planTasksAutoCompleted ?? 0) + completedCount;
+  result.planReconcileBusinesses = (result.planReconcileBusinesses ?? 0) + 1;
 }
 
 async function ingestPerformanceForBusiness(
@@ -233,8 +248,10 @@ async function ingestBusiness(
     });
   }
 
+  let liveAuditPersisted = false;
   try {
     const persisted = await buildAndPersistLiveAuditForBusiness(row, targetDate);
+    liveAuditPersisted = Boolean(persisted);
     if (!persisted) {
       result.errors.push({
         businessId: row.id,
@@ -250,12 +267,34 @@ async function ingestBusiness(
     });
   }
 
+  // Reconcile plan after live audit so tasks see refreshed GBP/rankings.
+  // Does not call Places — uses data already written by this ingest pass.
+  if (liveAuditPersisted && PLAN_RECONCILE_FLAGS.enabled) {
+    try {
+      const reconcile = await reconcilePlanForBusiness(row);
+      if (reconcile) {
+        recordPlanReconcileMetrics(
+          result,
+          reconcile.createdTasks.length,
+          reconcile.completedTasks.length
+        );
+      }
+    } catch (error) {
+      result.errors.push({
+        businessId: row.id,
+        step: "plan_reconcile",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   result.businessesProcessed += 1;
 }
 
 /**
  * Daily ingest: pull yesterday's GBP performance + keyword ranks
- * (1/3/5/10 mi when dailyMultiRadius is enabled) for all onboarded businesses.
+ * (1/3/5/10 mi when dailyMultiRadius is enabled) for all onboarded businesses,
+ * then reconcile the Plan tab (append missing tasks / auto-complete stale work).
  */
 export async function ingestDailyMetrics(
   options: IngestDailyOptions = {}
