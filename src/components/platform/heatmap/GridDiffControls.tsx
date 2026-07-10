@@ -111,7 +111,7 @@ export default function GridDiffControls({
   }
 
   return (
-    <div className="absolute top-[6.5rem] left-3 z-10 max-w-[min(300px,calc(100%-1.5rem))] rounded-lg border border-[#dadce0]/80 bg-white px-2.5 py-2 shadow-[0_2px_6px_rgba(60,64,67,0.15)] sm:top-[7rem]">
+    <div className="absolute top-48 left-3 z-10 max-w-[min(300px,calc(100%-1.5rem))] rounded-lg border border-[#dadce0]/80 bg-white px-2.5 py-2 shadow-[0_2px_6px_rgba(60,64,67,0.15)] sm:top-36">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-[#80868b]">
           Compare over time
