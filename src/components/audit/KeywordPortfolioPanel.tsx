@@ -40,6 +40,10 @@ export default function KeywordPortfolioPanel({
     portfolio.recommendedKeywords.length > 0 &&
     portfolio.recommendedKeywords.join("|") !== currentKeywords.join("|");
 
+  const alreadyAligned =
+    portfolio.recommendedKeywords.length > 0 &&
+    portfolio.recommendedKeywords.join("|") === currentKeywords.join("|");
+
   async function applyRecommendations() {
     setApplying(true);
     setError(null);
@@ -57,13 +61,19 @@ export default function KeywordPortfolioPanel({
         business?: { keywords: string[] };
       };
       if (!res.ok) throw new Error(data.error ?? "Failed to update keywords");
+      const nextKeywords = data.business?.keywords ?? portfolio.recommendedKeywords;
       setApplied(true);
-      onKeywordsUpdated?.(data.business?.keywords ?? portfolio.recommendedKeywords);
+      onKeywordsUpdated?.(nextKeywords);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update keywords");
     } finally {
       setApplying(false);
     }
+  }
+
+  // Hide the whole panel once recommendations are applied (or already aligned).
+  if (applied || alreadyAligned) {
+    return null;
   }
 
   return (
@@ -199,15 +209,11 @@ export default function KeywordPortfolioPanel({
           </div>
           <button
             type="button"
-            disabled={applying || applied}
+            disabled={applying}
             onClick={() => void applyRecommendations()}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-              applied
-                ? "bg-[#e6f4ea] text-[#137333]"
-                : "bg-[#1a73e8] text-white hover:bg-[#1557b0] disabled:opacity-60"
-            }`}
+            className="rounded-lg bg-[#1a73e8] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#1557b0] disabled:opacity-60"
           >
-            {applied ? "Keywords updated" : applying ? "Applying…" : "Apply recommendations"}
+            {applying ? "Applying…" : "Apply recommendations"}
           </button>
         </div>
       )}

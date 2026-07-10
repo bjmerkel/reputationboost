@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
-import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
+import { cloneAudit } from "@/audit/phase2/counterfactual";
+import {
+  applyKeywordPortfolioToAudit,
+  computeKeywordPortfolio,
+  portfolioStepIsSatisfied,
+} from "@/audit/phase2/keyword-portfolio";
 import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
@@ -168,9 +173,10 @@ export default function PlanView({
     [audit.rankings.keywords]
   );
   const showKeywordPortfolio =
-    keywordPortfolio.shouldRotate ||
-    keywordPortfolio.untrackedDemandCount > 0 ||
-    keywordPortfolio.rankWithoutDemandCount > 0;
+    !portfolioStepIsSatisfied(audit) &&
+    (keywordPortfolio.shouldRotate ||
+      keywordPortfolio.untrackedDemandCount > 0 ||
+      keywordPortfolio.rankWithoutDemandCount > 0);
 
   const reviewUrl = useMemo(
     () =>
@@ -258,7 +264,11 @@ export default function PlanView({
           currentKeywords={currentKeywords}
           businessSlug={clientId}
           light={isLight}
-          onKeywordsUpdated={() => onAuditUpdated?.(audit)}
+          onKeywordsUpdated={() => {
+            const next = cloneAudit(audit);
+            applyKeywordPortfolioToAudit(next);
+            onAuditUpdated?.(next);
+          }}
         />
       )}
 

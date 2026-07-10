@@ -4,7 +4,10 @@ import { useMemo } from "react";
 import type { ExecutionTask, FullAuditPayload, ScoreChangelogEntry } from "@/audit/types";
 import type { ActionAttribution, AttributionSummary, DailyMetricPoint, ScoreDailySnapshot } from "@/audit/types/timeseries";
 import { estimateTotalMonthlyRevenue } from "@/audit/phase2/counterfactual";
-import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
+import {
+  computeKeywordPortfolio,
+  portfolioStepIsSatisfied,
+} from "@/audit/phase2/keyword-portfolio";
 import ActionAttributionFeed from "@/components/attribution/ActionAttributionFeed";
 import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
 import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
@@ -66,9 +69,10 @@ export default function HomeView({
     [audit.rankings.keywords]
   );
   const showKeywordPortfolio =
-    keywordPortfolio.shouldRotate ||
-    keywordPortfolio.untrackedDemandCount > 0 ||
-    keywordPortfolio.rankWithoutDemandCount > 0;
+    !portfolioStepIsSatisfied(audit) &&
+    (keywordPortfolio.shouldRotate ||
+      keywordPortfolio.untrackedDemandCount > 0 ||
+      keywordPortfolio.rankWithoutDemandCount > 0);
 
   return (
     <div className="space-y-6 min-w-0">
