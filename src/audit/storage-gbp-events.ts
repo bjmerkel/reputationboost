@@ -1,6 +1,9 @@
 import type { GbpEvent, RecordGbpEventInput } from "@/audit/types/gbp-events";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { isScanManagedExternalId } from "@/lib/google/gbp-event-ids";
+
+export { isScanManagedExternalId };
 
 function rowToEvent(row: Record<string, unknown>): GbpEvent {
   return {
@@ -60,6 +63,59 @@ export async function recordGbpEventAdmin(input: RecordGbpEventInput): Promise<G
   const { data, error } = await supabase.from("gbp_events").insert(row).select().single();
   if (error) throw new Error(`Failed to record gbp event: ${error.message}`);
   return rowToEvent(data);
+}
+
+/**
+ * Drop scan-managed alerts that were not re-detected in the latest pass.
+ * Deletes (instead of acknowledging) so a returning condition can resurface.
+ * Pub/Sub events (`pubsub:…`) are left alone unless `shouldClearExternalId` says otherwise.
+ */
+export async function clearStaleScanManagedGbpEventsAdmin(
+  businessId: string,
+  keepExternalIds: Iterable<string>,
+  options?: {
+    /** When set, only external ids matching this predicate are eligible for clearing. */
+    shouldClearExternalId?: (externalId: string) => boolean;
+  }
+): Promise<number> {
+  const supabase = createAdminClient();
+  const keep = new Set(
+    [...keepExternalIds].filter((id) => isScanManagedExternalId(id))
+  );
+  const shouldClear = options?.shouldClearExternalId ?? ((id: string) => isScanManagedExternalId(id));
+
+  const { data, error } = await supabase
+    .from("gbp_events")
+    .select("id, external_id")
+    .eq("business_id", businessId)
+    .not("external_id", "is", null);
+
+  if (error) {
+    throw new Error(`Failed to list gbp events for reconcile: ${error.message}`);
+  }
+
+  const staleIds = (data ?? [])
+    .filter((row) => {
+      const externalId = row.external_id != null ? String(row.external_id) : null;
+      if (!externalId || !isScanManagedExternalId(externalId)) return false;
+      if (!shouldClear(externalId)) return false;
+      return !keep.has(externalId);
+    })
+    .map((row) => String(row.id));
+
+  if (staleIds.length === 0) return 0;
+
+  const { error: deleteError } = await supabase
+    .from("gbp_events")
+    .delete()
+    .eq("business_id", businessId)
+    .in("id", staleIds);
+
+  if (deleteError) {
+    throw new Error(`Failed to clear stale gbp events: ${deleteError.message}`);
+  }
+
+  return staleIds.length;
 }
 
 export async function listActiveGbpEventsForUser(

@@ -6,7 +6,10 @@ export interface IngestProfileAlertsOptions {
   skipRunLog?: boolean;
 }
 
-function emptyResult(): IngestRunResult & { alertsRecorded: number } {
+function emptyResult(): IngestRunResult & {
+  alertsRecorded: number;
+  alertsCleared: number;
+} {
   return {
     jobName: "ingest-profile-alerts",
     businessesProcessed: 0,
@@ -18,6 +21,7 @@ function emptyResult(): IngestRunResult & { alertsRecorded: number } {
     planTasksAutoCompleted: 0,
     planReconcileBusinesses: 0,
     alertsRecorded: 0,
+    alertsCleared: 0,
     errors: [],
   };
 }
@@ -25,10 +29,11 @@ function emptyResult(): IngestRunResult & { alertsRecorded: number } {
 /**
  * Nightly profile moderation scan for onboarded businesses.
  * Complements Pub/Sub with a full pass over Google conflicts and review moderation.
+ * Clears scan-managed alerts that are no longer present in live Google state.
  */
 export async function ingestProfileAlerts(
   _options: IngestProfileAlertsOptions = {}
-): Promise<IngestRunResult & { alertsRecorded: number }> {
+): Promise<IngestRunResult & { alertsRecorded: number; alertsCleared: number }> {
   const result = emptyResult();
   const businesses = await listOnboardedBusinesses();
 
@@ -36,6 +41,7 @@ export async function ingestProfileAlerts(
     try {
       const scan = await scanBusinessModeration(row);
       result.alertsRecorded += scan.eventsRecorded;
+      result.alertsCleared += scan.eventsCleared;
       result.businessesProcessed += 1;
 
       for (const message of scan.errors) {
