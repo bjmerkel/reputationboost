@@ -114,6 +114,94 @@ function wayneStyleAudit(): Phase1AuditPayload {
   };
 }
 
+function northshoreDaycareAudit(): Phase1AuditPayload {
+  const audit = createTestAudit();
+  return {
+    ...audit,
+    clientName: "Northshore Learning Center",
+    gbp: {
+      ...audit.gbp,
+      identity: {
+        ...audit.gbp.identity,
+        name: "Northshore Learning Center",
+        address: "7901 W Gowan Rd, Las Vegas, NV 89129",
+        primaryCategory: "Day care center",
+      },
+      performance: {
+        ...audit.gbp.performance,
+        searchKeywords: [
+          {
+            keyword: "northshore learning center, west gowan road, las vegas, nv",
+            impressions: 117,
+            belowThreshold: false,
+          },
+          { keyword: "kiddie academy", impressions: 98, belowThreshold: false },
+          { keyword: "daycare near me", impressions: 90, belowThreshold: false },
+          { keyword: "daycare", impressions: 87, belowThreshold: false },
+          { keyword: "kindercare learning centers", impressions: 70, belowThreshold: false },
+          { keyword: "nursery", impressions: 62, belowThreshold: false },
+          { keyword: "merryhill preschool", impressions: 55, belowThreshold: false },
+          { keyword: "northshore", impressions: 41, belowThreshold: false },
+          { keyword: "daycare las vegas", impressions: 40, belowThreshold: false },
+          { keyword: "preschool near me", impressions: 19, belowThreshold: false },
+          { keyword: "child care near me", impressions: null, belowThreshold: true },
+          { keyword: "preschool las vegas", impressions: null, belowThreshold: true },
+          { keyword: "4035 north rancho drive preschool", impressions: null, belowThreshold: true },
+          { keyword: "how many child day cares are there in las vegas nevada", impressions: null, belowThreshold: true },
+          { keyword: "home improvement store", impressions: null, belowThreshold: true },
+        ],
+      },
+    },
+    rankings: {
+      ...audit.rankings,
+      keywords: [
+        {
+          keyword: "learning center las vegas",
+          localPackPosition: 2,
+          inLocalPack: true,
+          geoRanks: [
+            { distanceMiles: 1, rank: 2, inLocalPack: true },
+            { distanceMiles: 3, rank: 3, inLocalPack: true },
+            { distanceMiles: 5, rank: 4, inLocalPack: false },
+          ],
+          packLeaderRating: 4.8,
+          packLeaderReviewCount: 200,
+          clientRating: 4.6,
+          clientReviewCount: 80,
+        },
+        {
+          keyword: "northshore learning center",
+          localPackPosition: 1,
+          inLocalPack: true,
+          geoRanks: [
+            { distanceMiles: 1, rank: 1, inLocalPack: true },
+            { distanceMiles: 3, rank: 1, inLocalPack: true },
+            { distanceMiles: 5, rank: 1, inLocalPack: true },
+          ],
+          packLeaderRating: 4.8,
+          packLeaderReviewCount: 200,
+          clientRating: 4.6,
+          clientReviewCount: 80,
+        },
+        {
+          keyword: "preschool summerlin",
+          localPackPosition: "not_in_pack",
+          inLocalPack: false,
+          geoRanks: [
+            { distanceMiles: 1, rank: 8, inLocalPack: false },
+            { distanceMiles: 3, rank: 9, inLocalPack: false },
+            { distanceMiles: 5, rank: 11, inLocalPack: false },
+          ],
+          packLeaderRating: 4.8,
+          packLeaderReviewCount: 200,
+          clientRating: 4.6,
+          clientReviewCount: 80,
+        },
+      ],
+    },
+  };
+}
+
 describe("keyword-portfolio", () => {
   it("detects brand keywords from business name tokens", () => {
     assert.equal(isBrandKeyword("wayne", "Wayne Refrigeration", "Wayne"), true);
@@ -136,6 +224,42 @@ describe("keyword-portfolio", () => {
       isJunkTrackingKeyword("hvac contractor wayne", "Wayne Refrigeration", "wayne"),
       false
     );
+    assert.equal(
+      isJunkTrackingKeyword("daycare near me", "Northshore Learning Center", "las vegas"),
+      false
+    );
+    assert.equal(
+      isJunkTrackingKeyword(
+        "4035 north rancho drive preschool",
+        "Northshore Learning Center",
+        "las vegas"
+      ),
+      true
+    );
+  });
+
+  it("surfaces many daycare Maps opportunities from rich GBP search terms", () => {
+    const portfolio = computeKeywordPortfolio(northshoreDaycareAudit());
+    const keywords = portfolio.untrackedCandidates.map((c) => c.keyword);
+
+    assert.ok(portfolio.untrackedCandidates.length >= 6, `expected many candidates, got ${keywords.join(", ")}`);
+    assert.ok(
+      keywords.some((k) => k.includes("daycare") && (k.includes("las vegas") || k.includes("near me"))),
+      `expected daycare+geo candidates, got ${keywords.join(", ")}`
+    );
+    assert.ok(
+      keywords.some((k) => k.includes("preschool")),
+      `expected preschool candidates, got ${keywords.join(", ")}`
+    );
+    assert.ok(
+      portfolio.untrackedCandidates.every(
+        (c) =>
+          !c.keyword.includes("rancho drive") &&
+          !c.keyword.includes("how many") &&
+          !c.keyword.includes("home improvement")
+      )
+    );
+    assert.ok(portfolio.untrackedCandidates.length <= 24);
   });
 
   it("reverse-matches GBP terms to tracked keywords", () => {

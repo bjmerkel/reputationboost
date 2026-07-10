@@ -658,36 +658,59 @@ export default function KeywordPortfolioPanel({
             <p className={`text-xs font-semibold uppercase tracking-wider ${light ? "text-[#80868b]" : "text-slate-500"}`}>
               Untracked GBP opportunities
             </p>
-            <ul className="mt-2 space-y-1.5">
-              {portfolio.untrackedCandidates.slice(0, 6).map((candidate) => {
+            <p className={`mt-1 text-xs ${light ? "text-[#5f6368]" : "text-slate-400"}`}>
+              {portfolio.untrackedLlmRanked
+                ? "AI-ranked from your Google search terms — add the best Maps queries to track."
+                : "From your Google search terms — add high-demand Maps queries to track."}
+            </p>
+            <ul className="mt-2 space-y-2">
+              {portfolio.untrackedCandidates.slice(0, 16).map((candidate) => {
                 const alreadyTracked = keywords.some(
                   (k) => k.toLowerCase() === candidate.keyword.toLowerCase()
                 );
+                const reason = candidate.llmReason || candidate.reason;
                 return (
                   <li
                     key={candidate.keyword}
-                    className={`flex flex-wrap items-center gap-2 text-sm ${
-                      light ? "text-[#202124]" : "text-slate-200"
+                    className={`rounded-lg border px-3 py-2 ${
+                      light ? "border-[#dadce0] bg-[#f8f9fa]" : "border-white/8 bg-white/[0.02]"
                     }`}
                   >
-                    <span className="font-medium">{candidate.keyword}</span>
-                    <span className={`text-xs ${light ? "text-[#80868b]" : "text-slate-500"}`}>
-                      {candidate.impressions != null && candidate.impressions > 0
-                        ? `${candidate.impressions} impressions`
-                        : candidate.belowThreshold
-                          ? "< threshold"
-                          : "from GBP"}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={saving || alreadyTracked || keywords.length >= MAX_KEYWORDS}
-                      onClick={() => void addKeyword(candidate.keyword)}
-                      className={`ml-auto rounded px-2 py-0.5 text-[11px] font-medium disabled:opacity-40 ${
-                        light ? "text-[#137333] hover:bg-[#e6f4ea]" : "text-emerald-300 hover:bg-white/10"
-                      }`}
-                    >
-                      {alreadyTracked ? "Tracked" : "Add"}
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`text-sm font-medium ${light ? "text-[#202124]" : "text-slate-200"}`}
+                      >
+                        {candidate.keyword}
+                      </span>
+                      <span className={`text-xs ${light ? "text-[#80868b]" : "text-slate-500"}`}>
+                        {candidate.impressions != null && candidate.impressions > 0
+                          ? `${candidate.impressions} impressions`
+                          : candidate.belowThreshold
+                            ? "< threshold"
+                            : "from GBP"}
+                        {candidate.sourceGbpTerm &&
+                        candidate.sourceGbpTerm.toLowerCase() !== candidate.keyword.toLowerCase()
+                          ? ` · from “${candidate.sourceGbpTerm}”`
+                          : ""}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={saving || alreadyTracked || keywords.length >= MAX_KEYWORDS}
+                        onClick={() => void addKeyword(candidate.keyword)}
+                        className={`ml-auto rounded px-2 py-0.5 text-[11px] font-medium disabled:opacity-40 ${
+                          light
+                            ? "text-[#137333] hover:bg-[#e6f4ea]"
+                            : "text-emerald-300 hover:bg-white/10"
+                        }`}
+                      >
+                        {alreadyTracked ? "Tracked" : "Add"}
+                      </button>
+                    </div>
+                    {reason && (
+                      <p className={`mt-1 text-xs leading-snug ${light ? "text-[#5f6368]" : "text-slate-400"}`}>
+                        {reason}
+                      </p>
+                    )}
                   </li>
                 );
               })}

@@ -213,10 +213,25 @@ export async function buildLiveAudit(
 
   const audit = mergeLiveStrategy(stored, hydrated, priorAudit, outcomes);
   // Re-apply tracked keywords after strategy merge in case stored rankings leaked back.
-  const finalAudit =
+  let finalAudit =
     trackedKeywords?.length
       ? syncAuditToTrackedKeywords(audit, trackedKeywords)
       : audit;
+
+  // Rank/explain untracked GBP opportunities when missing (e.g. older audits).
+  const portfolio = finalAudit.keywordPortfolio;
+  if (portfolio && portfolio.untrackedCandidates.length > 0 && !portfolio.untrackedLlmRanked) {
+    try {
+      const { enrichUntrackedCandidatesWithLlm } = await import("@/lib/llm/untracked-keywords");
+      finalAudit = {
+        ...finalAudit,
+        keywordPortfolio: await enrichUntrackedCandidatesWithLlm(finalAudit, portfolio),
+      };
+    } catch (error) {
+      console.error("[live-audit] untracked LLM enrich failed:", error);
+    }
+  }
+
   const pathToHealthy = buildPathToHealthy(finalAudit, null, {
     avgCustomerValue: options.avgCustomerValue,
     currency: options.currency ?? "USD",
