@@ -4,6 +4,7 @@ import {
   buildCompetitorTextQuery,
   competitorMapRank,
   extractCompetitors,
+  flattenCompetitorHarvest,
   isOwnBusiness,
   mergeCompetitorCandidates,
 } from "./local-rankings";
@@ -90,5 +91,20 @@ describe("competitor harvesting", () => {
       true
     );
     assert.equal(isOwnBusiness(place("c2", "Ms. Mel's Preschool", 2), matchOptions), false);
+  });
+
+  it("flattenCompetitorHarvest preserves tier order without merging positions", () => {
+    const flattened = flattenCompetitorHarvest({
+      localPack: [place("c2", "Pack Leader", 2)],
+      widerRadius: [{ radiusMiles: 3, competitors: [place("c7", "Wider Radius", 7)] }],
+      textSearchFallback: [place("c1", "Text Search", 1)],
+      nearbyHasResults: true,
+    });
+
+    assert.equal(flattened.length, 3);
+    assert.deepEqual(
+      flattened.map((entry) => entry.position),
+      [2, 7, 1]
+    );
   });
 });

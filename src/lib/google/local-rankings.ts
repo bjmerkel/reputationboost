@@ -112,6 +112,20 @@ export interface ResolveCompetitorOptions {
   limit?: number;
   /** Seed list (e.g. 1mi Nearby results already fetched for rankings). */
   initialResults?: PlaceResult[];
+  /** City/state label for Text Search fallback phrasing. */
+  locationLabel?: string;
+}
+
+export interface CompetitorRadiusTierResult {
+  radiusMiles: 3 | 5;
+  competitors: PlaceResult[];
+}
+
+export interface CompetitorHarvestResult {
+  localPack: PlaceResult[];
+  widerRadius: CompetitorRadiusTierResult[];
+  textSearchFallback: PlaceResult[];
+  nearbyHasResults: boolean;
 }
 
 /**
@@ -130,35 +144,80 @@ export function buildCompetitorTextQuery(keyword: string, locationLabel?: string
   return `${keyword} in ${trimmed}`;
 }
 
+function extractTierCompetitors(
+  results: PlaceResult[],
+  matchOptions: BusinessMatchOptions,
+  seen: Set<string>,
+  limit: number
+): PlaceResult[] {
+  const tier: PlaceResult[] = [];
+
+  for (const place of results) {
+    if (isOwnBusiness(place, matchOptions)) continue;
+    if (seen.has(place.placeId)) continue;
+    seen.add(place.placeId);
+    tier.push(place);
+    if (tier.length >= limit) break;
+  }
+
+  return tier;
+}
+
 /**
- * Harvest competitors from the same Nearby Search ordering used for rankings.
- * Seeds from 1mi results (already fetched for rank snapshots), then widens radius
- * via Nearby only — Text Search returns a different ordering and caused pack-position
- * mismatches vs keyword scores on Home.
+ * Harvest competitors in tiers: 1 mi Nearby (pack), wider Nearby (3/5 mi), then Text Search.
+ * Each tier keeps Google's positions from its own result list — tiers are not merged.
  */
 export async function resolveCompetitorResults(
   keyword: string,
   location: GeoLocation,
   matchOptions: BusinessMatchOptions,
   options: ResolveCompetitorOptions = {}
-): Promise<PlaceResult[]> {
+): Promise<CompetitorHarvestResult> {
   const limit = options.limit ?? TOP_COMPETITORS;
+  const initialResults = options.initialResults ?? [];
+  const seen = new Set<string>();
 
-  let competitors = extractCompetitors(options.initialResults ?? [], matchOptions, limit);
-  if (competitors.length >= limit) return competitors;
+  const localPack = extractTierCompetitors(initialResults, matchOptions, seen, limit);
+  const widerRadius: CompetitorRadiusTierResult[] = [];
 
-  for (const miles of COMPETITOR_SEARCH_RADII) {
-    // Skip re-fetching 1mi nearby when we already seeded from rankings.
-    if (miles === 1 && options.initialResults) continue;
-
-    const nearbyResults = await searchPlaces(keyword, location, milesToMeters(miles), "nearby").catch(
-      () => [] as PlaceResult[]
-    );
-    competitors = mergeCompetitorCandidates(competitors, nearbyResults, matchOptions, limit);
-    if (competitors.length >= limit) return competitors;
+  if (localPack.length < limit) {
+    for (const miles of [3, 5] as const) {
+      const nearbyResults = await searchPlaces(keyword, location, milesToMeters(miles), "nearby").catch(
+        () => [] as PlaceResult[]
+      );
+      const tierCompetitors = extractTierCompetitors(nearbyResults, matchOptions, seen, limit);
+      if (tierCompetitors.length > 0) {
+        widerRadius.push({ radiusMiles: miles, competitors: tierCompetitors });
+      }
+    }
   }
 
-  return competitors;
+  let textSearchFallback: PlaceResult[] = [];
+  const hasNearbyCompetitors = localPack.length > 0 || widerRadius.some((tier) => tier.competitors.length > 0);
+
+  if (!hasNearbyCompetitors) {
+    const textQuery = buildCompetitorTextQuery(keyword, options.locationLabel);
+    const textResults = await searchPlaces(keyword, location, milesToMeters(5), "text", {
+      textQuery,
+    }).catch(() => [] as PlaceResult[]);
+    textSearchFallback = extractCompetitors(textResults, matchOptions, limit);
+  }
+
+  return {
+    localPack,
+    widerRadius,
+    textSearchFallback,
+    nearbyHasResults: initialResults.length > 0,
+  };
+}
+
+/** Flatten tiered harvest into one list (1 mi first, then wider, then text fallback). */
+export function flattenCompetitorHarvest(harvest: CompetitorHarvestResult): PlaceResult[] {
+  return [
+    ...harvest.localPack,
+    ...harvest.widerRadius.flatMap((tier) => tier.competitors),
+    ...harvest.textSearchFallback,
+  ];
 }
 
 function formatClientAddress(client: ClientConfig): string {
@@ -218,6 +277,41 @@ function toCompetitorProfile(
     reviewThemes: [],
   };
 }
+
+function formatClientLocationLabel(client: ClientConfig): string {
+  const { city, state } = client.location;
+  return `${city}, ${state}`;
+}
+
+function buildCompetitorSnapshot(
+  keyword: string,
+  collectedAt: string,
+  harvest: CompetitorHarvestResult
+): CompetitorSnapshot {
+  const localPack = harvest.localPack.map((place) => toCompetitorProfile(place, keyword));
+
+  return {
+    collectedAt,
+    keyword,
+    localPack,
+    widerRadius: harvest.widerRadius.map((tier) => ({
+      radiusMiles: tier.radiusMiles,
+      competitors: tier.competitors.map((place) => toCompetitorProfile(place, keyword)),
+    })),
+    textSearchFallback: harvest.textSearchFallback.map((place) =>
+      toCompetitorProfile(place, keyword)
+    ),
+    nearbyHasResults: harvest.nearbyHasResults,
+    competitors: localPack,
+  };
+}
+
+const EMPTY_COMPETITOR_HARVEST: CompetitorHarvestResult = {
+  localPack: [],
+  widerRadius: [],
+  textSearchFallback: [],
+  nearbyHasResults: false,
+};
 
 function buildKeywordSnapshot(
   keyword: string,
@@ -350,11 +444,12 @@ export async function collectPlacesRankData(
           "nearby"
         );
 
-        const [geoGrid, competitorPlaces] = await Promise.all([
+        const [geoGrid, competitorHarvest] = await Promise.all([
           loadAuditGeoGrid(client, keyword, location, matchOptions, options.resolveStoredGrid),
           resolveCompetitorResults(keyword, location, matchOptions, {
             limit: TOP_COMPETITORS,
             initialResults: resultsByRadius[1],
+            locationLabel: formatClientLocationLabel(client),
           }),
         ]);
 
@@ -363,7 +458,7 @@ export async function collectPlacesRankData(
           ranksByRadius,
           resultsByRadius,
           geoGrid,
-          competitorPlaces,
+          competitorHarvest,
         };
       } catch {
         const emptyRanks = Object.fromEntries(
@@ -378,7 +473,7 @@ export async function collectPlacesRankData(
           ranksByRadius: emptyRanks,
           resultsByRadius: emptyResults,
           geoGrid: undefined,
-          competitorPlaces: [] as PlaceResult[],
+          competitorHarvest: EMPTY_COMPETITOR_HARVEST,
         };
       }
     }
@@ -395,11 +490,9 @@ export async function collectPlacesRankData(
       )
     );
 
-    competitorSnapshots.push({
-      collectedAt: now,
-      keyword: result.keyword,
-      competitors: result.competitorPlaces.map((p) => toCompetitorProfile(p, result.keyword)),
-    });
+    competitorSnapshots.push(
+      buildCompetitorSnapshot(result.keyword, now, result.competitorHarvest)
+    );
   }
 
   const keywordsInPack = keywords.filter((k) => k.inLocalPack).length;

@@ -182,26 +182,31 @@ async function collectPreviewRankings(
     });
 
     const competitorPlaces = extractCompetitors(resultsAt1Mi, matchOptions, 5);
+    const competitors = competitorPlaces.map((place) => ({
+      name: place.name,
+      placeId: place.placeId,
+      averageRating: place.rating ?? 0,
+      reviewCount: place.reviewCount,
+      newReviewsThisMonth: 0,
+      postsLast30Days: 0,
+      photoCount: 0,
+      lastPostDate: null,
+      primaryCategory: primaryCategoryFromTypes(place.types),
+      descriptionLength: 0,
+      attributeCount: 0,
+      mapPositions: {
+        [keyword]: place.position,
+      },
+      reviewThemes: [],
+    }));
     competitorSnapshots.push({
       collectedAt: now,
       keyword,
-      competitors: competitorPlaces.map((place) => ({
-        name: place.name,
-        placeId: place.placeId,
-        averageRating: place.rating ?? 0,
-        reviewCount: place.reviewCount,
-        newReviewsThisMonth: 0,
-        postsLast30Days: 0,
-        photoCount: 0,
-        lastPostDate: null,
-        primaryCategory: primaryCategoryFromTypes(place.types),
-        descriptionLength: 0,
-        attributeCount: 0,
-        mapPositions: {
-          [keyword]: place.position,
-        },
-        reviewThemes: [],
-      })),
+      localPack: competitors,
+      widerRadius: [],
+      textSearchFallback: [],
+      nearbyHasResults: resultsAt1Mi.length > 0,
+      competitors,
     });
   }
 

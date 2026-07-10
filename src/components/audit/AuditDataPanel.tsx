@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type {
+  CompetitorProfile,
+  CompetitorSnapshot,
   ExecutionTask,
   FullAuditPayload,
   GbpLocalPostCoverage,
@@ -12,6 +14,7 @@ import type {
   GbpPlaceActionLinkSummary,
   GbpPostItem,
   GbpReviewCoverage,
+  KeywordRankSnapshot,
   ReviewRecord,
 } from "@/audit/types";
 import ExternalImage from "@/components/ExternalImage";
@@ -57,6 +60,72 @@ const DATA_TABS: { id: DataTab; label: string }[] = [
   { id: "competitors", label: "Competitors" },
   { id: "reviews", label: "Reviews" },
 ];
+
+function resolveLocalPackCompetitors(snap: CompetitorSnapshot): CompetitorProfile[] {
+  return snap.localPack ?? snap.competitors ?? [];
+}
+
+function resolveWiderRadiusTiers(snap: CompetitorSnapshot) {
+  return snap.widerRadius ?? [];
+}
+
+function resolveTextSearchFallback(snap: CompetitorSnapshot): CompetitorProfile[] {
+  return snap.textSearchFallback ?? [];
+}
+
+function competitorBusinessStatus(
+  snap: CompetitorSnapshot,
+  keywordRank: KeywordRankSnapshot | undefined
+): string | null {
+  if (!keywordRank) return null;
+
+  const rank1 = keywordRank.geoRanks.find((point) => point.distanceMiles === 1)?.rank ?? null;
+
+  if (keywordRank.inLocalPack && typeof keywordRank.localPackPosition === "number") {
+    return `Your business: #${keywordRank.localPackPosition} in Local 3-Pack (1 mi)`;
+  }
+  if (rank1 != null && rank1 > 3) {
+    return `Your business: outside 3-Pack at 1 mi (#${rank1})`;
+  }
+
+  const nearbyHasResults =
+    snap.nearbyHasResults ??
+    (resolveLocalPackCompetitors(snap).length > 0 || rank1 != null);
+  if (!nearbyHasResults) {
+    return "No Nearby Search results at 1 mi for this phrase";
+  }
+
+  return "Your business: not found in 1 mi Nearby Search results";
+}
+
+function hasAnyCompetitors(snap: CompetitorSnapshot): boolean {
+  return (
+    resolveLocalPackCompetitors(snap).length > 0 ||
+    resolveWiderRadiusTiers(snap).some((tier) => tier.competitors.length > 0) ||
+    resolveTextSearchFallback(snap).length > 0
+  );
+}
+
+function CompetitorRows({
+  keyword,
+  competitors,
+  theme,
+}: {
+  keyword: string;
+  competitors: CompetitorProfile[];
+  theme: ReturnType<typeof auditDataTheme>;
+}) {
+  return competitors.map((competitor, index) => (
+    <div key={competitor.placeId} className={theme.competitorRow}>
+      <span className={theme.competitorName}>
+        #{competitorMapRank(competitor.mapPositions, keyword, index)} {competitor.name}
+      </span>
+      <span className={`text-sm ${theme.muted}`}>
+        {competitor.averageRating}★ · {competitor.reviewCount} reviews
+      </span>
+    </div>
+  ));
+}
 
 function auditDataTheme(light: boolean) {
   return {
@@ -568,38 +637,74 @@ export default function AuditDataPanel({
       {tab === "competitors" && (
         <div className="space-y-6">
           <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-            Top competitors from the same 1 mi Nearby Search used for your 3-Pack position. Rank
-            numbers match Google&apos;s ordering — when you&apos;re in the pack, competitors below
-            show their true Maps position (e.g. #2, #3).
+            Competitors come from the same Nearby Search used for your 3-Pack rank at 1 mi. When
+            that search returns nothing, we fall back to a broader Text Search so you still see who
+            ranks for the keyword.
           </p>
           {audit.competitors.map((snap) => {
             const keywordRank = audit.rankings.keywords.find((k) => k.keyword === snap.keyword);
             const theme = auditDataTheme(isLight);
+            const localPackCompetitors = resolveLocalPackCompetitors(snap);
+            const widerRadiusTiers = resolveWiderRadiusTiers(snap);
+            const textSearchCompetitors = resolveTextSearchFallback(snap);
+            const businessStatus = competitorBusinessStatus(snap, keywordRank);
+
             return (
             <div key={snap.keyword}>
               <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <h4 className={theme.keywordHeading}>{snap.keyword}</h4>
-                {keywordRank?.inLocalPack && typeof keywordRank.localPackPosition === "number" ? (
-                  <span className={`text-sm ${theme.muted}`}>
-                    Your business: #{keywordRank.localPackPosition} in Local 3-Pack (1 mi)
-                  </span>
-                ) : keywordRank && !keywordRank.inLocalPack ? (
-                  <span className={`text-sm ${theme.muted}`}>
-                    Your business: outside 3-Pack at 1 mi
-                  </span>
+                {businessStatus ? (
+                  <span className={`text-sm ${theme.muted}`}>{businessStatus}</span>
                 ) : null}
               </div>
-              <div className="space-y-2">
-                {snap.competitors.slice(0, 5).map((c, i) => (
-                  <div key={c.placeId} className={theme.competitorRow}>
-                    <span className={theme.competitorName}>
-                      #{competitorMapRank(c.mapPositions, snap.keyword, i)} {c.name}
-                    </span>
-                    <span className={`text-sm ${theme.muted}`}>
-                      {c.averageRating}★ · {c.reviewCount} reviews
-                    </span>
+              <div className="space-y-4">
+                {localPackCompetitors.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className={theme.sectionLabel}>Local 3-Pack area (1 mi Nearby Search)</p>
+                    <CompetitorRows
+                      keyword={snap.keyword}
+                      competitors={localPackCompetitors}
+                      theme={theme}
+                    />
                   </div>
-                ))}
+                ) : null}
+
+                {widerRadiusTiers.map((tier) =>
+                  tier.competitors.length > 0 ? (
+                    <div key={`${snap.keyword}-${tier.radiusMiles}`} className="space-y-2">
+                      <p className={theme.sectionLabel}>
+                        Also ranking within {tier.radiusMiles} mi (Nearby Search)
+                      </p>
+                      <CompetitorRows
+                        keyword={snap.keyword}
+                        competitors={tier.competitors}
+                        theme={theme}
+                      />
+                    </div>
+                  ) : null
+                )}
+
+                {textSearchCompetitors.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className={theme.sectionLabel}>Broader search fallback (Text Search)</p>
+                    <p className={`text-xs ${theme.muted}`}>
+                      Nearby Search returned no businesses for this exact phrase. These come from a
+                      broader Google Text Search near your location.
+                    </p>
+                    <CompetitorRows
+                      keyword={snap.keyword}
+                      competitors={textSearchCompetitors}
+                      theme={theme}
+                    />
+                  </div>
+                ) : null}
+
+                {!hasAnyCompetitors(snap) ? (
+                  <p className={`text-sm ${theme.muted}`}>
+                    No competitors found for this keyword. Google returned no nearby or text-search
+                    results near your business location.
+                  </p>
+                ) : null}
               </div>
             </div>
             );
