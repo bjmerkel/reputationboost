@@ -130,7 +130,12 @@ export function refreshGbpPlanForReconcile(
 function reviewAlreadyReplied(audit: FullAuditPayload, reviewId: string): boolean {
   const review = audit.reviews.reviews.find((item) => item.id === reviewId);
   if (!review) return true;
-  return Boolean(review.replyText?.trim()) || review.replyState === "LIVE";
+  // APPROVED = live reply on Google; PENDING is still in flight (keep task open).
+  return (
+    review.responded ||
+    Boolean(review.replyText?.trim()) ||
+    review.replyState === "APPROVED"
+  );
 }
 
 function suggestionFieldStillOpen(audit: FullAuditPayload, field: string): boolean {
