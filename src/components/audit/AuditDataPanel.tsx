@@ -465,8 +465,10 @@ export default function AuditDataPanel({
       {tab === "rankings" && (
         <div className="space-y-3">
           <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-            Rankings by search radius from your business. Toggle <strong>Heatmap</strong> on the
-            map for the full geo grid view.
+            <strong>3-Pack (1 mi)</strong> is your Local Pack position at the business pin — not a
+            blend of the distance columns. Use 1/3/5/10 mi to see how rank changes farther out.{" "}
+            <strong>Fragile</strong> means you&apos;re in-pack nearby but drop off at wider radii.
+            Toggle <strong>Heatmap</strong> on the map for the full geo grid view.
           </p>
         <div
           className={`overflow-x-auto rounded-xl border ${
@@ -483,7 +485,7 @@ export default function AuditDataPanel({
                 }`}
               >
                 <th className="px-4 py-3">Keyword</th>
-                <th className="px-4 py-3">3-Pack</th>
+                <th className="px-4 py-3">3-Pack (1 mi)</th>
                 <th className="px-4 py-3">1 mi</th>
                 <th className="px-4 py-3">3 mi</th>
                 <th className="px-4 py-3">5 mi</th>
@@ -557,9 +559,9 @@ export default function AuditDataPanel({
       {tab === "competitors" && (
         <div className="space-y-6">
           <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-            Top competitors from the same Nearby Search used for your pack position. Rank numbers
-            match Google&apos;s ordering — when you&apos;re in the pack, competitors below show
-            their true Maps position (e.g. #2, #3).
+            Top competitors from the same 1 mi Nearby Search used for your 3-Pack position. Rank
+            numbers match Google&apos;s ordering — when you&apos;re in the pack, competitors below
+            show their true Maps position (e.g. #2, #3).
           </p>
           {audit.competitors.map((snap) => {
             const keywordRank = audit.rankings.keywords.find((k) => k.keyword === snap.keyword);
@@ -570,10 +572,12 @@ export default function AuditDataPanel({
                 <h4 className={theme.keywordHeading}>{snap.keyword}</h4>
                 {keywordRank?.inLocalPack && typeof keywordRank.localPackPosition === "number" ? (
                   <span className={`text-sm ${theme.muted}`}>
-                    Your business: #{keywordRank.localPackPosition} in Local 3-Pack
+                    Your business: #{keywordRank.localPackPosition} in Local 3-Pack (1 mi)
                   </span>
                 ) : keywordRank && !keywordRank.inLocalPack ? (
-                  <span className={`text-sm ${theme.muted}`}>Your business: outside 3-Pack</span>
+                  <span className={`text-sm ${theme.muted}`}>
+                    Your business: outside 3-Pack at 1 mi
+                  </span>
                 ) : null}
               </div>
               <div className="space-y-2">
