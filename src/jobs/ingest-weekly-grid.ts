@@ -17,6 +17,7 @@ import {
   resolveBusinessLocation,
   type BusinessMatchOptions,
 } from "@/lib/google/local-rankings";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 
 const SEARCH_DELAY_MS = 250;
 
@@ -98,7 +99,8 @@ async function ingestGridForBusiness(
         includeLocalPack: true,
       });
       await persistKeywordGridFromCollection(row.id, keyword, geoGrid, "weekly");
-      result.rankRowsUpserted += geoGrid.length;
+      // 25 raw samples plus one aggregate row for each 1/3/5-mile ring.
+      result.rankRowsUpserted += geoGrid.length + RADIAL_RING_MILES.length;
       await sleep(SEARCH_DELAY_MS);
     } catch (error) {
       result.errors.push({

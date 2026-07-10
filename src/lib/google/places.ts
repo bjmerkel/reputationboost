@@ -405,11 +405,24 @@ export async function textSearch(
   radiusMeters: number,
   options: { maxPages?: number; rankFieldsOnly?: boolean } = {}
 ): Promise<PlaceResult[]> {
+  const cacheKey = placesSearchCacheKey(
+    keyword,
+    location.lat,
+    location.lng,
+    radiusMeters,
+    `text:${options.maxPages ?? MAX_NEARBY_PAGES}:${options.rankFieldsOnly ? "rank" : "full"}`
+  );
+  const cached = getCachedPlacesSearch(cacheKey);
+  if (cached) return cached;
+
+  let results: PlaceResult[];
   try {
-    return await textSearchNew(keyword, location, radiusMeters, options);
+    results = await textSearchNew(keyword, location, radiusMeters, options);
   } catch {
-    return textSearchLegacy(keyword, location, radiusMeters, options.maxPages);
+    results = await textSearchLegacy(keyword, location, radiusMeters, options.maxPages);
   }
+  setCachedPlacesSearch(cacheKey, results);
+  return results;
 }
 
 export type PlacesSearchMode = "nearby" | "text";

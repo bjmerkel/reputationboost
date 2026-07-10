@@ -109,14 +109,19 @@ export function applyGridSnapshotsToAudit(
     if (!isRadialRankGrid(grid)) return { ...kw, geoGrid: grid };
 
     const radial = summarizeRadialRanks(grid);
+    const centerRank =
+      kw.rankingModel === "radial_text_v2" && kw.centerRank !== undefined
+        ? kw.centerRank
+        : radial.centerRank;
+    const centerInTop3 = centerRank != null && centerRank <= 3;
     return {
       ...kw,
       rankingModel: "radial_text_v2" as const,
-      centerRank: radial.centerRank,
-      localPackPosition: radial.centerInTop3
-        ? (radial.centerRank as 1 | 2 | 3)
+      centerRank,
+      localPackPosition: centerInTop3
+        ? (centerRank as 1 | 2 | 3)
         : "not_in_pack" as const,
-      inLocalPack: radial.centerInTop3,
+      inLocalPack: centerInTop3,
       geoRanks: radial.rings,
       geoGrid: grid,
     };
@@ -127,6 +132,9 @@ export function applyGridSnapshotsToAudit(
     rankings: {
       ...audit.rankings,
       keywords,
+      keywordsInPack: keywords.filter((kw) => kw.inLocalPack).length,
+      totalKeywords: keywords.length,
+      shareOfVoice: shareOfVoice(keywords),
     },
   };
 }

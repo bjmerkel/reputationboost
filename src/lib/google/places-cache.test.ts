@@ -31,4 +31,16 @@ describe("places-cache", () => {
     const upper = placesSearchCacheKey("PLUMBER", 32.7767, -96.797, 1609);
     assert.equal(lower, upper);
   });
+
+  it("keeps Text Search rank requests separate from Nearby Search", () => {
+    const nearby = placesSearchCacheKey("plumber", 32.7767, -96.797, 1609);
+    const text = placesSearchCacheKey(
+      "plumber",
+      32.7767,
+      -96.797,
+      1609,
+      "text:1:rank"
+    );
+    assert.notEqual(nearby, text);
+  });
 });
