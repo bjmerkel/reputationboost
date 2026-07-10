@@ -6,6 +6,16 @@ export { buildOutcomeFromAttribution, findStepOutcome, formatOutcomeRank } from 
 export { resolvePlanStepNumber, backfillTaskPlanFields } from "./plan-task-utils";
 export { getPhaseForStep, PLAN_PHASE_DEFINITIONS } from "./plan-phases";
 export {
+  filterMissingTasks,
+  findActiveTaskByIdentity,
+  isActiveReconcileTask,
+  isMutableByReconcile,
+  isTerminalTaskStatus,
+  RECONCILE_ACTIVE_STATUSES,
+  RECONCILE_IMMUTABLE_STATUSES,
+  taskIdentityKey,
+} from "./task-identity";
+export {
   generateGooglePosts,
   generateGbpDescription,
   generateReviewResponses,
