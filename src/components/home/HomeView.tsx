@@ -87,6 +87,7 @@ export default function HomeView({
         dailyChangelog={scoreChangelog}
         estimatedMonthlyRevenue={estimatedMonthlyRevenue}
         currency={avgCustomerValueCurrency}
+        demandAlignmentScore={keywordPortfolio.demandAlignmentScore}
       />
 
       <KeywordPortfolioPanel

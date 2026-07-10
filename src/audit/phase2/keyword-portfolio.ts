@@ -5,11 +5,13 @@ import type {
   KeywordRankSnapshot,
   KeywordSwapRecommendation,
   Phase1AuditPayload,
+  StrategyReport,
   TrackedKeywordPortfolioItem,
   UntrackedGbpKeywordCandidate,
 } from "../types";
 import { SEARCH_RADII_MILES } from "@/lib/google/places";
 import {
+  computeHealthScores,
   detectPackFragility,
   keywordServiceAreaVisibilityScore,
   matchSearchKeywordImpressions,
@@ -668,6 +670,15 @@ export function applyTrackedKeywordsToAudit(
   };
   refreshRankingAggregates(next);
   next.keywordPortfolio = computeKeywordPortfolio(next);
+
+  const withStrategy = next as Phase1AuditPayload & { strategy?: StrategyReport };
+  if (withStrategy.strategy) {
+    withStrategy.strategy = {
+      ...withStrategy.strategy,
+      scores: computeHealthScores(next),
+    };
+  }
+
   return next;
 }
 

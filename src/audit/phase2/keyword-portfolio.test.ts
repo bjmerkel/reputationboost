@@ -18,6 +18,7 @@ import {
 } from "./keyword-portfolio";
 import { simulateGapDriverImpact } from "./counterfactual";
 import { gapDriverScoreImpact, gapOutcomeScoreImpact } from "./score-impact";
+import { computeHealthScores } from "./scoring";
 
 function wayneStyleAudit(): Phase1AuditPayload {
   const audit = createTestAudit();
@@ -368,5 +369,31 @@ describe("keyword-portfolio", () => {
     );
     assert.ok(next.keywordPortfolio);
     assert.notEqual(next, audit);
+  });
+
+  it("refreshes stored health scores when tracked keywords change", () => {
+    const audit = wayneStyleAudit();
+    const portfolio = computeKeywordPortfolio(audit);
+    const staleDemandAlignment = Math.max(0, portfolio.demandAlignmentScore - 25);
+    const auditWithStrategy = {
+      ...audit,
+      keywordPortfolio: portfolio,
+      strategy: {
+        scores: {
+          ...computeHealthScores(audit),
+          demandAlignmentScore: staleDemandAlignment,
+        },
+      },
+    } as Phase1AuditPayload & { strategy: { scores: ReturnType<typeof computeHealthScores> } };
+
+    const kept = audit.rankings.keywords[0]!.keyword;
+    const next = applyTrackedKeywordsToAudit(auditWithStrategy, [
+      kept,
+      "wayne",
+      "wayne, nj",
+    ]) as typeof auditWithStrategy;
+
+    assert.equal(next.keywordPortfolio?.demandAlignmentScore, next.strategy.scores.demandAlignmentScore);
+    assert.notEqual(next.strategy.scores.demandAlignmentScore, staleDemandAlignment);
   });
 });

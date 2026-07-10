@@ -34,6 +34,7 @@ export default function HomeHealthSummary({
   dailyChangelog = [],
   estimatedMonthlyRevenue,
   currency = "USD",
+  demandAlignmentScore,
 }: {
   audit: FullAuditPayload;
   summary: AttributionSummary | null;
@@ -45,6 +46,8 @@ export default function HomeHealthSummary({
   dailyChangelog?: ScoreChangelogEntry[];
   estimatedMonthlyRevenue?: number | null;
   currency?: string;
+  /** Live portfolio demand alignment; overrides stale audit-time score after keyword edits. */
+  demandAlignmentScore?: number;
 }) {
   const scores = audit.strategy?.scores;
   const mom = audit.strategy?.monthOverMonth;
@@ -58,6 +61,16 @@ export default function HomeHealthSummary({
   }
 
   if (!scores) return null;
+
+  const resolvedDemandAlignmentScore =
+    demandAlignmentScore ??
+    audit.keywordPortfolio?.demandAlignmentScore ??
+    scores.demandAlignmentScore;
+  const displayScores =
+    resolvedDemandAlignmentScore != null &&
+    resolvedDemandAlignmentScore !== scores.demandAlignmentScore
+      ? { ...scores, demandAlignmentScore: resolvedDemandAlignmentScore }
+      : scores;
 
   const displayScore = Number.isFinite(liveScore) ? liveScore! : Number.isFinite(scores.overall) ? scores.overall : 0;
   const color = gradeColor(scores.grade);
@@ -133,15 +146,15 @@ export default function HomeHealthSummary({
               )}
             </p>
           )}
-          {scores.demandAlignmentScore != null && (
+          {resolvedDemandAlignmentScore != null && (
             <p className="mt-1 inline-flex items-center gap-1 text-sm text-[#5f6368]">
               Keyword demand alignment{" "}
               <span
                 className={`font-medium ${
-                  scores.demandAlignmentScore < 50 ? "text-[#b06000]" : "text-[#137333]"
+                  resolvedDemandAlignmentScore < 50 ? "text-[#b06000]" : "text-[#137333]"
                 }`}
               >
-                {scores.demandAlignmentScore}%
+                {resolvedDemandAlignmentScore}%
               </span>
               <InfoTooltip {...SCORE_TOOLTIPS.demandAlignment} />
             </p>
@@ -150,7 +163,7 @@ export default function HomeHealthSummary({
       </div>
 
       <div className="mt-4 border-t border-[#e8eaed] pt-4">
-        <ScoreBreakdown scores={scores} />
+        <ScoreBreakdown scores={displayScores} />
       </div>
 
       {changelog.length > 0 && (
