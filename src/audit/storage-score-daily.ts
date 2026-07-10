@@ -6,6 +6,19 @@ import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { SEARCH_RADII_MILES } from "@/lib/google/places";
 
+const SCORE_DAILY_BASE_COLUMNS =
+  "business_id, date, overall, visibility, conversion, revenue_capture, source";
+
+const SCORE_DAILY_EXTENDED_COLUMNS =
+  `${SCORE_DAILY_BASE_COLUMNS}, driver_score, outcome_index`;
+
+function isMissingScoreDailyColumnError(message: string): boolean {
+  return (
+    message.includes("schema cache") &&
+    (message.includes("driver_score") || message.includes("outcome_index"))
+  );
+}
+
 export interface RankSnapshotQueryOptions {
   /** Business pin only (grid 0,0) — excludes spatial geo-grid cells */
   centerPointOnly?: boolean;
@@ -31,22 +44,56 @@ function rowToSnapshot(row: Record<string, unknown>): ScoreDailySnapshot {
 
 export async function upsertScoreDaily(snapshot: ScoreDailySnapshot): Promise<void> {
   const supabase = createAdminClient();
-  const { error } = await supabase.from("score_daily").upsert(
-    {
-      business_id: snapshot.businessId,
-      date: snapshot.date,
-      overall: snapshot.overall,
-      driver_score: snapshot.driverScore ?? snapshot.conversion,
-      outcome_index: snapshot.outcomeIndex,
-      visibility: snapshot.visibility,
-      conversion: snapshot.conversion,
-      revenue_capture: snapshot.revenueCapture,
-      source: snapshot.source,
-    },
-    { onConflict: "business_id,date" }
-  );
+  const baseRow = {
+    business_id: snapshot.businessId,
+    date: snapshot.date,
+    overall: snapshot.overall,
+    visibility: snapshot.visibility,
+    conversion: snapshot.conversion,
+    revenue_capture: snapshot.revenueCapture,
+    source: snapshot.source,
+  };
+  const extendedRow = {
+    ...baseRow,
+    driver_score: snapshot.driverScore ?? snapshot.conversion,
+    outcome_index: snapshot.outcomeIndex,
+  };
+
+  const { error } = await supabase
+    .from("score_daily")
+    .upsert(extendedRow, { onConflict: "business_id,date" });
+
+  if (error && isMissingScoreDailyColumnError(error.message)) {
+    const { error: legacyError } = await supabase
+      .from("score_daily")
+      .upsert(baseRow, { onConflict: "business_id,date" });
+    if (legacyError) {
+      throw new Error(`Failed to upsert score_daily: ${legacyError.message}`);
+    }
+    return;
+  }
 
   if (error) throw new Error(`Failed to upsert score_daily: ${error.message}`);
+}
+
+type ScoreDailySelectResult = {
+  data: unknown[] | null;
+  error: { message: string } | null;
+};
+
+async function selectScoreDailyRows(
+  buildQuery: (columns: string) => PromiseLike<ScoreDailySelectResult>
+): Promise<Record<string, unknown>[]> {
+  const extended = await buildQuery(SCORE_DAILY_EXTENDED_COLUMNS);
+  if (!extended.error) return (extended.data ?? []) as Record<string, unknown>[];
+
+  if (isMissingScoreDailyColumnError(extended.error.message)) {
+    const legacy = await buildQuery(SCORE_DAILY_BASE_COLUMNS);
+    if (legacy.error || !legacy.data) return [];
+    return legacy.data as Record<string, unknown>[];
+  }
+
+  return [];
 }
 
 export async function listScoreDailyForUser(
@@ -60,18 +107,18 @@ export async function listScoreDailyForUser(
 
   const start = new Date();
   start.setUTCDate(start.getUTCDate() - days);
+  const startDate = start.toISOString().slice(0, 10);
 
-  const { data, error } = await supabase
-    .from("score_daily")
-    .select(
-      "business_id, date, overall, driver_score, outcome_index, visibility, conversion, revenue_capture, source"
-    )
-    .eq("business_id", businessId)
-    .gte("date", start.toISOString().slice(0, 10))
-    .order("date", { ascending: true });
+  const data = await selectScoreDailyRows((columns) =>
+    supabase
+      .from("score_daily")
+      .select(columns)
+      .eq("business_id", businessId)
+      .gte("date", startDate)
+      .order("date", { ascending: true })
+  );
 
-  if (error || !data) return [];
-  return data.map((row) => rowToSnapshot(row as Record<string, unknown>));
+  return data.map((row) => rowToSnapshot(row));
 }
 
 export async function listRankSnapshotsForBusinessDate(
@@ -136,35 +183,35 @@ export async function listScoreDailyForBusinessAdmin(
   const supabase = createAdminClient();
   const start = new Date();
   start.setUTCDate(start.getUTCDate() - days);
+  const startDate = start.toISOString().slice(0, 10);
 
-  const { data, error } = await supabase
-    .from("score_daily")
-    .select(
-      "business_id, date, overall, driver_score, outcome_index, visibility, conversion, revenue_capture, source"
-    )
-    .eq("business_id", businessId)
-    .gte("date", start.toISOString().slice(0, 10))
-    .order("date", { ascending: true });
+  const data = await selectScoreDailyRows((columns) =>
+    supabase
+      .from("score_daily")
+      .select(columns)
+      .eq("business_id", businessId)
+      .gte("date", startDate)
+      .order("date", { ascending: true })
+  );
 
-  if (error || !data) return [];
-  return data.map((row) => rowToSnapshot(row as Record<string, unknown>));
+  return data.map((row) => rowToSnapshot(row));
 }
 
 export async function listAllScoreDailyAdmin(days = 90): Promise<ScoreDailySnapshot[]> {
   const supabase = createAdminClient();
   const start = new Date();
   start.setUTCDate(start.getUTCDate() - days);
+  const startDate = start.toISOString().slice(0, 10);
 
-  const { data, error } = await supabase
-    .from("score_daily")
-    .select(
-      "business_id, date, overall, driver_score, outcome_index, visibility, conversion, revenue_capture, source"
-    )
-    .gte("date", start.toISOString().slice(0, 10))
-    .order("date", { ascending: true });
+  const data = await selectScoreDailyRows((columns) =>
+    supabase
+      .from("score_daily")
+      .select(columns)
+      .gte("date", startDate)
+      .order("date", { ascending: true })
+  );
 
-  if (error || !data) return [];
-  return data.map((row) => rowToSnapshot(row as Record<string, unknown>));
+  return data.map((row) => rowToSnapshot(row));
 }
 
 export async function listAllRankSnapshotsAdmin(
