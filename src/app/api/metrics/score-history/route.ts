@@ -13,6 +13,7 @@ import {
 } from "@/audit/phase2/rank-median";
 import { keywordMapFromRankSnapshots } from "@/audit/phase2/service-area-attribution";
 import { radiusWeightsForAudit } from "@/audit/phase2/radius-profiles";
+import { backfillScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { loadGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import { loadGlobalScoreModel } from "@/audit/storage-score-model";
@@ -52,11 +53,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "No business configured" }, { status: 400 });
   }
 
-  const [series, globalCalibration, scoreModel] = await Promise.all([
+  const [initialSeries, globalCalibration, scoreModel] = await Promise.all([
     listScoreDailyForUser(user.id, clientId, days),
     loadGlobalScoreCalibration(),
     loadGlobalScoreModel(),
   ]);
+
+  let series = initialSeries;
+  if (series.length < 2) {
+    const businessId = await getBusinessIdForSlug(user.id, clientId);
+    if (businessId) {
+      const backfilled = await backfillScoreDailyForBusiness(businessId, days);
+      if (backfilled > 0) {
+        series = await listScoreDailyForUser(user.id, clientId, days);
+      }
+    }
+  }
 
   let changelog: ReturnType<typeof buildScoreChangelogFromSnapshots> = [];
   const latest = series[series.length - 1];

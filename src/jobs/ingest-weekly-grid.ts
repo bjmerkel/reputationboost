@@ -9,7 +9,7 @@ import {
 } from "@/audit/storage-timeseries";
 import { persistKeywordGridFromCollection } from "@/audit/storage-grid-snapshots";
 import type { IngestRunResult } from "@/audit/types/timeseries";
-import { ingestScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
+import { ingestScoreDailyForBusiness, backfillScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
 import { gridProfileForCollection, HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { collectKeywordGeoGrid } from "@/lib/google/geo-grid";
@@ -111,7 +111,11 @@ async function ingestGridForBusiness(
 
   try {
     const saved = await ingestScoreDailyForBusiness(row.id, targetDate);
-    if (saved) result.scoreRowsUpserted += 1;
+    if (saved) {
+      result.scoreRowsUpserted += 1;
+      const backfilled = await backfillScoreDailyForBusiness(row.id);
+      result.scoreRowsUpserted += backfilled;
+    }
   } catch (error) {
     result.errors.push({
       businessId: row.id,
