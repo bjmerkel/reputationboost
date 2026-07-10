@@ -15,6 +15,7 @@ import {
   portfolioStepIsSatisfied,
 } from "./keyword-portfolio";
 import { buildGbpDescriptionDraft, cityFromAddress } from "@/lib/google/gbp-description-draft";
+import { resolveReviewResponseRate } from "@/audit/review-engagement";
 
 function keywords(audit: Phase1AuditPayload): string[] {
   return audit.rankings.keywords.map((k) => k.keyword);
@@ -267,7 +268,7 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       title: "Review Responses",
       instruction:
         "Respond to every review within 24 hours. Mention the service and city naturally in your reply. Each response in Take Action is AI-drafted for that specific review.",
-      current: `${Math.round(audit.gbp.engagement.responseRate * 100)}% response rate · ${audit.reviews.unrespondedNegative} unresponded negative`,
+      current: `${Math.round(resolveReviewResponseRate(audit) * 100)}% response rate · ${audit.reviews.unrespondedNegative} unresponded negative`,
       recommended: "100% response rate within 24 hours",
       bullets: [
         `Respond to ${audit.reviews.unrespondedNegative} unresponded negative review(s) immediately`,

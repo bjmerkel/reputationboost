@@ -9,6 +9,7 @@ import {
   refreshGbpPlanForReconcile,
   selectTasksToAutoComplete,
 } from "./reconcile-plan";
+import { isReviewResponseWorkSatisfied } from "@/audit/review-engagement";
 import { taskIdentityKey } from "./task-identity";
 
 function task(overrides: Partial<ExecutionTask> = {}): ExecutionTask {
@@ -162,6 +163,40 @@ describe("selectTasksToAutoComplete", () => {
     const toComplete = selectTasksToAutoComplete(audit, [pending]);
     assert.equal(toComplete.length, 1);
     assert.equal(toComplete[0].id, "reply");
+  });
+
+  it("auto-completes review-response checklist when all reviews are already replied", () => {
+    const audit = createTestAudit();
+    audit.gbp.engagement.responseRate = 0;
+    audit.reviews.unrespondedNegative = 2;
+    audit.reviews.reviews = [
+      {
+        id: "reviews/1",
+        author: "Pat",
+        rating: 5,
+        text: "Great service",
+        publishedAt: "2026-07-01T00:00:00.000Z",
+        responded: true,
+        replyText: "Thanks for your feedback!",
+        replyState: "APPROVED",
+        responseTimeHours: 1,
+        sentiment: "positive",
+      },
+    ];
+
+    const checklist = task({
+      id: "review-checklist",
+      type: "gbp_checklist",
+      actionItemId: "gbp-step-11",
+      planStepNumber: 11,
+      payload: { gbpStepNumber: 11 },
+      status: "approved",
+    });
+
+    assert.equal(isReviewResponseWorkSatisfied(audit), true);
+    const toComplete = selectTasksToAutoComplete(audit, [checklist]);
+    assert.equal(toComplete.length, 1);
+    assert.equal(toComplete[0].id, "review-checklist");
   });
 });
 

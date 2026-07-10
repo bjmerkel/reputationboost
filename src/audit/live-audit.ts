@@ -28,7 +28,7 @@ import type {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { getValidGbpConnectionForRecord } from "@/lib/google/token-store";
-import { syncAuditToTrackedKeywords } from "@/audit/sync-tracked-keywords";
+import { syncReviewEngagementMetrics } from "@/audit/review-engagement";
 
 function formatDateYmd(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -98,11 +98,13 @@ function mergeRefreshedGbp(
   gbp: GbpSnapshot,
   reviews: ReviewSnapshot
 ): FullAuditPayload {
-  return {
+  const merged = {
     ...audit,
     gbp,
     reviews,
   };
+  syncReviewEngagementMetrics(merged);
+  return merged;
 }
 
 function mergeLiveStrategy(

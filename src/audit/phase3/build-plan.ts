@@ -14,7 +14,8 @@ import { isCustomPlanStep } from "./plan-custom-steps";
 import { resolvePlanStepNumber } from "./plan-task-utils";
 import { buildAttributionCalibration, mergeCalibrations } from "../phase2/attribution-calibration";
 import type { AttributionCalibration } from "../phase2/attribution-calibration";
-import { projectHealthScoresFromStepNumbers } from "../phase2/counterfactual";
+import { projectHealthScoresFromStepNumbers, isStepSatisfied } from "../phase2/counterfactual";
+import { syncReviewEngagementMetrics } from "@/audit/review-engagement";
 import { buildStepContext } from "./step-context";
 import { findStepOutcome } from "./step-outcomes";
 import {
@@ -142,21 +143,34 @@ export function buildPlan(
   const gbpPlan = audit.strategy?.gbpPlan;
   if (!gbpPlan) return null;
 
+  syncReviewEngagementMetrics(audit);
+
   const tasksByStep = groupTasksByStep(tasks);
   const calibration = mergeCalibrations(
     buildAttributionCalibration(attributions),
     globalCalibration
   );
-  const planSteps = gbpPlan.steps.map((step) =>
-    buildPlanStep(
-      audit,
-      step,
-      tasksByStep.get(step.stepNumber) ?? [],
-      attributions,
-      calibration,
-      avgCustomerValue
+  const planSteps = gbpPlan.steps
+    .map((step) =>
+      buildPlanStep(
+        audit,
+        step,
+        tasksByStep.get(step.stepNumber) ?? [],
+        attributions,
+        calibration,
+        avgCustomerValue
+      )
     )
-  );
+    .filter((step) => {
+      if (!isStepSatisfied(audit, step.stepNumber)) return true;
+      return step.tasks.some(
+        (task) =>
+          task.status === "pending_approval" ||
+          task.status === "failed" ||
+          (task.status === "approved" &&
+            (task.type === "review_response" || task.type === "review_delete_reply"))
+      );
+    });
 
   const googleUpdateTasks = (tasksByStep.get(GOOGLE_UPDATES_STEP_NUMBER) ?? []).filter(
     isGoogleUpdateTask

@@ -33,10 +33,11 @@ export function generateGbpDescription(audit: FullAuditPayload): string {
 }
 
 import type { ReviewResponseDraft } from "@/lib/review-responses/types";
+import { isReviewRecordResponded } from "@/audit/review-engagement";
 
 export function generateReviewResponses(audit: FullAuditPayload): ReviewResponseDraft[] {
   const pending = audit.reviews.reviews.filter(
-    (r) => !r.responded || r.replyState === "REJECTED"
+    (r) => !isReviewRecordResponded(r) || r.replyState === "REJECTED"
   );
   const keywordContexts = assignReviewResponseKeywordContexts(audit, pending);
 

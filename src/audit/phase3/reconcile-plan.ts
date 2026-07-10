@@ -5,6 +5,12 @@ import {
   selectGbpPlanSteps,
 } from "@/audit/phase2/gbp-plan";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
+import {
+  countUnrespondedNegativeReviews,
+  isReviewRecordResponded,
+  isReviewResponseWorkSatisfied,
+  syncReviewEngagementMetrics,
+} from "@/audit/review-engagement";
 import type { BusinessRecord } from "@/audit/businesses";
 import type {
   ExecutionTask,
@@ -169,12 +175,7 @@ export function refreshGbpPlanForReconcile(
 function reviewAlreadyReplied(audit: FullAuditPayload, reviewId: string): boolean {
   const review = audit.reviews.reviews.find((item) => item.id === reviewId);
   if (!review) return true;
-  // APPROVED = live reply on Google; PENDING is still in flight (keep task open).
-  return (
-    review.responded ||
-    Boolean(review.replyText?.trim()) ||
-    review.replyState === "APPROVED"
-  );
+  return isReviewRecordResponded(review);
 }
 
 function suggestionFieldStillOpen(audit: FullAuditPayload, field: string): boolean {
@@ -196,10 +197,18 @@ export function selectTasksToAutoComplete(
   const completed: ExecutionTask[] = [];
 
   for (const task of existing) {
-    if (!isMutableByReconcile(task)) continue;
-    if (!AUTO_COMPLETE_TYPES.has(task.type)) continue;
-
     const stepNumber = resolvePlanStepNumber(task);
+
+    if (task.type === "gbp_checklist" && stepNumber === 11 && isReviewResponseWorkSatisfied(audit)) {
+      if (isMutableByReconcile(task) || task.status === "approved") {
+        completed.push(task);
+      }
+      continue;
+    }
+
+    if (!isMutableByReconcile(task)) continue;
+
+    if (!AUTO_COMPLETE_TYPES.has(task.type)) continue;
 
     if (task.type === "review_response" || task.type === "review_delete_reply") {
       const reviewId = String(task.payload.reviewId ?? "");
@@ -299,6 +308,7 @@ export function computePlanReconcile(
   options: { content?: AuditGeneratedContent; now?: string } = {}
 ): PlanReconcileComputation {
   const now = options.now ?? new Date().toISOString();
+  syncReviewEngagementMetrics(audit);
   const { plan, appendedStepNumbers, refreshedStepCount } = refreshGbpPlanForReconcile(audit);
 
   const nextAudit: FullAuditPayload = plan

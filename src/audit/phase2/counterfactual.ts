@@ -26,6 +26,7 @@ import { computeKeywordScores } from "./keyword-scores";
 import { detectPackFragility, resolveKeywordPositionAtRadius } from "./scoring";
 import { SEARCH_RADII_MILES, type SearchRadiusMiles } from "@/lib/google/places";
 import { primaryCategoryUpdateIsNoOp } from "./gbp-category";
+import { isReviewResponseWorkSatisfied } from "@/audit/review-engagement";
 import {
   buildGbpDescriptionDraft,
   cityFromAddress,
@@ -283,10 +284,7 @@ export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): 
       return !hasReviewGap && gbp.engagement.reviewCount >= reviewTarget * 0.8;
     }
     case 11:
-      return (
-        reviews.unrespondedNegative === 0 &&
-        gbp.engagement.responseRate >= RESPONSE_RATE_TARGET
-      );
+      return isReviewResponseWorkSatisfied(audit);
     case 12:
       return (
         gbp.completeness.hasHours &&

@@ -313,15 +313,11 @@ export function buildReviewResponseTasks(
     return [...rejectedDeletes, ...replyTasks];
   }
 
-  const template =
-    step.copyBlocks?.[0]?.content ?? "Respond to all reviews within 24 hours.";
-  return [
-    ...rejectedDeletes,
-    buildGbpTask(audit, step, "gbp_checklist", step.title, template, {
-      manual: true,
-      ...customPayload,
-    }),
-  ];
+  if (rejectedDeletes.length > 0) {
+    return rejectedDeletes;
+  }
+
+  return [];
 }
 
 export function buildPhotoExecutionTasks(

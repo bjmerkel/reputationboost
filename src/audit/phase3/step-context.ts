@@ -3,6 +3,10 @@ import type { AttributionCalibration } from "../phase2/attribution-calibration";
 import { keywordsMissingFromText } from "@/audit/attribution/keywords";
 import { estimateStepHealthImpact, estimateStepOutcomeImpact, estimateStepRevenueImpact } from "../phase2/score-impact";
 import { isCustomPlanStep } from "./plan-custom-steps";
+import {
+  countUnrespondedNegativeReviews,
+  isReviewResponseWorkSatisfied,
+} from "@/audit/review-engagement";
 
 /** Mirrors counterfactual step-3 satisfaction threshold. */
 const DESCRIPTION_MIN_LENGTH = 400;
@@ -140,10 +144,17 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
       }
       return "Grow review volume with keyword-rich natural language from customers.";
     }
-    case 11:
-      return audit.reviews.unrespondedNegative > 0
-        ? `Respond to ${audit.reviews.unrespondedNegative} unresponded negative review(s) within 24 hours.`
-        : "Maintain 100% review response rate with keyword-aware replies.";
+    case 11: {
+      const unrespondedNegative =
+        audit.reviews.reviews.length > 0
+          ? countUnrespondedNegativeReviews(audit.reviews.reviews)
+          : audit.reviews.unrespondedNegative;
+      return unrespondedNegative > 0
+        ? `Respond to ${unrespondedNegative} unresponded negative review(s) within 24 hours.`
+        : isReviewResponseWorkSatisfied(audit)
+          ? "Review response coverage is healthy — keep replying within 24 hours."
+          : "Maintain 100% review response rate with keyword-aware replies.";
+    }
     case 12:
       return "Keep hours accurate — inconsistent hours hurt rankings and customer trust.";
     case 13: {

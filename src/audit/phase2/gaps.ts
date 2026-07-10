@@ -12,6 +12,7 @@ import { resolveKeywordRelevance } from "./relevance-heuristic";
 import { gapScoreComponent, gapScoreImpact } from "./score-impact";
 import { missingMediaGapCopy } from "@/lib/google/gbp-media-coverage";
 import { napDriftGapId } from "@/lib/google/nap-drift";
+import { isReviewRecordResponded, resolveReviewResponseRate } from "@/audit/review-engagement";
 
 function daysSince(iso: string | null): number {
   if (!iso) return 999;
@@ -528,13 +529,20 @@ export function detectGaps(
     );
   }
 
-  if (audit.reviews.unrespondedNegative > 0) {
+  const unrespondedNegative =
+    audit.reviews.reviews.length > 0
+      ? audit.reviews.reviews.filter(
+          (review) => review.rating <= 3 && !isReviewRecordResponded(review)
+        ).length
+      : audit.reviews.unrespondedNegative;
+
+  if (unrespondedNegative > 0) {
     gaps.push(
       gap(
         "unresponded-negative",
         "P0",
         "reviews",
-        `${audit.reviews.unrespondedNegative} unresponded negative review(s)`,
+        `${unrespondedNegative} unresponded negative review(s)`,
         "Unanswered negative reviews hurt conversion. Respond within 24 hours with empathy and a resolution path.",
         9,
         2
@@ -542,14 +550,15 @@ export function detectGaps(
     );
   }
 
-  if (audit.gbp.engagement.responseRate < 0.85) {
+  const responseRate = resolveReviewResponseRate(audit);
+  if (responseRate < 0.85) {
     gaps.push(
       gap(
         "low-response-rate",
         "P1",
         "reviews",
         "Review response rate below 85%",
-        `Current response rate: ${Math.round(audit.gbp.engagement.responseRate * 100)}%. Google rewards engaged businesses.`,
+        `Current response rate: ${Math.round(responseRate * 100)}%. Google rewards engaged businesses.`,
         7,
         2
       )

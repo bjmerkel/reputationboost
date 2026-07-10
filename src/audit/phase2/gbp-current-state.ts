@@ -7,6 +7,7 @@ import type {
 import { isProfileLinkCoverageItem, isUriAttributeType, resolveProfileLinkMissing } from "@/lib/google/gbp-attribute-recommendations";
 import { keywordCoveredByServices, missingServiceKeywords as missingServiceKeywordsForNames } from "@/lib/google/gbp-service-descriptions";
 import { detectPackFragility } from "./scoring";
+import { resolveReviewResponseRate } from "@/audit/review-engagement";
 
 function profile(audit: Phase1AuditPayload) {
   return audit.gbp.liveProfile;
@@ -105,10 +106,10 @@ export function buildGbpCurrentState(audit: Phase1AuditPayload): GbpCurrentState
     },
     {
       label: "Google Posts",
-      current: `${audit.gbp.engagement.reviewCount} reviews · ${audit.gbp.engagement.averageRating}★ · ${Math.round(audit.gbp.engagement.responseRate * 100)}% responded`,
+      current: `${audit.gbp.engagement.reviewCount} reviews · ${audit.gbp.engagement.averageRating}★ · ${Math.round(resolveReviewResponseRate(audit) * 100)}% responded`,
       status: fieldStatus(
         String(audit.gbp.engagement.reviewCount),
-        audit.gbp.engagement.responseRate >= 0.9
+        resolveReviewResponseRate(audit) >= 0.9
       ),
     },
     {
@@ -151,8 +152,10 @@ export function buildGbpCurrentState(audit: Phase1AuditPayload): GbpCurrentState
   if (secondary.length < 2) profileGaps.push("Add secondary categories that match your target keywords");
   if (daysSince === null || daysSince > 14)
     profileGaps.push("No Google Post in the last 2 weeks — publish weekly posts");
-  if (audit.gbp.engagement.responseRate < 0.9)
-    profileGaps.push(`Review response rate is ${Math.round(audit.gbp.engagement.responseRate * 100)}% — target 100%`);
+  if (resolveReviewResponseRate(audit) < 0.9)
+    profileGaps.push(
+      `Review response rate is ${Math.round(resolveReviewResponseRate(audit) * 100)}% — target 100%`
+    );
   if (audit.gbp.content.photoCount < 50)
     profileGaps.push(`Only ${audit.gbp.content.photoCount} photos — competitors often have 100+`);
 
