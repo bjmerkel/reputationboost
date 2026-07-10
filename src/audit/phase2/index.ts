@@ -77,7 +77,7 @@ export {
 } from "./attribution-calibration";
 export { applyRankSnapshotsToAudit, applyGridSnapshotsToAudit, computeScoreDailySnapshot } from "./score-snapshot";
 export { buildScoreChangelogFromSnapshots, buildScoreChangelogFromHealthScores, buildRankMovementsFromSnapshots, buildRankMovementsForChangelog } from "./score-changelog";
-export { ingestScoreDailyForBusiness } from "./score-ingest";
+export { backfillScoreDailyForBusiness, ingestScoreDailyForBusiness } from "./score-ingest";
 export { detectGaps } from "./gaps";
 export { buildPlanStepCandidates, summarizePlanCandidates } from "./plan-candidates";
 export type { PlanStepCandidate } from "./plan-candidates";
