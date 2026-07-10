@@ -24,7 +24,8 @@ import {
 } from "./keyword-portfolio";
 import { computeKeywordScores } from "./keyword-scores";
 import { detectPackFragility, resolveKeywordPositionAtRadius } from "./scoring";
-import { SEARCH_RADII_MILES, type SearchRadiusMiles } from "@/lib/google/places";
+import { type SearchRadiusMiles } from "@/lib/google/places";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 import { primaryCategoryUpdateIsNoOp } from "./gbp-category";
 import { isReviewResponseWorkSatisfied } from "@/audit/review-engagement";
 import {
@@ -861,7 +862,7 @@ function improveKeywordRank(kw: KeywordRankSnapshot, rankDelta: number): Keyword
 /** Simulate rank #1 at every search radius (full service-area dominance). */
 export function projectKeywordToRank1(kw: KeywordRankSnapshot): KeywordRankSnapshot {
   let result = kw;
-  for (const miles of SEARCH_RADII_MILES) {
+  for (const miles of RADIAL_RING_MILES) {
     const rank = resolveKeywordPositionAtRadius(result, miles);
     if (typeof rank === "number" && rank > 1) {
       result = improveKeywordRankAtRadius(result, miles, rank - 1);
@@ -887,7 +888,7 @@ export function improveKeywordRankForFragility(kw: KeywordRankSnapshot): Keyword
   }
 
   let result = kw;
-  for (const miles of SEARCH_RADII_MILES) {
+  for (const miles of RADIAL_RING_MILES) {
     if (miles < fragility.weakestRadiusMiles) continue;
     const rank = resolveKeywordPositionAtRadius(result, miles);
     if (typeof rank === "number" && rank > 3) {

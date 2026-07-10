@@ -14,11 +14,12 @@ export function placesSearchCacheKey(
   keyword: string,
   lat: number,
   lng: number,
-  radiusMeters: number
+  radiusMeters: number,
+  namespace = "nearby"
 ): string {
   const latKey = lat.toFixed(4);
   const lngKey = lng.toFixed(4);
-  return `nearby:${keyword.toLowerCase().trim()}:${latKey}:${lngKey}:${radiusMeters}`;
+  return `${namespace}:${keyword.toLowerCase().trim()}:${latKey}:${lngKey}:${radiusMeters}`;
 }
 
 export function getCachedPlacesSearch(key: string): PlaceResult[] | null {

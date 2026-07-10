@@ -5,7 +5,11 @@ import {
   findBusinessRank,
   type BusinessMatchOptions,
 } from "@/lib/google/local-rankings";
-import { milesToMeters, searchPlacesSafe, type GeoLocation, type PlaceResult } from "@/lib/google/places";
+import { milesToMeters, searchPlaces, type GeoLocation, type PlaceResult } from "@/lib/google/places";
+import {
+  buildRadialSearchOrigins,
+  type RadialSearchOrigin,
+} from "@/lib/google/radial-rankings";
 
 export type GridProfileKey = "compact" | "standard" | "extended";
 
@@ -81,14 +85,15 @@ function toLocalPackEntries(
 }
 
 export interface CollectGeoGridOptions {
+  /** @deprecated Radial-v2 always collects the fixed 25-point profile. */
   profile?: GridProfileKey;
   includeLocalPack?: boolean;
-  /** Nearby Search radius from each grid cell (default 1 mi). */
+  /** Soft Text Search location-bias radius from each sample (default 1 mi). */
   searchRadiusMiles?: number;
 }
 
 /**
- * Collect rank at each grid point for one keyword (simulates local search from that area).
+ * Collect one business-pin sample and eight Text Search samples on each 1/3/5-mile ring.
  */
 export async function collectKeywordGeoGrid(
   keyword: string,
@@ -96,24 +101,28 @@ export async function collectKeywordGeoGrid(
   matchOptions: BusinessMatchOptions,
   options: CollectGeoGridOptions = {}
 ): Promise<GeoGridPoint[]> {
-  const { size, spacing } = resolveGridProfile(options.profile ?? "compact");
-  const offsets = buildGeoGridOffsets(size, spacing);
   const searchRadiusMiles = options.searchRadiusMiles ?? GRID_SEARCH_RADIUS_MILES;
   const searchRadius = milesToMeters(searchRadiusMiles);
   const includeLocalPack = options.includeLocalPack !== false;
+  const origins = buildRadialSearchOrigins(center);
 
-  return mapWithConcurrency(offsets, GRID_SEARCH_CONCURRENCY, async ({ northMiles, eastMiles }) => {
-    const point = offsetLocation(center, northMiles, eastMiles);
-    const results = await searchPlacesSafe(keyword, point, searchRadius, "nearby");
+  return mapWithConcurrency(origins, GRID_SEARCH_CONCURRENCY, async (origin) => {
+    const results = await searchPlaces(keyword, origin.location, searchRadius, "text", {
+      maxPages: 1,
+      rankFieldsOnly: true,
+      allowLegacyFallback: false,
+    });
     const rank = findBusinessRank(results, matchOptions);
 
     const cell: GeoGridPoint = {
-      lat: point.lat,
-      lng: point.lng,
-      offsetNorthMiles: northMiles,
-      offsetEastMiles: eastMiles,
+      lat: origin.location.lat,
+      lng: origin.location.lng,
+      offsetNorthMiles: origin.offsetNorthMiles,
+      offsetEastMiles: origin.offsetEastMiles,
       rank,
       inLocalPack: rank !== null && rank <= 3,
+      sampleDistanceMiles: origin.distanceMiles,
+      sampleDirection: origin.direction,
     };
 
     if (includeLocalPack) {
@@ -130,32 +139,39 @@ const DEMO_COMPETITORS = [
   { name: "Quick Fix LLC", rating: 4.6, reviewCount: 94 },
 ];
 
-/** Demo grid with rank drift by distance from center. */
+function demoRankAtOrigin(baseRank: number, origin: RadialSearchOrigin): number | null {
+  if (baseRank === 0) return null;
+  const directionDrift =
+    origin.direction === "center"
+      ? 0
+      : ["N", "NE", "E", "SE"].includes(origin.direction)
+        ? 1
+        : 2;
+  return Math.min(20, Math.max(1, baseRank + Math.round(origin.distanceMiles * 0.8) + directionDrift));
+}
+
+/** Demo radial visibility samples with rank drift by distance and direction. */
 export function buildDemoGeoGrid(
   center: GeoLocation,
   baseRank: number,
-  profile: GridProfileKey = "compact",
-  searchRadiusMiles = GRID_SEARCH_RADIUS_MILES
+  _profile: GridProfileKey = "compact",
+  _searchRadiusMiles = GRID_SEARCH_RADIUS_MILES
 ): GeoGridPoint[] {
-  const { size, spacing } = resolveGridProfile(profile);
-  const radiusScale = searchRadiusMiles / GRID_SEARCH_RADIUS_MILES;
-  return buildGeoGridOffsets(size, spacing).map(({ northMiles, eastMiles }) => {
-    const dist = Math.sqrt(northMiles ** 2 + eastMiles ** 2);
-    const drift = Math.round(dist * 2.5 * radiusScale);
-    const rank =
-      baseRank === 0
-        ? null
-        : Math.min(20, Math.max(1, baseRank + (northMiles === 0 && eastMiles === 0 ? 0 : drift)));
-    const point = offsetLocation(center, northMiles, eastMiles);
+  void _profile;
+  void _searchRadiusMiles;
+  return buildRadialSearchOrigins(center).map((origin) => {
+    const rank = demoRankAtOrigin(baseRank, origin);
     const weak = rank === null || rank > 3;
 
     return {
-      lat: point.lat,
-      lng: point.lng,
-      offsetNorthMiles: northMiles,
-      offsetEastMiles: eastMiles,
+      lat: origin.location.lat,
+      lng: origin.location.lng,
+      offsetNorthMiles: origin.offsetNorthMiles,
+      offsetEastMiles: origin.offsetEastMiles,
       rank,
       inLocalPack: rank !== null && rank <= 3,
+      sampleDistanceMiles: origin.distanceMiles,
+      sampleDirection: origin.direction,
       localPack: weak
         ? DEMO_COMPETITORS.map((c, i) => ({
             placeId: `demo-${i}`,

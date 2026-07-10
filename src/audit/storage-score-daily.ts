@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 
 const SCORE_DAILY_BASE_COLUMNS =
   "business_id, date, overall, visibility, conversion, revenue_capture, source";
@@ -20,9 +20,9 @@ function isMissingScoreDailyColumnError(message: string): boolean {
 }
 
 export interface RankSnapshotQueryOptions {
-  /** Business pin only (grid 0,0) — excludes spatial geo-grid cells */
+  /** Aggregate rows only (grid 0,0) — excludes raw radial sample points. */
   centerPointOnly?: boolean;
-  /** When true, include 1/3/5/10 mi center ranks. When false, 1 mi only. */
+  /** When true, include center plus 1/3/5-mile ring medians. */
   multiRadius?: boolean;
 }
 
@@ -142,7 +142,7 @@ export async function listRankSnapshotsForBusinessRange(
   let query = supabase
     .from("rank_snapshots")
     .select(
-      "business_id, keyword, date, distance_miles, grid_north, grid_east, rank, in_local_pack, local_pack_position, source"
+      "business_id, keyword, date, distance_miles, grid_north, grid_east, rank, in_local_pack, local_pack_position, source, ranking_model"
     )
     .eq("business_id", businessId)
     .gte("date", startDate)
@@ -153,16 +153,16 @@ export async function listRankSnapshotsForBusinessRange(
   }
 
   if (!multiRadius) {
-    query = query.eq("distance_miles", 1);
+    query = query.in("distance_miles", [0, 1]);
   } else if (centerPointOnly) {
-    query = query.in("distance_miles", [...SEARCH_RADII_MILES]);
+    query = query.in("distance_miles", [0, ...RADIAL_RING_MILES]);
   }
 
   const { data, error } = await query.order("date", { ascending: true });
 
   if (error || !data) return [];
 
-  return data.map((row) => ({
+  const rows = data.map((row) => ({
     businessId: row.business_id as string,
     keyword: row.keyword as string,
     date: row.date as string,
@@ -173,7 +173,24 @@ export async function listRankSnapshotsForBusinessRange(
     inLocalPack: row.in_local_pack as boolean,
     localPackPosition: row.local_pack_position as number | null,
     source: row.source as RankSnapshotRow["source"],
+    rankingModel: row.ranking_model as RankSnapshotRow["rankingModel"],
   }));
+
+  if (!centerPointOnly) return rows;
+
+  return rows
+    .filter((row) => {
+      if (row.rankingModel !== "radial_text_v2") {
+        return row.distanceMiles === 1;
+      }
+      return multiRadius
+        ? row.distanceMiles === 0 ||
+            RADIAL_RING_MILES.includes(row.distanceMiles as (typeof RADIAL_RING_MILES)[number])
+        : row.distanceMiles === 0;
+    })
+    .map((row) =>
+      row.rankingModel !== "radial_text_v2" ? { ...row, distanceMiles: 0 } : row
+    );
 }
 
 export async function listScoreDailyForBusinessAdmin(
@@ -224,7 +241,7 @@ export async function listAllRankSnapshotsAdmin(
   const { data, error } = await supabase
     .from("rank_snapshots")
     .select(
-      "business_id, keyword, date, distance_miles, grid_north, grid_east, rank, in_local_pack, local_pack_position, source"
+      "business_id, keyword, date, distance_miles, grid_north, grid_east, rank, in_local_pack, local_pack_position, source, ranking_model"
     )
     .gte("date", start.toISOString().slice(0, 10))
     .eq("grid_north", 0)
@@ -233,18 +250,27 @@ export async function listAllRankSnapshotsAdmin(
 
   if (error || !data) return [];
 
-  return data.map((row) => ({
-    businessId: row.business_id as string,
-    keyword: row.keyword as string,
-    date: row.date as string,
-    distanceMiles: row.distance_miles as number,
-    gridNorth: Number(row.grid_north),
-    gridEast: Number(row.grid_east),
-    rank: row.rank as number | null,
-    inLocalPack: row.in_local_pack as boolean,
-    localPackPosition: row.local_pack_position as number | null,
-    source: row.source as RankSnapshotRow["source"],
-  }));
+  return data
+    .filter(
+      (row) =>
+        row.ranking_model === "radial_text_v2" || Number(row.distance_miles) === 1
+    )
+    .map((row) => ({
+      businessId: row.business_id as string,
+      keyword: row.keyword as string,
+      date: row.date as string,
+      distanceMiles:
+        row.ranking_model === "radial_text_v2"
+          ? (row.distance_miles as number)
+          : 0,
+      gridNorth: Number(row.grid_north),
+      gridEast: Number(row.grid_east),
+      rank: row.rank as number | null,
+      inLocalPack: row.in_local_pack as boolean,
+      localPackPosition: row.local_pack_position as number | null,
+      source: row.source as RankSnapshotRow["source"],
+      rankingModel: row.ranking_model as RankSnapshotRow["rankingModel"],
+    }));
 }
 
 export async function loadLatestAuditForBusinessAdmin(

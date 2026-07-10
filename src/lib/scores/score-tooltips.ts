@@ -28,7 +28,7 @@ export const SCORE_TOOLTIPS = {
   visibility: {
     title: "Visibility",
     calculation:
-      "Impression-weighted average across your keywords: share of your service area where you rank in Google's Local 3-Pack, blending geo-grid coverage with rank at 1, 3, 5, and 10 mile radii.",
+      "Impression-weighted average across your keywords: sampled top-three coverage and median Places visibility at 1, 3, and 5 miles from the business.",
     importance:
       "Measures discoverability. Customers can't call or visit if your listing doesn't appear when they search nearby.",
   },
@@ -69,7 +69,7 @@ export const SCORE_TOOLTIPS = {
   serviceAreaCoverage: {
     title: "Service area coverage",
     calculation:
-      "Average geo-grid coverage across your tracked keywords — the share of map areas where you rank in Google's top 3.",
+      "Average radial coverage across your tracked keywords — the share of measured locations where you appear in the first three Places results.",
     importance:
       "Shows geographic strength beyond your business pin. Weak zones are opportunities to improve rankings in neighborhoods you serve.",
   },

@@ -9,7 +9,7 @@ import type {
   TrackedKeywordPortfolioItem,
   UntrackedGbpKeywordCandidate,
 } from "../types";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 import {
   computeHealthScores,
   detectPackFragility,
@@ -634,7 +634,7 @@ function placeholderKeywordSnapshot(keyword: string, rank = 7): KeywordRankSnaps
     keyword,
     localPackPosition: inLocalPack ? (rank as 1 | 2 | 3) : "not_in_pack",
     inLocalPack,
-    geoRanks: SEARCH_RADII_MILES.map((distanceMiles) => ({
+    geoRanks: RADIAL_RING_MILES.map((distanceMiles) => ({
       distanceMiles,
       rank,
       inLocalPack: rank <= 3,

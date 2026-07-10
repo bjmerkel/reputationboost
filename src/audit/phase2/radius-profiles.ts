@@ -1,5 +1,6 @@
 import type { Phase1AuditPayload } from "../types";
-import { SEARCH_RADII_MILES, type SearchRadiusMiles } from "@/lib/google/places";
+import { type SearchRadiusMiles } from "@/lib/google/places";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 
 export type RadiusProfileKey = "hyperlocal" | "neighborhood" | "metro" | "equal";
 
@@ -9,10 +10,10 @@ export type RadiusWeights = Record<SearchRadiusMiles, number>;
 export const GRID_RADIUS_BLEND = 0.5;
 
 export const RADIUS_PROFILE_WEIGHTS: Record<RadiusProfileKey, RadiusWeights> = {
-  hyperlocal: { 1: 0.45, 3: 0.3, 5: 0.15, 10: 0.1 },
-  neighborhood: { 1: 0.2, 3: 0.35, 5: 0.3, 10: 0.15 },
-  metro: { 1: 0.1, 3: 0.25, 5: 0.35, 10: 0.3 },
-  equal: { 1: 0.25, 3: 0.25, 5: 0.25, 10: 0.25 },
+  hyperlocal: { 1: 0.5, 3: 0.33, 5: 0.17, 10: 0 },
+  neighborhood: { 1: 0.25, 3: 0.4, 5: 0.35, 10: 0 },
+  metro: { 1: 0.1, 3: 0.3, 5: 0.6, 10: 0 },
+  equal: { 1: 0.34, 3: 0.33, 5: 0.33, 10: 0 },
 };
 
 const HYPERLOCAL_CATEGORY = [
@@ -99,7 +100,7 @@ export function radiusProfileLabel(profile: RadiusProfileKey): string {
     case "neighborhood":
       return "Neighborhood draw (3–5 mi)";
     case "metro":
-      return "Metro service area (5–10 mi)";
+      return "Wide service area (3–5 mi)";
     case "equal":
       return "Balanced across radii";
   }
@@ -110,5 +111,5 @@ export function formatRadiusMiles(miles: SearchRadiusMiles): string {
 }
 
 export function availableSearchRadii(weights: RadiusWeights): SearchRadiusMiles[] {
-  return SEARCH_RADII_MILES.filter((miles) => weights[miles] > 0);
+  return RADIAL_RING_MILES.filter((miles) => weights[miles] > 0);
 }

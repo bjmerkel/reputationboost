@@ -1,5 +1,5 @@
 import type { GeoGridPoint, KeywordRankSnapshot, RankSnapshot } from "@/audit/types";
-import type { RankSnapshotRow } from "@/audit/types/timeseries";
+import type { RankingModel, RankSnapshotRow } from "@/audit/types/timeseries";
 import {
   geoGridToRankRows,
   gridCoveragePercent,
@@ -11,6 +11,7 @@ import { upsertRankSnapshots } from "@/audit/storage-timeseries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
+import { isRadialRankGrid } from "@/lib/google/radial-rankings";
 
 export interface GridSnapshotMeta {
   date: string;
@@ -18,7 +19,23 @@ export interface GridSnapshotMeta {
   cellsTotal: number;
   cellsInPack: number;
   source: string;
+  rankingModel?: RankingModel;
   triggerTaskId?: string | null;
+}
+
+async function loadBusinessCenterAdmin(
+  businessId: string
+): Promise<{ lat: number; lng: number } | undefined> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("businesses")
+    .select("location")
+    .eq("id", businessId)
+    .maybeSingle();
+  const location = data?.location as { lat?: number; lng?: number } | null;
+  return location?.lat != null && location?.lng != null
+    ? { lat: Number(location.lat), lng: Number(location.lng) }
+    : undefined;
 }
 
 function gridMetaToDb(params: {
@@ -41,6 +58,9 @@ function gridMetaToDb(params: {
     cells_in_pack: cellsInPack,
     coverage_percent: gridCoveragePercent(params.geoGrid),
     source: params.source,
+    ranking_model: isRadialRankGrid(params.geoGrid)
+      ? "radial_text_v2"
+      : "legacy_nearby_radius",
     trigger_task_id: params.triggerTaskId ?? null,
   };
 }
@@ -75,10 +95,13 @@ export async function upsertGridSnapshot(params: {
     keyword: params.keyword,
     date: params.date,
     geoGrid: params.geoGrid,
+    rankingModel: isRadialRankGrid(params.geoGrid)
+      ? "radial_text_v2"
+      : "legacy_nearby_radius",
   });
 
   const { error } = await supabase.from("grid_snapshots").upsert(gridMetaToDb(params), {
-    onConflict: "business_id,keyword,date",
+    onConflict: "business_id,keyword,date,ranking_model",
   });
 
   if (error) {
@@ -116,9 +139,10 @@ export async function listGridSnapshotDatesAdmin(
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("grid_snapshots")
-    .select("date, coverage_percent, cells_total, cells_in_pack, source, trigger_task_id")
+    .select("date, coverage_percent, cells_total, cells_in_pack, source, trigger_task_id, ranking_model")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
+    .eq("ranking_model", "radial_text_v2")
     .order("date", { ascending: false })
     .limit(limit);
 
@@ -130,6 +154,7 @@ export async function listGridSnapshotDatesAdmin(
     cellsTotal: Number(row.cells_total),
     cellsInPack: Number(row.cells_in_pack),
     source: row.source as string,
+    rankingModel: row.ranking_model as RankingModel,
     triggerTaskId: (row.trigger_task_id as string) ?? null,
   }));
 }
@@ -152,30 +177,47 @@ export async function loadGridForDateAdmin(
   center?: { lat: number; lng: number }
 ): Promise<GeoGridPoint[]> {
   const supabase = createAdminClient();
+  const resolvedCenter = center ?? (await loadBusinessCenterAdmin(businessId));
   const { data, error } = await supabase
     .from("rank_snapshots")
-    .select("grid_north, grid_east, rank, in_local_pack")
+    .select("distance_miles, grid_north, grid_east, rank, in_local_pack, ranking_model")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
-    .eq("date", date)
-    .eq("distance_miles", 1);
+    .eq("date", date);
 
   if (error || !data?.length) return [];
 
-  // Daily ingest stores only center (0,0); full grids have multiple cells.
-  if (data.length === 1) return [];
+  const radialRows = data.filter((row) => row.ranking_model === "radial_text_v2");
+  const sourceRows = radialRows.length > 0 ? radialRows : data;
+  const hasRadialCenter = sourceRows.some((row) => Number(row.distance_miles) === 0);
+  const gridRows = hasRadialCenter
+    ? sourceRows.filter(
+        (row) =>
+          Number(row.distance_miles) === 0 ||
+          Number(row.grid_north) !== 0 ||
+          Number(row.grid_east) !== 0
+      )
+    : sourceRows.filter((row) => Number(row.distance_miles) === 1);
+
+  // Daily ingest stores one center row; full legacy/radial scans have multiple samples.
+  if (gridRows.length <= 1) return [];
 
   const grid = rankRowsToGeoGrid(
-    data.map((r) => ({
+    gridRows.map((r) => ({
       grid_north: Number(r.grid_north),
       grid_east: Number(r.grid_east),
       rank: r.rank as number | null,
       in_local_pack: r.in_local_pack as boolean,
     })),
-    center
+    resolvedCenter
   );
 
-  const leaders = await loadCellLeadersForDate(businessId, keyword, date);
+  const leaders = await loadCellLeadersForDate(
+    businessId,
+    keyword,
+    date,
+    hasRadialCenter ? "radial_text_v2" : "legacy_nearby_radius"
+  );
   return attachLocalPackToGrid(grid, leaders);
 }
 
@@ -208,6 +250,7 @@ export async function loadLatestKeywordGridsAdmin(
       .select("date, cells_total")
       .eq("business_id", businessId)
       .eq("keyword", keyword)
+      .eq("ranking_model", "radial_text_v2")
       .lte("date", onOrBeforeDate)
       .gt("cells_total", 1)
       .order("date", { ascending: false })
@@ -246,9 +289,10 @@ export async function loadLatestKeywordGridForUser(
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("grid_snapshots")
-    .select("date, source")
+    .select("date, source, ranking_model")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
+    .eq("ranking_model", "radial_text_v2")
     .lte("date", targetDate)
     .gt("cells_total", 1)
     .order("date", { ascending: false })
@@ -280,6 +324,7 @@ export async function listCoverageTrendForUser(
     .select("date, coverage_percent")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
+    .eq("ranking_model", "radial_text_v2")
     .gte("date", start.toISOString().slice(0, 10))
     .order("date", { ascending: true });
 
@@ -303,7 +348,8 @@ export async function gridCoverageNearDateAdmin(
     .from("grid_snapshots")
     .select("date, coverage_percent")
     .eq("business_id", businessId)
-    .eq("keyword", keyword);
+    .eq("keyword", keyword)
+    .eq("ranking_model", "radial_text_v2");
 
   if (direction === "before") {
     query = query.lte("date", targetDate).order("date", { ascending: false });
@@ -331,6 +377,7 @@ export async function shouldRefreshGridAfterTask(
     .select("created_at")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
+    .eq("ranking_model", "radial_text_v2")
     .in("source", ["weekly", "task_trigger", "audit"])
     .order("created_at", { ascending: false })
     .limit(1);
@@ -363,6 +410,7 @@ export async function loadFreshKeywordGridAdmin(
     .select("date")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
+    .eq("ranking_model", "radial_text_v2")
     .gte("date", minDate)
     .gt("cells_total", 1)
     .order("date", { ascending: false })
@@ -371,7 +419,7 @@ export async function loadFreshKeywordGridAdmin(
   if (error || !data?.[0]?.date) return null;
 
   const grid = await loadGridForDateAdmin(businessId, keyword, data[0].date as string);
-  return grid.length > 0 ? grid : null;
+  return isRadialRankGrid(grid) ? grid : null;
 }
 
 export async function persistKeywordGridFromCollection(

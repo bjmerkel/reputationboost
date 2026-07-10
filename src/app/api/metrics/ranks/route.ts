@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { listRankTrendForUser } from "@/audit/storage-timeseries";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { getUser } from "@/lib/supabase/server";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 
 export async function GET(request: Request) {
   const user = await getUser();
@@ -41,6 +42,8 @@ export async function GET(request: Request) {
     series,
     days,
     multiRadius,
-    radii: multiRadius ? [1, 3, 5, 10] : [radiusMiles != null ? Number(radiusMiles) : 1],
+    radii: multiRadius
+      ? [...RADIAL_RING_MILES]
+      : [radiusMiles != null ? Number(radiusMiles) : 0],
   });
 }

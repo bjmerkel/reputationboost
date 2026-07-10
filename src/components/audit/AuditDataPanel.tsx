@@ -38,9 +38,9 @@ import { buildReviewsHealthReport } from "@/lib/google/gbp-reviews-health";
 import { buildLocalPostsHealthReport } from "@/lib/google/gbp-local-posts-health";
 import { buildPlaceActionsHealthReport } from "@/lib/google/gbp-place-actions-health";
 import { competitorMapRank } from "@/lib/google/local-rankings";
-import { detectPackFragility } from "@/audit/phase2/scoring";
 import { computeKeywordPortfolio, listUntrackedGbpSearchTerms } from "@/audit/phase2/keyword-portfolio";
 import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
+import RankingsCoverageTable from "@/components/audit/RankingsCoverageTable";
 
 type KeywordsUpdatedHandler = (keywords: string[]) => void;
 
@@ -82,7 +82,7 @@ function competitorBusinessStatus(
   const rank1 = keywordRank.geoRanks.find((point) => point.distanceMiles === 1)?.rank ?? null;
 
   if (keywordRank.inLocalPack && typeof keywordRank.localPackPosition === "number") {
-    return `Your business: #${keywordRank.localPackPosition} in Local 3-Pack (1 mi)`;
+    return `Your business: estimated #${keywordRank.localPackPosition} at the business pin`;
   }
   if (rank1 != null && rank1 > 3) {
     return `Your business: outside 3-Pack at 1 mi (#${rank1})`;
@@ -541,97 +541,7 @@ export default function AuditDataPanel({
       )}
 
       {tab === "rankings" && (
-        <div className="space-y-3">
-          <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-            <strong>3-Pack (1 mi)</strong> is your Local Pack position at the business pin — not a
-            blend of the distance columns. Use 1/3/5/10 mi to see how rank changes farther out.{" "}
-            <strong>Fragile</strong> means you&apos;re in-pack nearby but drop off at wider radii.
-            Toggle <strong>Heatmap</strong> on the map for the full geo grid view.
-          </p>
-        <div
-          className={`overflow-x-auto rounded-xl border ${
-            isLight ? "border-[#dadce0] bg-white" : "border-white/8"
-          }`}
-        >
-          <table className="w-full min-w-[36rem] text-left text-sm">
-            <thead>
-              <tr
-                className={`border-b text-xs uppercase tracking-wider ${
-                  isLight
-                    ? "border-[#dadce0] bg-[#f8f9fa] text-[#5f6368]"
-                    : "border-white/10 bg-white/[0.02] text-slate-400"
-                }`}
-              >
-                <th className="px-4 py-3">Keyword</th>
-                <th className="px-4 py-3">3-Pack (1 mi)</th>
-                <th className="px-4 py-3">1 mi</th>
-                <th className="px-4 py-3">3 mi</th>
-                <th className="px-4 py-3">5 mi</th>
-                <th className="px-4 py-3">10 mi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {audit.rankings.keywords.map((kw) => {
-                const fragility = detectPackFragility(kw);
-                return (
-                <tr
-                  key={kw.keyword}
-                  className={`border-b ${isLight ? "border-[#f1f3f4]" : "border-white/5"}`}
-                >
-                  <td className={`px-4 py-3 ${isLight ? "text-[#202124]" : "text-white"}`}>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span>{kw.keyword}</span>
-                      {fragility.fragile && (
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            isLight ? "bg-[#fef7e0] text-[#b06000]" : "bg-amber-500/20 text-amber-300"
-                          }`}
-                        >
-                          Fragile
-                          {fragility.weakestRadiusMiles != null
-                            ? ` by ${fragility.weakestRadiusMiles} mi`
-                            : ""}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <PackBadge inPack={kw.inLocalPack} position={kw.localPackPosition} light={isLight} />
-                  </td>
-                  {kw.geoRanks.map((g) => {
-                    const inPack = g.inLocalPack ?? (typeof g.rank === "number" && g.rank <= 3);
-                    const isWeakest =
-                      fragility.fragile &&
-                      fragility.weakestRadiusMiles != null &&
-                      g.distanceMiles === fragility.weakestRadiusMiles;
-                    return (
-                    <td
-                      key={g.distanceMiles}
-                      className={`px-4 py-3 ${
-                        inPack
-                          ? isLight
-                            ? "text-[#137333]"
-                            : "text-emerald-400"
-                          : isWeakest
-                            ? isLight
-                              ? "bg-[#fef7e0] font-medium text-[#b06000]"
-                              : "bg-amber-500/10 font-medium text-amber-300"
-                            : isLight
-                              ? "text-[#c5221f]"
-                              : "text-red-400"
-                      }`}
-                    >
-                      {g.rank ? `#${g.rank}` : "—"}
-                    </td>
-                    );
-                  })}
-                </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        </div>
+        <RankingsCoverageTable keywords={audit.rankings.keywords} light={isLight} />
       )}
 
       {tab === "competitors" && (
@@ -800,37 +710,6 @@ function DataBlock({
         ))}
       </dl>
     </div>
-  );
-}
-
-function PackBadge({
-  inPack,
-  position,
-  light = false,
-}: {
-  inPack: boolean;
-  position: number | string;
-  light?: boolean;
-}) {
-  if (!inPack) {
-    return (
-      <span
-        className={`rounded-full px-2 py-0.5 text-xs ${
-          light ? "bg-[#fce8e6] text-[#c5221f]" : "bg-red-500/20 text-red-400"
-        }`}
-      >
-        Not in pack
-      </span>
-    );
-  }
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-        light ? "bg-[#e6f4ea] text-[#137333]" : "bg-emerald-500/20 text-emerald-400"
-      }`}
-    >
-      #{position}
-    </span>
   );
 }
 

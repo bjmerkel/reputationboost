@@ -3,6 +3,7 @@ import type { RankSnapshotRow, ScoreDailySnapshot } from "../types/timeseries";
 import type { LearnedScoreModel } from "./score-learning";
 import { DEFAULT_LEARNED_SCORE_MODEL } from "./score-learning";
 import { computeHealthScores } from "./scoring";
+import { isRadialRankGrid, summarizeRadialRanks } from "@/lib/google/radial-rankings";
 
 function shareOfVoice(keywords: Phase1AuditPayload["rankings"]["keywords"]): number {
   if (keywords.length === 0) return 0;
@@ -56,12 +57,18 @@ export function applyRankSnapshotsToAudit(
     if (!snaps?.length) return kw;
 
     const snapByRadius = new Map(snaps.map((s) => [s.distanceMiles, s]));
+    const snapAtPin = snapByRadius.get(0);
     const snap1mi = snapByRadius.get(1);
+    const centerSnapshot =
+      snapAtPin ?? (kw.rankingModel === "radial_text_v2" ? undefined : snap1mi);
 
     return {
       ...kw,
-      localPackPosition: snap1mi ? packPositionFromSnapshot(snap1mi) : kw.localPackPosition,
-      inLocalPack: snap1mi ? snap1mi.inLocalPack : kw.inLocalPack,
+      centerRank: snapAtPin ? snapAtPin.rank : kw.centerRank,
+      localPackPosition: centerSnapshot
+        ? packPositionFromSnapshot(centerSnapshot)
+        : kw.localPackPosition,
+      inLocalPack: centerSnapshot ? centerSnapshot.inLocalPack : kw.inLocalPack,
       geoRanks: kw.geoRanks.map((g) => {
         const snap = snapByRadius.get(g.distanceMiles);
         if (!snap) return g;
@@ -99,7 +106,25 @@ export function applyGridSnapshotsToAudit(
     const grid =
       gridsByKeyword.get(kw.keyword) ?? gridsByKeyword.get(kw.keyword.toLowerCase());
     if (!grid?.length) return kw;
-    return { ...kw, geoGrid: grid };
+    if (!isRadialRankGrid(grid)) return { ...kw, geoGrid: grid };
+
+    const radial = summarizeRadialRanks(grid);
+    const centerRank =
+      kw.rankingModel === "radial_text_v2" && kw.centerRank !== undefined
+        ? kw.centerRank
+        : radial.centerRank;
+    const centerInTop3 = centerRank != null && centerRank <= 3;
+    return {
+      ...kw,
+      rankingModel: "radial_text_v2" as const,
+      centerRank,
+      localPackPosition: centerInTop3
+        ? (centerRank as 1 | 2 | 3)
+        : "not_in_pack" as const,
+      inLocalPack: centerInTop3,
+      geoRanks: radial.rings,
+      geoGrid: grid,
+    };
   });
 
   return {
@@ -107,6 +132,9 @@ export function applyGridSnapshotsToAudit(
     rankings: {
       ...audit.rankings,
       keywords,
+      keywordsInPack: keywords.filter((kw) => kw.inLocalPack).length,
+      totalKeywords: keywords.length,
+      shareOfVoice: shareOfVoice(keywords),
     },
   };
 }

@@ -59,7 +59,7 @@ export default function CellDetailModal({
         <div className="flex items-start justify-between gap-3 border-b border-[#e8eaed] px-4 py-3">
           <div>
             <p id="cell-detail-title" className="text-sm font-semibold text-[#202124]">
-              Who ranks here?
+              Rank sample
             </p>
             <p className="mt-0.5 text-xs text-[#5f6368]">
               Searched from {direction}
@@ -83,14 +83,18 @@ export default function CellDetailModal({
           <div className="rounded-lg bg-[#f8f9fa] px-3 py-2">
             <p className="text-xs text-[#80868b]">Your rank from this area</p>
             <p className="text-lg font-semibold" style={{ color: rankColor(cell.rank) }}>
-              {cell.rank == null ? "Not found" : cell.rank <= 3 ? `#${cell.rank} in Local 3-Pack` : `#${cell.rank}`}
+              {cell.rank == null
+                ? "Not visible in top 20"
+                : cell.rank <= 3
+                  ? `#${cell.rank} in sampled results`
+                  : `#${cell.rank}`}
             </p>
           </div>
 
           {cell.localPack && cell.localPack.length > 0 ? (
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#80868b]">
-                Local 3-Pack from here
+                Top sampled results
               </p>
               <ul className="space-y-2">
                 {cell.localPack.map((entry) => (
@@ -109,7 +113,7 @@ export default function CellDetailModal({
               </ul>
             </div>
           ) : (
-            <p className="text-xs text-[#5f6368]">No local pack data for this cell.</p>
+            <p className="text-xs text-[#5f6368]">No competitor details stored for this sample.</p>
           )}
 
           {leader && reviewGap != null && reviewGap > 0 && (

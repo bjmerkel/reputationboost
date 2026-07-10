@@ -7,7 +7,8 @@ import type {
   ScoreComponent,
   ScoreInsight,
 } from "../types";
-import { SEARCH_RADII_MILES, type SearchRadiusMiles } from "@/lib/google/places";
+import { type SearchRadiusMiles } from "@/lib/google/places";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
 import {
   GRID_RADIUS_BLEND,
@@ -50,7 +51,7 @@ export function positionVisibilityScore(position: LocalPackPosition | number): n
   if (position === "not_in_pack") return 0;
   if (typeof position === "number") {
     if (position <= 3) return positionVisibilityScore(position as 1 | 2 | 3);
-    return clamp(100 - (position - 3) * 12);
+    return clamp(50 - (position - 3) * 8);
   }
   return 0;
 }
@@ -115,7 +116,7 @@ function isInLocalPack(position: LocalPackPosition | number): boolean {
   return typeof position === "number" && position <= 3;
 }
 
-/** In pack near pin but outside pack at wider radii — inflates 1mi-only scores. */
+/** Strong near the business but weak across sampled locations farther away. */
 export function detectPackFragility(kw: KeywordRankSnapshot): PackFragilityResult {
   const rank1 = resolveKeywordPositionAtRadius(kw, 1);
   const rank3 = resolveKeywordPositionAtRadius(kw, 3);
@@ -126,7 +127,7 @@ export function detectPackFragility(kw: KeywordRankSnapshot): PackFragilityResul
       fragile: true,
       penalty: -8,
       weakestRadiusMiles: 3,
-      label: "Pack drops beyond 1 mi",
+      label: "Top-three coverage drops at 3 mi",
     };
   }
 
@@ -135,7 +136,7 @@ export function detectPackFragility(kw: KeywordRankSnapshot): PackFragilityResul
       fragile: true,
       penalty: -10,
       weakestRadiusMiles: 5,
-      label: "Pack drops beyond 3 mi",
+      label: "Top-three coverage drops at 5 mi",
     };
   }
 
@@ -157,7 +158,7 @@ export function keywordGridCoverageScore(kw: KeywordRankSnapshot): number {
   return clamp((inPack / kw.geoGrid.length) * 100);
 }
 
-/** Weighted visibility across 1/3/5/10 mi Nearby Search radii. */
+/** Weighted median visibility across sampled 1/3/5-mile rings. */
 export function keywordRadiusVisibilityScore(
   kw: KeywordRankSnapshot,
   weights: RadiusWeights
@@ -165,7 +166,7 @@ export function keywordRadiusVisibilityScore(
   let weightedSum = 0;
   let totalWeight = 0;
 
-  for (const miles of SEARCH_RADII_MILES) {
+  for (const miles of RADIAL_RING_MILES) {
     const weight = weights[miles];
     if (weight <= 0) continue;
     const position = resolveKeywordPositionAtRadius(kw, miles);
@@ -207,7 +208,7 @@ export function keywordServiceAreaRevenueCaptureScore(
   let weightedSum = 0;
   let totalWeight = 0;
 
-  for (const miles of SEARCH_RADII_MILES) {
+  for (const miles of RADIAL_RING_MILES) {
     const weight = weights[miles];
     if (weight <= 0) continue;
     const position = resolveKeywordPositionAtRadius(kw, miles);

@@ -41,6 +41,7 @@ describe("positionVisibilityScore", () => {
     assert.equal(positionVisibilityScore(2), 75);
     assert.equal(positionVisibilityScore(3), 50);
     assert.equal(positionVisibilityScore("not_in_pack"), 0);
+    assert.ok(positionVisibilityScore(4) < positionVisibilityScore(3));
     assert.ok(positionVisibilityScore(8) < positionVisibilityScore(4));
   });
 });

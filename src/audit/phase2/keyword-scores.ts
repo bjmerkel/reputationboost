@@ -1,6 +1,6 @@
 import { DEFAULT_ROI_CONFIG } from "../attribution/roi";
 import type { KeywordScoreCard, KeywordRankSnapshot, Phase1AuditPayload } from "../types";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 import type { LearnedScoreModel } from "./score-learning";
 import { DEFAULT_LEARNED_SCORE_MODEL, effectiveScoreModel } from "./score-learning";
 import { projectKeywordToRank1 } from "./counterfactual";
@@ -61,7 +61,7 @@ function blendedKeywordClickShare(
   let weightedSum = 0;
   let totalWeight = 0;
 
-  for (const miles of SEARCH_RADII_MILES) {
+  for (const miles of RADIAL_RING_MILES) {
     const weight = weights[miles];
     if (weight <= 0) continue;
     const position = resolveKeywordPositionAtRadius(kw, miles);
@@ -157,7 +157,7 @@ function overallImpactIfRank1(
 }
 
 function buildRadiusRanks(kw: KeywordRankSnapshot): KeywordScoreCard["radiusRanks"] {
-  return SEARCH_RADII_MILES.map((distanceMiles) => {
+  return RADIAL_RING_MILES.map((distanceMiles) => {
     const rank = resolveKeywordPositionAtRadius(kw, distanceMiles);
     const inLocalPack = typeof rank === "number" && rank <= 3;
     return {

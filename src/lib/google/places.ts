@@ -297,14 +297,16 @@ function mapNewTextSearchPlace(
 async function textSearchNew(
   keyword: string,
   location: GeoLocation,
-  radiusMeters: number
+  radiusMeters: number,
+  options: { maxPages?: number; rankFieldsOnly?: boolean } = {}
 ): Promise<PlaceResult[]> {
   const key = apiKeyOrThrow();
   const results: PlaceResult[] = [];
   let pageToken: string | undefined;
   const radius = Math.min(Math.max(radiusMeters, 1), 50000);
+  const maxPages = Math.min(Math.max(options.maxPages ?? MAX_NEARBY_PAGES, 1), MAX_NEARBY_PAGES);
 
-  for (let page = 0; page < MAX_NEARBY_PAGES; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const body: Record<string, unknown> = {
       textQuery: keyword,
       pageSize: 20,
@@ -322,8 +324,9 @@ async function textSearchNew(
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": key,
-        "X-Goog-FieldMask":
-          "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types,nextPageToken",
+        "X-Goog-FieldMask": options.rankFieldsOnly
+          ? "places.id,places.displayName,nextPageToken"
+          : "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types,nextPageToken",
       },
       body: JSON.stringify(body),
     });
@@ -344,7 +347,7 @@ async function textSearchNew(
 
     if (!data.nextPageToken) break;
     pageToken = data.nextPageToken;
-    if (page < MAX_NEARBY_PAGES - 1) {
+    if (page < maxPages - 1) {
       await sleep(PAGE_TOKEN_DELAY_MS);
     }
   }
@@ -355,14 +358,15 @@ async function textSearchNew(
 async function textSearchLegacy(
   keyword: string,
   location: GeoLocation,
-  radiusMeters: number
+  radiusMeters: number,
+  maxPages = MAX_NEARBY_PAGES
 ): Promise<PlaceResult[]> {
   const key = apiKeyOrThrow();
   const locationString = `${location.lat},${location.lng}`;
   const results: PlaceResult[] = [];
   let pageToken: string | undefined;
 
-  for (let page = 0; page < MAX_NEARBY_PAGES; page++) {
+  for (let page = 0; page < Math.min(Math.max(maxPages, 1), MAX_NEARBY_PAGES); page++) {
     const url = new URL("https://maps.googleapis.com/maps/api/place/textsearch/json");
     url.searchParams.set("query", keyword);
     url.searchParams.set("location", locationString);
@@ -398,13 +402,32 @@ async function textSearchLegacy(
 export async function textSearch(
   keyword: string,
   location: GeoLocation,
-  radiusMeters: number
+  radiusMeters: number,
+  options: {
+    maxPages?: number;
+    rankFieldsOnly?: boolean;
+    allowLegacyFallback?: boolean;
+  } = {}
 ): Promise<PlaceResult[]> {
+  const cacheKey = placesSearchCacheKey(
+    keyword,
+    location.lat,
+    location.lng,
+    radiusMeters,
+    `text:${options.maxPages ?? MAX_NEARBY_PAGES}:${options.rankFieldsOnly ? "rank" : "full"}:${options.allowLegacyFallback === false ? "new-only" : "fallback"}`
+  );
+  const cached = getCachedPlacesSearch(cacheKey);
+  if (cached) return cached;
+
+  let results: PlaceResult[];
   try {
-    return await textSearchNew(keyword, location, radiusMeters);
-  } catch {
-    return textSearchLegacy(keyword, location, radiusMeters);
+    results = await textSearchNew(keyword, location, radiusMeters, options);
+  } catch (error) {
+    if (options.allowLegacyFallback === false) throw error;
+    results = await textSearchLegacy(keyword, location, radiusMeters, options.maxPages);
   }
+  setCachedPlacesSearch(cacheKey, results);
+  return results;
 }
 
 export type PlacesSearchMode = "nearby" | "text";
@@ -412,8 +435,12 @@ export type PlacesSearchMode = "nearby" | "text";
 export interface SearchPlacesOptions {
   /** Override the Text Search query string (Nearby Search always uses keyword). */
   textQuery?: string;
-  /** Nearby Search only — pages to fetch (default 1). */
+  /** Result pages to fetch. Nearby defaults to 1; Text Search defaults to 3. */
   maxPages?: number;
+  /** Text Search only — request only Place ID and display name to control SKU cost. */
+  rankFieldsOnly?: boolean;
+  /** Text Search only — fail instead of mixing legacy ordering into a New API scan. */
+  allowLegacyFallback?: boolean;
   /** Nearby Search only — skip read-through cache. */
   skipCache?: boolean;
 }
@@ -426,7 +453,11 @@ export async function searchPlaces(
   options?: SearchPlacesOptions
 ): Promise<PlaceResult[]> {
   return mode === "text"
-    ? textSearch(options?.textQuery ?? keyword, location, radiusMeters)
+    ? textSearch(options?.textQuery ?? keyword, location, radiusMeters, {
+        maxPages: options?.maxPages,
+        rankFieldsOnly: options?.rankFieldsOnly,
+        allowLegacyFallback: options?.allowLegacyFallback,
+      })
     : nearbySearch(keyword, location, radiusMeters, {
         maxPages: options?.maxPages,
         skipCache: options?.skipCache,

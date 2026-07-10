@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { LineChart, MultiLineChart } from "@/components/attribution/MiniChart";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 
 type RankTrendPoint = {
   date: string;
@@ -10,14 +10,14 @@ type RankTrendPoint = {
   distanceMiles: number;
 };
 
-type RadiusView = "all" | 1 | 3 | 5 | 10;
+type RadiusView = "all" | 0 | 1 | 3 | 5;
 
 const RADIUS_OPTIONS: Array<{ id: RadiusView; label: string }> = [
-  { id: "all", label: "All radii" },
+  { id: "all", label: "All sample rings" },
+  { id: 0, label: "At business" },
   { id: 1, label: "1 mi" },
   { id: 3, label: "3 mi" },
   { id: 5, label: "5 mi" },
-  { id: 10, label: "10 mi" },
 ];
 
 export default function RankTrendChart({
@@ -78,14 +78,14 @@ export default function RankTrendChart({
 
     if (radiusView === "all" && multiRadius) {
       const byRadius = new Map<number, Map<string, number | null>>();
-      for (const miles of SEARCH_RADII_MILES) {
+      for (const miles of RADIAL_RING_MILES) {
         byRadius.set(miles, new Map());
       }
       for (const point of series) {
         byRadius.get(point.distanceMiles)?.set(point.date, point.rank);
       }
 
-      const multiSeries = SEARCH_RADII_MILES.map((miles) => ({
+      const multiSeries = RADIAL_RING_MILES.map((miles) => ({
         name: `${miles} mi`,
         distanceMiles: miles,
         values: dates.map((date) => byRadius.get(miles)?.get(date) ?? null),
@@ -99,7 +99,7 @@ export default function RankTrendChart({
       return point?.rank ?? null;
     });
 
-    return { mode: "single" as const, labels, values, radius: radiusView === "all" ? 1 : radiusView };
+    return { mode: "single" as const, labels, values, radius: radiusView === "all" ? 0 : radiusView };
   }, [series, radiusView, multiRadius]);
 
   if (loading) {

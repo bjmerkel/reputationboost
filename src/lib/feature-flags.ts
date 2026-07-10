@@ -15,13 +15,13 @@ export const HEATMAP_FLAGS = {
   competitorTerritories: true,
   serviceAreaOverlay: true,
   gbpServiceArea: true,
-  /** Live on-demand grid fetches from the map UI (compact limits Places API cost) */
+  /** Legacy profile preference retained for stored pre-radial grids. */
   gridProfile: "compact" as GridProfileKey,
-  /** Full audits use compact grid to stay within serverless time limits */
+  /** Legacy profile preference retained for stored pre-radial grids. */
   auditGridProfile: "compact" as GridProfileKey,
-  /** Weekly cron uses compact grid to limit API cost */
+  /** Legacy profile preference retained for stored pre-radial grids. */
   weeklyGridProfile: "compact" as GridProfileKey,
-  /** Daily ingest collects 1/3/5/10 mi center ranks (not just 1 mi) */
+  /** @deprecated Daily ingest now records only the business-pin Text Search baseline. */
   dailyMultiRadius: false,
   /** Max keywords per business in weekly grid cron */
   weeklyKeywordLimit: 3,

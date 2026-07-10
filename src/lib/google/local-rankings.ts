@@ -12,13 +12,11 @@ import {
   type SearchRadiusMiles,
 } from "./places";
 import { collectKeywordGeoGrid } from "./geo-grid";
+import { isRadialRankGrid, summarizeRadialRanks } from "./radial-rankings";
 
 const TOP_COMPETITORS = 5;
 /** Keywords collected in parallel during audits (each keyword still batches its own grid). */
 const KEYWORD_COLLECTION_CONCURRENCY = 2;
-/** Radii tried when harvesting competitors (ranking still uses all four). */
-const COMPETITOR_SEARCH_RADII: SearchRadiusMiles[] = [1, 3, 5];
-
 export interface BusinessMatchOptions {
   businessName: string;
   placeId?: string;
@@ -241,7 +239,7 @@ async function loadAuditGeoGrid(
   resolveStoredGrid?: (keyword: string) => Promise<GeoGridPoint[] | null>
 ): Promise<GeoGridPoint[]> {
   const stored = resolveStoredGrid ? await resolveStoredGrid(keyword) : null;
-  if (stored?.length) return stored;
+  if (stored?.length && isRadialRankGrid(stored)) return stored;
 
   return collectKeywordGeoGrid(keyword, location, matchOptions, {
     profile: gridProfileForCollection("audit", client.heatmapProfile),
@@ -315,30 +313,26 @@ const EMPTY_COMPETITOR_HARVEST: CompetitorHarvestResult = {
 
 function buildKeywordSnapshot(
   keyword: string,
-  ranksByRadius: Record<SearchRadiusMiles, number | null>,
-  resultsAt1Mi: PlaceResult[],
+  geoGrid: GeoGridPoint[],
+  centerDetailsResults: PlaceResult[],
   matchOptions: BusinessMatchOptions,
-  geoGrid?: GeoGridPoint[]
 ): KeywordRankSnapshot {
-  const rankAt1Mi = ranksByRadius[1];
-  const inLocalPack = rankAt1Mi !== null && rankAt1Mi <= 3;
-  const localPackPosition = inLocalPack ? (rankAt1Mi as 1 | 2 | 3) : "not_in_pack";
+  const radial = summarizeRadialRanks(geoGrid);
+  const inLocalPack = radial.centerInTop3;
+  const localPackPosition = inLocalPack
+    ? (radial.centerRank as 1 | 2 | 3)
+    : "not_in_pack";
 
-  const leader = resultsAt1Mi[0];
-  const ownPlace = resultsAt1Mi.find((p) => isOwnBusiness(p, matchOptions));
+  const leader = centerDetailsResults[0];
+  const ownPlace = centerDetailsResults.find((p) => isOwnBusiness(p, matchOptions));
 
   return {
     keyword,
     localPackPosition,
     inLocalPack,
-    geoRanks: SEARCH_RADII_MILES.map((distanceMiles) => {
-      const rank = ranksByRadius[distanceMiles];
-      return {
-        distanceMiles,
-        rank,
-        inLocalPack: rank !== null && rank <= 3,
-      };
-    }),
+    rankingModel: "radial_text_v2",
+    centerRank: radial.centerRank,
+    geoRanks: radial.rings,
     packLeaderRating: leader?.rating ?? 0,
     packLeaderReviewCount: leader?.reviewCount ?? 0,
     clientRating: ownPlace?.rating ?? 0,
@@ -390,13 +384,16 @@ export interface OneMileRankResult {
   localPackPosition: number | null;
 }
 
-/** Lightweight 1-mile rank check for daily ingest (avoids full geo grid). */
+/** Lightweight business-pin Text Search check for daily ingest (avoids full radial scan). */
 export async function searchKeywordAtOneMile(
   keyword: string,
   location: GeoLocation,
   matchOptions: BusinessMatchOptions
 ): Promise<OneMileRankResult> {
-  const results = await searchPlaces(keyword, location, milesToMeters(1), "nearby");
+  const results = await searchPlaces(keyword, location, milesToMeters(1), "text", {
+    maxPages: 1,
+    rankFieldsOnly: true,
+  });
   const rank = findBusinessRank(results, matchOptions);
   const inLocalPack = rank !== null && rank <= 3;
 
@@ -437,42 +434,34 @@ export async function collectPlacesRankData(
     KEYWORD_COLLECTION_CONCURRENCY,
     async (keyword) => {
       try {
-        const { ranksByRadius, resultsByRadius } = await searchKeywordAtAllRadii(
+        const [geoGrid, centerDetailsResults] = await Promise.all([
+          loadAuditGeoGrid(client, keyword, location, matchOptions, options.resolveStoredGrid),
+          searchPlaces(keyword, location, milesToMeters(1), "nearby").catch(
+            () => [] as PlaceResult[]
+          ),
+        ]);
+        const competitorHarvest = await resolveCompetitorResults(
           keyword,
           location,
           matchOptions,
-          "nearby"
-        );
-
-        const [geoGrid, competitorHarvest] = await Promise.all([
-          loadAuditGeoGrid(client, keyword, location, matchOptions, options.resolveStoredGrid),
-          resolveCompetitorResults(keyword, location, matchOptions, {
+          {
             limit: TOP_COMPETITORS,
-            initialResults: resultsByRadius[1],
+            initialResults: centerDetailsResults,
             locationLabel: formatClientLocationLabel(client),
-          }),
-        ]);
+          }
+        );
 
         return {
           keyword,
-          ranksByRadius,
-          resultsByRadius,
           geoGrid,
+          centerDetailsResults,
           competitorHarvest,
         };
       } catch {
-        const emptyRanks = Object.fromEntries(
-          SEARCH_RADII_MILES.map((miles) => [miles, null])
-        ) as Record<SearchRadiusMiles, number | null>;
-        const emptyResults = Object.fromEntries(
-          SEARCH_RADII_MILES.map((miles) => [miles, [] as PlaceResult[]])
-        ) as Record<SearchRadiusMiles, PlaceResult[]>;
-
         return {
           keyword,
-          ranksByRadius: emptyRanks,
-          resultsByRadius: emptyResults,
-          geoGrid: undefined,
+          geoGrid: [] as GeoGridPoint[],
+          centerDetailsResults: [] as PlaceResult[],
           competitorHarvest: EMPTY_COMPETITOR_HARVEST,
         };
       }
@@ -483,10 +472,9 @@ export async function collectPlacesRankData(
     keywords.push(
       buildKeywordSnapshot(
         result.keyword,
-        result.ranksByRadius,
-        result.resultsByRadius[1],
-        matchOptions,
-        result.geoGrid
+        result.geoGrid,
+        result.centerDetailsResults,
+        matchOptions
       )
     );
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 
 export type HeatmapStyle = "cells" | "gradient";
 
@@ -13,7 +13,7 @@ export type MapLayerState = {
   showCompetitorZones: boolean;
   showServiceArea: boolean;
   enabledRadii: Set<number>;
-  /** Nearby Search radius (mi) used when collecting rank heatmap cells */
+  /** Text Search location-bias radius (mi) used for on-demand radial samples. */
   heatmapSearchRadiusMiles: number;
 };
 
@@ -26,11 +26,11 @@ export function createDefaultMapLayers(): MapLayerState {
   return {
     showCompetitors: true,
     showHeatmap: true,
-    heatmapStyle: HEATMAP_FLAGS.heatmapLayer ? "gradient" : "cells",
+    heatmapStyle: "cells",
     showCompetitorZones: false,
     showServiceArea: false,
-    enabledRadii: new Set(SEARCH_RADII_MILES),
-    heatmapSearchRadiusMiles: Math.max(...SEARCH_RADII_MILES),
+    enabledRadii: new Set(RADIAL_RING_MILES),
+    heatmapSearchRadiusMiles: 1,
   };
 }
 
@@ -89,11 +89,10 @@ export default function MapLayerControls({ layers, onChange }: MapLayerControlsP
   }
 
   const advancedActive =
-    layers.enabledRadii.size !== SEARCH_RADII_MILES.length ||
+    layers.enabledRadii.size !== RADIAL_RING_MILES.length ||
     layers.showCompetitorZones ||
     layers.showServiceArea ||
-    layers.heatmapStyle === "cells" ||
-    layers.heatmapSearchRadiusMiles !== Math.max(...SEARCH_RADII_MILES);
+    layers.heatmapStyle === "gradient";
 
   return (
     <div
@@ -103,9 +102,9 @@ export default function MapLayerControls({ layers, onChange }: MapLayerControlsP
       <LayerPill
         active={layers.showHeatmap}
         onClick={() => onChange({ ...layers, showHeatmap: !layers.showHeatmap })}
-        title="Show ranking heatmap by neighborhood"
+        title="Show measured rank samples around the business"
       >
-        Rank heatmap
+        Rank samples
       </LayerPill>
       <LayerPill
         active={layers.showCompetitors}
@@ -127,13 +126,13 @@ export default function MapLayerControls({ layers, onChange }: MapLayerControlsP
         {advancedOpen && (
           <div className="absolute top-full left-0 z-20 mt-1.5 w-[min(280px,calc(100vw-2rem))] rounded-xl border border-[#dadce0] bg-white p-3 shadow-lg">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-[#80868b]">
-              Rank rings from your location
+              Sample-distance rings
             </p>
             <p className="mt-0.5 text-[10px] text-[#5f6368]">
-              Concentric circles showing your rank at each distance.
+              Eight measured search locations sit on each enabled ring.
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {SEARCH_RADII_MILES.map((miles) => {
+              {RADIAL_RING_MILES.map((miles) => {
                 const active = layers.enabledRadii.has(miles);
                 return (
                   <button
@@ -152,38 +151,6 @@ export default function MapLayerControls({ layers, onChange }: MapLayerControlsP
               })}
             </div>
 
-            {layers.showHeatmap && (
-              <>
-                <p className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-[#80868b]">
-                  Heatmap search radius
-                </p>
-                <p className="mt-0.5 text-[10px] text-[#5f6368]">
-                  How far each grid cell searches — wider radii match service-area rankings.
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {SEARCH_RADII_MILES.map((miles) => {
-                    const active = layers.heatmapSearchRadiusMiles === miles;
-                    return (
-                      <button
-                        key={`heatmap-${miles}`}
-                        type="button"
-                        onClick={() =>
-                          onChange({ ...layers, heatmapSearchRadiusMiles: miles })
-                        }
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${
-                          active
-                            ? "bg-[#1a73e8] text-white"
-                            : "border border-[#dadce0] bg-[#f8f9fa] text-[#3c4043] hover:bg-[#f1f3f4]"
-                        }`}
-                      >
-                        {miles} mi
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-
             <div className="mt-3 space-y-2 border-t border-[#e8eaed] pt-3">
               {HEATMAP_FLAGS.heatmapLayer && layers.showHeatmap && (
                 <label className="flex cursor-pointer items-start gap-2">
@@ -200,10 +167,10 @@ export default function MapLayerControls({ layers, onChange }: MapLayerControlsP
                   />
                   <span>
                     <span className="block text-[11px] font-medium text-[#202124]">
-                      Blended heatmap
+                      Interpolate between samples
                     </span>
                     <span className="text-[10px] text-[#5f6368]">
-                      Softer overlapping circles instead of distinct grid cells.
+                      Display an estimated surface between measured points.
                     </span>
                   </span>
                 </label>

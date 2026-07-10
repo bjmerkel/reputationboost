@@ -1,4 +1,5 @@
 import type { GeoGridLocalPackEntry, GeoGridPoint } from "@/audit/types";
+import type { RankingModel } from "@/audit/types/timeseries";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface CellLeaderRow {
@@ -12,6 +13,7 @@ export interface CellLeaderRow {
   name: string;
   rating: number | null;
   reviewCount: number | null;
+  rankingModel: RankingModel;
 }
 
 function geoGridToCellLeaderRows(params: {
@@ -19,6 +21,7 @@ function geoGridToCellLeaderRows(params: {
   keyword: string;
   date: string;
   geoGrid: GeoGridPoint[];
+  rankingModel: RankingModel;
 }): CellLeaderRow[] {
   const rows: CellLeaderRow[] = [];
 
@@ -37,6 +40,7 @@ function geoGridToCellLeaderRows(params: {
         name: entry.name,
         rating: entry.rating ?? null,
         reviewCount: entry.reviewCount ?? null,
+        rankingModel: params.rankingModel,
       });
     }
   }
@@ -86,6 +90,7 @@ export async function upsertCellLeaders(params: {
   keyword: string;
   date: string;
   geoGrid: GeoGridPoint[];
+  rankingModel: RankingModel;
 }): Promise<void> {
   const rows = geoGridToCellLeaderRows(params);
   if (rows.length === 0) return;
@@ -97,7 +102,8 @@ export async function upsertCellLeaders(params: {
     .delete()
     .eq("business_id", params.businessId)
     .eq("keyword", params.keyword)
-    .eq("date", params.date);
+    .eq("date", params.date)
+    .eq("ranking_model", params.rankingModel);
 
   if (deleteError) {
     throw new Error(`Failed to clear rank_cell_leaders: ${deleteError.message}`);
@@ -115,6 +121,7 @@ export async function upsertCellLeaders(params: {
       name: row.name,
       rating: row.rating,
       review_count: row.reviewCount,
+      ranking_model: row.rankingModel,
     }))
   );
 
@@ -126,7 +133,8 @@ export async function upsertCellLeaders(params: {
 export async function loadCellLeadersForDate(
   businessId: string,
   keyword: string,
-  date: string
+  date: string,
+  rankingModel: RankingModel
 ): Promise<CellLeaderRow[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -136,7 +144,8 @@ export async function loadCellLeadersForDate(
     )
     .eq("business_id", businessId)
     .eq("keyword", keyword)
-    .eq("date", date);
+    .eq("date", date)
+    .eq("ranking_model", rankingModel);
 
   if (error || !data) return [];
 
@@ -151,5 +160,6 @@ export async function loadCellLeadersForDate(
     name: row.name as string,
     rating: row.rating != null ? Number(row.rating) : null,
     reviewCount: row.review_count != null ? Number(row.review_count) : null,
+    rankingModel,
   }));
 }

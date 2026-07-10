@@ -7,8 +7,8 @@ import type {
 } from "@/audit/types/timeseries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 
 function performanceRowToDb(row: PerformanceDailyRow) {
@@ -34,6 +34,7 @@ function rankRowToDb(row: RankSnapshotRow) {
     in_local_pack: row.inLocalPack,
     local_pack_position: row.localPackPosition,
     source: row.source,
+    ranking_model: row.rankingModel ?? "legacy_nearby_radius",
   };
 }
 
@@ -55,7 +56,10 @@ export async function upsertRankSnapshots(rows: RankSnapshotRow[]): Promise<numb
   const supabase = createAdminClient();
   const { error } = await supabase.from("rank_snapshots").upsert(
     rows.map(rankRowToDb),
-    { onConflict: "business_id,keyword,date,distance_miles,grid_north,grid_east" }
+    {
+      onConflict:
+        "business_id,keyword,date,distance_miles,grid_north,grid_east,ranking_model",
+    }
   );
 
   if (error) throw new Error(`Failed to upsert rank_snapshots: ${error.message}`);
@@ -132,9 +136,9 @@ export interface RankTrendPoint {
 }
 
 export interface ListRankTrendOptions {
-  /** When true, return center-point ranks at 1/3/5/10 mi */
+  /** When true, return weekly median ranks at the 1/3/5-mile sample rings. */
   multiRadius?: boolean;
-  /** Filter to a single search radius (ignored when multiRadius is true) */
+  /** Filter to the business pin (0) or one sample ring. */
   radiusMiles?: number;
 }
 
@@ -155,7 +159,7 @@ export async function listRankTrendForUser(
 
   let query = supabase
     .from("rank_snapshots")
-    .select("date, rank, distance_miles")
+    .select("date, rank, distance_miles, ranking_model")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
     .eq("grid_north", 0)
@@ -164,20 +168,38 @@ export async function listRankTrendForUser(
     .order("date", { ascending: true });
 
   if (multiRadius) {
-    query = query.in("distance_miles", [...SEARCH_RADII_MILES]);
+    query = query
+      .in("distance_miles", [...RADIAL_RING_MILES])
+      .eq("ranking_model", "radial_text_v2");
   } else {
-    query = query.eq("distance_miles", options.radiusMiles ?? 1);
+    const radiusMiles = options.radiusMiles ?? 0;
+    query =
+      radiusMiles === 0
+        ? query.in("distance_miles", [0, 1])
+        : query
+            .eq("distance_miles", radiusMiles)
+            .eq("ranking_model", "radial_text_v2");
   }
 
   const { data, error } = await query;
 
   if (error || !data) return [];
 
-  return data.map((row) => ({
-    date: row.date as string,
-    rank: row.rank as number | null,
-    distanceMiles: row.distance_miles as number,
-  }));
+  return data
+    .filter((row) => {
+      if (multiRadius || (options.radiusMiles ?? 0) !== 0) return true;
+      const distance = Number(row.distance_miles);
+      const model = row.ranking_model as string;
+      return model === "radial_text_v2" ? distance === 0 : distance === 1;
+    })
+    .map((row) => ({
+      date: row.date as string,
+      rank: row.rank as number | null,
+      distanceMiles:
+        !multiRadius && (options.radiusMiles ?? 0) === 0
+          ? 0
+          : (row.distance_miles as number),
+    }));
 }
 
 export async function startIngestRun(jobName: string): Promise<string> {

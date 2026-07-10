@@ -6,7 +6,7 @@ import type {
   Phase1AuditPayload,
 } from "../types";
 import type { OutcomesContext } from "../outcomes/types";
-import { SEARCH_RADII_MILES } from "@/lib/google/places";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 import { detectPackFragility, resolveKeywordPositionAtRadius } from "./scoring";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
 import { gapScoreComponent, gapScoreImpact } from "./score-impact";
@@ -24,7 +24,7 @@ function impactScore(impact: number, effort: number) {
 }
 
 function formatRadiusRankSummary(kw: KeywordRankSnapshot): string {
-  return SEARCH_RADII_MILES.map((miles) => {
+  return RADIAL_RING_MILES.map((miles) => {
     const rank = resolveKeywordPositionAtRadius(kw, miles);
     const label = rank === "not_in_pack" ? "outside pack" : `#${rank}`;
     return `${miles} mi: ${label}`;
