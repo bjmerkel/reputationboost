@@ -1,5 +1,6 @@
 "use client";
 
+import PlatformActivityFeed from "@/components/marketing/PlatformActivityFeed";
 import PlatformDemo from "@/components/marketing/PlatformDemo";
 import PlatformLoading from "@/components/marketing/PlatformLoading";
 import ScoreContextPanel from "@/components/marketing/ScoreContextPanel";
@@ -29,6 +30,7 @@ export default function PlatformExplorer() {
       {!loading && isLive && preview && (
         <>
           <ScoreContextPanel />
+          <PlatformActivityFeed />
           <PlatformDemo
             audit={platformAudit}
             businessName={businessName}

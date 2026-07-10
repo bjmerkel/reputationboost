@@ -30,8 +30,7 @@ export const pricingPlans: PricingPlan[] = [
     id: "keyword",
     name: "Keyword Plan",
     price: 150,
-    description:
-      "Everything you need to optimize your Google Business Profile and climb Google Maps rankings.",
+    description: "Manage your own Google Business Profile with AI guidance.",
     highlights: [
       "Score audit — updated every night",
       "AI-built action plan for your Google listing",
@@ -46,8 +45,7 @@ export const pricingPlans: PricingPlan[] = [
     id: "omni",
     name: "Omni Plan",
     price: 199,
-    description:
-      "Full Google Business Profile optimization plus social media content to grow visibility across channels.",
+    description: "Add ongoing social content to strengthen local visibility.",
     popular: true,
     highlights: [
       "Score audit — updated every night",
@@ -66,8 +64,7 @@ export const pricingPlans: PricingPlan[] = [
     id: "spectrum",
     name: "Spectrum Plan",
     price: 399,
-    description:
-      "Our most comprehensive plan with aggressive social posting and review protection.",
+    description: "Fully managed local visibility with review protection.",
     highlights: [
       "Score audit — updated every night",
       "AI-built action plan for your Google listing",
