@@ -35,9 +35,19 @@ export default function ActionMetricsBar({
     );
   };
 
-  const calls = engagement?.calls.current ?? performance.calls ?? 0;
-  const directions = engagement?.directions.current ?? performance.directionRequests ?? 0;
-  const websiteClicks = engagement?.websiteClicks.current ?? performance.websiteClicks ?? 0;
+  const useEngagementTotals =
+    engagement &&
+    (engagement.source === "ingest" ||
+      engagement.source === "audit_fallback" ||
+      engagement.calls.current + engagement.directions.current + engagement.websiteClicks.current > 0);
+
+  const calls = useEngagementTotals ? engagement!.calls.current : (performance.calls ?? 0);
+  const directions = useEngagementTotals
+    ? engagement!.directions.current
+    : (performance.directionRequests ?? 0);
+  const websiteClicks = useEngagementTotals
+    ? engagement!.websiteClicks.current
+    : (performance.websiteClicks ?? 0);
 
   const metrics: MetricItem[] = [
     {
