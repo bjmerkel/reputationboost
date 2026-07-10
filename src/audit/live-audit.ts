@@ -29,6 +29,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { getValidGbpConnectionForRecord } from "@/lib/google/token-store";
 import { syncReviewEngagementMetrics } from "@/audit/review-engagement";
+import { syncAuditToTrackedKeywords } from "@/audit/sync-tracked-keywords";
 
 function formatDateYmd(date: Date): string {
   return date.toISOString().slice(0, 10);
