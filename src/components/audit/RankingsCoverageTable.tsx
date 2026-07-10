@@ -71,23 +71,30 @@ export default function RankingsCoverageTable({
   keywords: KeywordRankSnapshot[];
   light: boolean;
 }) {
-  const hasRadial = keywords.some((kw) => kw.rankingModel === "radial_text_v2");
-  const distances = hasRadial ? [...RADIAL_RING_MILES] : [1, 3, 5, 10];
+  const radialCount = keywords.filter((kw) => kw.rankingModel === "radial_text_v2").length;
+  const hasRadial = radialCount > 0;
+  const hasLegacy = radialCount < keywords.length;
+  const distances = hasLegacy ? [1, 3, 5, 10] : [...RADIAL_RING_MILES];
 
   return (
     <div className="space-y-3">
       <p className={`text-sm ${light ? "text-[#5f6368]" : "text-slate-400"}`}>
-        {hasRadial ? (
+        {hasRadial && !hasLegacy ? (
           <>
             Rankings are estimated with Google Places Text Search at the business pin and eight
             sampled locations at each distance. <strong>Top 3</strong> shows geographic coverage,
             not a guaranteed personalized Google Maps position. Open <strong>Rank samples</strong>{" "}
             on the map to inspect every measured location.
           </>
-        ) : (
+        ) : hasLegacy && !hasRadial ? (
           <>
             These are legacy Places API results collected with expanding search radii from the
             business pin. Run a fresh audit to generate location-based radial samples.
+          </>
+        ) : (
+          <>
+            This audit contains both new sampled rows and legacy business-pin radius rows. Each
+            keyword is labeled below; run a fresh audit to finish upgrading all keywords.
           </>
         )}
       </p>
@@ -109,7 +116,7 @@ export default function RankingsCoverageTable({
               <th className="px-4 py-3">At business</th>
               {distances.map((miles) => (
                 <th key={miles} className="px-4 py-3">
-                  {hasRadial ? `${miles} mi · 8 samples` : `${miles} mi search radius`}
+                  {miles} mi
                 </th>
               ))}
             </tr>
@@ -132,6 +139,19 @@ export default function RankingsCoverageTable({
                   <td className={`px-4 py-3 ${light ? "text-[#202124]" : "text-white"}`}>
                     <div className="flex flex-wrap items-center gap-2">
                       <span>{kw.keyword}</span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] ${
+                          radial
+                            ? light
+                              ? "bg-[#e8f0fe] text-[#1967d2]"
+                              : "bg-blue-500/20 text-blue-300"
+                            : light
+                              ? "bg-[#f1f3f4] text-[#5f6368]"
+                              : "bg-white/10 text-slate-300"
+                        }`}
+                      >
+                        {radial ? "8-point rings" : "Legacy radius"}
+                      </span>
                       {dropDistance != null && (
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${

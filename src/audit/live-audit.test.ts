@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mergeLiveAuditState } from "@/audit/live-audit-merge";
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
+import { applyRankSnapshotsToAudit } from "@/audit/phase2/score-snapshot";
 
 function minimalAudit(overrides: Partial<FullAuditPayload> = {}): FullAuditPayload {
   return {
@@ -86,5 +87,52 @@ describe("mergeLiveAuditState", () => {
     assert.equal(merged.execution?.tasks[0]?.id, "task-1");
     assert.equal(merged.strategy.scores.overall, 62);
     assert.equal(merged.strategy.executiveSummary, "live gaps refreshed");
+  });
+});
+
+describe("radial rank hydration", () => {
+  it("applies a normalized business-pin snapshot to a legacy audit", () => {
+    const audit = minimalAudit({
+      rankings: {
+        collectedAt: "2026-07-01T10:00:00.000Z",
+        keywords: [
+          {
+            keyword: "ac repair",
+            localPackPosition: "not_in_pack",
+            inLocalPack: false,
+            geoRanks: [
+              { distanceMiles: 1, rank: 8, inLocalPack: false },
+              { distanceMiles: 3, rank: 10, inLocalPack: false },
+            ],
+            packLeaderRating: 0,
+            packLeaderReviewCount: 0,
+            clientRating: 0,
+            clientReviewCount: 0,
+          },
+        ],
+        keywordsInPack: 0,
+        totalKeywords: 1,
+        shareOfVoice: 0,
+      },
+    });
+
+    const hydrated = applyRankSnapshotsToAudit(audit, [
+      {
+        businessId: "business-1",
+        keyword: "ac repair",
+        date: "2026-07-10",
+        distanceMiles: 0,
+        gridNorth: 0,
+        gridEast: 0,
+        rank: 2,
+        inLocalPack: true,
+        localPackPosition: 2,
+        source: "api",
+        rankingModel: "legacy_nearby_radius",
+      },
+    ]);
+
+    assert.equal(hydrated.rankings.keywords[0]?.localPackPosition, 2);
+    assert.equal(hydrated.rankings.keywords[0]?.inLocalPack, true);
   });
 });

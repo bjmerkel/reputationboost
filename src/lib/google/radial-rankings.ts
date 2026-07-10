@@ -3,8 +3,6 @@ import type { GeoLocation } from "./places";
 
 export const RADIAL_RING_MILES = [1, 3, 5] as const;
 export type RadialRingMiles = (typeof RADIAL_RING_MILES)[number];
-/** Separates legacy business-pin radius rows from radial-v2 aggregates. */
-export const RADIAL_RANKING_CUTOVER_DATE = "2026-07-10";
 
 export const RADIAL_DIRECTIONS = [
   "N",

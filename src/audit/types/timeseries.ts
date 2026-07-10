@@ -31,6 +31,8 @@ export interface PerformanceDailyRow {
   source: "api" | "audit_backfill";
 }
 
+export type RankingModel = "legacy_nearby_radius" | "radial_text_v2";
+
 export interface RankSnapshotRow {
   businessId: string;
   keyword: string;
@@ -42,6 +44,7 @@ export interface RankSnapshotRow {
   inLocalPack: boolean;
   localPackPosition: number | null;
   source: "api" | "audit_backfill";
+  rankingModel?: RankingModel;
 }
 
 export interface IngestRunResult {

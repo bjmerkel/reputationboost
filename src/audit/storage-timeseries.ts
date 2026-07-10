@@ -8,10 +8,7 @@ import type {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
-import {
-  RADIAL_RANKING_CUTOVER_DATE,
-  RADIAL_RING_MILES,
-} from "@/lib/google/radial-rankings";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 
 function performanceRowToDb(row: PerformanceDailyRow) {
@@ -37,6 +34,7 @@ function rankRowToDb(row: RankSnapshotRow) {
     in_local_pack: row.inLocalPack,
     local_pack_position: row.localPackPosition,
     source: row.source,
+    ranking_model: row.rankingModel ?? "legacy_nearby_radius",
   };
 }
 
@@ -58,7 +56,10 @@ export async function upsertRankSnapshots(rows: RankSnapshotRow[]): Promise<numb
   const supabase = createAdminClient();
   const { error } = await supabase.from("rank_snapshots").upsert(
     rows.map(rankRowToDb),
-    { onConflict: "business_id,keyword,date,distance_miles,grid_north,grid_east" }
+    {
+      onConflict:
+        "business_id,keyword,date,distance_miles,grid_north,grid_east,ranking_model",
+    }
   );
 
   if (error) throw new Error(`Failed to upsert rank_snapshots: ${error.message}`);
@@ -158,7 +159,7 @@ export async function listRankTrendForUser(
 
   let query = supabase
     .from("rank_snapshots")
-    .select("date, rank, distance_miles")
+    .select("date, rank, distance_miles, ranking_model")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
     .eq("grid_north", 0)
@@ -169,13 +170,15 @@ export async function listRankTrendForUser(
   if (multiRadius) {
     query = query
       .in("distance_miles", [...RADIAL_RING_MILES])
-      .gte("date", RADIAL_RANKING_CUTOVER_DATE);
+      .eq("ranking_model", "radial_text_v2");
   } else {
     const radiusMiles = options.radiusMiles ?? 0;
     query =
       radiusMiles === 0
         ? query.in("distance_miles", [0, 1])
-        : query.eq("distance_miles", radiusMiles).gte("date", RADIAL_RANKING_CUTOVER_DATE);
+        : query
+            .eq("distance_miles", radiusMiles)
+            .eq("ranking_model", "radial_text_v2");
   }
 
   const { data, error } = await query;
@@ -185,9 +188,9 @@ export async function listRankTrendForUser(
   return data
     .filter((row) => {
       if (multiRadius || (options.radiusMiles ?? 0) !== 0) return true;
-      const date = row.date as string;
       const distance = Number(row.distance_miles);
-      return date < RADIAL_RANKING_CUTOVER_DATE ? distance === 1 : distance === 0;
+      const model = row.ranking_model as string;
+      return model === "radial_text_v2" ? distance === 0 : distance === 1;
     })
     .map((row) => ({
       date: row.date as string,

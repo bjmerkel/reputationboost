@@ -37,6 +37,7 @@ export function geoGridToRankRows(params: {
     inLocalPack: point.inLocalPack,
     localPackPosition: point.inLocalPack && point.rank != null ? point.rank : null,
     source: params.source,
+    rankingModel: radial ? "radial_text_v2" as const : "legacy_nearby_radius" as const,
   }));
 
   if (!radial) return rawRows;
@@ -53,6 +54,7 @@ export function geoGridToRankRows(params: {
     inLocalPack: ring.inLocalPack,
     localPackPosition: ring.inLocalPack ? ring.rank : null,
     source: params.source,
+    rankingModel: "radial_text_v2",
   }));
 
   return [...rawRows, ...summaryRows];

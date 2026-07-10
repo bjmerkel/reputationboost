@@ -60,7 +60,7 @@ export function applyRankSnapshotsToAudit(
     const snapAtPin = snapByRadius.get(0);
     const snap1mi = snapByRadius.get(1);
     const centerSnapshot =
-      kw.rankingModel === "radial_text_v2" ? snapAtPin : snap1mi;
+      snapAtPin ?? (kw.rankingModel === "radial_text_v2" ? undefined : snap1mi);
 
     return {
       ...kw,

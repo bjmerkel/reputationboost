@@ -55,6 +55,7 @@ describe("radial rank grid", () => {
     });
 
     assert.equal(rows.length, 28);
+    assert.ok(rows.every((row) => row.rankingModel === "radial_text_v2"));
     assert.equal(
       rows.filter((row) => row.distanceMiles === 0 && row.gridNorth === 0 && row.gridEast === 0)
         .length,

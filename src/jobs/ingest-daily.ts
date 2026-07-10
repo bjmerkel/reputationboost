@@ -168,6 +168,7 @@ async function ingestRanksForBusiness(
       inLocalPack,
       localPackPosition,
       source: "api" as const,
+      rankingModel: "radial_text_v2" as const,
     });
 
     await sleep(KEYWORD_SEARCH_DELAY_MS);

@@ -6,10 +6,7 @@ import type {
 } from "@/audit/types/timeseries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import {
-  RADIAL_RANKING_CUTOVER_DATE,
-  RADIAL_RING_MILES,
-} from "@/lib/google/radial-rankings";
+import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 
@@ -195,7 +192,7 @@ export async function getRankSnapshotsInRange(
   const supabase = createAdminClient();
   let query = supabase
     .from("rank_snapshots")
-    .select("date, distance_miles, rank")
+    .select("date, distance_miles, rank, ranking_model")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
     .eq("grid_north", 0)
@@ -209,7 +206,7 @@ export async function getRankSnapshotsInRange(
   } else {
     query = query
       .in("distance_miles", [...RADIAL_RING_MILES])
-      .gte("date", RADIAL_RANKING_CUTOVER_DATE);
+      .eq("ranking_model", "radial_text_v2");
   }
 
   const { data, error } = await query;
@@ -218,9 +215,8 @@ export async function getRankSnapshotsInRange(
   return (data ?? [])
     .filter((row) => {
       if (multiRadius) return true;
-      const date = row.date as string;
       const distance = Number(row.distance_miles);
-      return date < RADIAL_RANKING_CUTOVER_DATE ? distance === 1 : distance === 0;
+      return row.ranking_model === "radial_text_v2" ? distance === 0 : distance === 1;
     })
     .map((row) => ({
       date: row.date as string,

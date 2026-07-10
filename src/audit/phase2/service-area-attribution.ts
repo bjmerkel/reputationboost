@@ -47,13 +47,21 @@ export function buildKeywordFromRadiusMedians(
   });
 
   const rank1 = radiusMedians.get(1);
-  const inLocalPack = rank1 != null && rank1 <= 3;
+  const centerRank = template?.centerRank;
+  const inLocalPack =
+    template?.rankingModel === "radial_text_v2"
+      ? centerRank != null && centerRank <= 3
+      : rank1 != null && rank1 <= 3;
 
   return {
     keyword,
     localPackPosition:
-      inLocalPack && rank1 != null ? (rank1 as 1 | 2 | 3) : ("not_in_pack" as const),
+      inLocalPack
+        ? ((template?.rankingModel === "radial_text_v2" ? centerRank : rank1) as 1 | 2 | 3)
+        : ("not_in_pack" as const),
     inLocalPack,
+    rankingModel: template?.rankingModel,
+    centerRank,
     geoRanks,
     packLeaderRating: template?.packLeaderRating ?? 0,
     packLeaderReviewCount: template?.packLeaderReviewCount ?? 0,
@@ -175,10 +183,37 @@ export function keywordMapFromRankSnapshots(
       result.set(kw.keyword, kw);
       continue;
     }
-    const medians = medianRanksByRadius(
-      snaps.map((s) => ({ distanceMiles: s.distanceMiles, rank: s.rank }))
+    const hasRingRows = snaps.some((snap) =>
+      RADIAL_RING_MILES.includes(snap.distanceMiles as (typeof RADIAL_RING_MILES)[number])
     );
-    result.set(kw.keyword, buildKeywordFromRadiusMedians(kw.keyword, medians, kw));
+    let next = hasRingRows
+      ? buildKeywordFromRadiusMedians(
+          kw.keyword,
+          medianRanksByRadius(
+            snaps.map((s) => ({ distanceMiles: s.distanceMiles, rank: s.rank }))
+          ),
+          kw
+        )
+      : kw;
+    const centerSnapshots = snaps.filter(
+      (snap) => snap.distanceMiles === 0 && snap.rank != null
+    );
+    const centerRank = medianOf(centerSnapshots.map((snap) => snap.rank as number));
+    if (centerRank != null) {
+      const inLocalPack = centerRank <= 3;
+      next = {
+        ...next,
+        rankingModel: centerSnapshots.some(
+          (snapshot) => snapshot.rankingModel === "radial_text_v2"
+        )
+          ? "radial_text_v2"
+          : kw.rankingModel,
+        centerRank,
+        inLocalPack,
+        localPackPosition: inLocalPack ? (centerRank as 1 | 2 | 3) : "not_in_pack",
+      };
+    }
+    result.set(kw.keyword, next);
   }
   return result;
 }

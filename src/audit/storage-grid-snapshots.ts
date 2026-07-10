@@ -1,5 +1,5 @@
 import type { GeoGridPoint, KeywordRankSnapshot, RankSnapshot } from "@/audit/types";
-import type { RankSnapshotRow } from "@/audit/types/timeseries";
+import type { RankingModel, RankSnapshotRow } from "@/audit/types/timeseries";
 import {
   geoGridToRankRows,
   gridCoveragePercent,
@@ -19,6 +19,7 @@ export interface GridSnapshotMeta {
   cellsTotal: number;
   cellsInPack: number;
   source: string;
+  rankingModel?: RankingModel;
   triggerTaskId?: string | null;
 }
 
@@ -57,6 +58,9 @@ function gridMetaToDb(params: {
     cells_in_pack: cellsInPack,
     coverage_percent: gridCoveragePercent(params.geoGrid),
     source: params.source,
+    ranking_model: isRadialRankGrid(params.geoGrid)
+      ? "radial_text_v2"
+      : "legacy_nearby_radius",
     trigger_task_id: params.triggerTaskId ?? null,
   };
 }
@@ -85,28 +89,19 @@ export async function upsertGridSnapshot(params: {
     source: rankSource,
   });
 
-  // Replace the complete dated snapshot; otherwise a same-day
-  // legacy grid can leave stale offsets mixed into the 25 radial-v2 samples.
-  const { error: deleteError } = await supabase
-    .from("rank_snapshots")
-    .delete()
-    .eq("business_id", params.businessId)
-    .eq("keyword", params.keyword)
-    .eq("date", params.date);
-  if (deleteError) {
-    throw new Error(`Failed to replace rank snapshot: ${deleteError.message}`);
-  }
-
   await upsertRankSnapshots(rankRows);
   await upsertCellLeaders({
     businessId: params.businessId,
     keyword: params.keyword,
     date: params.date,
     geoGrid: params.geoGrid,
+    rankingModel: isRadialRankGrid(params.geoGrid)
+      ? "radial_text_v2"
+      : "legacy_nearby_radius",
   });
 
   const { error } = await supabase.from("grid_snapshots").upsert(gridMetaToDb(params), {
-    onConflict: "business_id,keyword,date",
+    onConflict: "business_id,keyword,date,ranking_model",
   });
 
   if (error) {
@@ -144,9 +139,10 @@ export async function listGridSnapshotDatesAdmin(
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("grid_snapshots")
-    .select("date, coverage_percent, cells_total, cells_in_pack, source, trigger_task_id")
+    .select("date, coverage_percent, cells_total, cells_in_pack, source, trigger_task_id, ranking_model")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
+    .eq("ranking_model", "radial_text_v2")
     .order("date", { ascending: false })
     .limit(limit);
 
@@ -158,6 +154,7 @@ export async function listGridSnapshotDatesAdmin(
     cellsTotal: Number(row.cells_total),
     cellsInPack: Number(row.cells_in_pack),
     source: row.source as string,
+    rankingModel: row.ranking_model as RankingModel,
     triggerTaskId: (row.trigger_task_id as string) ?? null,
   }));
 }
@@ -183,22 +180,24 @@ export async function loadGridForDateAdmin(
   const resolvedCenter = center ?? (await loadBusinessCenterAdmin(businessId));
   const { data, error } = await supabase
     .from("rank_snapshots")
-    .select("distance_miles, grid_north, grid_east, rank, in_local_pack")
+    .select("distance_miles, grid_north, grid_east, rank, in_local_pack, ranking_model")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
     .eq("date", date);
 
   if (error || !data?.length) return [];
 
-  const hasRadialCenter = data.some((row) => Number(row.distance_miles) === 0);
+  const radialRows = data.filter((row) => row.ranking_model === "radial_text_v2");
+  const sourceRows = radialRows.length > 0 ? radialRows : data;
+  const hasRadialCenter = sourceRows.some((row) => Number(row.distance_miles) === 0);
   const gridRows = hasRadialCenter
-    ? data.filter(
+    ? sourceRows.filter(
         (row) =>
           Number(row.distance_miles) === 0 ||
           Number(row.grid_north) !== 0 ||
           Number(row.grid_east) !== 0
       )
-    : data.filter((row) => Number(row.distance_miles) === 1);
+    : sourceRows.filter((row) => Number(row.distance_miles) === 1);
 
   // Daily ingest stores one center row; full legacy/radial scans have multiple samples.
   if (gridRows.length <= 1) return [];
@@ -213,7 +212,12 @@ export async function loadGridForDateAdmin(
     resolvedCenter
   );
 
-  const leaders = await loadCellLeadersForDate(businessId, keyword, date);
+  const leaders = await loadCellLeadersForDate(
+    businessId,
+    keyword,
+    date,
+    hasRadialCenter ? "radial_text_v2" : "legacy_nearby_radius"
+  );
   return attachLocalPackToGrid(grid, leaders);
 }
 
@@ -246,6 +250,7 @@ export async function loadLatestKeywordGridsAdmin(
       .select("date, cells_total")
       .eq("business_id", businessId)
       .eq("keyword", keyword)
+      .eq("ranking_model", "radial_text_v2")
       .lte("date", onOrBeforeDate)
       .gt("cells_total", 1)
       .order("date", { ascending: false })
@@ -284,9 +289,10 @@ export async function loadLatestKeywordGridForUser(
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("grid_snapshots")
-    .select("date, source")
+    .select("date, source, ranking_model")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
+    .eq("ranking_model", "radial_text_v2")
     .lte("date", targetDate)
     .gt("cells_total", 1)
     .order("date", { ascending: false })
@@ -318,6 +324,7 @@ export async function listCoverageTrendForUser(
     .select("date, coverage_percent")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
+    .eq("ranking_model", "radial_text_v2")
     .gte("date", start.toISOString().slice(0, 10))
     .order("date", { ascending: true });
 
@@ -341,7 +348,8 @@ export async function gridCoverageNearDateAdmin(
     .from("grid_snapshots")
     .select("date, coverage_percent")
     .eq("business_id", businessId)
-    .eq("keyword", keyword);
+    .eq("keyword", keyword)
+    .eq("ranking_model", "radial_text_v2");
 
   if (direction === "before") {
     query = query.lte("date", targetDate).order("date", { ascending: false });
@@ -369,6 +377,7 @@ export async function shouldRefreshGridAfterTask(
     .select("created_at")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
+    .eq("ranking_model", "radial_text_v2")
     .in("source", ["weekly", "task_trigger", "audit"])
     .order("created_at", { ascending: false })
     .limit(1);
@@ -401,6 +410,7 @@ export async function loadFreshKeywordGridAdmin(
     .select("date")
     .eq("business_id", businessId)
     .eq("keyword", keyword)
+    .eq("ranking_model", "radial_text_v2")
     .gte("date", minDate)
     .gt("cells_total", 1)
     .order("date", { ascending: false })
