@@ -110,6 +110,7 @@ export async function collectKeywordGeoGrid(
     const results = await searchPlaces(keyword, origin.location, searchRadius, "text", {
       maxPages: 1,
       rankFieldsOnly: true,
+      allowLegacyFallback: false,
     });
     const rank = findBusinessRank(results, matchOptions);
 

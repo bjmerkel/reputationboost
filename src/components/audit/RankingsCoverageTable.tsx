@@ -127,9 +127,8 @@ export default function RankingsCoverageTable({
               const dropDistance = coverageDropDistance(kw);
               const centerRank = radial
                 ? kw.centerRank
-                : typeof kw.localPackPosition === "number"
-                  ? kw.localPackPosition
-                  : null;
+                : ringFor(kw, 1)?.rank ??
+                  (typeof kw.localPackPosition === "number" ? kw.localPackPosition : null);
 
               return (
                 <tr
@@ -177,7 +176,7 @@ export default function RankingsCoverageTable({
                             : "text-red-400"
                       }`}
                     >
-                      {rankLabel(centerRank)}
+                      {radial ? rankLabel(centerRank) : centerRank == null ? "—" : `#${centerRank}`}
                     </div>
                     <div
                       className={`mt-0.5 text-[11px] ${light ? "text-[#5f6368]" : "text-slate-400"}`}

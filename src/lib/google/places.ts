@@ -403,14 +403,18 @@ export async function textSearch(
   keyword: string,
   location: GeoLocation,
   radiusMeters: number,
-  options: { maxPages?: number; rankFieldsOnly?: boolean } = {}
+  options: {
+    maxPages?: number;
+    rankFieldsOnly?: boolean;
+    allowLegacyFallback?: boolean;
+  } = {}
 ): Promise<PlaceResult[]> {
   const cacheKey = placesSearchCacheKey(
     keyword,
     location.lat,
     location.lng,
     radiusMeters,
-    `text:${options.maxPages ?? MAX_NEARBY_PAGES}:${options.rankFieldsOnly ? "rank" : "full"}`
+    `text:${options.maxPages ?? MAX_NEARBY_PAGES}:${options.rankFieldsOnly ? "rank" : "full"}:${options.allowLegacyFallback === false ? "new-only" : "fallback"}`
   );
   const cached = getCachedPlacesSearch(cacheKey);
   if (cached) return cached;
@@ -418,7 +422,8 @@ export async function textSearch(
   let results: PlaceResult[];
   try {
     results = await textSearchNew(keyword, location, radiusMeters, options);
-  } catch {
+  } catch (error) {
+    if (options.allowLegacyFallback === false) throw error;
     results = await textSearchLegacy(keyword, location, radiusMeters, options.maxPages);
   }
   setCachedPlacesSearch(cacheKey, results);
@@ -434,6 +439,8 @@ export interface SearchPlacesOptions {
   maxPages?: number;
   /** Text Search only — request only Place ID and display name to control SKU cost. */
   rankFieldsOnly?: boolean;
+  /** Text Search only — fail instead of mixing legacy ordering into a New API scan. */
+  allowLegacyFallback?: boolean;
   /** Nearby Search only — skip read-through cache. */
   skipCache?: boolean;
 }
@@ -449,6 +456,7 @@ export async function searchPlaces(
     ? textSearch(options?.textQuery ?? keyword, location, radiusMeters, {
         maxPages: options?.maxPages,
         rankFieldsOnly: options?.rankFieldsOnly,
+        allowLegacyFallback: options?.allowLegacyFallback,
       })
     : nearbySearch(keyword, location, radiusMeters, {
         maxPages: options?.maxPages,
