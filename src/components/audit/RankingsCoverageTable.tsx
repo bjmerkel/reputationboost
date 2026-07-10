@@ -1,4 +1,5 @@
 import type { GeoRankPoint, KeywordRankSnapshot } from "@/audit/types";
+import { radialCoverageDropDistance } from "@/audit/geo/keyword-visibility-label";
 import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 
 function rankLabel(rank: number | null | undefined): string {
@@ -7,17 +8,6 @@ function rankLabel(rank: number | null | undefined): string {
 
 function ringFor(kw: KeywordRankSnapshot, miles: number): GeoRankPoint | undefined {
   return kw.geoRanks.find((point) => point.distanceMiles === miles);
-}
-
-function coverageDropDistance(kw: KeywordRankSnapshot): number | null {
-  if (kw.rankingModel !== "radial_text_v2" || !kw.inLocalPack) return null;
-  for (const miles of RADIAL_RING_MILES) {
-    const ring = ringFor(kw, miles);
-    if (ring?.sampleCount && (ring.inLocalPackCount ?? 0) / ring.sampleCount < 0.5) {
-      return miles;
-    }
-  }
-  return null;
 }
 
 function RingResult({
@@ -124,7 +114,7 @@ export default function RankingsCoverageTable({
           <tbody>
             {keywords.map((kw) => {
               const radial = kw.rankingModel === "radial_text_v2";
-              const dropDistance = coverageDropDistance(kw);
+              const dropDistance = radialCoverageDropDistance(kw);
               const centerRank = radial
                 ? kw.centerRank
                 : ringFor(kw, 1)?.rank ??
