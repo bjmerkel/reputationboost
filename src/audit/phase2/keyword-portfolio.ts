@@ -170,31 +170,75 @@ function swapOutPriority(
   return score;
 }
 
+const STREET_ADDRESS_RE =
+  /\b\d{1,6}\s+\w+.*\b(street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|court|ct|place|pl)\b/i;
+const BUSINESS_LISTING_RE = /[–—]| - .+\b(llc|inc|corp|company|roof|replacement|plumbing|hvac)\b/i;
+const SERVICE_INTENT_RE =
+  /\b(hvac|ac|a\/c|air|heat|heating|cooling|furnace|boiler|duct|install|installation|repair|service|services|contractor|contractors|maintenance|replacement|emergency)\b/i;
+
+/** True when a GBP term is navigational/junk and should not be tracked as a rank keyword. */
+export function isJunkTrackingKeyword(
+  keyword: string,
+  businessName: string,
+  businessCity: string
+): boolean {
+  const term = normalizeKeyword(keyword);
+  if (!term || term.length < 3) return true;
+  if (STREET_ADDRESS_RE.test(term)) return true;
+  if (BUSINESS_LISTING_RE.test(term)) return true;
+
+  const hasServiceIntent = SERVICE_INTENT_RE.test(term);
+  // City / brand navigational queries without service intent are not rank keywords.
+  if (!hasServiceIntent && isBrandKeyword(term, businessName, businessCity)) {
+    return true;
+  }
+  if (!hasServiceIntent) {
+    const tokens = tokenize(term);
+    if (tokens.length <= 2) return true;
+  }
+
+  return false;
+}
+
 function expandGbpCandidate(gbpTerm: string, audit: Phase1AuditPayload): string[] {
   const industry = audit.gbp.identity.primaryCategory || audit.gbp.identity.name;
   const industryShort = industry.split(/\s+/).slice(0, 2).join(" ").toLowerCase();
   const term = normalizeKeyword(gbpTerm);
-  const variants = new Set<string>([term]);
-
-  if (term.split(/\s+/).length === 1 && industryShort) {
-    variants.add(normalizeKeyword(`${industryShort} ${term}`));
-    variants.add(normalizeKeyword(`${term} ${industryShort}`));
-  }
-
   const businessCity = primaryBusinessCity(audit);
-  if (businessCity && !term.includes(businessCity) && term.split(/\s+/).length <= 2) {
-    variants.add(normalizeKeyword(`${industryShort} ${businessCity}`.trim()));
-    variants.add(normalizeKeyword(`${term} nj`));
+  const businessName = audit.clientName || audit.gbp.identity.name;
+  const variants = new Set<string>();
+
+  const rawIsJunk = isJunkTrackingKeyword(term, businessName, businessCity);
+  if (!rawIsJunk) {
+    variants.add(term);
   }
 
-  return [...variants];
+  // Expand geo/brand navigational terms into one service+geo keyword (not both word orders).
+  if (industryShort && term.split(/\s+/).length <= 2) {
+    const geo = businessCity || term.replace(/,\s*/g, " ").trim();
+    if (geo) {
+      variants.add(normalizeKeyword(`${industryShort} ${geo}`));
+    }
+  }
+
+  return [...variants].filter(
+    (keyword) => !isJunkTrackingKeyword(keyword, businessName, businessCity)
+  );
+}
+
+function tokenSignature(keyword: string): string {
+  return tokenize(keyword).sort().join(" ");
 }
 
 function buildUntrackedCandidates(audit: Phase1AuditPayload): UntrackedGbpKeywordCandidate[] {
   const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
   const tracked = audit.rankings.keywords.map((k) => k.keyword);
   const trackedNormalized = new Set(tracked.map(normalizeKeyword));
+  const trackedSignatures = new Set(tracked.map(tokenSignature));
+  const businessCity = primaryBusinessCity(audit);
+  const businessName = audit.clientName || audit.gbp.identity.name;
   const candidates = new Map<string, UntrackedGbpKeywordCandidate>();
+  const usedSignatures = new Set<string>();
 
   for (const sk of searchKeywords) {
     if (findTrackedKeywordForGbpTerm(sk.keyword, tracked)) continue;
@@ -202,13 +246,20 @@ function buildUntrackedCandidates(audit: Phase1AuditPayload): UntrackedGbpKeywor
     const expanded = expandGbpCandidate(sk.keyword, audit);
     for (const keyword of expanded) {
       if (trackedNormalized.has(keyword)) continue;
+      if (isJunkTrackingKeyword(keyword, businessName, businessCity)) continue;
+
+      const signature = tokenSignature(keyword);
+      if (trackedSignatures.has(signature)) continue;
 
       const impressions = sk.impressions ?? 0;
+      // Prefer real impression volume; below-threshold junk gets a low floor.
       const opportunityScore =
         impressions > 0
           ? impressions * 2
           : sk.belowThreshold
-            ? 25
+            ? SERVICE_INTENT_RE.test(keyword)
+              ? 25
+              : 5
             : 5;
 
       const existing = candidates.get(keyword);
@@ -230,7 +281,14 @@ function buildUntrackedCandidates(audit: Phase1AuditPayload): UntrackedGbpKeywor
     }
   }
 
-  return [...candidates.values()].sort((a, b) => b.opportunityScore - a.opportunityScore);
+  return [...candidates.values()]
+    .sort((a, b) => b.opportunityScore - a.opportunityScore)
+    .filter((candidate) => {
+      const signature = tokenSignature(candidate.keyword);
+      if (usedSignatures.has(signature)) return false;
+      usedSignatures.add(signature);
+      return true;
+    });
 }
 
 function analyzeTrackedKeywords(audit: Phase1AuditPayload): TrackedKeywordPortfolioItem[] {
@@ -304,7 +362,13 @@ function buildSwapRecommendations(
     .filter((entry) => entry.priority >= 0)
     .sort((a, b) => b.priority - a.priority);
 
-  for (const candidate of untracked) {
+  const impressionBacked = untracked.filter((c) => (c.impressions ?? 0) > 0);
+  const serviceBelowThreshold = untracked.filter(
+    (c) => (c.impressions ?? 0) <= 0 && SERVICE_INTENT_RE.test(c.keyword)
+  );
+  const rankedIns = [...impressionBacked, ...serviceBelowThreshold];
+
+  for (const candidate of rankedIns) {
     if (swaps.length >= MAX_SWAPS_PER_CYCLE) break;
     if (usedIns.has(candidate.keyword)) continue;
 
@@ -359,16 +423,19 @@ export function buildOptimizedKeywordList(
     );
   }
 
+  const swappedOut = new Set(
+    analysis.recommendedSwaps.map((swap) => normalizeKeyword(swap.swapOut))
+  );
   const result = new Set<string>();
 
   for (const item of analysis.tracked) {
+    if (swappedOut.has(normalizeKeyword(item.keyword))) continue;
     if (item.status === "brand_anchor" || item.status === "proven_demand" || item.status === "growth_target") {
       result.add(item.keyword);
     }
   }
 
   for (const swap of analysis.recommendedSwaps) {
-    if (result.has(swap.swapOut)) result.delete(swap.swapOut);
     result.add(swap.swapIn);
   }
 
@@ -379,14 +446,26 @@ export function buildOptimizedKeywordList(
     }
   }
 
-  for (const keyword of currentKeywords) {
+  // Prefer remaining growth/low-priority tracked terms before re-adding swap-outs.
+  const fillOrder = [
+    ...analysis.tracked
+      .filter((item) => !swappedOut.has(normalizeKeyword(item.keyword)))
+      .filter((item) => item.status === "growth_target" || item.status === "low_priority")
+      .map((item) => item.keyword),
+    ...currentKeywords.filter((keyword) => !swappedOut.has(normalizeKeyword(keyword))),
+  ];
+
+  for (const keyword of fillOrder) {
     if (result.size >= MAX_KEYWORDS) break;
     result.add(keyword);
   }
 
   const list = [...result].slice(0, MAX_KEYWORDS);
-  while (list.length < MIN_KEYWORDS && currentKeywords.length > list.length) {
-    const next = currentKeywords.find((keyword) => !list.includes(keyword));
+  while (list.length < MIN_KEYWORDS) {
+    const next = currentKeywords.find(
+      (keyword) =>
+        !list.some((existing) => normalizeKeyword(existing) === normalizeKeyword(keyword))
+    );
     if (!next) break;
     list.push(next);
   }

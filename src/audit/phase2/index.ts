@@ -38,6 +38,7 @@ export {
   computeKeywordPortfolio,
   findTrackedKeywordForGbpTerm,
   isBrandKeyword,
+  isJunkTrackingKeyword,
   KEYWORD_PORTFOLIO_PLAN_STEP,
   portfolioStepIsSatisfied,
   prioritizeKeywordsForGrid,

@@ -8,6 +8,7 @@ import {
   computeKeywordPortfolio,
   findTrackedKeywordForGbpTerm,
   isBrandKeyword,
+  isJunkTrackingKeyword,
   portfolioStepIsSatisfied,
   prioritizeKeywordsForGrid,
 } from "./keyword-portfolio";
@@ -39,6 +40,12 @@ function wayneStyleAudit(): Phase1AuditPayload {
           { keyword: "wayne, nj", impressions: 45, belowThreshold: false },
           { keyword: "hvac contractor", impressions: null, belowThreshold: true },
           { keyword: "hvac company wayne", impressions: null, belowThreshold: true },
+          {
+            keyword: "495 river street – hvac and roof replacement",
+            impressions: null,
+            belowThreshold: true,
+          },
+          { keyword: "cost to replace hvac system nj", impressions: null, belowThreshold: true },
         ],
       },
     },
@@ -87,6 +94,20 @@ function wayneStyleAudit(): Phase1AuditPayload {
           clientRating: 4.7,
           clientReviewCount: 95,
         },
+        {
+          keyword: "furnace maintenance near me",
+          localPackPosition: 2,
+          inLocalPack: true,
+          geoRanks: [
+            { distanceMiles: 1, rank: 2, inLocalPack: true },
+            { distanceMiles: 3, rank: 2, inLocalPack: true },
+            { distanceMiles: 5, rank: 3, inLocalPack: true },
+          ],
+          packLeaderRating: 4.9,
+          packLeaderReviewCount: 180,
+          clientRating: 4.7,
+          clientReviewCount: 95,
+        },
       ],
     },
   };
@@ -97,6 +118,23 @@ describe("keyword-portfolio", () => {
     assert.equal(isBrandKeyword("wayne", "Wayne Refrigeration", "Wayne"), true);
     assert.equal(isBrandKeyword("wayne, nj", "Wayne Refrigeration", "Wayne"), true);
     assert.equal(isBrandKeyword("hvac installation ridgewood nj", "Wayne Refrigeration", "Wayne"), false);
+  });
+
+  it("rejects city-only, street-address, and listing junk as trackable keywords", () => {
+    assert.equal(isJunkTrackingKeyword("wayne, nj", "Wayne Refrigeration", "wayne"), true);
+    assert.equal(
+      isJunkTrackingKeyword(
+        "495 river street – hvac and roof replacement",
+        "Wayne Refrigeration",
+        "wayne"
+      ),
+      true
+    );
+    assert.equal(isJunkTrackingKeyword("hvac company wayne", "Wayne Refrigeration", "wayne"), false);
+    assert.equal(
+      isJunkTrackingKeyword("hvac contractor wayne", "Wayne Refrigeration", "wayne"),
+      false
+    );
   });
 
   it("reverse-matches GBP terms to tracked keywords", () => {
@@ -112,24 +150,64 @@ describe("keyword-portfolio", () => {
     const portfolio = computeKeywordPortfolio(wayneStyleAudit());
 
     assert.ok(portfolio.rankWithoutDemandCount >= 2);
-    assert.ok(portfolio.untrackedCandidates.some((c) => c.sourceGbpTerm === "wayne"));
+    assert.ok(
+      portfolio.untrackedCandidates.some(
+        (c) =>
+          c.sourceGbpTerm === "wayne" ||
+          c.sourceGbpTerm === "wayne, nj" ||
+          c.keyword.includes("wayne")
+      )
+    );
     assert.ok(portfolio.recommendedSwaps.length > 0);
     assert.ok(portfolio.shouldRotate);
     assert.ok(portfolio.demandAlignmentScore < 50);
     assert.match(portfolio.summary, /no impressions/i);
   });
 
-  it("recommends adding demand-backed terms and swapping rank-only keywords", () => {
+  it("recommends service keywords instead of city-only or address junk", () => {
     const audit = wayneStyleAudit();
     const portfolio = computeKeywordPortfolio(audit);
-    const optimized = buildOptimizedKeywordList(audit, audit.rankings.keywords.map((k) => k.keyword));
+    const optimized = buildOptimizedKeywordList(
+      audit,
+      audit.rankings.keywords.map((k) => k.keyword)
+    );
 
-    assert.ok(optimized.some((keyword) => keyword.includes("wayne")));
+    assert.ok(
+      portfolio.untrackedCandidates.every(
+        (c) => !isJunkTrackingKeyword(c.keyword, "Wayne Refrigeration", "wayne")
+      )
+    );
+    assert.ok(
+      !portfolio.recommendedSwaps.some(
+        (swap) =>
+          swap.swapIn === "wayne, nj" ||
+          swap.swapIn.includes("river street") ||
+          swap.swapIn === "wayne"
+      )
+    );
+    assert.ok(optimized.some((keyword) => /hvac|contractor|company/.test(keyword)));
     assert.ok(
       portfolio.recommendedSwaps.some(
         (swap) => swap.swapIn.includes("wayne") || swap.swapOut.includes("ridgewood")
       )
     );
+  });
+
+  it("does not re-add swapped-out keywords to the optimized portfolio", () => {
+    const audit = wayneStyleAudit();
+    const portfolio = computeKeywordPortfolio(audit);
+    const swappedOut = new Set(
+      portfolio.recommendedSwaps.map((swap) => swap.swapOut.toLowerCase())
+    );
+
+    assert.ok(swappedOut.size > 0);
+    for (const keyword of portfolio.recommendedKeywords) {
+      assert.equal(
+        swappedOut.has(keyword.toLowerCase()),
+        false,
+        `optimized list should not keep swapped-out keyword "${keyword}"`
+      );
+    }
   });
 
   it("prioritizes growth and demand keywords for weekly grid slots", () => {
