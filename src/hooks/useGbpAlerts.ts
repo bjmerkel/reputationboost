@@ -1,7 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { GbpEvent } from "@/audit/types/gbp-events";
+
+/** Avoid hammering Google when the command center remounts within a session. */
+const SYNC_COOLDOWN_MS = 15 * 60 * 1000;
+const lastSyncByClient = new Map<string, number>();
 
 export function useGbpAlerts(clientId?: string): {
   events: GbpEvent[];
@@ -13,8 +17,9 @@ export function useGbpAlerts(clientId?: string): {
   const [events, setEvents] = useState<GbpEvent[]>([]);
   const [loading, setLoading] = useState(Boolean(clientId));
   const [error, setError] = useState<string | null>(null);
+  const syncInFlight = useRef(false);
 
-  const refresh = useCallback(async () => {
+  const loadCached = useCallback(async () => {
     if (!clientId) {
       setEvents([]);
       setLoading(false);
@@ -39,6 +44,39 @@ export function useGbpAlerts(clientId?: string): {
       setLoading(false);
     }
   }, [clientId]);
+
+  const syncFromGoogle = useCallback(async () => {
+    if (!clientId || syncInFlight.current) return;
+
+    const last = lastSyncByClient.get(clientId) ?? 0;
+    if (Date.now() - last < SYNC_COOLDOWN_MS) return;
+
+    syncInFlight.current = true;
+    try {
+      const res = await fetch("/api/gbp/alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, action: "refresh" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        // Keep cached alerts if live refresh fails.
+        return;
+      }
+      lastSyncByClient.set(clientId, Date.now());
+      setEvents(data.events ?? []);
+      setError(null);
+    } catch {
+      // Ignore sync errors — cached feed remains visible.
+    } finally {
+      syncInFlight.current = false;
+    }
+  }, [clientId]);
+
+  const refresh = useCallback(async () => {
+    await loadCached();
+    await syncFromGoogle();
+  }, [loadCached, syncFromGoogle]);
 
   useEffect(() => {
     void refresh();
