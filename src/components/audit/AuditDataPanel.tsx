@@ -37,6 +37,8 @@ import { detectPackFragility } from "@/audit/phase2/scoring";
 import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
 import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
 
+type KeywordsUpdatedHandler = (keywords: string[]) => void;
+
 type DataTab =
   | "profile"
   | "performance"
@@ -116,6 +118,7 @@ export default function AuditDataPanel({
   layout = "canvas",
   gbpConnected = false,
   onNavigateToPlan,
+  onKeywordsUpdated,
   attributions = [],
   globalCalibration = {},
 }: {
@@ -129,6 +132,7 @@ export default function AuditDataPanel({
   layout?: "sidebar" | "canvas";
   gbpConnected?: boolean;
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
+  onKeywordsUpdated?: KeywordsUpdatedHandler;
   attributions?: ActionAttribution[];
   globalCalibration?: AttributionCalibration;
 }) {
@@ -447,6 +451,7 @@ export default function AuditDataPanel({
               address={audit.gbp.identity.address}
               website={audit.gbp.identity.website ?? undefined}
               light={isLight}
+              onKeywordsUpdated={onKeywordsUpdated}
             />
           )}
         </div>

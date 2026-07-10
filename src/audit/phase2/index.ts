@@ -34,6 +34,7 @@ export { computeKeywordScores } from "./keyword-scores";
 export {
   applyKeywordPortfolioToAudit,
   applyKeywordPortfolioToClient,
+  applyTrackedKeywordsToAudit,
   buildOptimizedKeywordList,
   computeKeywordPortfolio,
   findTrackedKeywordForGbpTerm,

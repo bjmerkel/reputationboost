@@ -4,6 +4,7 @@ import type { Phase1AuditPayload } from "../types";
 import { createTestAudit } from "../phase3/test-fixtures";
 import {
   applyKeywordPortfolioToAudit,
+  applyTrackedKeywordsToAudit,
   buildOptimizedKeywordList,
   computeKeywordPortfolio,
   findTrackedKeywordForGbpTerm,
@@ -248,5 +249,27 @@ describe("keyword-portfolio", () => {
 
     applyKeywordPortfolioToAudit(audit);
     assert.equal(portfolioStepIsSatisfied(audit), true);
+  });
+
+  it("optimistically syncs rankings when tracked keywords are edited", () => {
+    const audit = wayneStyleAudit();
+    const kept = audit.rankings.keywords[0]!.keyword;
+    const next = applyTrackedKeywordsToAudit(audit, [
+      kept,
+      "hvac repair wayne nj",
+      "ac installation wayne",
+    ]);
+
+    assert.deepEqual(
+      next.rankings.keywords.map((item) => item.keyword),
+      [kept, "hvac repair wayne nj", "ac installation wayne"]
+    );
+    assert.equal(next.rankings.totalKeywords, 3);
+    assert.equal(
+      next.rankings.keywords.find((item) => item.keyword === kept)?.localPackPosition,
+      audit.rankings.keywords[0]!.localPackPosition
+    );
+    assert.ok(next.keywordPortfolio);
+    assert.notEqual(next, audit);
   });
 });

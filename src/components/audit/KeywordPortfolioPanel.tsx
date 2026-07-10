@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeywordPortfolioAnalysis, KeywordPortfolioStatus } from "@/audit/types";
 
 const STATUS_LABELS: Record<KeywordPortfolioStatus, string> = {
@@ -50,7 +50,20 @@ export default function KeywordPortfolioPanel({
   onKeywordsUpdated?: (keywords: string[]) => void;
 }) {
   const [keywords, setKeywords] = useState(currentKeywords);
+  const savedKeywordsRef = useRef<string[] | null>(null);
+
   useEffect(() => {
+    const incoming = currentKeywords.map((k) => k.trim().toLowerCase()).join("|");
+    const saved = savedKeywordsRef.current?.map((k) => k.trim().toLowerCase()).join("|") ?? null;
+
+    // After a successful save, parents may still pass stale audit rankings.
+    // Keep the saved list until props catch up to the same set.
+    if (saved && saved !== incoming) {
+      return;
+    }
+    if (saved && saved === incoming) {
+      savedKeywordsRef.current = null;
+    }
     setKeywords(currentKeywords);
   }, [currentKeywords]);
 
@@ -103,6 +116,7 @@ export default function KeywordPortfolioPanel({
       };
       if (!res.ok) throw new Error(data.error ?? "Failed to update keywords");
       const saved = data.business?.keywords ?? next;
+      savedKeywordsRef.current = saved;
       setKeywords(saved);
       setApplied(false);
       onKeywordsUpdated?.(saved);
@@ -133,6 +147,7 @@ export default function KeywordPortfolioPanel({
       };
       if (!res.ok) throw new Error(data.error ?? "Failed to update keywords");
       const saved = data.business?.keywords ?? portfolio.recommendedKeywords;
+      savedKeywordsRef.current = saved;
       setKeywords(saved);
       setApplied(true);
       setEditingKeyword(null);

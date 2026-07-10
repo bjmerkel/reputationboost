@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
-import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
+import { computeKeywordPortfolio, applyTrackedKeywordsToAudit } from "@/audit/phase2/keyword-portfolio";
 import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
@@ -264,7 +264,11 @@ export default function PlanView({
           address={audit.gbp.identity.address}
           website={audit.gbp.identity.website ?? undefined}
           light={isLight}
-          onKeywordsUpdated={() => onAuditUpdated?.(audit)}
+          onKeywordsUpdated={(nextKeywords) => {
+            onAuditUpdated?.(
+              applyTrackedKeywordsToAudit(audit, nextKeywords) as typeof audit
+            );
+          }}
         />
       )}
 
