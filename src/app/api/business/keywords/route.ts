@@ -4,6 +4,7 @@ import {
   loadBusinessConfig,
   updateBusinessKeywords,
 } from "@/audit/businesses";
+import { persistTrackedKeywordsToLatestAudit } from "@/audit/live-audit";
 import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { getUser } from "@/lib/supabase/server";
@@ -124,6 +125,14 @@ export async function PATCH(request: Request) {
     }
 
     const updated = await updateBusinessKeywords(user.id, businessId, keywords);
+    if (business.businessId) {
+      await persistTrackedKeywordsToLatestAudit({
+        businessId: business.businessId,
+        keywords: updated.keywords,
+      }).catch((error) => {
+        console.error("[keywords] failed to sync audit rankings:", error);
+      });
+    }
     return NextResponse.json({ business: updated });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update keywords";

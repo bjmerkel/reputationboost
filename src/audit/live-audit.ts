@@ -28,6 +28,7 @@ import type {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { getValidGbpConnectionForRecord } from "@/lib/google/token-store";
+import { syncAuditToTrackedKeywords } from "@/audit/sync-tracked-keywords";
 
 function formatDateYmd(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -175,6 +176,14 @@ export async function buildLiveAudit(
   let working: FullAuditPayload = stored;
   let gbpRefreshed = false;
 
+  // Keep rankings aligned with the business keyword list. Keyword edits update
+  // businesses.keywords immediately; without this, live refresh reloads stale
+  // audit_runs rankings and the UI appears to revert.
+  const trackedKeywords = options.businessRow?.keywords;
+  if (trackedKeywords?.length) {
+    working = syncAuditToTrackedKeywords(working, trackedKeywords);
+  }
+
   if (options.refreshGbp && options.businessRow) {
     const slices = await refreshGbpSlicesForBusiness(options.businessRow);
     if (slices) {
@@ -203,13 +212,18 @@ export async function buildLiveAudit(
   }
 
   const audit = mergeLiveStrategy(stored, hydrated, priorAudit, outcomes);
-  const pathToHealthy = buildPathToHealthy(audit, null, {
+  // Re-apply tracked keywords after strategy merge in case stored rankings leaked back.
+  const finalAudit =
+    trackedKeywords?.length
+      ? syncAuditToTrackedKeywords(audit, trackedKeywords)
+      : audit;
+  const pathToHealthy = buildPathToHealthy(finalAudit, null, {
     avgCustomerValue: options.avgCustomerValue,
     currency: options.currency ?? "USD",
   });
 
   return {
-    audit,
+    audit: finalAudit,
     pathToHealthy,
     refreshedAt: new Date().toISOString(),
     targetDate,
@@ -242,6 +256,24 @@ export async function persistLiveAuditSnapshot(
   if (updateError) {
     throw new Error(`Failed to persist live audit snapshot: ${updateError.message}`);
   }
+}
+
+/**
+ * Persist business keyword edits onto the latest audit_runs payload so refresh
+ * and page reload do not resurrect the previous ranking keyword set.
+ */
+export async function persistTrackedKeywordsToLatestAudit(options: {
+  businessId: string;
+  keywords: string[];
+}): Promise<FullAuditPayload | null> {
+  const stored = await loadLatestAuditForBusinessAdmin(options.businessId);
+  if (!stored) return null;
+
+  const synced = syncAuditToTrackedKeywords(stored, options.keywords);
+  if (synced === stored) return stored;
+
+  await persistLiveAuditSnapshot(options.businessId, synced);
+  return synced;
 }
 
 export async function buildAndPersistLiveAuditForBusiness(

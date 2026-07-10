@@ -5,6 +5,7 @@ import { ensureStrategy } from "@/audit/ensure-strategy";
 import { getPrimaryBusiness } from "@/audit/businesses";
 import { listExecutionTasks } from "@/audit/storage-execution";
 import { loadLatestAuditFromSupabase, loadPriorAuditFromSupabase } from "@/audit/storage-supabase";
+import { syncAuditToTrackedKeywords } from "@/audit/sync-tracked-keywords";
 import AuditDashboard from "@/components/AuditDashboard";
 import { getUser } from "@/lib/supabase/server";
 
@@ -41,7 +42,10 @@ export default async function PlatformAuditPage() {
   const priorRaw = raw
     ? await loadPriorAuditFromSupabase(user.id, business.id, raw.completedAt)
     : null;
-  const latestAudit = raw ? ensureStrategy(raw, priorRaw) : null;
+  const syncedRaw = raw
+    ? syncAuditToTrackedKeywords(raw, business.keywords)
+    : null;
+  const latestAudit = syncedRaw ? ensureStrategy(syncedRaw, priorRaw) : null;
 
   const executionTasks =
     latestAudit
