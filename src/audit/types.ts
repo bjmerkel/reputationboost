@@ -636,6 +636,9 @@ export interface UntrackedGbpKeywordCandidate {
   belowThreshold: boolean;
   opportunityScore: number;
   reason: string;
+  /** Present when an LLM ranked/explained this opportunity. */
+  llmReason?: string;
+  llmPriority?: number;
 }
 
 export interface KeywordSwapRecommendation {
@@ -660,6 +663,8 @@ export interface KeywordPortfolioAnalysis {
   recommendedKeywords: string[];
   shouldRotate: boolean;
   summary: string;
+  /** Whether untracked opportunities were ranked/explained by LLM. */
+  untrackedLlmRanked?: boolean;
 }
 
 /** Structured relevance features for one tracked keyword — feeds conversion scoring. */

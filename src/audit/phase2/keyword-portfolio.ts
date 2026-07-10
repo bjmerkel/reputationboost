@@ -20,6 +20,7 @@ import { relevanceByKeyword } from "./relevance-heuristic";
 const MIN_KEYWORDS = 3;
 const MAX_KEYWORDS = 8;
 const MAX_SWAPS_PER_CYCLE = 3;
+const MAX_UNTRACKED_CANDIDATES = 24;
 
 type GbpSearchKeyword = {
   keyword: string;
@@ -171,10 +172,17 @@ function swapOutPriority(
 }
 
 const STREET_ADDRESS_RE =
-  /\b\d{1,6}\s+\w+.*\b(street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|court|ct|place|pl)\b/i;
-const BUSINESS_LISTING_RE = /[–—]| - .+\b(llc|inc|corp|company|roof|replacement|plumbing|hvac)\b/i;
+  /\b\d{1,6}\s+\w+.*\b(street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|court|ct|place|pl|gowan|rancho)\b/i;
+const ZIP_OR_PLUS4_RE = /\b\d{5}(?:-\d{4})?\b/;
+const BUSINESS_LISTING_RE =
+  /[–—]| - .+\b(llc|inc|corp|company|roof|replacement|plumbing|hvac)\b/i;
+/** Category / service intent across local business types (not HVAC-only). */
 const SERVICE_INTENT_RE =
-  /\b(hvac|ac|a\/c|air|heat|heating|cooling|furnace|boiler|duct|install|installation|repair|service|services|contractor|contractors|maintenance|replacement|emergency)\b/i;
+  /\b(hvac|ac|a\/c|air|heat|heating|cooling|furnace|boiler|duct|install|installation|repair|service|services|contractor|contractors|maintenance|replacement|emergency|daycare|day\s*care|daycares|childcare|child\s*care|preschool|preschools|nursery|kindergarten|montessori|learning\s*center|learning\s*centre|early\s*childhood|infant|toddlers?|after\s*school|plumber|plumbing|roofer|roofing|electrician|locksmith|dentist|dental|chiropractor|veterinarian|vet|clinic|restaurant|pizza|salon|barber|gym|cleaning|mover|movers|towing|mechanic|attorney|lawyer|orthodontist|urgent\s*care)\b/i;
+const RESEARCH_JUNK_RE =
+  /\b(how many|how much|how to|what is|salary|jobs|hiring|free\s+prek|free\s+learning|home\s+improvement|travel\s+childcare|classes\s+for\s+grandparents|cost\s+to|price\s+of|pricing)\b/i;
+const COMPETITOR_BRAND_HINTS =
+  /\b(kiddie\s+academy|kindercare|merryhill|acelero|foundations\s+preschool|springstone|learning\s+tree|lone\s+mountain)\b/i;
 
 /** True when a GBP term is navigational/junk and should not be tracked as a rank keyword. */
 export function isJunkTrackingKeyword(
@@ -185,7 +193,11 @@ export function isJunkTrackingKeyword(
   const term = normalizeKeyword(keyword);
   if (!term || term.length < 3) return true;
   if (STREET_ADDRESS_RE.test(term)) return true;
+  if (ZIP_OR_PLUS4_RE.test(term) && !SERVICE_INTENT_RE.test(term)) return true;
   if (BUSINESS_LISTING_RE.test(term)) return true;
+  if (RESEARCH_JUNK_RE.test(term)) return true;
+  // Full competitor brand + address style listings.
+  if (/,/.test(term) && COMPETITOR_BRAND_HINTS.test(term)) return true;
 
   const hasServiceIntent = SERVICE_INTENT_RE.test(term);
   // City / brand navigational queries without service intent are not rank keywords.
@@ -200,12 +212,47 @@ export function isJunkTrackingKeyword(
   return false;
 }
 
+function categorySeedTerms(audit: Phase1AuditPayload): string[] {
+  const category = (
+    audit.gbp.identity.primaryCategory ||
+    audit.gbp.identity.name ||
+    ""
+  ).toLowerCase();
+  const seeds = new Set<string>();
+
+  const short = category
+    .replace(/\b(contractor|company|service|services|inc|llc|center|centre)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .slice(0, 3)
+    .join(" ");
+  if (short) seeds.add(short);
+
+  if (/\b(daycare|day care|childcare|child care|preschool|nursery|learning)\b/.test(category)) {
+    seeds.add("daycare");
+    seeds.add("preschool");
+    seeds.add("child care");
+    seeds.add("daycare near me");
+    seeds.add("preschool near me");
+  }
+  if (/\bhvac|heating|cooling|air conditioning\b/.test(category)) {
+    seeds.add("hvac");
+    seeds.add("hvac repair");
+  }
+  if (/\bplumb/.test(category)) {
+    seeds.add("plumber");
+    seeds.add("plumbing");
+  }
+
+  return [...seeds].filter(Boolean);
+}
+
 function expandGbpCandidate(gbpTerm: string, audit: Phase1AuditPayload): string[] {
-  const industry = audit.gbp.identity.primaryCategory || audit.gbp.identity.name;
-  const industryShort = industry.split(/\s+/).slice(0, 2).join(" ").toLowerCase();
   const term = normalizeKeyword(gbpTerm);
   const businessCity = primaryBusinessCity(audit);
   const businessName = audit.clientName || audit.gbp.identity.name;
+  const seeds = categorySeedTerms(audit);
   const variants = new Set<string>();
 
   const rawIsJunk = isJunkTrackingKeyword(term, businessName, businessCity);
@@ -213,12 +260,32 @@ function expandGbpCandidate(gbpTerm: string, audit: Phase1AuditPayload): string[
     variants.add(term);
   }
 
-  // Expand geo/brand navigational terms into one service+geo keyword (not both word orders).
-  if (industryShort && term.split(/\s+/).length <= 2) {
-    const geo = businessCity || term.replace(/,\s*/g, " ").trim();
-    if (geo) {
-      variants.add(normalizeKeyword(`${industryShort} ${geo}`));
+  // Competitor brand / navigational terms → expand into category + geo Maps queries.
+  const looksLikeCompetitor =
+    COMPETITOR_BRAND_HINTS.test(term) ||
+    (rawIsJunk && !STREET_ADDRESS_RE.test(term) && !RESEARCH_JUNK_RE.test(term));
+  const looksLikeCategoryStub =
+    SERVICE_INTENT_RE.test(term) && term.split(/\s+/).length <= 2 && !term.includes(businessCity);
+
+  if (businessCity) {
+    for (const seed of seeds.slice(0, 4)) {
+      if (looksLikeCompetitor || looksLikeCategoryStub || rawIsJunk) {
+        variants.add(normalizeKeyword(`${seed} ${businessCity}`));
+      }
+      if (/\bnear me\b/.test(term) || looksLikeCompetitor) {
+        variants.add(normalizeKeyword(`${seed} near me`));
+      }
     }
+  }
+
+  // Keep strong category + near me / city phrases from GBP as-is when not junk.
+  if (!rawIsJunk && (/\bnear me\b/.test(term) || (businessCity && term.includes(businessCity)))) {
+    variants.add(term);
+  }
+
+  // Expand short geo/brand navigational terms into service+geo.
+  if (seeds[0] && term.split(/\s+/).length <= 2 && businessCity) {
+    variants.add(normalizeKeyword(`${seeds[0]} ${businessCity}`));
   }
 
   return [...variants].filter(
@@ -252,14 +319,15 @@ function buildUntrackedCandidates(audit: Phase1AuditPayload): UntrackedGbpKeywor
       if (trackedSignatures.has(signature)) continue;
 
       const impressions = sk.impressions ?? 0;
-      // Prefer real impression volume; below-threshold junk gets a low floor.
+      const hasService = SERVICE_INTENT_RE.test(keyword);
+      // Prefer real impression volume; below-threshold category terms still matter.
       const opportunityScore =
         impressions > 0
-          ? impressions * 2
+          ? impressions * 2 + (hasService ? 20 : 0)
           : sk.belowThreshold
-            ? SERVICE_INTENT_RE.test(keyword)
-              ? 25
-              : 5
+            ? hasService
+              ? 40
+              : 8
             : 5;
 
       const existing = candidates.get(keyword);
@@ -553,11 +621,12 @@ export function computeKeywordPortfolio(audit: Phase1AuditPayload): KeywordPortf
       (c) => (c.impressions ?? 0) > 0 || c.belowThreshold
     ).length,
     tracked,
-    untrackedCandidates: untrackedCandidates.slice(0, 12),
+    untrackedCandidates: untrackedCandidates.slice(0, MAX_UNTRACKED_CANDIDATES),
     recommendedSwaps,
     recommendedKeywords,
     shouldRotate,
     summary,
+    untrackedLlmRanked: false,
   };
 }
 
@@ -624,43 +693,65 @@ export function applyKeywordPortfolioToAudit(
   audit: Phase1AuditPayload,
   options: ApplyKeywordPortfolioOptions = {}
 ): void {
-  const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
-  audit.keywordPortfolio = portfolio;
+  const applyOnce = (swapOutKeyword?: string) => {
+    const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
+    audit.keywordPortfolio = portfolio;
 
-  let targetKeywords = portfolio.recommendedKeywords;
+    let targetKeywords = portfolio.recommendedKeywords;
+
+    if (swapOutKeyword) {
+      const swap = portfolio.recommendedSwaps.find(
+        (item) => item.swapOut.toLowerCase() === swapOutKeyword.toLowerCase()
+      );
+      if (!swap) return false;
+
+      targetKeywords = audit.rankings.keywords.map((item) => item.keyword);
+      const index = targetKeywords.findIndex(
+        (keyword) => keyword.toLowerCase() === swap.swapOut.toLowerCase()
+      );
+      if (index < 0) return false;
+      targetKeywords[index] = swap.swapIn;
+    }
+
+    if (targetKeywords.length < MIN_KEYWORDS) return false;
+
+    const existingByKey = new Map(
+      audit.rankings.keywords.map((item) => [item.keyword.toLowerCase(), item])
+    );
+    const swapRankByKeyword = new Map(
+      portfolio.recommendedSwaps.map((swap) => [swap.swapIn.toLowerCase(), 5])
+    );
+
+    audit.rankings.keywords = targetKeywords.map((keyword) => {
+      const existing = existingByKey.get(keyword.toLowerCase());
+      if (existing) return existing;
+      const projectedRank = swapRankByKeyword.get(keyword.toLowerCase()) ?? 7;
+      return placeholderKeywordSnapshot(keyword, projectedRank);
+    });
+
+    refreshRankingAggregates(audit);
+    audit.keywordPortfolio = computeKeywordPortfolio(audit);
+    return true;
+  };
 
   if (options.swapOutKeyword) {
-    const swap = portfolio.recommendedSwaps.find(
-      (item) => item.swapOut.toLowerCase() === options.swapOutKeyword!.toLowerCase()
-    );
-    if (!swap) return;
-
-    targetKeywords = audit.rankings.keywords.map((item) => item.keyword);
-    const index = targetKeywords.findIndex(
-      (keyword) => keyword.toLowerCase() === swap.swapOut.toLowerCase()
-    );
-    if (index < 0) return;
-    targetKeywords[index] = swap.swapIn;
+    applyOnce(options.swapOutKeyword);
+    return;
   }
 
-  if (targetKeywords.length < MIN_KEYWORDS) return;
-
-  const existingByKey = new Map(
-    audit.rankings.keywords.map((item) => [item.keyword.toLowerCase(), item])
-  );
-  const swapRankByKeyword = new Map(
-    portfolio.recommendedSwaps.map((swap) => [swap.swapIn.toLowerCase(), 5])
-  );
-
-  audit.rankings.keywords = targetKeywords.map((keyword) => {
-    const existing = existingByKey.get(keyword.toLowerCase());
-    if (existing) return existing;
-    const projectedRank = swapRankByKeyword.get(keyword.toLowerCase()) ?? 7;
-    return placeholderKeywordSnapshot(keyword, projectedRank);
-  });
-
-  refreshRankingAggregates(audit);
-  audit.keywordPortfolio = computeKeywordPortfolio(audit);
+  // Apply until the tracked set matches the optimized list (or a small cap).
+  for (let i = 0; i < 3; i++) {
+    applyOnce();
+    const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
+    const current = new Set(
+      audit.rankings.keywords.map((item) => item.keyword.toLowerCase())
+    );
+    const recommended = portfolio.recommendedKeywords.map((item) => item.toLowerCase());
+    const matches =
+      current.size === recommended.length &&
+      recommended.every((keyword) => current.has(keyword));
+    if (matches) break;
+  }
 }
 
 export function portfolioStepIsSatisfied(audit: Phase1AuditPayload): boolean {
@@ -668,12 +759,20 @@ export function portfolioStepIsSatisfied(audit: Phase1AuditPayload): boolean {
   if (!portfolio.shouldRotate && portfolio.demandAlignmentScore >= 60) {
     return true;
   }
+  // No rotate signal and no actionable swaps left — treat as satisfied.
+  if (!portfolio.shouldRotate && portfolio.recommendedSwaps.length === 0) {
+    return true;
+  }
 
-  const current = audit.rankings.keywords.map((item) => item.keyword.toLowerCase());
+  const current = new Set(
+    audit.rankings.keywords.map((item) => item.keyword.toLowerCase())
+  );
   const recommended = portfolio.recommendedKeywords.map((item) => item.toLowerCase());
+  if (recommended.length === 0) return false;
+  // Order-independent: plan step is done when tracked set matches the optimized set.
   return (
-    current.length === recommended.length &&
-    current.every((keyword, index) => keyword === recommended[index])
+    current.size === recommended.length &&
+    recommended.every((keyword) => current.has(keyword))
   );
 }
 

@@ -153,7 +153,11 @@ export async function runPhase1Audit(
 
   const { features: keywordRelevance } = await extractKeywordRelevance(phase1);
   const { computeKeywordPortfolio } = await import("@/audit/phase2/keyword-portfolio");
-  const keywordPortfolio = computeKeywordPortfolio(phase1);
+  const { enrichUntrackedCandidatesWithLlm } = await import("@/lib/llm/untracked-keywords");
+  const keywordPortfolio = await enrichUntrackedCandidatesWithLlm(
+    phase1,
+    computeKeywordPortfolio(phase1)
+  );
   const phase1Enriched: Phase1AuditPayload = { ...phase1, keywordRelevance, keywordPortfolio };
 
   const strategy = await generateStrategy(phase1Enriched, priorAudit, outcomes);
