@@ -36,6 +36,11 @@ import {
   primaryCategoryUpdateIsNoOp,
   resolveLivePrimaryCategory,
 } from "@/audit/phase2/gbp-category";
+import {
+  buildGbpDescriptionDraft,
+  looksLikeKeywordStuffedDescription,
+} from "@/lib/google/gbp-description-draft";
+import { sanitizeGbpDescriptionDraft } from "@/lib/google/gbp-description";
 
 /** Task types safe to auto-complete when live profile already satisfies the step/intent. */
 const AUTO_COMPLETE_TYPES = new Set<ExecutionTask["type"]>([
@@ -62,6 +67,7 @@ export interface PlanReconcileComputation {
   nextAudit: FullAuditPayload;
   missingTasks: ExecutionTask[];
   tasksToComplete: ExecutionTask[];
+  tasksToUpdate: ExecutionTask[];
   appendedStepNumbers: number[];
   refreshedStepCount: number;
 }
@@ -70,6 +76,7 @@ export interface ReconcilePlanResult {
   audit: FullAuditPayload;
   createdTasks: ExecutionTask[];
   completedTasks: ExecutionTask[];
+  updatedTasks: ExecutionTask[];
   appendedStepNumbers: number[];
   refreshedStepCount: number;
 }
@@ -79,13 +86,31 @@ function mergePlanStepMetadata(
   fresh: GbpPlanStep | undefined
 ): GbpPlanStep {
   if (!fresh) return existing;
+
+  const existingDescription = String(
+    existing.actionData?.description ?? existing.copyBlocks?.[0]?.content ?? ""
+  );
+  const shouldRefreshDescription =
+    existing.stepNumber === 3 &&
+    Boolean(fresh.actionData?.description || fresh.copyBlocks?.[0]?.content) &&
+    (looksLikeKeywordStuffedDescription(existingDescription) || !existingDescription.trim());
+
   return {
     ...existing,
     current: fresh.current ?? existing.current,
     recommended: fresh.recommended ?? existing.recommended,
     bullets: fresh.bullets?.length ? fresh.bullets : existing.bullets,
     instruction: existing.instruction || fresh.instruction,
-    // Keep LLM gbpAction / copyBlocks / title; only refresh live-facing fields.
+    ...(shouldRefreshDescription
+      ? {
+          copyBlocks: fresh.copyBlocks ?? existing.copyBlocks,
+          actionData: {
+            ...(existing.actionData ?? {}),
+            ...(fresh.actionData ?? {}),
+          },
+        }
+      : {}),
+    // Keep LLM gbpAction / title; refresh live-facing fields (and stuffed description drafts).
   };
 }
 
@@ -235,6 +260,35 @@ function withReconcileCompletion(task: ExecutionTask, now: string): ExecutionTas
   };
 }
 
+/** Rewrite pending description drafts that still use the keyword-stuffed template. */
+export function selectDescriptionDraftsToRefresh(
+  audit: FullAuditPayload,
+  existing: ExecutionTask[]
+): ExecutionTask[] {
+  const nextDraft = sanitizeGbpDescriptionDraft(buildGbpDescriptionDraft(audit));
+  const refreshed: ExecutionTask[] = [];
+
+  for (const task of existing) {
+    if (!isMutableByReconcile(task)) continue;
+    if (task.type !== "gbp_description") continue;
+    if (!looksLikeKeywordStuffedDescription(task.draftContent)) continue;
+    if (sanitizeGbpDescriptionDraft(task.draftContent) === nextDraft) continue;
+
+    refreshed.push({
+      ...task,
+      draftContent: nextDraft,
+      payload: {
+        ...task.payload,
+        field: "description",
+        targetKeywords: audit.rankings.keywords.map((item) => item.keyword),
+        descriptionDraftRefreshedAt: new Date().toISOString(),
+      },
+    });
+  }
+
+  return refreshed;
+}
+
 /**
  * Pure reconcile computation: refresh plan metadata, find missing tasks,
  * and select stale pending tasks to complete. No I/O.
@@ -269,11 +323,16 @@ export function computePlanReconcile(
   const tasksToComplete = selectTasksToAutoComplete(nextAudit, existing).map((task) =>
     withReconcileCompletion(task, now)
   );
+  const completedIds = new Set(tasksToComplete.map((task) => task.id));
+  const tasksToUpdate = selectDescriptionDraftsToRefresh(nextAudit, existing).filter(
+    (task) => !completedIds.has(task.id)
+  );
 
   return {
     nextAudit,
     missingTasks,
     tasksToComplete,
+    tasksToUpdate,
     appendedStepNumbers,
     refreshedStepCount,
   };
@@ -292,6 +351,7 @@ function toReconcileResult(computation: PlanReconcileComputation): ReconcilePlan
     audit: computation.nextAudit,
     createdTasks: computation.missingTasks,
     completedTasks: computation.tasksToComplete,
+    updatedTasks: computation.tasksToUpdate,
     appendedStepNumbers: computation.appendedStepNumbers,
     refreshedStepCount: computation.refreshedStepCount,
   };
@@ -338,6 +398,13 @@ export async function reconcilePlanForBusiness(
         status: "completed",
         completedAt: task.completedAt,
         result: task.result,
+      });
+    }
+
+    for (const task of computation.tasksToUpdate) {
+      await updateExecutionTaskAdmin(task.id, {
+        draftContent: task.draftContent,
+        payload: task.payload,
       });
     }
 
@@ -398,6 +465,13 @@ export async function reconcilePlanForUser(
         status: "completed",
         completedAt: task.completedAt,
         result: task.result,
+      });
+    }
+
+    for (const task of computation.tasksToUpdate) {
+      await updateExecutionTask(userId, task.id, {
+        draftContent: task.draftContent,
+        payload: task.payload,
       });
     }
 

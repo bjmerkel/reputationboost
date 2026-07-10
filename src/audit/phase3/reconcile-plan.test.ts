@@ -249,4 +249,39 @@ describe("computePlanReconcile", () => {
     assert.ok(result.tasksToComplete.every((item) => item.status === "completed"));
     assert.ok(!result.tasksToComplete.some((item) => item.id === "approved-hours"));
   });
+
+  it("refreshes pending keyword-stuffed description drafts on reconcile", () => {
+    const audit = createTestAudit();
+    audit.clientName = "Northshore Learning Center";
+    audit.gbp.identity.address = "123 Main St, Las Vegas, NV 89129";
+    audit.gbp.identity.primaryCategory = "Day care center";
+    audit.gbp.liveProfile = {
+      ...audit.gbp.liveProfile!,
+      primaryCategory: "Day care center",
+      description:
+        "Nestled in Las Vegas since 1997, Northshore Learning Center offers a safe and supportive environment where children from 6 weeks to 12 years can learn, play, and grow. As a nurturing daycare center, preschool, after-school program, and child care agency, they provide a balance of group learning times and free play to stimulate each child's development. Their dedicated team is committed to fostering a joyful and engaging atmosphere where every child can thrive.",
+    };
+
+    const stuffed =
+      "Northshore Learning Center provides professional Day care center throughout NV 89129 and surrounding areas. We specialize in learning center near me, daycare near las vegas, preschool near me. With 62+ Google reviews (4.4★), Northshore Learning Center delivers reliable service, clean vehicles, punctual arrivals, and professional staff, with 24/7 availability.";
+
+    const pendingDescription = task({
+      id: "pending-description",
+      type: "gbp_description",
+      status: "pending_approval",
+      planStepNumber: 3,
+      actionItemId: "gbp-step-3",
+      draftContent: stuffed,
+      payload: { gbpStepNumber: 3, field: "description" },
+    });
+
+    const result = computePlanReconcile(audit, [pendingDescription], {
+      now: "2026-07-10T03:00:00.000Z",
+    });
+
+    assert.equal(result.tasksToUpdate.length, 1);
+    assert.equal(result.tasksToUpdate[0]?.id, "pending-description");
+    assert.match(result.tasksToUpdate[0]?.draftContent ?? "", /Nestled in Las Vegas since 1997/);
+    assert.doesNotMatch(result.tasksToUpdate[0]?.draftContent ?? "", /clean vehicles/i);
+  });
 });
