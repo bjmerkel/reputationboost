@@ -8,8 +8,11 @@ import {
   buildOptimizedKeywordList,
   computeKeywordPortfolio,
   findTrackedKeywordForGbpTerm,
+  hasIndustryServiceIntent,
   isBrandKeyword,
+  isHardJunkGbpTerm,
   isJunkTrackingKeyword,
+  listUntrackedGbpSearchTerms,
   portfolioStepIsSatisfied,
   prioritizeKeywordsForGrid,
 } from "./keyword-portfolio";
@@ -114,7 +117,101 @@ function wayneStyleAudit(): Phase1AuditPayload {
   };
 }
 
+function daycareStyleAudit(): Phase1AuditPayload {
+  const audit = createTestAudit();
+  return {
+    ...audit,
+    clientName: "Northshore Learning Center",
+    gbp: {
+      ...audit.gbp,
+      identity: {
+        ...audit.gbp.identity,
+        name: "Northshore Learning Center",
+        address: "7901 W Gowan Rd, Las Vegas, NV 89129",
+        primaryCategory: "Preschool",
+      },
+      performance: {
+        ...audit.gbp.performance,
+        searchKeywords: [
+          { keyword: "daycare near me", impressions: 90, belowThreshold: false },
+          { keyword: "daycare las vegas", impressions: 40, belowThreshold: false },
+          { keyword: "preschool near me", impressions: 19, belowThreshold: false },
+          { keyword: "child care las vegas", impressions: null, belowThreshold: true },
+          { keyword: "day care las vegas", impressions: null, belowThreshold: true },
+          { keyword: "kiddie academy", impressions: 98, belowThreshold: false },
+          { keyword: "home improvement store", impressions: null, belowThreshold: true },
+          {
+            keyword: "northshore learning center, 7901 w gowan rd, las vegas, nv 89129",
+            impressions: null,
+            belowThreshold: true,
+          },
+        ],
+      },
+    },
+    rankings: {
+      ...audit.rankings,
+      keywords: [
+        {
+          keyword: "northshore learning center las vegas",
+          localPackPosition: 1,
+          inLocalPack: true,
+          geoRanks: [{ distanceMiles: 1, rank: 1, inLocalPack: true }],
+          packLeaderRating: 4.8,
+          packLeaderReviewCount: 80,
+          clientRating: 4.7,
+          clientReviewCount: 45,
+        },
+        {
+          keyword: "preschool summerlin",
+          localPackPosition: 2,
+          inLocalPack: true,
+          geoRanks: [{ distanceMiles: 1, rank: 2, inLocalPack: true }],
+          packLeaderRating: 4.8,
+          packLeaderReviewCount: 80,
+          clientRating: 4.7,
+          clientReviewCount: 45,
+        },
+        {
+          keyword: "daycare 89129",
+          localPackPosition: 3,
+          inLocalPack: true,
+          geoRanks: [{ distanceMiles: 1, rank: 3, inLocalPack: true }],
+          packLeaderRating: 4.8,
+          packLeaderReviewCount: 80,
+          clientRating: 4.7,
+          clientReviewCount: 45,
+        },
+      ],
+    },
+  };
+}
+
 describe("keyword-portfolio", () => {
+  it("detects daycare and preschool service intent from industry category", () => {
+    assert.equal(hasIndustryServiceIntent("daycare las vegas", "Preschool"), true);
+    assert.equal(hasIndustryServiceIntent("child care near me", "Preschool"), true);
+    assert.equal(isJunkTrackingKeyword("daycare las vegas", "Northshore Learning Center", "las vegas", "Preschool"), false);
+    assert.equal(isHardJunkGbpTerm("northshore learning center, 7901 w gowan rd, las vegas, nv 89129"), true);
+  });
+
+  it("lists a broad pool of untracked GBP search terms for daycare profiles", () => {
+    const audit = daycareStyleAudit();
+    const untracked = listUntrackedGbpSearchTerms(audit);
+    const terms = untracked.map((term) => term.keyword);
+
+    assert.ok(terms.includes("daycare near me"));
+    assert.ok(terms.includes("daycare las vegas"));
+    assert.ok(terms.includes("preschool near me"));
+    assert.ok(terms.includes("child care las vegas"));
+    assert.ok(!terms.includes("northshore learning center, 7901 w gowan rd, las vegas, nv 89129"));
+
+    const portfolio = computeKeywordPortfolio(audit);
+    assert.ok(
+      portfolio.untrackedCandidates.some((candidate) => candidate.keyword.includes("daycare"))
+    );
+    assert.ok(portfolio.untrackedCandidates.length >= 4);
+  });
+
   it("detects brand keywords from business name tokens", () => {
     assert.equal(isBrandKeyword("wayne", "Wayne Refrigeration", "Wayne"), true);
     assert.equal(isBrandKeyword("wayne, nj", "Wayne Refrigeration", "Wayne"), true);

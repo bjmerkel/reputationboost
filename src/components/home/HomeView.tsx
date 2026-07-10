@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import type { ExecutionTask, FullAuditPayload, ScoreChangelogEntry } from "@/audit/types";
 import type { ActionAttribution, AttributionSummary, DailyMetricPoint, ScoreDailySnapshot } from "@/audit/types/timeseries";
 import { estimateTotalMonthlyRevenue } from "@/audit/phase2/counterfactual";
-import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
+import { computeKeywordPortfolio, listUntrackedGbpSearchTerms } from "@/audit/phase2/keyword-portfolio";
 import ActionAttributionFeed from "@/components/attribution/ActionAttributionFeed";
 import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
 import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
@@ -65,6 +65,10 @@ export default function HomeView({
     () => audit.rankings.keywords.map((keyword) => keyword.keyword),
     [audit.rankings.keywords]
   );
+  const untrackedGbpSearchTerms = useMemo(
+    () => listUntrackedGbpSearchTerms(audit),
+    [audit]
+  );
   const showKeywordPortfolio =
     keywordPortfolio.shouldRotate ||
     keywordPortfolio.untrackedDemandCount > 0 ||
@@ -94,6 +98,7 @@ export default function HomeView({
           state={audit.gbp.identity.address.match(/,\s*([A-Z]{2})\s+\d{5}/)?.[1]}
           address={audit.gbp.identity.address}
           website={audit.gbp.identity.website ?? undefined}
+          untrackedGbpSearchTerms={untrackedGbpSearchTerms}
           onKeywordsUpdated={onKeywordsUpdated}
         />
       )}

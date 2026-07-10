@@ -24,6 +24,19 @@ const MAX_KEYWORDS = 8;
 
 type KeywordSuggestion = { keyword: string; reason: string };
 
+type GbpSearchKeyword = {
+  keyword: string;
+  impressions: number | null;
+  belowThreshold: boolean;
+};
+
+type UntrackedGbpOpportunity = {
+  keyword: string;
+  reason: string;
+  impressions: number | null;
+  belowThreshold: boolean;
+};
+
 export default function KeywordPortfolioPanel({
   portfolio,
   currentKeywords,
@@ -34,6 +47,7 @@ export default function KeywordPortfolioPanel({
   state,
   address,
   website,
+  untrackedGbpSearchTerms = [],
   light = true,
   onKeywordsUpdated,
 }: {
@@ -46,6 +60,8 @@ export default function KeywordPortfolioPanel({
   state?: string;
   address?: string;
   website?: string;
+  /** Untracked GBP search terms from Google Performance (full pool for AI selection). */
+  untrackedGbpSearchTerms?: GbpSearchKeyword[];
   light?: boolean;
   onKeywordsUpdated?: (keywords: string[]) => void;
 }) {
@@ -79,6 +95,10 @@ export default function KeywordPortfolioPanel({
   const [suggestSource, setSuggestSource] = useState<"llm" | "template" | null>(null);
   const [suggestWarning, setSuggestWarning] = useState<string | null>(null);
   const [suggestingFor, setSuggestingFor] = useState<string | "add" | null>(null);
+  const [untrackedOpportunities, setUntrackedOpportunities] = useState<UntrackedGbpOpportunity[]>([]);
+  const [untrackedSource, setUntrackedSource] = useState<"llm" | "heuristic" | null>(null);
+  const [untrackedWarning, setUntrackedWarning] = useState<string | null>(null);
+  const [loadingUntracked, setLoadingUntracked] = useState(false);
 
   const keywordsChanged =
     portfolio.recommendedKeywords.length > 0 &&
@@ -91,12 +111,97 @@ export default function KeywordPortfolioPanel({
 
   const gbpSearchTerms = useMemo(
     () =>
-      portfolio.untrackedCandidates
-        .map((c) => c.sourceGbpTerm || c.keyword)
-        .filter(Boolean)
-        .slice(0, 12),
-    [portfolio.untrackedCandidates]
+      untrackedGbpSearchTerms.length > 0
+        ? untrackedGbpSearchTerms.map((term) => term.keyword).slice(0, 30)
+        : portfolio.untrackedCandidates
+            .map((c) => c.sourceGbpTerm || c.keyword)
+            .filter(Boolean)
+            .slice(0, 12),
+    [untrackedGbpSearchTerms, portfolio.untrackedCandidates]
   );
+
+  const untrackedPoolKey = useMemo(
+    () =>
+      [
+        keywords.join("|"),
+        untrackedGbpSearchTerms
+          .map((term) => `${term.keyword}:${term.impressions ?? ""}:${term.belowThreshold}`)
+          .join("|"),
+      ].join("::"),
+    [keywords, untrackedGbpSearchTerms]
+  );
+
+  useEffect(() => {
+    if (untrackedGbpSearchTerms.length === 0) {
+      setUntrackedOpportunities(
+        portfolio.untrackedCandidates.slice(0, 8).map((candidate) => ({
+          keyword: candidate.keyword,
+          reason: candidate.reason,
+          impressions: candidate.impressions,
+          belowThreshold: candidate.belowThreshold,
+        }))
+      );
+      setUntrackedSource(null);
+      setUntrackedWarning(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingUntracked(true);
+    setUntrackedWarning(null);
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/keywords/untracked-gbp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slug: businessSlug,
+            name: businessName,
+            industry,
+            city: city ?? "",
+            state: state ?? "",
+            address,
+            trackedKeywords: keywords,
+            gbpSearchTerms: untrackedGbpSearchTerms,
+            limit: 8,
+          }),
+        });
+        const data = (await res.json()) as {
+          error?: string;
+          opportunities?: UntrackedGbpOpportunity[];
+          source?: "llm" | "heuristic";
+          warning?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok) throw new Error(data.error ?? "Failed to load untracked GBP opportunities");
+
+        setUntrackedOpportunities(data.opportunities ?? []);
+        setUntrackedSource(data.source ?? null);
+        setUntrackedWarning(data.warning ?? null);
+      } catch (err) {
+        if (cancelled) return;
+        setUntrackedOpportunities(
+          portfolio.untrackedCandidates.slice(0, 8).map((candidate) => ({
+            keyword: candidate.keyword,
+            reason: candidate.reason,
+            impressions: candidate.impressions,
+            belowThreshold: candidate.belowThreshold,
+          }))
+        );
+        setUntrackedSource("heuristic");
+        setUntrackedWarning(
+          err instanceof Error ? err.message : "Failed to load AI recommendations"
+        );
+      } finally {
+        if (!cancelled) setLoadingUntracked(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [untrackedPoolKey, businessSlug, businessName, industry, city, state, address, portfolio.untrackedCandidates, untrackedGbpSearchTerms.length]);
 
   async function persistKeywords(next: string[]) {
     setSaving(true);
@@ -653,45 +758,70 @@ export default function KeywordPortfolioPanel({
           )}
         </div>
 
-        {portfolio.untrackedCandidates.length > 0 && (
+        {(untrackedOpportunities.length > 0 || loadingUntracked) && (
           <div>
-            <p className={`text-xs font-semibold uppercase tracking-wider ${light ? "text-[#80868b]" : "text-slate-500"}`}>
-              Untracked GBP opportunities
-            </p>
-            <ul className="mt-2 space-y-1.5">
-              {portfolio.untrackedCandidates.slice(0, 6).map((candidate) => {
-                const alreadyTracked = keywords.some(
-                  (k) => k.toLowerCase() === candidate.keyword.toLowerCase()
-                );
-                return (
-                  <li
-                    key={candidate.keyword}
-                    className={`flex flex-wrap items-center gap-2 text-sm ${
-                      light ? "text-[#202124]" : "text-slate-200"
-                    }`}
-                  >
-                    <span className="font-medium">{candidate.keyword}</span>
-                    <span className={`text-xs ${light ? "text-[#80868b]" : "text-slate-500"}`}>
-                      {candidate.impressions != null && candidate.impressions > 0
-                        ? `${candidate.impressions} impressions`
-                        : candidate.belowThreshold
-                          ? "< threshold"
-                          : "from GBP"}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={saving || alreadyTracked || keywords.length >= MAX_KEYWORDS}
-                      onClick={() => void addKeyword(candidate.keyword)}
-                      className={`ml-auto rounded px-2 py-0.5 text-[11px] font-medium disabled:opacity-40 ${
-                        light ? "text-[#137333] hover:bg-[#e6f4ea]" : "text-emerald-300 hover:bg-white/10"
+            <div className="flex flex-wrap items-center gap-2">
+              <p className={`text-xs font-semibold uppercase tracking-wider ${light ? "text-[#80868b]" : "text-slate-500"}`}>
+                Untracked GBP opportunities
+              </p>
+              {untrackedSource === "llm" && !loadingUntracked && (
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${light ? "bg-[#e8f0fe] text-[#1a73e8]" : "bg-white/10 text-sky-300"}`}>
+                  AI selected
+                </span>
+              )}
+            </div>
+            {untrackedWarning && (
+              <p className={`mt-1 text-xs ${light ? "text-[#b06000]" : "text-amber-300/90"}`}>
+                {untrackedWarning}
+              </p>
+            )}
+            {loadingUntracked ? (
+              <p className={`mt-2 text-sm ${light ? "text-[#5f6368]" : "text-slate-400"}`}>
+                Reviewing Google search terms…
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {untrackedOpportunities.map((candidate) => {
+                  const alreadyTracked = keywords.some(
+                    (k) => k.toLowerCase() === candidate.keyword.toLowerCase()
+                  );
+                  return (
+                    <li
+                      key={candidate.keyword}
+                      className={`rounded-lg border px-3 py-2 ${
+                        light ? "border-[#e8eaed] bg-[#f8f9fa]" : "border-white/10 bg-white/[0.03]"
                       }`}
                     >
-                      {alreadyTracked ? "Tracked" : "Add"}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`text-sm font-medium ${light ? "text-[#202124]" : "text-slate-200"}`}>
+                          {candidate.keyword}
+                        </span>
+                        <span className={`text-xs ${light ? "text-[#80868b]" : "text-slate-500"}`}>
+                          {candidate.impressions != null && candidate.impressions > 0
+                            ? `${candidate.impressions} impressions`
+                            : candidate.belowThreshold
+                              ? "< threshold"
+                              : "from GBP"}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={saving || alreadyTracked || keywords.length >= MAX_KEYWORDS}
+                          onClick={() => void addKeyword(candidate.keyword)}
+                          className={`ml-auto rounded px-2 py-0.5 text-[11px] font-medium disabled:opacity-40 ${
+                            light ? "text-[#137333] hover:bg-[#e6f4ea]" : "text-emerald-300 hover:bg-white/10"
+                          }`}
+                        >
+                          {alreadyTracked ? "Tracked" : "Add"}
+                        </button>
+                      </div>
+                      <p className={`mt-1 text-xs ${light ? "text-[#5f6368]" : "text-slate-400"}`}>
+                        {candidate.reason}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         )}
       </div>

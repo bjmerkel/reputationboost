@@ -34,7 +34,7 @@ import { buildLocalPostsHealthReport } from "@/lib/google/gbp-local-posts-health
 import { buildPlaceActionsHealthReport } from "@/lib/google/gbp-place-actions-health";
 import { competitorMapRank } from "@/lib/google/local-rankings";
 import { detectPackFragility } from "@/audit/phase2/scoring";
-import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
+import { computeKeywordPortfolio, listUntrackedGbpSearchTerms } from "@/audit/phase2/keyword-portfolio";
 import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
 
 type KeywordsUpdatedHandler = (keywords: string[]) => void;
@@ -140,6 +140,10 @@ export default function AuditDataPanel({
   const isCanvas = layout === "canvas";
   const keywordPortfolio = useMemo(
     () => audit.keywordPortfolio ?? computeKeywordPortfolio(audit),
+    [audit]
+  );
+  const untrackedGbpSearchTerms = useMemo(
+    () => listUntrackedGbpSearchTerms(audit),
     [audit]
   );
   const currentKeywords = useMemo(
@@ -450,6 +454,7 @@ export default function AuditDataPanel({
               state={audit.gbp.identity.address.match(/,\s*([A-Z]{2})\s+\d{5}/)?.[1]}
               address={audit.gbp.identity.address}
               website={audit.gbp.identity.website ?? undefined}
+              untrackedGbpSearchTerms={untrackedGbpSearchTerms}
               light={isLight}
               onKeywordsUpdated={onKeywordsUpdated}
             />

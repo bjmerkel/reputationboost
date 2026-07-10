@@ -173,21 +173,49 @@ function swapOutPriority(
 const STREET_ADDRESS_RE =
   /\b\d{1,6}\s+\w+.*\b(street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|court|ct|place|pl)\b/i;
 const BUSINESS_LISTING_RE = /[–—]| - .+\b(llc|inc|corp|company|roof|replacement|plumbing|hvac)\b/i;
-const SERVICE_INTENT_RE =
-  /\b(hvac|ac|a\/c|air|heat|heating|cooling|furnace|boiler|duct|install|installation|repair|service|services|contractor|contractors|maintenance|replacement|emergency)\b/i;
+const RESEARCH_QUERY_RE =
+  /\b(how many|how much|how to|what is|why|when to|cost|costs|price|prices|salary|jobs|hiring|career|careers)\b/i;
+const COMMON_SERVICE_SIGNAL_RE =
+  /\b(repair|installation|install|service|services|contractor|plumber|plumbing|hvac|dentist|dental|lawyer|attorney|roofer|roofing|electrician|locksmith|chiropractor|restaurant|pizza|salon|barber|gym|daycare|day care|childcare|child care|preschool|nursery|kindergarten|school|learning|cleaning|mover|movers|towing|mechanic|vet|clinic|urgent care|montessori|ac|a\/c|air|heat|heating|cooling|furnace|boiler|duct|maintenance|replacement|emergency)\b/i;
+
+function industryTokens(industry: string): string[] {
+  return industry
+    .toLowerCase()
+    .replace(/\b(contractor|company|service|services|inc|llc|center|centers|learning)\b/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length >= 3);
+}
+
+/** Whether a term looks like a Maps find-a-business query for this industry. */
+export function hasIndustryServiceIntent(term: string, industry: string): boolean {
+  const normalized = normalizeKeyword(term);
+  if (COMMON_SERVICE_SIGNAL_RE.test(normalized)) return true;
+  const tokens = industryTokens(industry);
+  return tokens.some((token) => normalized.includes(token));
+}
+
+/** Hard junk only — used when building the full pool for AI selection. */
+export function isHardJunkGbpTerm(keyword: string): boolean {
+  const term = normalizeKeyword(keyword);
+  if (!term || term.length < 3) return true;
+  if (STREET_ADDRESS_RE.test(term)) return true;
+  if (BUSINESS_LISTING_RE.test(term)) return true;
+  if (RESEARCH_QUERY_RE.test(term)) return true;
+  if (/https?:\/\//.test(term)) return true;
+  return false;
+}
 
 /** True when a GBP term is navigational/junk and should not be tracked as a rank keyword. */
 export function isJunkTrackingKeyword(
   keyword: string,
   businessName: string,
-  businessCity: string
+  businessCity: string,
+  industry = ""
 ): boolean {
   const term = normalizeKeyword(keyword);
-  if (!term || term.length < 3) return true;
-  if (STREET_ADDRESS_RE.test(term)) return true;
-  if (BUSINESS_LISTING_RE.test(term)) return true;
+  if (isHardJunkGbpTerm(term)) return true;
 
-  const hasServiceIntent = SERVICE_INTENT_RE.test(term);
+  const hasServiceIntent = hasIndustryServiceIntent(term, industry);
   // City / brand navigational queries without service intent are not rank keywords.
   if (!hasServiceIntent && isBrandKeyword(term, businessName, businessCity)) {
     return true;
@@ -200,6 +228,17 @@ export function isJunkTrackingKeyword(
   return false;
 }
 
+/** All GBP search terms not already covered by tracked keywords (minimal junk filter). */
+export function listUntrackedGbpSearchTerms(audit: Phase1AuditPayload): GbpSearchKeyword[] {
+  const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+  const tracked = audit.rankings.keywords.map((keyword) => keyword.keyword);
+
+  return searchKeywords.filter(
+    (sk) =>
+      !findTrackedKeywordForGbpTerm(sk.keyword, tracked) && !isHardJunkGbpTerm(sk.keyword)
+  );
+}
+
 function expandGbpCandidate(gbpTerm: string, audit: Phase1AuditPayload): string[] {
   const industry = audit.gbp.identity.primaryCategory || audit.gbp.identity.name;
   const industryShort = industry.split(/\s+/).slice(0, 2).join(" ").toLowerCase();
@@ -208,7 +247,7 @@ function expandGbpCandidate(gbpTerm: string, audit: Phase1AuditPayload): string[
   const businessName = audit.clientName || audit.gbp.identity.name;
   const variants = new Set<string>();
 
-  const rawIsJunk = isJunkTrackingKeyword(term, businessName, businessCity);
+  const rawIsJunk = isJunkTrackingKeyword(term, businessName, businessCity, industry);
   if (!rawIsJunk) {
     variants.add(term);
   }
@@ -222,12 +261,43 @@ function expandGbpCandidate(gbpTerm: string, audit: Phase1AuditPayload): string[
   }
 
   return [...variants].filter(
-    (keyword) => !isJunkTrackingKeyword(keyword, businessName, businessCity)
+    (keyword) => !isJunkTrackingKeyword(keyword, businessName, businessCity, industry)
   );
 }
 
 function tokenSignature(keyword: string): string {
   return tokenize(keyword).sort().join(" ");
+}
+
+function addUntrackedCandidate(
+  candidates: Map<string, UntrackedGbpKeywordCandidate>,
+  sk: GbpSearchKeyword,
+  keyword: string
+): void {
+  const impressions = sk.impressions ?? 0;
+  const opportunityScore =
+    impressions > 0
+      ? impressions * 2
+      : sk.belowThreshold
+        ? 15
+        : 5;
+
+  const existing = candidates.get(keyword);
+  if (!existing || opportunityScore > existing.opportunityScore) {
+    candidates.set(keyword, {
+      keyword,
+      sourceGbpTerm: sk.keyword,
+      impressions: sk.impressions,
+      belowThreshold: sk.belowThreshold,
+      opportunityScore,
+      reason:
+        impressions > 0
+          ? `Google reports ${impressions} impressions for "${sk.keyword}" but you are not tracking it.`
+          : sk.belowThreshold
+            ? `"${sk.keyword}" appears in GBP search terms (below reporting threshold) and is not in your tracked set.`
+            : `Untracked GBP search term "${sk.keyword}".`,
+    });
+  }
 }
 
 function buildUntrackedCandidates(audit: Phase1AuditPayload): UntrackedGbpKeywordCandidate[] {
@@ -237,47 +307,33 @@ function buildUntrackedCandidates(audit: Phase1AuditPayload): UntrackedGbpKeywor
   const trackedSignatures = new Set(tracked.map(tokenSignature));
   const businessCity = primaryBusinessCity(audit);
   const businessName = audit.clientName || audit.gbp.identity.name;
+  const industry = audit.gbp.identity.primaryCategory || "";
   const candidates = new Map<string, UntrackedGbpKeywordCandidate>();
   const usedSignatures = new Set<string>();
 
   for (const sk of searchKeywords) {
     if (findTrackedKeywordForGbpTerm(sk.keyword, tracked)) continue;
 
+    const rawTerm = normalizeKeyword(sk.keyword);
+    if (
+      !trackedNormalized.has(rawTerm) &&
+      !isJunkTrackingKeyword(rawTerm, businessName, businessCity, industry)
+    ) {
+      const rawSignature = tokenSignature(rawTerm);
+      if (!trackedSignatures.has(rawSignature)) {
+        addUntrackedCandidate(candidates, sk, rawTerm);
+      }
+    }
+
     const expanded = expandGbpCandidate(sk.keyword, audit);
     for (const keyword of expanded) {
       if (trackedNormalized.has(keyword)) continue;
-      if (isJunkTrackingKeyword(keyword, businessName, businessCity)) continue;
+      if (isJunkTrackingKeyword(keyword, businessName, businessCity, industry)) continue;
 
       const signature = tokenSignature(keyword);
       if (trackedSignatures.has(signature)) continue;
 
-      const impressions = sk.impressions ?? 0;
-      // Prefer real impression volume; below-threshold junk gets a low floor.
-      const opportunityScore =
-        impressions > 0
-          ? impressions * 2
-          : sk.belowThreshold
-            ? SERVICE_INTENT_RE.test(keyword)
-              ? 25
-              : 5
-            : 5;
-
-      const existing = candidates.get(keyword);
-      if (!existing || opportunityScore > existing.opportunityScore) {
-        candidates.set(keyword, {
-          keyword,
-          sourceGbpTerm: sk.keyword,
-          impressions: sk.impressions,
-          belowThreshold: sk.belowThreshold,
-          opportunityScore,
-          reason:
-            impressions > 0
-              ? `Google reports ${impressions} impressions for "${sk.keyword}" but you are not tracking it.`
-              : sk.belowThreshold
-                ? `"${sk.keyword}" appears in GBP search terms (below reporting threshold) and is not in your tracked set.`
-                : `Untracked GBP search term "${sk.keyword}".`,
-        });
-      }
+      addUntrackedCandidate(candidates, sk, keyword);
     }
   }
 
@@ -363,8 +419,9 @@ function buildSwapRecommendations(
     .sort((a, b) => b.priority - a.priority);
 
   const impressionBacked = untracked.filter((c) => (c.impressions ?? 0) > 0);
+  const industry = audit.gbp.identity.primaryCategory || "";
   const serviceBelowThreshold = untracked.filter(
-    (c) => (c.impressions ?? 0) <= 0 && SERVICE_INTENT_RE.test(c.keyword)
+    (c) => (c.impressions ?? 0) <= 0 && hasIndustryServiceIntent(c.keyword, industry)
   );
   const rankedIns = [...impressionBacked, ...serviceBelowThreshold];
 

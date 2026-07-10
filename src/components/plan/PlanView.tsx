@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
-import { computeKeywordPortfolio, applyTrackedKeywordsToAudit } from "@/audit/phase2/keyword-portfolio";
+import { computeKeywordPortfolio, applyTrackedKeywordsToAudit, listUntrackedGbpSearchTerms } from "@/audit/phase2/keyword-portfolio";
 import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
@@ -167,6 +167,10 @@ export default function PlanView({
     () => audit.rankings.keywords.map((keyword) => keyword.keyword),
     [audit.rankings.keywords]
   );
+  const untrackedGbpSearchTerms = useMemo(
+    () => listUntrackedGbpSearchTerms(audit),
+    [audit]
+  );
   const showKeywordPortfolio =
     keywordPortfolio.shouldRotate ||
     keywordPortfolio.untrackedDemandCount > 0 ||
@@ -263,6 +267,7 @@ export default function PlanView({
           state={audit.gbp.identity.address.match(/,\s*([A-Z]{2})\s+\d{5}/)?.[1]}
           address={audit.gbp.identity.address}
           website={audit.gbp.identity.website ?? undefined}
+          untrackedGbpSearchTerms={untrackedGbpSearchTerms}
           light={isLight}
           onKeywordsUpdated={(nextKeywords) => {
             onAuditUpdated?.(
