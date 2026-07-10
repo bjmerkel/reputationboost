@@ -2,6 +2,7 @@
 
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
+import type { EngagementPeriodSummary } from "@/audit/engagement-period";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import AuditDataPanel from "@/components/audit/AuditDataPanel";
 
@@ -17,6 +18,7 @@ export default function AuditDataView({
   onKeywordsUpdated,
   globalCalibration = {},
   layout = "canvas",
+  engagement = null,
 }: {
   audit: FullAuditPayload;
   clientId: string;
@@ -29,6 +31,7 @@ export default function AuditDataView({
   onKeywordsUpdated?: (keywords: string[]) => void;
   globalCalibration?: AttributionCalibration;
   layout?: "sidebar" | "canvas";
+  engagement?: EngagementPeriodSummary | null;
 }) {
   return (
     <AuditDataPanel
@@ -44,6 +47,7 @@ export default function AuditDataView({
       onKeywordsUpdated={onKeywordsUpdated}
       attributions={attributions}
       globalCalibration={globalCalibration}
+      engagement={engagement}
     />
   );
 }

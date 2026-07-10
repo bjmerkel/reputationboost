@@ -519,6 +519,7 @@ export default function AuditDashboard({
                   clientId={clientId}
                   tasks={tasks}
                   attributions={attributionData.attributions}
+                  engagement={attributionData.engagement}
                   activeKeyword={activeKeyword}
                   onKeywordChange={setActiveKeyword}
                   gbpConnected={gbpConnected}
