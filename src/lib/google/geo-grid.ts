@@ -5,7 +5,7 @@ import {
   findBusinessRank,
   type BusinessMatchOptions,
 } from "@/lib/google/local-rankings";
-import { milesToMeters, searchPlacesSafe, type GeoLocation, type PlaceResult } from "@/lib/google/places";
+import { milesToMeters, searchPlaces, type GeoLocation, type PlaceResult } from "@/lib/google/places";
 import {
   buildRadialSearchOrigins,
   type RadialSearchOrigin,
@@ -107,7 +107,7 @@ export async function collectKeywordGeoGrid(
   const origins = buildRadialSearchOrigins(center);
 
   return mapWithConcurrency(origins, GRID_SEARCH_CONCURRENCY, async (origin) => {
-    const results = await searchPlacesSafe(keyword, origin.location, searchRadius, "text", {
+    const results = await searchPlaces(keyword, origin.location, searchRadius, "text", {
       maxPages: 1,
       rankFieldsOnly: true,
     });

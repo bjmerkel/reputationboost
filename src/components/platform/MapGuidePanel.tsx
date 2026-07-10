@@ -108,9 +108,13 @@ export default function MapGuidePanel({
               </p>
               <p className="mt-0.5 font-medium text-[#202124]">{keywordRank.keyword}</p>
               <p className="mt-0.5 text-[#5f6368]">
-                {keywordRank.centerRank != null
-                  ? `Estimated rank #${keywordRank.centerRank} at the business pin`
-                  : "Not visible in the top 20 at the business pin"}
+                {keywordRank.rankingModel === "radial_text_v2"
+                  ? keywordRank.centerRank != null
+                    ? `Estimated rank #${keywordRank.centerRank} at the business pin`
+                    : "Not visible in the top 20 at the business pin"
+                  : keywordRank.inLocalPack
+                    ? `Legacy API rank #${keywordRank.localPackPosition} at the business pin`
+                    : "Not in the legacy top-three result at the business pin"}
               </p>
               {gridLoading && heatmapOn && (
                 <p className="mt-1 text-[#1a73e8]">Loading radial rank samples…</p>
@@ -136,7 +140,9 @@ export default function MapGuidePanel({
                           : "Enable in Layers to show this ring"
                       }
                     >
-                      {g.distanceMiles} mi median: {g.rank ?? "20+"}
+                      {g.distanceMiles} mi
+                      {keywordRank.rankingModel === "radial_text_v2" ? " median" : ""}:{" "}
+                      {g.rank ?? (keywordRank.rankingModel === "radial_text_v2" ? "20+" : "—")}
                     </span>
                   ))}
                 </div>

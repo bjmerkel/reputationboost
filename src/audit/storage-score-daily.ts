@@ -4,7 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
-import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
+import {
+  RADIAL_RANKING_CUTOVER_DATE,
+  RADIAL_RING_MILES,
+} from "@/lib/google/radial-rankings";
 
 const SCORE_DAILY_BASE_COLUMNS =
   "business_id, date, overall, visibility, conversion, revenue_capture, source";
@@ -153,7 +156,7 @@ export async function listRankSnapshotsForBusinessRange(
   }
 
   if (!multiRadius) {
-    query = query.eq("distance_miles", 0);
+    query = query.in("distance_miles", [0, 1]);
   } else if (centerPointOnly) {
     query = query.in("distance_miles", [0, ...RADIAL_RING_MILES]);
   }
@@ -162,7 +165,7 @@ export async function listRankSnapshotsForBusinessRange(
 
   if (error || !data) return [];
 
-  return data.map((row) => ({
+  const rows = data.map((row) => ({
     businessId: row.business_id as string,
     keyword: row.keyword as string,
     date: row.date as string,
@@ -174,6 +177,22 @@ export async function listRankSnapshotsForBusinessRange(
     localPackPosition: row.local_pack_position as number | null,
     source: row.source as RankSnapshotRow["source"],
   }));
+
+  if (!centerPointOnly) return rows;
+
+  return rows
+    .filter((row) => {
+      if (row.date < RADIAL_RANKING_CUTOVER_DATE) {
+        return row.distanceMiles === 1;
+      }
+      return multiRadius
+        ? row.distanceMiles === 0 ||
+            RADIAL_RING_MILES.includes(row.distanceMiles as (typeof RADIAL_RING_MILES)[number])
+        : row.distanceMiles === 0;
+    })
+    .map((row) =>
+      row.date < RADIAL_RANKING_CUTOVER_DATE ? { ...row, distanceMiles: 0 } : row
+    );
 }
 
 export async function listScoreDailyForBusinessAdmin(

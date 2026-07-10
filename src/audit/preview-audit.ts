@@ -169,8 +169,10 @@ async function collectPreviewRankings(
 
     keywordSnapshots.push({
       keyword,
-      localPackPosition: radial?.centerInTop3
-        ? (radial.centerRank as 1 | 2 | 3)
+      localPackPosition: radial
+        ? radial.centerInTop3
+          ? (radial.centerRank as 1 | 2 | 3)
+          : "not_in_pack"
         : localPackPosition,
       inLocalPack: radial?.centerInTop3 ?? inLocalPack,
       rankingModel: radial ? "radial_text_v2" : undefined,

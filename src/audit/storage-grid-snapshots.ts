@@ -85,6 +85,18 @@ export async function upsertGridSnapshot(params: {
     source: rankSource,
   });
 
+  // Replace the complete dated snapshot; otherwise a same-day
+  // legacy grid can leave stale offsets mixed into the 25 radial-v2 samples.
+  const { error: deleteError } = await supabase
+    .from("rank_snapshots")
+    .delete()
+    .eq("business_id", params.businessId)
+    .eq("keyword", params.keyword)
+    .eq("date", params.date);
+  if (deleteError) {
+    throw new Error(`Failed to replace rank snapshot: ${deleteError.message}`);
+  }
+
   await upsertRankSnapshots(rankRows);
   await upsertCellLeaders({
     businessId: params.businessId,

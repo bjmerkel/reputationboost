@@ -72,6 +72,7 @@ export default function RankingsCoverageTable({
   light: boolean;
 }) {
   const hasRadial = keywords.some((kw) => kw.rankingModel === "radial_text_v2");
+  const distances = hasRadial ? [...RADIAL_RING_MILES] : [1, 3, 5, 10];
 
   return (
     <div className="space-y-3">
@@ -106,9 +107,9 @@ export default function RankingsCoverageTable({
             >
               <th className="px-4 py-3">Keyword</th>
               <th className="px-4 py-3">At business</th>
-              {RADIAL_RING_MILES.map((miles) => (
+              {distances.map((miles) => (
                 <th key={miles} className="px-4 py-3">
-                  {miles} mi · 8 samples
+                  {hasRadial ? `${miles} mi · 8 samples` : `${miles} mi search radius`}
                 </th>
               ))}
             </tr>
@@ -164,7 +165,7 @@ export default function RankingsCoverageTable({
                       {radial ? "Text Search estimate" : "Legacy API result"}
                     </div>
                   </td>
-                  {RADIAL_RING_MILES.map((miles) => (
+                  {distances.map((miles) => (
                     <td key={miles} className="px-4 py-3">
                       <RingResult point={ringFor(kw, miles)} radial={radial} light={light} />
                     </td>

@@ -123,7 +123,9 @@ For each keyword and business address:
 
 This is a sampled **Places visibility estimate**, not a guarantee of personalized Google Maps or
 Local Pack ordering. Historical audits without `rankingModel: "radial_text_v2"` retain their
-legacy business-pin radius semantics.
+legacy business-pin radius semantics. Center trends bridge legacy 1-mile rows into the new
+business-pin series; ring trends start a new baseline at the radial-v2 cutover so incompatible
+measurements are not blended.
 
 ```bash
 # Places search proxy (requires sign-in)
