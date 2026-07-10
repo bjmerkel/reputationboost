@@ -36,6 +36,9 @@ function emptyResult(): IngestRunResult {
     rankRowsUpserted: 0,
     scoreRowsUpserted: 0,
     calibrationStepsUpdated: 0,
+    planTasksCreated: 0,
+    planTasksAutoCompleted: 0,
+    planReconcileBusinesses: 0,
     errors: [],
   };
 }

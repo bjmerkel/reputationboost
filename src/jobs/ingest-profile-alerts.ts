@@ -14,6 +14,9 @@ function emptyResult(): IngestRunResult & { alertsRecorded: number } {
     rankRowsUpserted: 0,
     scoreRowsUpserted: 0,
     calibrationStepsUpdated: 0,
+    planTasksCreated: 0,
+    planTasksAutoCompleted: 0,
+    planReconcileBusinesses: 0,
     alertsRecorded: 0,
     errors: [],
   };

@@ -43,6 +43,12 @@ export interface IngestRunResult {
   rankRowsUpserted: number;
   scoreRowsUpserted: number;
   calibrationStepsUpdated: number;
+  /** Plan reconcile: execution tasks appended during daily ingest. */
+  planTasksCreated?: number;
+  /** Plan reconcile: stale pending tasks auto-completed during daily ingest. */
+  planTasksAutoCompleted?: number;
+  /** Businesses where plan reconcile ran successfully. */
+  planReconcileBusinesses?: number;
   errors: Array<{ businessId: string; step: string; message: string }>;
 }
 

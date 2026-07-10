@@ -12,7 +12,7 @@ function verifyCronSecret(request: Request): boolean {
   return auth === `Bearer ${secret}`;
 }
 
-/** Vercel Cron: daily ingest of performance + rank time-series. */
+/** Vercel Cron: daily ingest of performance + ranks, then plan reconcile. */
 export async function GET(request: Request) {
   if (!verifyCronSecret(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
