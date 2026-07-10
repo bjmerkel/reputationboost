@@ -74,7 +74,6 @@ export default function AuditDashboard({
     [initialAudit]
   );
 
-  const { data: attributionData, loading: attributionLoading } = useAttributionDashboard(clientId);
   const { data: scoreHistory, loading: scoreHistoryLoading } = useScoreHistory(clientId);
 
   const {
@@ -87,6 +86,11 @@ export default function AuditDashboard({
     scoreLatestDate: scoreHistory.latestDate,
     enabled: Boolean(preparedInitial),
   });
+
+  const { data: attributionData, loading: attributionLoading } = useAttributionDashboard(
+    clientId,
+    audit ?? preparedInitial
+  );
 
   const [view, setViewState] = useState<AuditView>(normalizedView);
   const [activeKeyword, setActiveKeyword] = useState(
@@ -399,6 +403,7 @@ export default function AuditDashboard({
           planPendingCount={planPendingCount}
           onPreviewCustomer={() => setPreviewOpen(true)}
           sparklines={attributionData.sparklines}
+          engagement={attributionData.engagement}
           industry={businessIndustry}
           minimalChrome={view === "audit"}
         >
@@ -407,8 +412,10 @@ export default function AuditDashboard({
               audit={audit}
               tasks={tasks}
               summary={attributionData.summary}
+              engagement={attributionData.engagement}
               attributions={attributionData.attributions}
               attributionLoading={attributionLoading || scoreHistoryLoading}
+              engagementLoading={attributionLoading}
               avgCustomerValue={avgCustomerValue}
               avgCustomerValueCurrency={avgCustomerValueCurrency}
               liveScore={scoreHistory.liveScores?.overall ?? null}
@@ -426,7 +433,12 @@ export default function AuditDashboard({
           )}
 
           {view === "report" && audit.strategy?.monthlyReport && (
-            <MonthlyReportPanel report={audit.strategy.monthlyReport} embedded variant="light" />
+            <MonthlyReportPanel
+              report={audit.strategy.monthlyReport}
+              auditPeriod={audit.period}
+              embedded
+              variant="light"
+            />
           )}
           {view === "report" && !audit.strategy?.monthlyReport && (
             <p className="text-sm text-[#5f6368]">
@@ -465,7 +477,9 @@ export default function AuditDashboard({
               tasks={tasks}
               attributions={attributionData.attributions}
               summary={attributionData.summary}
+              engagement={attributionData.engagement}
               attributionLoading={attributionLoading}
+              engagementLoading={attributionLoading}
             />
           )}
 

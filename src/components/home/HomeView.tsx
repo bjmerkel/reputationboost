@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { ExecutionTask, FullAuditPayload, ScoreChangelogEntry } from "@/audit/types";
 import type { ActionAttribution, AttributionSummary, DailyMetricPoint, ScoreDailySnapshot } from "@/audit/types/timeseries";
+import type { EngagementPeriodSummary } from "@/audit/engagement-period";
 import { estimateTotalMonthlyRevenue } from "@/audit/phase2/counterfactual";
 import { computeKeywordPortfolio, listUntrackedGbpSearchTerms } from "@/audit/phase2/keyword-portfolio";
 import ActionAttributionFeed from "@/components/attribution/ActionAttributionFeed";
@@ -19,8 +20,10 @@ export default function HomeView({
   audit,
   tasks,
   summary,
+  engagement,
   attributions,
   attributionLoading = false,
+  engagementLoading = false,
   avgCustomerValue,
   avgCustomerValueCurrency = "USD",
   liveScore,
@@ -38,8 +41,10 @@ export default function HomeView({
   audit: FullAuditPayload;
   tasks: ExecutionTask[];
   summary: AttributionSummary | null;
+  engagement: EngagementPeriodSummary | null;
   attributions: ActionAttribution[];
   attributionLoading?: boolean;
+  engagementLoading?: boolean;
   avgCustomerValue?: number | null;
   avgCustomerValueCurrency?: string;
   liveScore?: number | null;
@@ -79,7 +84,9 @@ export default function HomeView({
       <HomeHealthSummary
         audit={audit}
         summary={summary}
+        engagement={engagement}
         loading={attributionLoading}
+        engagementLoading={engagementLoading}
         liveScore={liveScore}
         liveScoreDate={liveScoreDate}
         dailyChangelog={scoreChangelog}

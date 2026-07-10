@@ -1,24 +1,38 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  buildEngagementPeriodSummary,
+  type EngagementPeriodSummary,
+} from "@/audit/engagement-period";
+import type { FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution, AttributionSummary } from "@/audit/types/timeseries";
 import type { DailyMetricPoint } from "@/audit/types/timeseries";
+
+const ENGAGEMENT_PERIOD_DAYS = 30;
+/** Fetch 2× period so we can compare current vs prior rolling windows. */
+const PERFORMANCE_FETCH_DAYS = ENGAGEMENT_PERIOD_DAYS * 2;
 
 export interface AttributionDashboardData {
   attributions: ActionAttribution[];
   summary: AttributionSummary | null;
+  engagement: EngagementPeriodSummary | null;
   performanceSeries: DailyMetricPoint[];
   attributionByTaskId: Record<string, ActionAttribution>;
   sparklines: Record<string, number[]>;
 }
 
-export function useAttributionDashboard(clientId: string): {
+export function useAttributionDashboard(
+  clientId: string,
+  audit: FullAuditPayload | null = null
+): {
   data: AttributionDashboardData;
   loading: boolean;
 } {
   const [data, setData] = useState<AttributionDashboardData>({
     attributions: [],
     summary: null,
+    engagement: null,
     performanceSeries: [],
     attributionByTaskId: {},
     sparklines: {},
@@ -33,8 +47,12 @@ export function useAttributionDashboard(clientId: string): {
       try {
         const [attrRes, summaryRes, perfRes] = await Promise.all([
           fetch(`/api/attribution?clientId=${encodeURIComponent(clientId)}`),
-          fetch(`/api/attribution/summary?clientId=${encodeURIComponent(clientId)}&period=30d`),
-          fetch(`/api/metrics/performance?clientId=${encodeURIComponent(clientId)}&days=30`),
+          fetch(
+            `/api/attribution/summary?clientId=${encodeURIComponent(clientId)}&period=${ENGAGEMENT_PERIOD_DAYS}d`
+          ),
+          fetch(
+            `/api/metrics/performance?clientId=${encodeURIComponent(clientId)}&days=${PERFORMANCE_FETCH_DAYS}`
+          ),
         ]);
 
         const [attrData, summaryData, perfData] = await Promise.all([
@@ -53,11 +71,17 @@ export function useAttributionDashboard(clientId: string): {
           attributionByTaskId[item.executionTaskId] = item;
         }
 
-        const sparklines = buildSparklines(performanceSeries);
+        const sparklines = buildSparklines(performanceSeries, ENGAGEMENT_PERIOD_DAYS);
+        const engagement = buildEngagementPeriodSummary(
+          performanceSeries,
+          ENGAGEMENT_PERIOD_DAYS,
+          { audit }
+        );
 
         setData({
           attributions,
           summary: summaryRes.ok ? summaryData.summary : null,
+          engagement,
           performanceSeries,
           attributionByTaskId,
           sparklines,
@@ -67,6 +91,7 @@ export function useAttributionDashboard(clientId: string): {
           setData({
             attributions: [],
             summary: null,
+            engagement: null,
             performanceSeries: [],
             attributionByTaskId: {},
             sparklines: {},
@@ -81,13 +106,20 @@ export function useAttributionDashboard(clientId: string): {
     return () => {
       cancelled = true;
     };
-  }, [clientId]);
+  }, [audit, clientId]);
 
   return { data, loading };
 }
 
-function buildSparklines(points: DailyMetricPoint[]): Record<string, number[]> {
-  const dates = [...new Set(points.map((p) => p.date))].sort();
+function buildSparklines(
+  points: DailyMetricPoint[],
+  days = ENGAGEMENT_PERIOD_DAYS
+): Record<string, number[]> {
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - days);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+  const recent = points.filter((p) => p.date >= cutoffDate);
+  const dates = [...new Set(recent.map((p) => p.date))].sort();
   const metrics = ["calls", "direction_requests", "website_clicks", "profile_views"] as const;
   const keyMap: Record<(typeof metrics)[number], string> = {
     calls: "calls",
@@ -99,7 +131,7 @@ function buildSparklines(points: DailyMetricPoint[]): Record<string, number[]> {
   const result: Record<string, number[]> = {};
   for (const metric of metrics) {
     result[keyMap[metric]] = dates.map((date) => {
-      const point = points.find((p) => p.date === date && p.metric === metric);
+      const point = recent.find((p) => p.date === date && p.metric === metric);
       return point?.value ?? 0;
     });
   }
