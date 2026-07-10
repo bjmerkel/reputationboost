@@ -26,6 +26,10 @@ import { computeKeywordScores } from "./keyword-scores";
 import { detectPackFragility, resolveKeywordPositionAtRadius } from "./scoring";
 import { SEARCH_RADII_MILES, type SearchRadiusMiles } from "@/lib/google/places";
 import { primaryCategoryUpdateIsNoOp } from "./gbp-category";
+import {
+  buildGbpDescriptionDraft,
+  cityFromAddress,
+} from "@/lib/google/gbp-description-draft";
 
 const PHOTO_TARGET = 60;
 const POST_FRESH_DAYS = 14;
@@ -49,11 +53,6 @@ function textContainsKeyword(text: string, keyword: string): boolean {
   return words.some((w) => lower.includes(w));
 }
 
-function cityFromAddress(address: string): string {
-  const parts = address.split(",");
-  return parts.length > 1 ? parts[parts.length - 2]?.trim() ?? "your area" : "your area";
-}
-
 function targetKeywords(audit: Phase1AuditPayload): string[] {
   return audit.rankings.keywords.map((k) => k.keyword);
 }
@@ -72,15 +71,7 @@ function ensureLiveProfile(audit: Phase1AuditPayload): void {
 }
 
 function buildOptimizedDescription(audit: Phase1AuditPayload): string {
-  const city = cityFromAddress(audit.gbp.identity.address);
-  const kwList = targetKeywords(audit).join(", ");
-  const category = audit.gbp.identity.primaryCategory;
-  const reviews = audit.gbp.engagement.reviewCount;
-  const rating = audit.gbp.engagement.averageRating;
-
-  // Mirrors the description template: no phone numbers, URLs, or sales CTAs
-  // (Google's guidelines keep contact details in dedicated profile fields).
-  return `${audit.clientName} provides professional ${category} throughout ${city} and surrounding areas. We specialize in ${kwList}. With ${reviews}+ Google reviews (${rating}★), ${audit.clientName} delivers reliable service, clean vehicles, punctual arrivals, and professional staff, with 24/7 availability.`;
+  return buildGbpDescriptionDraft(audit);
 }
 
 function bumpCompleteness(audit: Phase1AuditPayload): void {

@@ -14,6 +14,7 @@ import {
   KEYWORD_PORTFOLIO_PLAN_STEP,
   portfolioStepIsSatisfied,
 } from "./keyword-portfolio";
+import { buildGbpDescriptionDraft, cityFromAddress } from "@/lib/google/gbp-description-draft";
 
 function keywords(audit: Phase1AuditPayload): string[] {
   return audit.rankings.keywords.map((k) => k.keyword);
@@ -38,11 +39,6 @@ export function selectGbpPlanSteps(
   );
 }
 
-function cityFromAddress(address: string): string {
-  const parts = address.split(",");
-  return parts.length > 1 ? parts[parts.length - 2]?.trim() ?? "your area" : "your area";
-}
-
 export {
   categoryLabelsMatch,
   normalizeCategoryLabel,
@@ -56,15 +52,7 @@ import {
 } from "./gbp-category";
 
 function descriptionDraft(audit: Phase1AuditPayload): string {
-  const city = cityFromAddress(audit.gbp.identity.address);
-  const kwList = keywords(audit).join(", ");
-  const category = audit.gbp.identity.primaryCategory;
-  const reviews = audit.gbp.engagement.reviewCount;
-  const rating = audit.gbp.engagement.averageRating;
-
-  // No phone numbers, URLs, or sales CTAs — Google's guidelines keep those in
-  // dedicated profile fields, and the API can reject descriptions that include them.
-  return `${audit.clientName} provides professional ${category} throughout ${city} and surrounding areas. We specialize in ${kwList}. With ${reviews}+ Google reviews (${rating}★), ${audit.clientName} delivers reliable service, clean vehicles, punctual arrivals, and professional staff, with 24/7 availability.`;
+  return buildGbpDescriptionDraft(audit);
 }
 
 function serviceSteps(audit: Phase1AuditPayload): GbpPlanStep["copyBlocks"] {

@@ -5,6 +5,7 @@ import {
   extractAreaToken,
   extractServiceTokens,
 } from "@/lib/review-responses/keyword-context";
+import { buildGbpDescriptionDraft } from "@/lib/google/gbp-description-draft";
 
 export function generateGooglePosts(audit: FullAuditPayload): string[] {
   const city = audit.gbp.identity.address.split(",")[1]?.trim() ?? "your area";
@@ -28,10 +29,7 @@ export function generateGooglePosts(audit: FullAuditPayload): string[] {
 // Google's description guidelines: no phone numbers, URLs, or sales CTAs —
 // those belong in dedicated profile fields.
 export function generateGbpDescription(audit: FullAuditPayload): string {
-  const themes = audit.reviews.sentiment.positiveThemes.slice(0, 3).join(", ");
-  return `${audit.clientName} is a trusted ${audit.gbp.identity.primaryCategory} serving ${audit.gbp.identity.address}. ` +
-    `With ${audit.gbp.engagement.reviewCount} Google reviews (${audit.gbp.engagement.averageRating}★), we specialize in local projects customers praise for ${themes || "quality and professionalism"}. ` +
-    `Our experienced team delivers fast, reliable service on every visit.`;
+  return buildGbpDescriptionDraft(audit);
 }
 
 import type { ReviewResponseDraft } from "@/lib/review-responses/types";

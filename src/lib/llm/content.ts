@@ -45,8 +45,13 @@ interface LlmContentResponse {
 const CONTENT_SYSTEM = `You are a local marketing copywriter for Google Business Profile.
 Write publish-ready copy: specific, local, trustworthy. Use the business name, city, and real review themes.
 Google Posts: max 1500 chars each. Use 1 emoji max per post. NEVER include a phone number or URL in the post text — Google rejects posts containing them. Each post is published with a "Call" action button that links to the verified profile number, so end with a CTA like "Tap Call to book" instead of writing contact details. Do not mention deals, discounts, promo codes, or special offers (hotel profiles cannot post them at all, and other businesses need a dedicated Offer post type).
-GBP description: 600-750 characters, keyword-rich but natural. Plain text only — no URLs, HTML, sales pitches, discount claims, or superlatives like "cheapest" or "#1".
-CRITICAL for the GBP description: NEVER include a phone number, email address, or "Call us at ..." style CTA. Google's guidelines require contact details to live in their dedicated profile fields, and descriptions containing them get rejected. End the description with what makes the business trustworthy, not a call to action.
+GBP description: 600-750 characters when writing from scratch. Prefer improving the existing live description when one is provided — keep its voice and only weave in missing service concepts naturally.
+CRITICAL for the GBP description:
+- NEVER list keywords comma-separated (no "We specialize in keyword1, keyword2, keyword3").
+- NEVER use search-query phrasing like "near me", "best X", or "affordable X near me" as pasted phrases.
+- NEVER include a phone number, email address, or "Call us at ..." style CTA. Google's guidelines require contact details to live in their dedicated profile fields.
+- Do not use generic filler that does not fit the business (e.g. "clean vehicles", "punctual arrivals", "24/7 availability") unless those are truly relevant.
+- Write natural prose a customer would trust. End with what makes the business trustworthy, not a call to action.
 Return valid JSON only.`;
 
 export function buildTemplateContent(audit: FullAuditPayload): AuditGeneratedContent {
@@ -92,6 +97,9 @@ export async function generateAuditContent(
 
 CONTEXT:
 ${context}
+
+Live GBP description (improve this when present; do not replace a strong live description with a keyword list):
+${audit.gbp.liveProfile?.description?.trim() || "(none)"}
 
 Return JSON:
 {
