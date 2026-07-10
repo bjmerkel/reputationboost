@@ -57,6 +57,12 @@ export async function PATCH(request: Request) {
       slug?: string;
       keywords?: string[];
       applyRecommendations?: boolean;
+      /** Replace one tracked keyword with another (keeps the rest). */
+      replace?: { from: string; to: string };
+      /** Remove one tracked keyword (must leave at least 3). */
+      remove?: string;
+      /** Append one keyword (must stay at or under 8). */
+      add?: string;
     };
 
     const business = body.slug
@@ -80,6 +86,37 @@ export async function PATCH(request: Request) {
       }
       const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
       keywords = portfolio.recommendedKeywords;
+    } else if (body.replace?.from && body.replace?.to) {
+      const from = body.replace.from.trim().toLowerCase();
+      const to = body.replace.to.trim().toLowerCase();
+      if (!to) {
+        return NextResponse.json({ error: "Replacement keyword is required." }, { status: 400 });
+      }
+      const current = business.keywords.map((k) => k.trim().toLowerCase());
+      const index = current.findIndex((k) => k === from);
+      if (index < 0) {
+        return NextResponse.json({ error: `Keyword not found: ${body.replace.from}` }, { status: 400 });
+      }
+      if (current.some((k, i) => i !== index && k === to)) {
+        return NextResponse.json({ error: "That keyword is already tracked." }, { status: 400 });
+      }
+      current[index] = to;
+      keywords = current;
+    } else if (body.remove) {
+      const remove = body.remove.trim().toLowerCase();
+      keywords = business.keywords
+        .map((k) => k.trim().toLowerCase())
+        .filter((k) => k !== remove);
+    } else if (body.add) {
+      const add = body.add.trim().toLowerCase();
+      if (!add) {
+        return NextResponse.json({ error: "Keyword is required." }, { status: 400 });
+      }
+      const current = business.keywords.map((k) => k.trim().toLowerCase());
+      if (current.includes(add)) {
+        return NextResponse.json({ error: "That keyword is already tracked." }, { status: 400 });
+      }
+      keywords = [...current, add];
     }
 
     if (!keywords || keywords.length < 3) {

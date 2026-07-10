@@ -16,6 +16,9 @@ export async function POST(request: Request) {
       state: string;
       address?: string;
       website?: string;
+      existingKeywords?: string[];
+      replaceKeyword?: string;
+      gbpSearchTerms?: string[];
     };
 
     if (!body.name?.trim() || !body.industry?.trim()) {
@@ -32,6 +35,9 @@ export async function POST(request: Request) {
       state: body.state?.trim() ?? "",
       address: body.address?.trim(),
       website: body.website?.trim(),
+      existingKeywords: body.existingKeywords?.map((k) => k.trim()).filter(Boolean),
+      replaceKeyword: body.replaceKeyword?.trim(),
+      gbpSearchTerms: body.gbpSearchTerms?.map((k) => k.trim()).filter(Boolean),
     });
 
     return NextResponse.json(result);
