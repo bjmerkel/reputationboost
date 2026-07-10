@@ -518,10 +518,24 @@ export interface CompetitorProfile {
   reviewThemes: string[];
 }
 
+export interface CompetitorRadiusTier {
+  radiusMiles: 3 | 5;
+  competitors: CompetitorProfile[];
+}
+
 export interface CompetitorSnapshot {
   collectedAt: string;
-  competitors: CompetitorProfile[];
   keyword: string;
+  /** Top competitors from the 1 mi Nearby Search (same list used for 3-Pack rank). */
+  localPack: CompetitorProfile[];
+  /** Additional competitors from wider Nearby Search when 1 mi has fewer than five. */
+  widerRadius: CompetitorRadiusTier[];
+  /** Text Search fallback when all Nearby Search radii return zero competitors. */
+  textSearchFallback: CompetitorProfile[];
+  /** Whether the 1 mi Nearby Search returned any businesses at all. */
+  nearbyHasResults: boolean;
+  /** @deprecated Use `localPack` — kept for older audits and map/LLM consumers. */
+  competitors: CompetitorProfile[];
 }
 
 export interface ReviewMediaItem {

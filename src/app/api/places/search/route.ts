@@ -5,6 +5,7 @@ import {
   findBusinessRank,
   resolveBusinessLocation,
   resolveCompetitorResults,
+  flattenCompetitorHarvest,
 } from "@/lib/google/local-rankings";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { milesToMeters, nearbySearch, type PlaceResult } from "@/lib/google/places";
@@ -81,10 +82,12 @@ export async function GET(request: Request) {
 
   const businesses = await nearbySearch(keyword, location, radiusMeters);
   const businessRank = findBusinessRank(businesses, matchOptions);
-  const competitors = await resolveCompetitorResults(keyword, location, matchOptions, {
+  const harvest = await resolveCompetitorResults(keyword, location, matchOptions, {
     limit: 3,
     initialResults: businesses,
+    locationLabel: business.location ? `${business.location.city}, ${business.location.state}` : undefined,
   });
+  const competitors = flattenCompetitorHarvest(harvest);
 
   return NextResponse.json({
     keyword,

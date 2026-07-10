@@ -31,11 +31,18 @@ function collectCompetitorsDemo(client: ClientConfig): CompetitorSnapshot[] {
           "stucco installation",
         ];
 
-  return keywordList.map((keyword, index) => ({
-    collectedAt: now,
-    keyword,
-    competitors: buildCompetitorsForKeyword(keyword, index),
-  }));
+  return keywordList.map((keyword, index) => {
+    const competitors = buildCompetitorsForKeyword(keyword, index);
+    return {
+      collectedAt: now,
+      keyword,
+      localPack: competitors,
+      widerRadius: [],
+      textSearchFallback: [],
+      nearbyHasResults: true,
+      competitors,
+    };
+  });
 }
 
 function buildCompetitorsForKeyword(
