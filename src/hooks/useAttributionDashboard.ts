@@ -6,7 +6,7 @@ import {
   type EngagementPeriodSummary,
 } from "@/audit/engagement-period";
 import type { FullAuditPayload } from "@/audit/types";
-import type { ActionAttribution, AttributionSummary } from "@/audit/types/timeseries";
+import type { ActionAttribution, AttributionSummary, PerformanceIngestMeta } from "@/audit/types/timeseries";
 import type { DailyMetricPoint } from "@/audit/types/timeseries";
 
 const ENGAGEMENT_PERIOD_DAYS = 30;
@@ -65,6 +65,7 @@ export function useAttributionDashboard(
 
         const attributions = (attrRes.ok ? attrData.attributions : []) as ActionAttribution[];
         const performanceSeries = (perfRes.ok ? perfData.series : []) as DailyMetricPoint[];
+        const ingestMeta = (perfRes.ok ? perfData.ingestMeta : null) as PerformanceIngestMeta | null;
 
         const attributionByTaskId: Record<string, ActionAttribution> = {};
         for (const item of attributions) {
@@ -75,7 +76,7 @@ export function useAttributionDashboard(
         const engagement = buildEngagementPeriodSummary(
           performanceSeries,
           ENGAGEMENT_PERIOD_DAYS,
-          { audit }
+          { audit, ingestMeta }
         );
 
         setData({

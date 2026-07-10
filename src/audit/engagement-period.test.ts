@@ -5,6 +5,7 @@ import type { DailyMetricPoint } from "@/audit/types/timeseries";
 import {
   buildEngagementPeriodSummary,
   formatDateRange,
+  formatPerformanceIngestLabel,
   rollingPeriodBounds,
 } from "./engagement-period";
 
@@ -86,6 +87,26 @@ describe("buildEngagementPeriodSummary", () => {
     assert.equal(summary.calls.prior, 1);
     assert.equal(summary.websiteClicks.current, 3);
     assert.equal(summary.endDate, "2026-07-01");
+    assert.equal(summary.lastIngestedAt, "2026-07-01T12:00:00.000Z");
+    assert.match(formatPerformanceIngestLabel(summary) ?? "", /Audit snapshot from/);
+  });
+
+  it("includes ingest metadata when provided", () => {
+    const bounds = rollingPeriodBounds(30, REF);
+    const points = dailyPointsForRange(bounds.startDate, bounds.endDate, 1);
+    const summary = buildEngagementPeriodSummary(points, 30, {
+      referenceDate: REF,
+      ingestMeta: {
+        latestDataDate: "2026-07-09",
+        lastIngestedAt: "2026-07-10T04:15:00.000Z",
+      },
+    });
+
+    assert.equal(summary.source, "ingest");
+    assert.equal(summary.latestDataDate, "2026-07-09");
+    assert.equal(summary.lastIngestedAt, "2026-07-10T04:15:00.000Z");
+    assert.match(formatPerformanceIngestLabel(summary) ?? "", /Performance ingested/);
+    assert.match(formatPerformanceIngestLabel(summary) ?? "", /data through Jul 9, 2026/);
   });
 });
 

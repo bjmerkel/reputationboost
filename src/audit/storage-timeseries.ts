@@ -1,6 +1,7 @@
 import type {
   IngestRunResult,
   PerformanceDailyRow,
+  PerformanceIngestMeta,
   RankSnapshotRow,
   DailyMetricPoint,
 } from "@/audit/types/timeseries";
@@ -17,6 +18,7 @@ function performanceRowToDb(row: PerformanceDailyRow) {
     metric: row.metric,
     value: row.value,
     source: row.source,
+    created_at: new Date().toISOString(),
   };
 }
 
@@ -86,6 +88,41 @@ export async function listPerformanceDailyForUser(
     metric: row.metric as DailyMetricPoint["metric"],
     value: row.value as number,
   }));
+}
+
+const ACTION_METRICS = ["calls", "direction_requests", "website_clicks"] as const;
+
+export async function getPerformanceIngestMetaForUser(
+  userId: string,
+  businessSlug: string
+): Promise<PerformanceIngestMeta> {
+  const supabase = await createClient();
+  const businessId = await getBusinessIdForSlug(userId, businessSlug);
+  if (!businessId) {
+    return { latestDataDate: null, lastIngestedAt: null };
+  }
+
+  const { data, error } = await supabase
+    .from("performance_daily")
+    .select("date, created_at")
+    .eq("business_id", businessId)
+    .in("metric", [...ACTION_METRICS])
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error || !data || data.length === 0) {
+    return { latestDataDate: null, lastIngestedAt: null };
+  }
+
+  const latestDataDate = data[0]?.date as string;
+  const lastIngestedAt = data
+    .filter((row) => row.date === latestDataDate)
+    .map((row) => row.created_at as string)
+    .sort()
+    .at(-1) ?? null;
+
+  return { latestDataDate, lastIngestedAt };
 }
 
 export interface RankTrendPoint {
