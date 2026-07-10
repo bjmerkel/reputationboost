@@ -618,7 +618,9 @@ export default function KeywordPortfolioPanel({
           {suggestions.length > 0 && (
             <div className="mt-3 space-y-2">
               <p className={`text-xs ${light ? "text-[#80868b]" : "text-slate-500"}`}>
-                {suggestSource === "llm" ? "AI suggestions" : "Template suggestions"}
+                {suggestSource === "llm"
+                  ? "High-volume Maps suggestions"
+                  : "High-volume Maps templates"}
                 {editingKeyword ? ` for “${editingKeyword}”` : ""}
                 {" · click one to apply"}
               </p>

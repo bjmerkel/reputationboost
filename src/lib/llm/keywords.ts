@@ -33,9 +33,32 @@ interface LlmKeywordResponse {
 }
 
 const KEYWORD_SYSTEM = `You are a local SEO expert specializing in Google Maps and Local 3-Pack rankings.
-Suggest keywords real customers type into Google Maps when looking for this business.
-Focus on local intent: city names, "near me", service-specific terms, and problem-aware searches.
+
+Your ONLY job is to suggest HIGH-VOLUME keywords that real customers type into Google Maps / Google local search when looking for this type of business.
+
+Infer volume from how people actually search Maps — not from blog SEO long-tails. Prefer short, common, category-level queries over niche phrases.
+
 Return valid JSON only.`;
+
+/** Patterns that look like low-volume research / blog SEO, not Maps pack queries. */
+const LOW_VOLUME_RE =
+  /\b(cost|costs|price|prices|pricing|quote|quotes|estimate|estimates|how much|how to|diy|vs|versus|review|reviews|salary|jobs|hiring|career|careers|what is|why|when to|pros|experts|tips|guide|checklist|comparison)\b/i;
+
+const STREET_ADDRESS_RE =
+  /\b\d{1,6}\s+\w+.*\b(street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|court|ct|place|pl)\b/i;
+
+const FILLER_WORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "for",
+  "in",
+  "of",
+  "to",
+  "with",
+]);
 
 function normalizeKeyword(keyword: string): string {
   return keyword.trim().toLowerCase().replace(/\s+/g, " ");
@@ -52,47 +75,115 @@ function industryShort(industry: string): string {
     .join(" ");
 }
 
+/**
+ * Heuristic: keep only keywords that look like high-volume Google Maps queries.
+ * Google does not expose search volume; we infer from phrasing patterns that
+ * dominate Local Pack / Maps demand (service+geo, near me, core category).
+ */
+export function isHighVolumeMapsKeyword(
+  keyword: string,
+  input: Pick<SuggestKeywordsInput, "name" | "industry" | "city" | "state">
+): boolean {
+  const term = normalizeKeyword(keyword);
+  if (!term || term.length < 3) return false;
+  if (STREET_ADDRESS_RE.test(term)) return false;
+  if (LOW_VOLUME_RE.test(term)) return false;
+  if (/[–—]|https?:\/\//.test(term)) return false;
+  if (/["']/.test(term)) return false;
+
+  const words = term.split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 5) return false;
+
+  const contentWords = words.filter((w) => !FILLER_WORDS.has(w));
+  if (contentWords.length < 2) return false;
+
+  const city = input.city?.trim().toLowerCase() ?? "";
+  const state = input.state?.trim().toLowerCase() ?? "";
+  const nameTokens = normalizeKeyword(input.name)
+    .split(/\s+/)
+    .filter((t) => t.length >= 4 && !FILLER_WORDS.has(t));
+
+  // City-only / brand-only navigational queries are not rank keywords.
+  if (city && (term === city || term === `${city} ${state}`.trim())) return false;
+  if (nameTokens.length > 0 && nameTokens.every((t) => term.includes(t)) && !hasServiceSignal(term, input.industry)) {
+    return false;
+  }
+
+  // Must look like a Maps find-a-business query: service signal and/or near me + geo.
+  const hasNearMe = /\bnear me\b/.test(term);
+  const hasGeo =
+    (city.length >= 3 && term.includes(city)) ||
+    (state.length === 2 && new RegExp(`\\b${state}\\b`, "i").test(term)) ||
+    hasNearMe;
+
+  if (!hasServiceSignal(term, input.industry)) return false;
+  if (!hasGeo && !hasNearMe) return false;
+
+  // Ultra-long research phrases rarely win Maps volume.
+  if (words.length >= 5 && !hasNearMe) return false;
+
+  return true;
+}
+
+function hasServiceSignal(term: string, industry: string): boolean {
+  const short = industryShort(industry);
+  const industryTokens = short
+    .split(/\s+/)
+    .filter((t) => t.length >= 3)
+    .concat(
+      industry
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t) => t.length >= 4 && !FILLER_WORDS.has(t) && !["contractor", "company", "service", "services"].includes(t))
+    );
+
+  if (industryTokens.some((t) => term.includes(t))) return true;
+
+  // Common Maps service verbs / categories when industry tokens are sparse.
+  return /\b(repair|installation|install|service|services|contractor|plumber|plumbing|hvac|dentist|dental|lawyer|attorney|roofer|roofing|electrician|locksmith|chiropractor|restaurant|pizza|salon|barber|gym|daycare|preschool|cleaning|mover|movers|towing|mechanic|dentist|orthodontist|veterinarian|vet|clinic|urgent care)\b/i.test(
+    term
+  );
+}
+
 function templateKeywords(input: SuggestKeywordsInput): KeywordSuggestion[] {
   const { industry, city, state } = input;
   const short = industryShort(industry) || industry.toLowerCase();
-  const cityState = city && state ? `${city} ${state}` : city || state || "local area";
+  const cityState = city && state ? `${city} ${state}` : city || state || "";
 
-  return [
+  const candidates: KeywordSuggestion[] = [
     {
       keyword: `${short} ${city}`.trim(),
-      reason: "Core local search — service plus city where customers look on Google Maps.",
+      reason: "Core high-volume Maps query — service plus city.",
     },
     {
       keyword: `${short} near me`,
-      reason: "High-volume mobile Maps query when searchers want the closest provider.",
-    },
-    {
-      keyword: `best ${short} ${city}`.trim(),
-      reason: "Comparison intent — searchers evaluating top-rated businesses in the area.",
+      reason: "Very high-volume mobile Maps query for nearby providers.",
     },
     {
       keyword: `${short} ${cityState}`.trim(),
-      reason: "Broader geo match for users who include state in their search.",
+      reason: "Service + city/state — common Local Pack phrasing.",
+    },
+    {
+      keyword: `best ${short} ${city}`.trim(),
+      reason: "High-intent comparison query that still maps to Local Pack.",
     },
     {
       keyword: `emergency ${short} ${city}`.trim(),
-      reason: "Urgent-intent variant if applicable — captures high-converting searches.",
+      reason: "High-converting urgent Maps search for local service categories.",
     },
     {
       keyword: `${short} repair ${city}`.trim(),
-      reason: "Problem-aware local query common in Maps and Local Pack results.",
+      reason: "Common problem-aware Maps search for local service businesses.",
     },
     {
       keyword: `${short} installation ${city}`.trim(),
-      reason: "Project-intent search that often converts for local service businesses.",
+      reason: "Common project-intent Maps search for installers.",
     },
-    {
-      keyword: `${short} services ${city}`.trim(),
-      reason: "Service-category phrasing common in Local Pack results.",
-    },
-  ]
+  ];
+
+  return candidates
     .map((item) => ({ ...item, keyword: normalizeKeyword(item.keyword) }))
-    .filter((k) => k.keyword.length > 3);
+    .filter((item) => isHighVolumeMapsKeyword(item.keyword, input));
 }
 
 function portfolioTemplateKeywords(input: SuggestKeywordsInput): KeywordSuggestion[] {
@@ -105,11 +196,17 @@ function portfolioTemplateKeywords(input: SuggestKeywordsInput): KeywordSuggesti
 
   const fromGbp = (input.gbpSearchTerms ?? [])
     .map(normalizeKeyword)
-    .filter((term) => term.length >= 3 && !blocked.has(term) && term !== replaceLower)
+    .filter(
+      (term) =>
+        term.length >= 3 &&
+        !blocked.has(term) &&
+        term !== replaceLower &&
+        isHighVolumeMapsKeyword(term, input)
+    )
     .slice(0, 6)
     .map((keyword) => ({
       keyword,
-      reason: "Appears in your Google Business Profile search terms.",
+      reason: "Appears in your Google Business Profile search terms — proven Maps demand.",
     }));
 
   const base = templateKeywords(input).filter(
@@ -125,16 +222,22 @@ function portfolioTemplateKeywords(input: SuggestKeywordsInput): KeywordSuggesti
     unique.push(item);
   }
 
-  // Last-resort unique variants so the UI never gets an empty list.
+  // Last-resort high-volume variants so the UI never gets an empty list.
   if (unique.length === 0) {
     const short = industryShort(input.industry) || "local service";
     const city = input.city || "near me";
-    for (const suffix of ["quotes", "cost", "company", "pros", "experts"]) {
-      const keyword = normalizeKeyword(`${short} ${suffix} ${city}`);
-      if (blocked.has(keyword) || keyword === replaceLower) continue;
+    for (const pattern of [
+      `${short} ${city}`,
+      `${short} near me`,
+      `best ${short} ${city}`,
+      `${short} ${input.state || ""} ${city}`.trim(),
+    ]) {
+      const keyword = normalizeKeyword(pattern);
+      if (!keyword || blocked.has(keyword) || keyword === replaceLower) continue;
+      if (!isHighVolumeMapsKeyword(keyword, input)) continue;
       unique.push({
         keyword,
-        reason: "Fallback local-intent variant to keep your portfolio moving.",
+        reason: "High-volume Maps-style fallback for this category and market.",
       });
       if (unique.length >= 4) break;
     }
@@ -162,6 +265,7 @@ function sanitizeSuggestions(
     if (!keyword || keyword.length < 3 || !reason) continue;
     if (keyword === replaceLower) continue;
     if (blocked.has(keyword)) continue;
+    if (!isHighVolumeMapsKeyword(keyword, input)) continue;
     if (seen.has(keyword)) continue;
     seen.add(keyword);
     out.push({ keyword, reason });
@@ -190,8 +294,8 @@ export async function suggestKeywords(
 
   try {
     const replaceBlock = input.replaceKeyword
-      ? `Suggest 4-6 replacements for the tracked keyword "${input.replaceKeyword}". Prefer demand-backed local service queries over city-only or street-address terms. Each suggestion must be different from the current tracked set.`
-      : `Suggest 6-8 target keywords for Local 3-Pack rank tracking.`;
+      ? `Suggest 4-6 HIGH-VOLUME Google Maps replacements for the tracked keyword "${input.replaceKeyword}". Only suggest queries real customers type into Maps when looking for this business. Each suggestion must be different from the current tracked set.`
+      : `Suggest 6-8 HIGH-VOLUME Google Maps keywords for Local 3-Pack rank tracking.`;
 
     const portfolioBlock = isPortfolio
       ? `
@@ -201,11 +305,10 @@ ${JSON.stringify(input.existingKeywords ?? [], null, 2)}
 KEYWORD BEING REPLACED (if any):
 ${JSON.stringify(input.replaceKeyword ?? null)}
 
-GBP SEARCH TERMS (prefer these when relevant):
+GBP SEARCH TERMS (prefer these when they look like high-volume Maps queries):
 ${JSON.stringify(input.gbpSearchTerms ?? [], null, 2)}
 
 Do not suggest exact duplicates of currently tracked keywords.
-Avoid city-only navigational queries and street addresses.
 `
       : "";
 
@@ -230,21 +333,25 @@ ${JSON.stringify(
   2
 )}
 ${portfolioBlock}
-Rules:
-- Mix branded, service+city, "near me", and problem/solution queries
-- Each keyword should be 2-5 words, lowercase, no quotes
-- reason: one concise sentence explaining why this keyword matters for Maps visibility
-- Prioritize keywords this specific business could realistically rank for
+Volume rules (critical — Google does not publish Maps volume; infer it):
+- ONLY suggest keywords that would get meaningful Google Maps / Local Pack search volume
+- Prefer: service + city, service + "near me", service + city + state, best + service + city
+- Prefer short queries (2-4 words). 5 words max, and only if still a common Maps phrase
+- Prefer category-level demand over niche long-tails
+- DO NOT suggest: cost/price/quote/how-to/DIY/salary/jobs, street addresses, city-only, brand-only, blog SEO phrases
+- DO NOT invent ultra-specific problem phrases unlikely to be typed in Maps
+- Each keyword: lowercase, no quotes
+- reason: one concise sentence explaining why this is a high-volume Maps query for this business
 
 Return JSON:
 {
   "keywords": [
-    { "keyword": "example keyword", "reason": "why it matters" }
+    { "keyword": "example keyword", "reason": "why it is high-volume on Maps" }
   ]
 }`,
         },
       ],
-      { maxTokens: 1200, temperature: 0.5 }
+      { maxTokens: 1200, temperature: 0.35 }
     );
 
     const keywords = sanitizeSuggestions(llm.keywords ?? [], input).slice(
@@ -257,11 +364,11 @@ Return JSON:
         keywords: fallback.slice(0, 6),
         source: "template",
         llmConfigured: true,
-        warning: "AI returned no usable keywords — showing template suggestions.",
+        warning: "AI returned no high-volume Maps keywords — showing template suggestions.",
       };
     }
 
-    // Top up with templates if the model returned too few.
+    // Top up with high-volume templates if the model returned too few.
     if (keywords.length < (input.replaceKeyword ? 2 : 3)) {
       const seen = new Set(keywords.map((item) => item.keyword));
       for (const item of fallback) {
