@@ -440,6 +440,12 @@ export default function AuditDataPanel({
               portfolio={keywordPortfolio}
               currentKeywords={currentKeywords}
               businessSlug={clientId}
+              businessName={audit.clientName}
+              industry={audit.gbp.identity.primaryCategory}
+              city={audit.gbp.identity.address.split(",")[1]?.trim()}
+              state={audit.gbp.identity.address.match(/,\s*([A-Z]{2})\s+\d{5}/)?.[1]}
+              address={audit.gbp.identity.address}
+              website={audit.gbp.identity.website ?? undefined}
               light={isLight}
             />
           )}
