@@ -1,7 +1,10 @@
 import { listOnboardedBusinesses } from "@/audit/businesses-admin";
 import { recomputeAttributionsForBusiness } from "@/audit/attribution";
 import { buildAndPersistLiveAuditForBusiness } from "@/audit/live-audit";
-import { ingestScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
+import {
+  backfillScoreDailyForBusiness,
+  ingestScoreDailyForBusiness,
+} from "@/audit/phase2/score-ingest";
 import { reconcilePlanForBusiness } from "@/audit/phase3/reconcile-plan";
 import { refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import { refreshGlobalScoreModel } from "@/audit/storage-score-model";
@@ -239,7 +242,11 @@ async function ingestBusiness(
 
   try {
     const saved = await ingestScoreDailyForBusiness(row.id, targetDate);
-    if (saved) result.scoreRowsUpserted += 1;
+    if (saved) {
+      result.scoreRowsUpserted += 1;
+      const backfilled = await backfillScoreDailyForBusiness(row.id);
+      result.scoreRowsUpserted += backfilled;
+    }
   } catch (error) {
     result.errors.push({
       businessId: row.id,

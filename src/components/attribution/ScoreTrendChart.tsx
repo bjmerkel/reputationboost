@@ -98,7 +98,7 @@ export default function ScoreTrendChart({
           </p>
         </div>
         <p className="text-xs text-[#80868b]">
-          Trend line appears after a second nightly ingest run.
+          Trend line appears after scores are stored for at least two separate days.
         </p>
       </div>
     );

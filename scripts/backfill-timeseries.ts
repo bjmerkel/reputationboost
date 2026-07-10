@@ -11,6 +11,7 @@ import {
   upsertPerformanceDaily,
   upsertRankSnapshots,
 } from "../src/audit/storage-timeseries";
+import { backfillScoreDailyForBusiness } from "../src/audit/phase2/score-ingest";
 import type { FullAuditPayload } from "../src/audit/types";
 import type { PerformanceDailyMetric } from "../src/audit/types/timeseries";
 
@@ -103,6 +104,18 @@ async function backfillFromAudits(businessIdFilter?: string) {
     `Backfill complete: ${audits?.length ?? 0} audits processed, ` +
       `${performanceRows} performance rows, ${rankRows} rank rows upserted.`
   );
+
+  if (businessIdFilter) {
+    const scoreRows = await backfillScoreDailyForBusiness(businessIdFilter);
+    console.log(`Score backfill: ${scoreRows} score_daily rows upserted.`);
+  } else {
+    const businessIds = [...new Set((audits ?? []).map((row) => row.business_id as string))];
+    let scoreRows = 0;
+    for (const id of businessIds) {
+      scoreRows += await backfillScoreDailyForBusiness(id);
+    }
+    console.log(`Score backfill: ${scoreRows} score_daily rows upserted.`);
+  }
 }
 
 const businessIdArg = process.argv.find((a) => a.startsWith("--business-id="));

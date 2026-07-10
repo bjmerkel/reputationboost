@@ -228,6 +228,7 @@ async function persistAudit(
   try {
     const { computeScoreDailySnapshot } = await import("@/audit/phase2/score-snapshot");
     const { upsertScoreDaily } = await import("@/audit/storage-score-daily");
+    const { backfillScoreDailyForBusiness } = await import("@/audit/phase2/score-ingest");
     const { loadGlobalScoreModelAdmin } = await import("@/audit/storage-score-model");
     const model = await loadGlobalScoreModelAdmin();
     const snapshot = computeScoreDailySnapshot(
@@ -238,6 +239,7 @@ async function persistAudit(
     );
     snapshot.businessId = businessId;
     await upsertScoreDaily(snapshot);
+    await backfillScoreDailyForBusiness(businessId);
   } catch {
     // Non-fatal: score history is optional until migration 008 is applied
   }
