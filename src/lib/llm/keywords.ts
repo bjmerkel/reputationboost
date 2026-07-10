@@ -140,7 +140,7 @@ function hasServiceSignal(term: string, industry: string): boolean {
   if (industryTokens.some((t) => term.includes(t))) return true;
 
   // Common Maps service verbs / categories when industry tokens are sparse.
-  return /\b(repair|installation|install|service|services|contractor|plumber|plumbing|hvac|dentist|dental|lawyer|attorney|roofer|roofing|electrician|locksmith|chiropractor|restaurant|pizza|salon|barber|gym|daycare|preschool|cleaning|mover|movers|towing|mechanic|dentist|orthodontist|veterinarian|vet|clinic|urgent care)\b/i.test(
+  return /\b(repair|installation|install|service|services|contractor|plumber|plumbing|hvac|dentist|dental|lawyer|attorney|roofer|roofing|electrician|locksmith|chiropractor|restaurant|pizza|salon|barber|gym|daycare|day care|childcare|child care|preschool|nursery|kindergarten|school|learning|cleaning|mover|movers|towing|mechanic|dentist|orthodontist|veterinarian|vet|clinic|urgent care|montessori)\b/i.test(
     term
   );
 }
