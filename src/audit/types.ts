@@ -1063,6 +1063,8 @@ export interface PlanStepContext {
   expectedEffect: string;
   currentValue?: string;
   recommendedValue?: string;
+  /** ISO timestamp for when this step's recommendation was produced. */
+  recommendedAt?: string;
   healthScoreImpact?: number;
   outcomeScoreImpact?: number;
   revenueImpact?: number | null;

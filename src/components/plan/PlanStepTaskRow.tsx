@@ -13,6 +13,7 @@ import MediaTaskThumbnail, { isMediaMaintenanceTask } from "./MediaTaskThumbnail
 import ReviewResponseKeywordHints, {
   reviewResponseCanSuggestWeave,
 } from "./ReviewResponseKeywordHints";
+import { formatPlanTimestamp } from "./plan-timestamps";
 
 const EDIT_STATUS_STYLES: Record<GbpEditStatus, string> = {
   accepted: "bg-[#e6f4ea] text-[#137333]",
@@ -87,6 +88,14 @@ export default function PlanStepTaskRow({
   const isPhotoWithoutPreview =
     task.type === "gbp_photo" && typeof task.payload.previewDataUrl !== "string";
 
+  const recommendationTime = formatPlanTimestamp(
+    typeof task.payload.recommendedAt === "string"
+      ? task.payload.recommendedAt
+      : typeof task.payload.descriptionDraftRefreshedAt === "string"
+        ? task.payload.descriptionDraftRefreshedAt
+        : task.createdAt
+  );
+
   return (
     <div
       className={`rounded-lg border p-4 ${
@@ -101,6 +110,11 @@ export default function PlanStepTaskRow({
           <p className={`mt-0.5 text-sm font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
             {task.title.replace(/^Step \d+: /, "")}
           </p>
+          {recommendationTime && task.status !== "completed" && task.status !== "rejected" && (
+            <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+              Recommended {recommendationTime}
+            </p>
+          )}
         </div>
         <span
           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${

@@ -1,6 +1,7 @@
 "use client";
 
 import type { PlanStep } from "@/audit/types";
+import { formatPlanTimestamp } from "./plan-timestamps";
 
 function normalizeLabel(value: string | undefined): string {
   return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -16,6 +17,7 @@ export default function PlanStepDiff({
   const isLight = variant === "light";
   const current = step.context.currentValue ?? step.context.recommendedValue;
   const recommended = step.context.recommendedValue;
+  const recommendedAtLabel = formatPlanTimestamp(step.context.recommendedAt);
   const sameRecommendation =
     Boolean(current) &&
     Boolean(recommended) &&
@@ -39,6 +41,11 @@ export default function PlanStepDiff({
           <p className={`mt-2 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
             Already matches the recommended category — no change needed.
           </p>
+          {recommendedAtLabel && (
+            <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+              Checked {recommendedAtLabel}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -64,9 +71,16 @@ export default function PlanStepDiff({
             isLight ? "border-[#ceead6] bg-[#e6f4ea]" : "border-emerald-500/20 bg-emerald-500/5"
           }`}
         >
-          <p className={`text-xs font-semibold uppercase ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>
-            Recommended
-          </p>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className={`text-xs font-semibold uppercase ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>
+              Recommended
+            </p>
+            {recommendedAtLabel && (
+              <p className={`text-[11px] ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                {recommendedAtLabel}
+              </p>
+            )}
+          </div>
           <p className={`mt-1 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-200"}`}>{recommended}</p>
         </div>
       )}
