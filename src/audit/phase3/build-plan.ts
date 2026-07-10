@@ -168,7 +168,9 @@ export function buildPlan(
           task.status === "pending_approval" ||
           task.status === "failed" ||
           (task.status === "approved" &&
-            (task.type === "review_response" || task.type === "review_delete_reply"))
+            (task.type === "review_response" ||
+              task.type === "review_delete_reply" ||
+              task.type === "update_tracked_keywords"))
       );
     });
 

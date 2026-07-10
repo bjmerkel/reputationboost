@@ -36,7 +36,7 @@ import {
   resolveRecommendedPrimaryCategory,
 } from "@/audit/phase2/gbp-category";
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
-import { computeKeywordPortfolio, KEYWORD_PORTFOLIO_PLAN_STEP } from "@/audit/phase2/keyword-portfolio";
+import { computeKeywordPortfolio, KEYWORD_PORTFOLIO_PLAN_STEP, portfolioStepIsSatisfied } from "@/audit/phase2/keyword-portfolio";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
 import { generateReviewResponses } from "@/audit/phase3/content";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
@@ -383,6 +383,17 @@ export function tasksFromGbpPlanStep(
 
   if (resolvedStep.stepNumber === KEYWORD_PORTFOLIO_PLAN_STEP) {
     const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
+    if (portfolioStepIsSatisfied(audit)) {
+      return [];
+    }
+
+    const swapLines =
+      portfolio.recommendedSwaps.length > 0
+        ? portfolio.recommendedSwaps.map(
+            (swap) => `• ${swap.swapOut} → ${swap.swapIn}: ${swap.reason}`
+          )
+        : ["• No keyword swaps recommended — your tracked set already matches demand."];
+
     return [
       buildGbpTask(
         audit,
@@ -395,9 +406,7 @@ export function tasksFromGbpPlanStep(
           `Current: ${audit.rankings.keywords.map((item) => item.keyword).join(", ")}`,
           `Recommended: ${portfolio.recommendedKeywords.join(", ")}`,
           "",
-          ...portfolio.recommendedSwaps.map(
-            (swap) => `• ${swap.swapOut} → ${swap.swapIn}: ${swap.reason}`
-          ),
+          ...swapLines,
         ].join("\n"),
         {
           applyRecommendations: true,

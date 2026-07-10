@@ -349,6 +349,20 @@ describe("keyword-portfolio", () => {
     assert.equal(portfolioStepIsSatisfied(audit), true);
   });
 
+  it("treats keyword lists as satisfied regardless of order", () => {
+    const audit = wayneStyleAudit();
+    const portfolio = computeKeywordPortfolio(audit);
+    audit.keywordPortfolio = portfolio;
+    audit.rankings.keywords = [...portfolio.recommendedKeywords]
+      .reverse()
+      .map((keyword, index) => ({
+        ...(audit.rankings.keywords[index] ?? audit.rankings.keywords[0]!),
+        keyword,
+      }));
+
+    assert.equal(portfolioStepIsSatisfied(audit), true);
+  });
+
   it("optimistically syncs rankings when tracked keywords are edited", () => {
     const audit = wayneStyleAudit();
     const kept = audit.rankings.keywords[0]!.keyword;

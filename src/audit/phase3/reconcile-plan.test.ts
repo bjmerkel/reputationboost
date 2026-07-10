@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ExecutionTask } from "../types";
-import { KEYWORD_PORTFOLIO_PLAN_STEP } from "../phase2/keyword-portfolio";
+import { KEYWORD_PORTFOLIO_PLAN_STEP, portfolioStepIsSatisfied } from "../phase2/keyword-portfolio";
 import { createTestAudit } from "./test-fixtures";
 import { collectMissingReconcileTasks } from "./missing-tasks";
 import {
@@ -197,6 +197,55 @@ describe("selectTasksToAutoComplete", () => {
     const toComplete = selectTasksToAutoComplete(audit, [checklist]);
     assert.equal(toComplete.length, 1);
     assert.equal(toComplete[0].id, "review-checklist");
+  });
+
+  it("auto-completes keyword portfolio task when tracked keywords already match", () => {
+    const audit = createTestAudit();
+    const keywords = [
+      "hvac repair newark nj",
+      "ac repair ridgewood",
+      "hvac kearny nj",
+    ];
+    audit.rankings.keywords = keywords.map((keyword, index) => ({
+      ...audit.rankings.keywords[0]!,
+      keyword,
+      localPackPosition: (index + 1) as 1 | 2 | 3,
+      inLocalPack: true,
+    }));
+    audit.keywordPortfolio = {
+      ...(audit.keywordPortfolio ?? {
+        computedAt: new Date().toISOString(),
+        demandAlignmentScore: 100,
+        rankWithoutDemandCount: 0,
+        untrackedDemandCount: 0,
+        tracked: [],
+        untrackedCandidates: [],
+        recommendedSwaps: [],
+        shouldRotate: false,
+        summary: "Aligned",
+      }),
+      recommendedKeywords: [...keywords].reverse(),
+      shouldRotate: false,
+      demandAlignmentScore: 100,
+    };
+
+    assert.equal(portfolioStepIsSatisfied(audit), true);
+
+    const pending = task({
+      id: "keywords",
+      type: "update_tracked_keywords",
+      planStepNumber: KEYWORD_PORTFOLIO_PLAN_STEP,
+      actionItemId: `gbp-step-${KEYWORD_PORTFOLIO_PLAN_STEP}`,
+      payload: {
+        gbpStepNumber: KEYWORD_PORTFOLIO_PLAN_STEP,
+        recommendedKeywords: keywords,
+      },
+      status: "pending_approval",
+    });
+
+    const toComplete = selectTasksToAutoComplete(audit, [pending]);
+    assert.equal(toComplete.length, 1);
+    assert.equal(toComplete[0].id, "keywords");
   });
 });
 

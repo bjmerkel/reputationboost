@@ -5,6 +5,7 @@ import {
   selectGbpPlanSteps,
 } from "@/audit/phase2/gbp-plan";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
+import { portfolioStepIsSatisfied } from "@/audit/phase2/keyword-portfolio";
 import {
   countUnrespondedNegativeReviews,
   isReviewRecordResponded,
@@ -200,6 +201,13 @@ export function selectTasksToAutoComplete(
     const stepNumber = resolvePlanStepNumber(task);
 
     if (task.type === "gbp_checklist" && stepNumber === 11 && isReviewResponseWorkSatisfied(audit)) {
+      if (isMutableByReconcile(task) || task.status === "approved") {
+        completed.push(task);
+      }
+      continue;
+    }
+
+    if (task.type === "update_tracked_keywords" && portfolioStepIsSatisfied(audit)) {
       if (isMutableByReconcile(task) || task.status === "approved") {
         completed.push(task);
       }

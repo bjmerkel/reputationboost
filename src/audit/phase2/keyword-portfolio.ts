@@ -731,18 +731,24 @@ export function applyKeywordPortfolioToAudit(
   audit.keywordPortfolio = computeKeywordPortfolio(audit);
 }
 
+export function trackedKeywordsMatchRecommendations(audit: Phase1AuditPayload): boolean {
+  const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
+  const current = audit.rankings.keywords.map((item) => normalizeKeyword(item.keyword));
+  const recommended = portfolio.recommendedKeywords.map((item) => normalizeKeyword(item));
+  if (current.length === 0 || recommended.length === 0) return false;
+  if (current.length !== recommended.length) return false;
+
+  const currentSet = new Set(current);
+  return recommended.every((keyword) => currentSet.has(keyword));
+}
+
 export function portfolioStepIsSatisfied(audit: Phase1AuditPayload): boolean {
   const portfolio = audit.keywordPortfolio ?? computeKeywordPortfolio(audit);
   if (!portfolio.shouldRotate && portfolio.demandAlignmentScore >= 60) {
     return true;
   }
 
-  const current = audit.rankings.keywords.map((item) => item.keyword.toLowerCase());
-  const recommended = portfolio.recommendedKeywords.map((item) => item.toLowerCase());
-  return (
-    current.length === recommended.length &&
-    current.every((keyword, index) => keyword === recommended[index])
-  );
+  return trackedKeywordsMatchRecommendations(audit);
 }
 
 export const KEYWORD_PORTFOLIO_PLAN_STEP = 17;
