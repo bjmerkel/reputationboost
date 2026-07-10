@@ -15,6 +15,13 @@ export {
   RECONCILE_IMMUTABLE_STATUSES,
   taskIdentityKey,
 } from "./task-identity";
+export { collectMissingReconcileTasks } from "./missing-tasks";
+export {
+  computePlanReconcile,
+  reconcilePlanForBusiness,
+  refreshGbpPlanForReconcile,
+  selectTasksToAutoComplete,
+} from "./reconcile-plan";
 export {
   generateGooglePosts,
   generateGbpDescription,

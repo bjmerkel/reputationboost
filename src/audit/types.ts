@@ -1128,6 +1128,8 @@ export interface StrategyReport {
   monthlyReport: MonthlyReport | null;
   gbpPlan: GbpOptimizationPlan | null;
   contentSource?: "llm" | "template";
+  /** ISO timestamp of last daily/manual plan reconcile pass. */
+  planReconciledAt?: string;
 }
 
 export interface FullAuditPayload extends Phase1AuditPayload {

@@ -1,6 +1,11 @@
 /** Feature flags for geo-grid heatmap rollout (Pillars 1–5). */
 import type { GridProfileKey } from "@/lib/google/geo-grid";
 
+/** Daily plan reconciliation (append missing tasks / auto-complete stale pending). */
+export const PLAN_RECONCILE_FLAGS = {
+  enabled: true,
+} as const;
+
 export const HEATMAP_FLAGS = {
   insightPanel: true,
   zoneHighlights: true,
