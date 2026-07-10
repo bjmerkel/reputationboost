@@ -51,7 +51,7 @@ export function positionVisibilityScore(position: LocalPackPosition | number): n
   if (position === "not_in_pack") return 0;
   if (typeof position === "number") {
     if (position <= 3) return positionVisibilityScore(position as 1 | 2 | 3);
-    return clamp(100 - (position - 3) * 12);
+    return clamp(50 - (position - 3) * 8);
   }
   return 0;
 }

@@ -18,7 +18,7 @@ describe("computeKeywordScores", () => {
       assert.ok(card.relevanceScore >= 0 && card.relevanceScore <= 100);
       assert.ok(card.suggestedAction.length > 0);
       assert.ok(card.positionLabel.length > 0);
-      assert.equal(card.radiusRanks.length, 4);
+      assert.equal(card.radiusRanks.length, 3);
       assert.ok(card.radiusProfileLabel.length > 0);
       assert.equal(typeof card.packFragile, "boolean");
     }
@@ -54,7 +54,7 @@ describe("computeKeywordScores", () => {
     assert.equal(fragile!.weakestRadiusMiles, 3);
     assert.equal(fragile!.radiusRanks.find((r) => r.distanceMiles === 1)?.inLocalPack, true);
     assert.equal(fragile!.radiusRanks.find((r) => r.distanceMiles === 3)?.inLocalPack, false);
-    assert.match(fragile!.radiusProfileLabel, /Metro|Neighborhood|local/i);
+    assert.match(fragile!.radiusProfileLabel, /Wide|Neighborhood|local/i);
   });
 });
 

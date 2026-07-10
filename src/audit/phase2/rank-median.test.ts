@@ -81,10 +81,10 @@ describe("medianRankSnapshotForKeyword", () => {
 });
 
 describe("smoothRankSnapshotsForDate", () => {
-  it("returns one smoothed row per keyword at 1 mi", () => {
+  it("returns one smoothed business-pin row per keyword", () => {
     const snapshots: RankSnapshotRow[] = [
-      snap({ keyword: "plumber", date: "2026-07-07", rank: 5 }),
-      snap({ keyword: "drain cleaning", date: "2026-07-07", rank: 11 }),
+      snap({ keyword: "plumber", date: "2026-07-07", rank: 5, distanceMiles: 0 }),
+      snap({ keyword: "drain cleaning", date: "2026-07-07", rank: 11, distanceMiles: 0 }),
     ];
 
     const rows = smoothRankSnapshotsForDate(

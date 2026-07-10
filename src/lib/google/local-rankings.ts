@@ -17,9 +17,6 @@ import { isRadialRankGrid, summarizeRadialRanks } from "./radial-rankings";
 const TOP_COMPETITORS = 5;
 /** Keywords collected in parallel during audits (each keyword still batches its own grid). */
 const KEYWORD_COLLECTION_CONCURRENCY = 2;
-/** Radii tried when harvesting competitors (ranking still uses all four). */
-const COMPETITOR_SEARCH_RADII: SearchRadiusMiles[] = [1, 3, 5];
-
 export interface BusinessMatchOptions {
   businessName: string;
   placeId?: string;

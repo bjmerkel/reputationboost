@@ -156,6 +156,8 @@ export function buildDemoGeoGrid(
   _profile: GridProfileKey = "compact",
   _searchRadiusMiles = GRID_SEARCH_RADIUS_MILES
 ): GeoGridPoint[] {
+  void _profile;
+  void _searchRadiusMiles;
   return buildRadialSearchOrigins(center).map((origin) => {
     const rank = demoRankAtOrigin(baseRank, origin);
     const weak = rank === null || rank > 3;
