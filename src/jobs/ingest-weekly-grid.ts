@@ -96,8 +96,13 @@ async function ingestGridForBusiness(
         Math.max(0, gridKeywordLimit - forced.length)
       );
       keywords = [...prioritized, ...forced];
+      const baselineKeywordCount = Math.min(
+        gridKeywordLimit,
+        allKeywords.length
+      );
       result.rankScansDeferred =
-        (result.rankScansDeferred ?? 0) + scanPlan.deferred.length * 25;
+        (result.rankScansDeferred ?? 0) +
+        Math.max(0, baselineKeywordCount - keywords.length) * 25;
       result.rankScansForced =
         (result.rankScansForced ?? 0) +
         forced.length * 25;
