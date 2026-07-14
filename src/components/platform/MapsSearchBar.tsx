@@ -104,7 +104,17 @@ export default function MapsSearchBar({
                   }`}
                 >
                   <span className="truncate">{kw.keyword}</span>
-                  <RankBadge keyword={kw} />
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    {kw.observationSource === "carried_forward" && (
+                      <span
+                        className="rounded-full bg-[#fef7e0] px-2 py-0.5 text-[10px] font-medium text-[#b06000]"
+                        title="Using the last observed rank until the next scheduled check"
+                      >
+                        Estimated
+                      </span>
+                    )}
+                    <RankBadge keyword={kw} />
+                  </span>
                 </button>
               </li>
             );

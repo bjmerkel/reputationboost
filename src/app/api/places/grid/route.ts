@@ -14,6 +14,15 @@ export async function GET(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (process.env.ALLOW_LIVE_PLACES_GRID !== "true") {
+    return NextResponse.json(
+      {
+        error:
+          "Live grid collection is disabled. Use the stored monthly market snapshot.",
+      },
+      { status: 403 }
+    );
+  }
 
   const business = await getPrimaryBusiness(user.id);
   if (!business) {

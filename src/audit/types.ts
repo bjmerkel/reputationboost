@@ -512,6 +512,8 @@ export interface GeoGridPoint {
 
 export interface KeywordRankSnapshot {
   keyword: string;
+  /** Whether the current center rank was observed or carried forward. */
+  observationSource?: "observed" | "carried_forward";
   localPackPosition: LocalPackPosition | number;
   inLocalPack: boolean;
   geoRanks: GeoRankPoint[];

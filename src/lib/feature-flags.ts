@@ -18,6 +18,12 @@ export const MARKET_DATA_FLAGS = {
   rankPulseDaysUtc: [1, 15] as readonly number[],
 } as const;
 
+export const MARKET_REFRESH_FLAGS = {
+  manualCooldownDays: 7,
+  eventDelayDays: 10,
+  taskTriggeredGridEnabled: false,
+} as const;
+
 export const HEATMAP_FLAGS = {
   insightPanel: true,
   zoneHighlights: true,

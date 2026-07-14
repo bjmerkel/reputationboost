@@ -5,48 +5,24 @@ import {
   backfillScoreDailyForBusiness,
   ingestScoreDailyForBusiness,
 } from "@/audit/phase2/score-ingest";
-import { planKeywordRankScans } from "@/audit/phase2/rank-scan-plan";
+import { runRankPulseForBusiness } from "@/audit/market/rank-pulse";
 import { reconcilePlanForBusiness } from "@/audit/phase3/reconcile-plan";
-import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin";
 import { refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import { refreshGlobalScoreModel } from "@/audit/storage-score-model";
-import { businessRecordToClientConfig, type BusinessRecord } from "@/audit/businesses";
+import type { BusinessRecord } from "@/audit/businesses";
 import {
   completeIngestRun,
   failIngestRun,
   startIngestRun,
   upsertPerformanceDaily,
-  upsertRankSnapshots,
 } from "@/audit/storage-timeseries";
 import type { DailyMetricPoint, IngestRunResult } from "@/audit/types/timeseries";
-import {
-  GBP_RANK_SCAN_FLAGS,
-  MARKET_DATA_FLAGS,
-  PLAN_RECONCILE_FLAGS,
-} from "@/lib/feature-flags";
-import { isGoogleMapsConfigured } from "@/lib/google/config";
+import { MARKET_DATA_FLAGS, PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
 import { fetchGbpPerformanceDailySeries } from "@/lib/google/gbp-performance";
-import {
-  resolveBusinessLocation,
-  searchKeywordAtOneMile,
-} from "@/lib/google/local-rankings";
-import {
-  claimMarketCollection,
-  completeMarketCollection,
-  failMarketCollection,
-  recordPlacesCollectionSkipped,
-  reservePlacesApiCalls,
-  type MarketCollectionClaim,
-} from "@/lib/google/places-cost-governance";
 import { getValidGbpConnectionForRecord } from "@/lib/google/token-store";
 
-const KEYWORD_SEARCH_DELAY_MS = 150;
 const PERFORMANCE_LOOKBACK_DAYS = 61;
 const ACTION_METRICS = ["calls", "direction_requests", "website_clicks"] as const;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function formatDateYmd(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -184,135 +160,29 @@ async function ingestRanksForBusiness(
   collectionDate: string,
   result: IngestRunResult
 ): Promise<void> {
-  if (!isGoogleMapsConfigured()) {
+  const pulse = await runRankPulseForBusiness({
+    row,
+    observationDate: targetDate,
+    collectionDate,
+    collectionType: "rank_pulse",
+  });
+  if (pulse.skipReason === "not_configured") {
     result.errors.push({
       businessId: row.id,
       step: "ranks",
       message: "GOOGLE_MAPS_API_KEY not configured — skipping rank ingest",
     });
-    return;
   }
-
-  const client = businessRecordToClientConfig(row);
-  const keywords = client.keywords.filter(Boolean);
-  if (keywords.length === 0) return;
-
-  const latestAudit = await loadLatestAuditForBusinessAdmin(
-    row.user_id,
-    row.id,
-    row.slug,
-    row.name
-  ).catch(() => null);
-  const scanPlan = planKeywordRankScans({
-    keywords,
-    audit: latestAudit,
-    targetDate,
-    context: "daily",
-    enabled: GBP_RANK_SCAN_FLAGS.enabled,
-    minLiveScans: GBP_RANK_SCAN_FLAGS.minDailyLiveScans,
-  });
-  const claim: MarketCollectionClaim = {
-    businessId: row.id,
-    collectionType: "rank_pulse",
-    keyword: "__all__",
-    periodStart: collectionDate,
-  };
-  if (!(await claimMarketCollection(claim))) {
-    result.placesCollectionsSkipped =
-      (result.placesCollectionsSkipped ?? 0) + 1;
-    await recordPlacesCollectionSkipped(row.id, collectionDate);
-    return;
-  }
-
-  const callsReserved = scanPlan.liveScan.length;
-  if (!(await reservePlacesApiCalls(row.id, collectionDate, callsReserved))) {
-    result.placesCollectionsSkipped =
-      (result.placesCollectionsSkipped ?? 0) + 1;
-    await recordPlacesCollectionSkipped(row.id, collectionDate);
-    await completeMarketCollection(claim, 0);
-    return;
-  }
+  result.rankRowsUpserted += pulse.rowsUpserted;
+  result.rankScansLive = (result.rankScansLive ?? 0) + pulse.liveScans;
+  result.rankScansDeferred =
+    (result.rankScansDeferred ?? 0) + pulse.deferredScans;
+  result.rankScansForced =
+    (result.rankScansForced ?? 0) + pulse.forcedScans;
   result.placesCallsReserved =
-    (result.placesCallsReserved ?? 0) + callsReserved;
-
-  try {
-    const location = await resolveBusinessLocation(client);
-    const matchOptions = {
-      businessName: client.name,
-      placeId: client.gbpPlaceId,
-      businessAddress: [
-        client.location.address,
-        client.location.city,
-        client.location.state,
-        client.location.zip,
-      ]
-        .filter(Boolean)
-        .join(", "),
-    };
-
-    const rows = [];
-    for (const keyword of scanPlan.liveScan) {
-      const { rank, inLocalPack, localPackPosition } =
-        await searchKeywordAtOneMile(keyword, location, matchOptions);
-
-      rows.push({
-        businessId: row.id,
-        keyword,
-        date: targetDate,
-        distanceMiles: 0,
-        gridNorth: 0,
-        gridEast: 0,
-        rank,
-        inLocalPack,
-        localPackPosition,
-        source: "api" as const,
-        rankingModel: "radial_text_v2" as const,
-      });
-
-      await sleep(KEYWORD_SEARCH_DELAY_MS);
-    }
-
-    const priorByKeyword = new Map(
-      (latestAudit?.rankings.keywords ?? []).map((item) => [
-        item.keyword.trim().toLowerCase(),
-        item,
-      ])
-    );
-    for (const deferred of scanPlan.deferred) {
-      const prior = priorByKeyword.get(deferred.keyword);
-      if (!prior) continue;
-      const priorPosition =
-        typeof prior.localPackPosition === "number"
-          ? prior.localPackPosition
-          : null;
-      rows.push({
-        businessId: row.id,
-        keyword: deferred.keyword,
-        date: targetDate,
-        distanceMiles: 0,
-        gridNorth: 0,
-        gridEast: 0,
-        rank: prior.centerRank ?? priorPosition,
-        inLocalPack: prior.inLocalPack,
-        localPackPosition: priorPosition,
-        source: "deferred" as const,
-        rankingModel: "radial_text_v2" as const,
-      });
-    }
-
-    const count = await upsertRankSnapshots(rows);
-    result.rankRowsUpserted += count;
-    result.rankScansLive =
-      (result.rankScansLive ?? 0) + scanPlan.liveScan.length;
-    result.rankScansDeferred =
-      (result.rankScansDeferred ?? 0) + scanPlan.deferred.length;
-    result.rankScansForced =
-      (result.rankScansForced ?? 0) + scanPlan.forcedRescan.length;
-    await completeMarketCollection(claim, callsReserved);
-  } catch (error) {
-    await failMarketCollection(claim, callsReserved, error).catch(() => undefined);
-    throw error;
-  }
+    (result.placesCallsReserved ?? 0) + pulse.callsReserved;
+  result.placesCollectionsSkipped =
+    (result.placesCollectionsSkipped ?? 0) + (pulse.skipped ? 1 : 0);
 }
 
 async function ingestBusiness(

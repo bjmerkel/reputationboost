@@ -1,6 +1,8 @@
 import { pickPrimaryKeyword, resolveTargetKeywords } from "./keywords";
 import { buildAttributionNarrative } from "./narrative";
 import { estimateAttributionRevenue, formatCurrency } from "./roi";
+import { taskCanAffectLocalRank } from "@/audit/market/gbp-change-detector";
+import { enqueueEventRankPulse } from "@/audit/market/refresh-queue";
 import type { CompletedTaskRecord } from "@/audit/storage-attribution";
 import { computeGridDiff } from "@/audit/geo/grid-diff";
 import { refreshGridAfterTaskIfNeeded } from "@/audit/geo/grid-refresh";
@@ -28,6 +30,7 @@ import { loadAuditByIdForBusiness } from "@/audit/storage-supabase";
 import { radiusWeightsForAudit, RADIUS_PROFILE_WEIGHTS } from "@/audit/phase2/radius-profiles";
 import { keywordServiceAreaVisibilityScore } from "@/audit/phase2/scoring";
 import { loadGlobalScoreCalibrationAdmin, refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
+import { MARKET_REFRESH_FLAGS } from "@/lib/feature-flags";
 import {
   getRankSnapshotsInRange,
   sumPerformanceInRange,
@@ -432,6 +435,25 @@ export async function computeAttributionAfterTaskCompletion(
   const { getCompletedTaskContext } = await import("@/audit/storage-attribution");
   const context = await getCompletedTaskContext(userId, taskId);
   if (!context || context.task.status !== "completed") return;
+
+  if (taskCanAffectLocalRank(context.task.type)) {
+    const completedAt = new Date(context.task.completedAt ?? Date.now());
+    completedAt.setUTCDate(
+      completedAt.getUTCDate() + MARKET_REFRESH_FLAGS.eventDelayDays
+    );
+    await enqueueEventRankPulse({
+      businessId: context.businessId,
+      triggerSource: "task_completion",
+      triggerRef: taskId,
+      runAfter: completedAt.toISOString(),
+      callsEstimated: context.keywords.length,
+    }).catch((error) => {
+      console.warn(
+        `[attribution] delayed rank pulse scheduling failed for ${taskId}:`,
+        error instanceof Error ? error.message : error
+      );
+    });
+  }
 
   try {
     const enriched = await prepareRecordWithProjectionSnapshot(context);

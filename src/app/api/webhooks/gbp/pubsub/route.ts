@@ -11,6 +11,8 @@ import { recordGbpGoogleUpdateEvent } from "@/lib/google/gbp-update-events";
 import { syncGoogleUpdatesForBusiness } from "@/lib/google/gbp-update-sync";
 import { buildPubSubGbpEvent } from "@/lib/google/gbp-event-factory";
 import { recordGbpEventAdmin } from "@/audit/storage-gbp-events";
+import { enqueueEventRankPulse } from "@/audit/market/refresh-queue";
+import { MARKET_REFRESH_FLAGS } from "@/lib/feature-flags";
 import { isAdminSupabaseConfigured } from "@/lib/supabase/admin";
 
 interface PubSubPushEnvelope {
@@ -193,6 +195,23 @@ export async function POST(request: Request) {
     } catch (error) {
       console.warn("[gbp-pubsub] gbp event persistence failed:", error);
     }
+  }
+
+  if (googleUpdateBusinessId) {
+    const runAfter = new Date(
+      envelope.message?.publishTime ?? Date.now()
+    );
+    runAfter.setUTCDate(
+      runAfter.getUTCDate() + MARKET_REFRESH_FLAGS.eventDelayDays
+    );
+    await enqueueEventRankPulse({
+      businessId: googleUpdateBusinessId,
+      triggerSource: "gbp_event",
+      triggerRef: eventId,
+      runAfter: runAfter.toISOString(),
+    }).catch((error) => {
+      console.warn("[gbp-pubsub] delayed rank pulse scheduling failed:", error);
+    });
   }
 
   return NextResponse.json({

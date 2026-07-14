@@ -27,6 +27,7 @@ import PlanView from "@/components/plan/PlanView";
 import ProductPlaybookWizard from "@/components/platform/ProductPlaybookWizard";
 import { useAttributionDashboard } from "@/hooks/useAttributionDashboard";
 import { useLiveAudit } from "@/hooks/useLiveAudit";
+import { useMarketStatus } from "@/hooks/useMarketStatus";
 import { usePlanTasks, type PlanTasksState } from "@/hooks/usePlanTasks";
 import { useScoreHistory } from "@/hooks/useScoreHistory";
 import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
@@ -86,6 +87,10 @@ export default function AuditDashboard({
     scoreLatestDate: scoreHistory.latestDate,
     enabled: Boolean(preparedInitial),
   });
+  const marketStatus = useMarketStatus(
+    clientId,
+    Boolean(preparedInitial && gbpConnected)
+  );
 
   const { data: attributionData, loading: attributionLoading } = useAttributionDashboard(
     clientId,
@@ -97,6 +102,7 @@ export default function AuditDashboard({
     () => initialAudit?.rankings.keywords[0]?.keyword ?? ""
   );
   const [loading, setLoading] = useState(false);
+  const [rankRefreshLoading, setRankRefreshLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [batchReviewOpen, setBatchReviewOpen] = useState(false);
@@ -266,6 +272,35 @@ export default function AuditDashboard({
     [clientId, setView, applyAudit, refreshLiveAudit]
   );
 
+  const refreshRankings = useCallback(async () => {
+    setRankRefreshLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/market/refresh-rankings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      });
+      const data = await parseJsonResponse<{
+        error?: string;
+        availableAt?: string;
+      }>(res);
+      if (!res.ok) {
+        const suffix = data.availableAt
+          ? ` Available ${new Date(data.availableAt).toLocaleDateString()}.`
+          : "";
+        throw new Error(`${data.error ?? "Rank refresh failed."}${suffix}`);
+      }
+      await Promise.all([refreshLiveAudit(), marketStatus.refresh()]);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Rank refresh failed"
+      );
+    } finally {
+      setRankRefreshLoading(false);
+    }
+  }, [clientId, marketStatus, refreshLiveAudit]);
+
   useEffect(() => {
     const justOnboarded = searchParams.get("onboarded") === "1";
     if (audit || !gbpConnected || !justOnboarded || autoAuditStartedRef.current) return;
@@ -379,16 +414,40 @@ export default function AuditDashboard({
         }
         toolbar={
           <div className="flex shrink-0 flex-col items-end gap-0.5">
-            <button
-              type="button"
-              onClick={() => runAudit()}
-              disabled={loading || !gbpConnected}
-              className="btn-primary shrink-0 rounded-full px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              {loading ? "Refreshing…" : "Refresh profile data"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void refreshRankings()}
+                disabled={
+                  rankRefreshLoading ||
+                  !marketStatus.status?.canRefresh
+                }
+                className="shrink-0 rounded-full border border-[#dadce0] bg-white px-4 py-2 text-sm font-semibold text-[#3c4043] disabled:opacity-50"
+                title={
+                  marketStatus.status
+                    ? `${marketStatus.status.callsRemaining} of ${marketStatus.status.callsBudget} monthly Places calls available`
+                    : "Loading ranking refresh status"
+                }
+              >
+                {rankRefreshLoading ? "Checking rankings…" : "Refresh rankings now"}
+              </button>
+              <button
+                type="button"
+                onClick={() => runAudit()}
+                disabled={loading || !gbpConnected}
+                className="btn-primary shrink-0 rounded-full px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {loading ? "Refreshing…" : "Refresh profile data"}
+              </button>
+            </div>
             <p className="hidden text-[10px] text-[#80868b] sm:block">
               Market observed {new Date(audit.rankings.collectedAt).toLocaleDateString()}
+              {marketStatus.status
+                ? ` · ${marketStatus.status.callsRemaining}/${marketStatus.status.callsBudget} calls available · next check ${new Date(
+                    marketStatus.status.pendingRefreshAt ??
+                      marketStatus.status.nextScheduledAt
+                  ).toLocaleDateString()}`
+                : ""}
               {liveRefreshedAt && !liveAuditLoading
                 ? ` · profile refreshed ${new Date(liveRefreshedAt).toLocaleDateString()}`
                 : ""}
@@ -504,6 +563,17 @@ export default function AuditDashboard({
                   Market observed{" "}
                   {new Date(audit.rankings.collectedAt).toLocaleDateString()}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => void refreshRankings()}
+                  disabled={
+                    rankRefreshLoading ||
+                    !marketStatus.status?.canRefresh
+                  }
+                  className="shrink-0 rounded-full border border-[#dadce0] bg-white px-4 py-2 text-sm font-semibold text-[#3c4043] disabled:opacity-50"
+                >
+                  {rankRefreshLoading ? "Checking…" : "Refresh rankings now"}
+                </button>
                 <button
                   type="button"
                   onClick={() => runAudit()}
