@@ -1,4 +1,8 @@
-import type { ClientConfig, GbpConnection } from "@/audit/types";
+import type {
+  ClientConfig,
+  GbpConnection,
+  GbpPersistedServiceArea,
+} from "@/audit/types";
 import type { GridProfileKey } from "@/lib/google/geo-grid";
 import { createClient } from "@/lib/supabase/server";
 
@@ -12,6 +16,10 @@ export interface BusinessRecord {
   keywords: string[];
   gbp_place_id: string | null;
   gbp_maps_url: string | null;
+  gbp_address: string | null;
+  gbp_open_status: string | null;
+  gbp_secondary_categories: string[];
+  gbp_service_area: GbpPersistedServiceArea | null;
   gbp_account_id: string | null;
   gbp_location_id: string | null;
   gbp_refresh_token: string | null;
@@ -81,6 +89,10 @@ export function businessRecordToClientConfig(row: BusinessRecord): ClientConfig 
     keywords: row.keywords ?? [],
     gbpPlaceId: row.gbp_place_id ?? undefined,
     gbpMapsUrl: row.gbp_maps_url ?? undefined,
+    gbpAddress: row.gbp_address ?? undefined,
+    gbpOpenStatus: row.gbp_open_status,
+    gbpSecondaryCategories: row.gbp_secondary_categories ?? [],
+    gbpServiceArea: row.gbp_service_area,
     website: row.website ?? undefined,
     phone: row.phone ?? undefined,
     gbpConnection: connection,
@@ -215,37 +227,81 @@ export async function saveGbpTokens(
   if (error) throw new Error(`Failed to save GBP tokens: ${error.message}`);
 }
 
-export async function saveGbpLocation(
-  userId: string,
-  businessId: string,
-  selection: {
-    accountId: string;
-    locationId: string;
-    placeId?: string;
-    mapsUrl?: string;
-    name?: string;
-    address?: string;
-    phone?: string;
-    website?: string;
-    industry?: string;
-  }
-): Promise<void> {
-  const supabase = await createClient();
-  const existing = await getBusinessRecord(userId, businessId);
+export interface GbpLocationSelection {
+  accountId: string;
+  locationId: string;
+  placeId?: string;
+  mapsUrl?: string;
+  name?: string;
+  address?: string;
+  phone?: string;
+  website?: string;
+  industry?: string;
+  openStatus?: string | null;
+  secondaryCategories?: string[];
+  serviceArea?: GbpPersistedServiceArea | null;
+  businessLatLng?: { lat: number; lng: number } | null;
+}
 
+type ExistingGbpLocation = Pick<
+  BusinessRecord,
+  | "gbp_place_id"
+  | "gbp_maps_url"
+  | "gbp_address"
+  | "gbp_open_status"
+  | "gbp_secondary_categories"
+  | "gbp_service_area"
+  | "location"
+>;
+
+export function buildGbpLocationPatch(
+  existing: ExistingGbpLocation | null,
+  selection: GbpLocationSelection,
+  updatedAt = new Date().toISOString()
+): Record<string, unknown> {
   const patch: Record<string, unknown> = {
     gbp_account_id: selection.accountId,
     gbp_location_id: selection.locationId,
     gbp_place_id: selection.placeId ?? existing?.gbp_place_id ?? null,
     gbp_maps_url: selection.mapsUrl ?? existing?.gbp_maps_url ?? null,
+    gbp_address: selection.address ?? existing?.gbp_address ?? null,
+    gbp_open_status:
+      selection.openStatus !== undefined
+        ? selection.openStatus
+        : existing?.gbp_open_status ?? null,
+    gbp_secondary_categories:
+      selection.secondaryCategories ?? existing?.gbp_secondary_categories ?? [],
+    gbp_service_area:
+      selection.serviceArea !== undefined
+        ? selection.serviceArea
+        : existing?.gbp_service_area ?? null,
     onboarding_complete: true,
-    updated_at: new Date().toISOString(),
+    updated_at: updatedAt,
   };
 
   if (selection.name) patch.name = selection.name;
   if (selection.phone) patch.phone = selection.phone;
   if (selection.website) patch.website = selection.website;
   if (selection.industry) patch.industry = selection.industry;
+  if (selection.businessLatLng && existing?.location) {
+    patch.location = {
+      ...existing.location,
+      lat: selection.businessLatLng.lat,
+      lng: selection.businessLatLng.lng,
+    };
+  }
+
+  return patch;
+}
+
+export async function saveGbpLocation(
+  userId: string,
+  businessId: string,
+  selection: GbpLocationSelection
+): Promise<void> {
+  const supabase = await createClient();
+  const existing = await getBusinessRecord(userId, businessId);
+  const patch = buildGbpLocationPatch(existing, selection);
 
   const { error } = await supabase
     .from("businesses")
@@ -265,6 +321,10 @@ export async function disconnectGbp(userId: string, businessId: string): Promise
       gbp_location_id: null,
       gbp_place_id: null,
       gbp_maps_url: null,
+      gbp_address: null,
+      gbp_open_status: null,
+      gbp_secondary_categories: [],
+      gbp_service_area: null,
       gbp_refresh_token: null,
       gbp_access_token: null,
       gbp_token_expires_at: null,

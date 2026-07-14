@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getBusinessRecord, saveGbpLocation } from "@/audit/businesses";
+import type { GbpConnection } from "@/audit/types";
+import { fetchGbpIdentitySnapshot } from "@/lib/google/gbp-identity-snapshot";
 import { validateGbpLocationSelection } from "@/lib/google/gbp-onboarding-match";
-import { fetchPlaceDetails } from "@/lib/google/place-details";
 import { getGbpAccessTokenForRecord, getValidGbpConnectionForRecord } from "@/lib/google/token-store";
 import { ensureGbpNotificationSetting } from "@/lib/google/gbp-notifications";
 import { getUser } from "@/lib/supabase/server";
@@ -84,26 +85,36 @@ export async function POST(request: Request) {
       );
     }
 
-    let mapsUrl: string | undefined;
-    const placeId = body.placeId ?? business.gbp_place_id ?? undefined;
-    if (placeId) {
-      try {
-        const place = await fetchPlaceDetails(placeId);
-        mapsUrl = place.mapsUrl || undefined;
-      } catch {
-        // Location can still be saved without a Maps URL
-      }
-    }
+    const selectedConnection: GbpConnection = {
+      businessId: body.businessId,
+      accountId: body.accountId,
+      locationId: body.locationId,
+      placeId: body.placeId ?? business.gbp_place_id ?? undefined,
+      googleEmail: business.gbp_google_email ?? undefined,
+      accessToken,
+      refreshToken: business.gbp_refresh_token!,
+      expiresAt: business.gbp_token_expires_at ?? new Date(0).toISOString(),
+    };
+    const identity = await fetchGbpIdentitySnapshot(selectedConnection).catch((identityError) => {
+      console.warn("[gbp-select-location] identity snapshot skipped:", identityError);
+      return null;
+    });
+    const placeId = identity?.placeId || selectedConnection.placeId;
 
     await saveGbpLocation(user.id, body.businessId, {
       accountId: body.accountId,
       locationId: body.locationId,
       placeId,
-      mapsUrl,
-      name: body.title,
-      phone: body.phone,
-      website: body.website,
-      industry: body.industry,
+      mapsUrl: identity?.mapsUrl || undefined,
+      name: identity?.name || body.title,
+      address: identity?.address || body.address,
+      phone: identity?.phone || body.phone,
+      website: identity?.website || body.website,
+      industry: identity?.primaryCategory || body.industry,
+      openStatus: identity?.openStatus,
+      secondaryCategories: identity?.secondaryCategories,
+      serviceArea: identity?.serviceArea,
+      businessLatLng: identity?.businessLatLng,
     });
 
     const updated = await getBusinessRecord(user.id, body.businessId);
