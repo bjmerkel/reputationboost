@@ -20,7 +20,7 @@ import MapLayerControls, {
   createDefaultMapLayers,
   type MapLayerState,
 } from "@/components/platform/MapLayerControls";
-import { getPlaceGeometry } from "@/lib/google/place-geometry";
+import { getPlaceGeometry, storedPlaceGeometry } from "@/lib/google/place-geometry";
 import { loadGoogleMaps } from "@/lib/google/maps-loader";
 import {
   createBusinessPinIcon,
@@ -602,7 +602,9 @@ export default function RankingMap({
         const comp = top3[i];
         if (!comp.placeId) continue;
 
-        const position = await getPlaceGeometry(comp.placeId, map);
+        const position =
+          storedPlaceGeometry(comp) ??
+          (await getPlaceGeometry(comp.placeId, map));
         if (cancelled || !position) continue;
 
         const packPos = activeKeyword

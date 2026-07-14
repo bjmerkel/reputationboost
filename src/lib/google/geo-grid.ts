@@ -81,6 +81,8 @@ function toLocalPackEntries(
     position: place.position,
     rating: place.rating,
     reviewCount: place.reviewCount,
+    lat: place.lat,
+    lng: place.lng,
   }));
 }
 

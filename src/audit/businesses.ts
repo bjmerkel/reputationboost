@@ -339,6 +339,24 @@ export async function disconnectGbp(userId: string, businessId: string): Promise
   if (error) throw new Error(`Failed to disconnect GBP: ${error.message}`);
 }
 
+export async function saveGbpServiceArea(
+  userId: string,
+  businessId: string,
+  serviceArea: GbpPersistedServiceArea
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("businesses")
+    .update({
+      gbp_service_area: serviceArea,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("id", businessId);
+
+  if (error) throw new Error(`Failed to save GBP service area: ${error.message}`);
+}
+
 export async function saveAvgCustomerValue(
   userId: string,
   businessId: string,

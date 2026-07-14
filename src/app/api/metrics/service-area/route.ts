@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { loadBusinessConfig } from "@/audit/businesses";
+import { loadBusinessConfig, saveGbpServiceArea } from "@/audit/businesses";
+import type { GbpPersistedServiceArea } from "@/audit/types";
 import { serviceAreaFromGbpPlaces } from "@/audit/geo/service-area";
 import { getUser } from "@/lib/supabase/server";
 import { isGoogleBusinessApiConfigured } from "@/lib/google/business-config";
@@ -32,18 +33,43 @@ export async function GET(request: Request) {
   }
 
   try {
-    let places = client.gbpServiceArea?.places ?? [];
+    let serviceArea: GbpPersistedServiceArea =
+      client.gbpServiceArea ?? {
+        version: 1,
+        businessType: null,
+        places: [],
+        businessLatLng: null,
+      };
+    let places = serviceArea.places;
     if (!places.length && client.gbpConnection) {
       const live = await fetchGbpServiceAreaData(client.gbpConnection);
       places = live.places;
+      serviceArea = {
+        ...serviceArea,
+        places,
+        businessLatLng: live.businessLatLng,
+      };
     }
     if (!places.length) {
       return NextResponse.json(EMPTY);
     }
 
     const geocoded = [];
+    let coordinatesAdded = false;
+    const persistedPlaces: GbpPersistedServiceArea["places"] = [];
     for (const place of places) {
-      const point = await resolveServiceAreaPlace(place.placeId, place.placeName);
+      const storedPoint =
+        Number.isFinite(place.lat) && Number.isFinite(place.lng)
+          ? { lat: place.lat!, lng: place.lng! }
+          : null;
+      const point =
+        storedPoint ??
+        (await resolveServiceAreaPlace(place.placeId, place.placeName));
+      if (!storedPoint && point) coordinatesAdded = true;
+      persistedPlaces.push({
+        ...place,
+        ...(point ? { lat: point.lat, lng: point.lng } : {}),
+      });
       if (!point) continue;
 
       geocoded.push({
@@ -52,6 +78,16 @@ export async function GET(request: Request) {
         lat: point.lat,
         lng: point.lng,
       });
+    }
+
+    if (
+      client.businessId &&
+      (coordinatesAdded || client.gbpServiceArea?.places.length !== persistedPlaces.length)
+    ) {
+      await saveGbpServiceArea(user.id, client.businessId, {
+        ...serviceArea,
+        places: persistedPlaces,
+      }).catch(() => undefined);
     }
 
     const bounds = serviceAreaFromGbpPlaces(geocoded);

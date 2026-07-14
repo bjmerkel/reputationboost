@@ -29,6 +29,8 @@ export interface PlaceResult {
   reviewCount: number;
   address: string;
   types: string[];
+  lat?: number;
+  lng?: number;
   /** 1-indexed position in the ordered Google result list */
   position: number;
 }
@@ -51,6 +53,7 @@ interface GooglePlacesSearchResponse {
     vicinity?: string;
     formatted_address?: string;
     types?: string[];
+    geometry?: { location?: { lat?: number; lng?: number } };
   }>;
   next_page_token?: string;
   error_message?: string;
@@ -64,6 +67,7 @@ interface PlacesTextSearchNewResponse {
     rating?: number;
     userRatingCount?: number;
     types?: string[];
+    location?: { latitude?: number; longitude?: number };
   }>;
   nextPageToken?: string;
   error?: { message?: string; status?: string };
@@ -146,7 +150,7 @@ export async function resolveServiceAreaPlace(
   }
 }
 
-function mapPlaceResult(
+export function mapPlaceResult(
   raw: NonNullable<GooglePlacesSearchResponse["results"]>[number],
   position: number
 ): PlaceResult {
@@ -157,6 +161,8 @@ function mapPlaceResult(
     reviewCount: raw.user_ratings_total ?? 0,
     address: raw.vicinity ?? raw.formatted_address ?? "",
     types: raw.types ?? [],
+    lat: raw.geometry?.location?.lat,
+    lng: raw.geometry?.location?.lng,
     position,
   };
 }
@@ -290,6 +296,8 @@ function mapNewTextSearchPlace(
     reviewCount: raw.userRatingCount ?? 0,
     address: raw.formattedAddress ?? "",
     types: raw.types ?? [],
+    lat: raw.location?.latitude,
+    lng: raw.location?.longitude,
     position,
   };
 }
@@ -326,7 +334,7 @@ async function textSearchNew(
         "X-Goog-Api-Key": key,
         "X-Goog-FieldMask": options.rankFieldsOnly
           ? "places.id,places.displayName,nextPageToken"
-          : "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types,nextPageToken",
+          : "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types,places.location,nextPageToken",
       },
       body: JSON.stringify(body),
     });

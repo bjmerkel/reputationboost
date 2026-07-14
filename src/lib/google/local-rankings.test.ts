@@ -7,6 +7,7 @@ import {
   flattenCompetitorHarvest,
   isOwnBusiness,
   mergeCompetitorCandidates,
+  toCompetitorProfile,
 } from "./local-rankings";
 import type { PlaceResult } from "./places";
 
@@ -106,5 +107,18 @@ describe("competitor harvesting", () => {
       flattened.map((entry) => entry.position),
       [2, 7, 1]
     );
+  });
+
+  it("carries search geometry into competitor snapshots", () => {
+    const competitor = toCompetitorProfile(
+      place("c2", "Mapped Competitor", 2, {
+        lat: 30.2672,
+        lng: -97.7431,
+      }),
+      "plumber"
+    );
+
+    assert.equal(competitor.lat, 30.2672);
+    assert.equal(competitor.lng, -97.7431);
   });
 });

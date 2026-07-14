@@ -1,3 +1,12 @@
+export function storedPlaceGeometry(place: {
+  lat?: number;
+  lng?: number;
+}): google.maps.LatLngLiteral | null {
+  return Number.isFinite(place.lat) && Number.isFinite(place.lng)
+    ? { lat: place.lat!, lng: place.lng! }
+    : null;
+}
+
 /** Resolve lat/lng for a Google place_id via the Maps JavaScript PlacesService. */
 export function getPlaceGeometry(
   placeId: string,
