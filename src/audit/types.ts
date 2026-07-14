@@ -7,7 +7,12 @@ export type LocalPackPosition = 1 | 2 | 3 | "not_in_pack";
 export interface GbpPersistedServiceArea {
   version: 1;
   businessType: string | null;
-  places: Array<{ placeId: string; placeName: string }>;
+  places: Array<{
+    placeId: string;
+    placeName: string;
+    lat?: number;
+    lng?: number;
+  }>;
   businessLatLng: { lat: number; lng: number } | null;
 }
 
@@ -486,6 +491,8 @@ export interface GeoGridLocalPackEntry {
   position: number;
   rating: number | null;
   reviewCount: number;
+  lat?: number;
+  lng?: number;
 }
 
 /** Spatial rank sample at a grid point around the business (geo heatmap). */
@@ -540,6 +547,8 @@ export interface CompetitorProfile {
   primaryCategory: string;
   descriptionLength: number;
   attributeCount: number;
+  lat?: number;
+  lng?: number;
   mapPositions: Record<string, number | "not_in_pack">;
   reviewThemes: string[];
 }

@@ -252,7 +252,7 @@ function primaryCategoryFromTypes(types: string[]): string {
   return category ? category.replace(/_/g, " ") : "local business";
 }
 
-function toCompetitorProfile(
+export function toCompetitorProfile(
   place: PlaceResult,
   keyword: string
 ): CompetitorProfile {
@@ -268,6 +268,8 @@ function toCompetitorProfile(
     primaryCategory: primaryCategoryFromTypes(place.types),
     descriptionLength: 0,
     attributeCount: 0,
+    lat: place.lat,
+    lng: place.lng,
     mapPositions: {
       [keyword]: place.position,
     },
