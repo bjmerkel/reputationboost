@@ -227,6 +227,9 @@ export async function completeIngestRun(runId: string, result: IngestRunResult):
       businesses_processed: result.businessesProcessed,
       performance_rows_upserted: result.performanceRowsUpserted,
       rank_rows_upserted: result.rankRowsUpserted,
+      places_calls_reserved: result.placesCallsReserved ?? 0,
+      places_collections_skipped: result.placesCollectionsSkipped ?? 0,
+      result,
       errors: result.errors,
       status: result.errors.length > 0 ? "completed_with_errors" : "completed",
     })
@@ -249,6 +252,9 @@ export async function failIngestRun(
       businesses_processed: result.businessesProcessed,
       performance_rows_upserted: result.performanceRowsUpserted,
       rank_rows_upserted: result.rankRowsUpserted,
+      places_calls_reserved: result.placesCallsReserved ?? 0,
+      places_collections_skipped: result.placesCollectionsSkipped ?? 0,
+      result: { ...result, errors },
       errors,
       status: "failed",
     })

@@ -30,6 +30,14 @@ import {
   resolveBusinessLocation,
   searchKeywordAtOneMile,
 } from "@/lib/google/local-rankings";
+import {
+  claimMarketCollection,
+  completeMarketCollection,
+  failMarketCollection,
+  recordPlacesCollectionSkipped,
+  reservePlacesApiCalls,
+  type MarketCollectionClaim,
+} from "@/lib/google/places-cost-governance";
 import { getValidGbpConnectionForRecord } from "@/lib/google/token-store";
 
 const KEYWORD_SEARCH_DELAY_MS = 150;
@@ -57,6 +65,8 @@ export interface IngestDailyOptions {
   skipRunLog?: boolean;
   /** Override the twice-monthly Places rank pulse (primarily for tests/backfills). */
   runRankPulse?: boolean;
+  /** UTC job execution date used for budget and idempotency periods. */
+  runDate?: Date;
 }
 
 export function shouldRunScheduledRankPulse(date: Date): boolean {
@@ -77,6 +87,8 @@ function emptyResult(): IngestRunResult {
     rankScansLive: 0,
     rankScansDeferred: 0,
     rankScansForced: 0,
+    placesCallsReserved: 0,
+    placesCollectionsSkipped: 0,
     errors: [],
   };
 }
@@ -169,6 +181,7 @@ async function ingestPerformanceForBusiness(
 async function ingestRanksForBusiness(
   row: BusinessRecord,
   targetDate: string,
+  collectionDate: string,
   result: IngestRunResult
 ): Promise<void> {
   if (!isGoogleMapsConfigured()) {
@@ -198,86 +211,114 @@ async function ingestRanksForBusiness(
     enabled: GBP_RANK_SCAN_FLAGS.enabled,
     minLiveScans: GBP_RANK_SCAN_FLAGS.minDailyLiveScans,
   });
-
-  const location = await resolveBusinessLocation(client);
-  const matchOptions = {
-    businessName: client.name,
-    placeId: client.gbpPlaceId,
-    businessAddress: [
-      client.location.address,
-      client.location.city,
-      client.location.state,
-      client.location.zip,
-    ]
-      .filter(Boolean)
-      .join(", "),
+  const claim: MarketCollectionClaim = {
+    businessId: row.id,
+    collectionType: "rank_pulse",
+    keyword: "__all__",
+    periodStart: collectionDate,
   };
+  if (!(await claimMarketCollection(claim))) {
+    result.placesCollectionsSkipped =
+      (result.placesCollectionsSkipped ?? 0) + 1;
+    await recordPlacesCollectionSkipped(row.id, collectionDate);
+    return;
+  }
 
-  const rows = [];
-  for (const keyword of scanPlan.liveScan) {
-    const { rank, inLocalPack, localPackPosition } = await searchKeywordAtOneMile(
-      keyword,
-      location,
-      matchOptions
+  const callsReserved = scanPlan.liveScan.length;
+  if (!(await reservePlacesApiCalls(row.id, collectionDate, callsReserved))) {
+    result.placesCollectionsSkipped =
+      (result.placesCollectionsSkipped ?? 0) + 1;
+    await recordPlacesCollectionSkipped(row.id, collectionDate);
+    await completeMarketCollection(claim, 0);
+    return;
+  }
+  result.placesCallsReserved =
+    (result.placesCallsReserved ?? 0) + callsReserved;
+
+  try {
+    const location = await resolveBusinessLocation(client);
+    const matchOptions = {
+      businessName: client.name,
+      placeId: client.gbpPlaceId,
+      businessAddress: [
+        client.location.address,
+        client.location.city,
+        client.location.state,
+        client.location.zip,
+      ]
+        .filter(Boolean)
+        .join(", "),
+    };
+
+    const rows = [];
+    for (const keyword of scanPlan.liveScan) {
+      const { rank, inLocalPack, localPackPosition } =
+        await searchKeywordAtOneMile(keyword, location, matchOptions);
+
+      rows.push({
+        businessId: row.id,
+        keyword,
+        date: targetDate,
+        distanceMiles: 0,
+        gridNorth: 0,
+        gridEast: 0,
+        rank,
+        inLocalPack,
+        localPackPosition,
+        source: "api" as const,
+        rankingModel: "radial_text_v2" as const,
+      });
+
+      await sleep(KEYWORD_SEARCH_DELAY_MS);
+    }
+
+    const priorByKeyword = new Map(
+      (latestAudit?.rankings.keywords ?? []).map((item) => [
+        item.keyword.trim().toLowerCase(),
+        item,
+      ])
     );
+    for (const deferred of scanPlan.deferred) {
+      const prior = priorByKeyword.get(deferred.keyword);
+      if (!prior) continue;
+      const priorPosition =
+        typeof prior.localPackPosition === "number"
+          ? prior.localPackPosition
+          : null;
+      rows.push({
+        businessId: row.id,
+        keyword: deferred.keyword,
+        date: targetDate,
+        distanceMiles: 0,
+        gridNorth: 0,
+        gridEast: 0,
+        rank: prior.centerRank ?? priorPosition,
+        inLocalPack: prior.inLocalPack,
+        localPackPosition: priorPosition,
+        source: "deferred" as const,
+        rankingModel: "radial_text_v2" as const,
+      });
+    }
 
-    rows.push({
-      businessId: row.id,
-      keyword,
-      date: targetDate,
-      distanceMiles: 0,
-      gridNorth: 0,
-      gridEast: 0,
-      rank,
-      inLocalPack,
-      localPackPosition,
-      source: "api" as const,
-      rankingModel: "radial_text_v2" as const,
-    });
-
-    await sleep(KEYWORD_SEARCH_DELAY_MS);
+    const count = await upsertRankSnapshots(rows);
+    result.rankRowsUpserted += count;
+    result.rankScansLive =
+      (result.rankScansLive ?? 0) + scanPlan.liveScan.length;
+    result.rankScansDeferred =
+      (result.rankScansDeferred ?? 0) + scanPlan.deferred.length;
+    result.rankScansForced =
+      (result.rankScansForced ?? 0) + scanPlan.forcedRescan.length;
+    await completeMarketCollection(claim, callsReserved);
+  } catch (error) {
+    await failMarketCollection(claim, callsReserved, error).catch(() => undefined);
+    throw error;
   }
-
-  const priorByKeyword = new Map(
-    (latestAudit?.rankings.keywords ?? []).map((item) => [
-      item.keyword.trim().toLowerCase(),
-      item,
-    ])
-  );
-  for (const deferred of scanPlan.deferred) {
-    const prior = priorByKeyword.get(deferred.keyword);
-    if (!prior) continue;
-    const priorPosition =
-      typeof prior.localPackPosition === "number"
-        ? prior.localPackPosition
-        : null;
-    rows.push({
-      businessId: row.id,
-      keyword: deferred.keyword,
-      date: targetDate,
-      distanceMiles: 0,
-      gridNorth: 0,
-      gridEast: 0,
-      rank: prior.centerRank ?? priorPosition,
-      inLocalPack: prior.inLocalPack,
-      localPackPosition: priorPosition,
-      source: "deferred" as const,
-      rankingModel: "radial_text_v2" as const,
-    });
-  }
-
-  const count = await upsertRankSnapshots(rows);
-  result.rankRowsUpserted += count;
-  result.rankScansLive = (result.rankScansLive ?? 0) + scanPlan.liveScan.length;
-  result.rankScansDeferred =
-    (result.rankScansDeferred ?? 0) + scanPlan.deferred.length;
-  result.rankScansForced =
-    (result.rankScansForced ?? 0) + scanPlan.forcedRescan.length;
 }
 
 async function ingestBusiness(
   row: BusinessRecord,
   targetDate: string,
+  collectionDate: string,
   result: IngestRunResult,
   runRankPulse: boolean
 ): Promise<void> {
@@ -293,7 +334,7 @@ async function ingestBusiness(
 
   if (runRankPulse) {
     try {
-      await ingestRanksForBusiness(row, targetDate, result);
+      await ingestRanksForBusiness(row, targetDate, collectionDate, result);
     } catch (error) {
       result.errors.push({
         businessId: row.id,
@@ -381,8 +422,10 @@ export async function ingestDailyMetrics(
 ): Promise<IngestRunResult> {
   const targetDate = options.targetDate ?? addDays(new Date(), -1);
   const targetDateStr = formatDateYmd(targetDate);
+  const runDate = options.runDate ?? new Date();
+  const collectionDateStr = formatDateYmd(runDate);
   const runRankPulse =
-    options.runRankPulse ?? shouldRunScheduledRankPulse(new Date());
+    options.runRankPulse ?? shouldRunScheduledRankPulse(runDate);
   const result = emptyResult();
 
   let runId: string | null = null;
@@ -394,7 +437,13 @@ export async function ingestDailyMetrics(
     const businesses = await listOnboardedBusinesses();
 
     for (const row of businesses) {
-      await ingestBusiness(row, targetDateStr, result, runRankPulse);
+      await ingestBusiness(
+        row,
+        targetDateStr,
+        collectionDateStr,
+        result,
+        runRankPulse
+      );
     }
 
     try {

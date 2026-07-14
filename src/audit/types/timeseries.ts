@@ -66,6 +66,10 @@ export interface IngestRunResult {
   rankScansDeferred?: number;
   /** Deferred keywords rotated back into a live scan. */
   rankScansForced?: number;
+  /** Conservative Places calls reserved against the monthly budget. */
+  placesCallsReserved?: number;
+  /** Collections skipped because they were complete, in-flight, or over budget. */
+  placesCollectionsSkipped?: number;
   errors: Array<{ businessId: string; step: string; message: string }>;
 }
 
