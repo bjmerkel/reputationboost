@@ -311,17 +311,24 @@ async function fetchMetricsDailyWithFallback(
   end: Date
 ): Promise<DailyMetricPoint[]> {
   const formats: DateRangeFormat[] = ["snake", "camel"];
+  let successfulResponse = false;
+  let lastError: unknown;
 
   for (const format of formats) {
     try {
       const data = await fetchMetricsBatchRaw(connection, metrics, start, end, format);
+      successfulResponse = true;
       const points = parseMetricDaily(data);
       if (points.length > 0) return points;
-    } catch {
+    } catch (error) {
+      lastError = error;
       // Try alternate date param format.
     }
   }
 
+  // An empty successful response means the metrics were zero for the range.
+  // Preserve real API failures so callers do not misreport them as empty data.
+  if (!successfulResponse && lastError) throw lastError;
   return [];
 }
 
@@ -338,12 +345,6 @@ export async function fetchGbpPerformanceDailySeries(
     startDate,
     endDate
   );
-
-  if (corePoints.length === 0) {
-    const err = new Error("Performance API: no daily core metrics returned for this location.");
-    (err as Error & { httpStatus?: number }).httpStatus = 403;
-    throw err;
-  }
 
   const allPoints = [...corePoints];
 
