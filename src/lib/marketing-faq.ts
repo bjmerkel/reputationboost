@@ -17,12 +17,12 @@ export const marketingFaqs = [
   {
     question: "How do you track keyword rankings?",
     answer:
-      "We check where you rank from multiple spots across your service area — 1, 3, 5, and 10 miles out — not just from one pin on the map. Rankings update daily so you see movement in real time, not in a monthly PDF report.",
+      "We check where you rank from multiple spots across your service area — at the business pin and 1, 3, and 5 miles out. Lightweight rank pulses run twice monthly, with a deeper service-area and competitor snapshot each month.",
   },
   {
     question: "Do you guarantee #1 rankings?",
     answer:
-      "No ethical company can guarantee a specific position on Google Maps. What we do guarantee: a clear plan with estimated score impact per step, daily tracking, and proof showing which changes moved your rankings and revenue.",
+      "No ethical company can guarantee a specific position on Google Maps. What we do guarantee: a clear plan with estimated score impact per step, daily profile outcome tracking, and scheduled market observations showing which changes moved your rankings and revenue.",
   },
   {
     question: "What does 'Get Your Free Score' include?",

@@ -1,5 +1,9 @@
 import { listOnboardedBusinesses } from "@/audit/businesses-admin";
 import { businessRecordToClientConfig, type BusinessRecord } from "@/audit/businesses";
+import {
+  buildAndPersistLiveAuditForBusiness,
+  persistMarketCompetitorsToLatestAudit,
+} from "@/audit/live-audit";
 import { prioritizeKeywordsForGrid } from "@/audit/phase2/keyword-portfolio";
 import { planKeywordRankScans } from "@/audit/phase2/rank-scan-plan";
 import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin";
@@ -9,6 +13,7 @@ import {
   startIngestRun,
 } from "@/audit/storage-timeseries";
 import { persistKeywordGridFromCollection } from "@/audit/storage-grid-snapshots";
+import type { CompetitorSnapshot } from "@/audit/types";
 import type { IngestRunResult } from "@/audit/types/timeseries";
 import { ingestScoreDailyForBusiness, backfillScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
 import {
@@ -19,6 +24,7 @@ import {
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { collectKeywordGeoGrid } from "@/lib/google/geo-grid";
 import {
+  collectCompetitorSnapshot,
   resolveBusinessLocation,
   type BusinessMatchOptions,
 } from "@/lib/google/local-rankings";
@@ -124,6 +130,7 @@ async function ingestGridForBusiness(
       .filter(Boolean)
       .join(", "),
   };
+  const competitorSnapshots: CompetitorSnapshot[] = [];
 
   for (const keyword of keywords) {
     try {
@@ -143,6 +150,37 @@ async function ingestGridForBusiness(
         message: error instanceof Error ? error.message : String(error),
       });
     }
+
+    try {
+      competitorSnapshots.push(
+        await collectCompetitorSnapshot(
+          keyword,
+          location,
+          matchOptions,
+          `${client.location.city}, ${client.location.state}`
+        )
+      );
+    } catch (error) {
+      result.errors.push({
+        businessId: row.id,
+        step: `monthly_competitors:${keyword}`,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  try {
+    await persistMarketCompetitorsToLatestAudit(
+      row.id,
+      competitorSnapshots
+    );
+    await buildAndPersistLiveAuditForBusiness(row, targetDate);
+  } catch (error) {
+    result.errors.push({
+      businessId: row.id,
+      step: "monthly_market_publish",
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 
   try {
@@ -168,7 +206,7 @@ export interface IngestWeeklyGridOptions {
   skipRunLog?: boolean;
 }
 
-/** Weekly full geo-grid snapshot for all onboarded businesses. */
+/** Monthly full geo-grid market snapshot for all onboarded businesses. */
 export async function ingestWeeklyGrid(
   options: IngestWeeklyGridOptions = {}
 ): Promise<IngestRunResult> {

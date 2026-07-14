@@ -113,7 +113,7 @@ function buildKeywordPortfolioPlanStep(audit: Phase1AuditPayload): GbpPlanStep |
   return {
     stepNumber: KEYWORD_PORTFOLIO_PLAN_STEP,
     title: "Align keyword portfolio",
-    instruction: `${portfolio.summary} Approve to update your tracked keywords to match Google search demand. Weekly rank tracking and heatmaps will follow the optimized set.`,
+    instruction: `${portfolio.summary} Approve to update your tracked keywords to match Google search demand. Scheduled rank pulses and monthly heatmaps will follow the optimized set.`,
     current: currentKeywords,
     recommended,
     bullets: [

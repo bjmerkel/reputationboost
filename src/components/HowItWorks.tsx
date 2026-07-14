@@ -17,7 +17,7 @@ const steps = [
     step: "03",
     title: "Execute & Grow",
     description:
-      "Approve changes, we publish to Google. Track daily score movement, rank improvements, and attributed revenue — then the loop runs again with sharper priorities.",
+      "Approve changes, we publish to Google. Track daily profile outcomes, scheduled rank improvements, and attributed revenue — then the loop runs again with sharper priorities.",
   },
 ];
 

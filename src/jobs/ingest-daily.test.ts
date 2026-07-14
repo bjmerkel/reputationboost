@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { IngestRunResult } from "@/audit/types/timeseries";
-import { recordPlanReconcileMetrics } from "./ingest-daily";
+import {
+  recordPlanReconcileMetrics,
+  shouldRunScheduledRankPulse,
+} from "./ingest-daily";
 
 function emptyResult(): IngestRunResult {
   return {
@@ -44,5 +47,22 @@ describe("recordPlanReconcileMetrics", () => {
     assert.equal(result.planTasksCreated, 1);
     assert.equal(result.planTasksAutoCompleted, 0);
     assert.equal(result.planReconcileBusinesses, 1);
+  });
+});
+
+describe("shouldRunScheduledRankPulse", () => {
+  it("runs paid center-rank checks only twice monthly", () => {
+    assert.equal(
+      shouldRunScheduledRankPulse(new Date("2026-07-01T06:00:00.000Z")),
+      true
+    );
+    assert.equal(
+      shouldRunScheduledRankPulse(new Date("2026-07-15T06:00:00.000Z")),
+      true
+    );
+    assert.equal(
+      shouldRunScheduledRankPulse(new Date("2026-07-14T06:00:00.000Z")),
+      false
+    );
   });
 });

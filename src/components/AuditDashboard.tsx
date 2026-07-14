@@ -385,12 +385,12 @@ export default function AuditDashboard({
               disabled={loading || !gbpConnected}
               className="btn-primary shrink-0 rounded-full px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {loading ? "Refreshing…" : "Refresh data"}
+              {loading ? "Refreshing…" : "Refresh profile data"}
             </button>
             <p className="hidden text-[10px] text-[#80868b] sm:block">
-              {audit.period} · {new Date(audit.completedAt).toLocaleDateString()}
+              Market observed {new Date(audit.rankings.collectedAt).toLocaleDateString()}
               {liveRefreshedAt && !liveAuditLoading
-                ? ` · rankings updated ${new Date(liveRefreshedAt).toLocaleDateString()}`
+                ? ` · profile refreshed ${new Date(liveRefreshedAt).toLocaleDateString()}`
                 : ""}
             </p>
           </div>
@@ -501,7 +501,8 @@ export default function AuditDashboard({
             <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f8f9fa]">
               <div className="flex shrink-0 items-center justify-end gap-3 border-b border-[#e8eaed] bg-white px-4 py-3 sm:px-6">
                 <p className="mr-auto text-xs text-[#80868b]">
-                  {audit.period} · {new Date(audit.completedAt).toLocaleDateString()}
+                  Market observed{" "}
+                  {new Date(audit.rankings.collectedAt).toLocaleDateString()}
                 </p>
                 <button
                   type="button"
@@ -509,7 +510,7 @@ export default function AuditDashboard({
                   disabled={loading || !gbpConnected}
                   className="btn-primary shrink-0 rounded-full px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
-                  {loading ? "Refreshing…" : "Refresh data"}
+                  {loading ? "Refreshing…" : "Refresh profile data"}
                 </button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">

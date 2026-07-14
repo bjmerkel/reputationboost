@@ -19,7 +19,11 @@ import {
   upsertRankSnapshots,
 } from "@/audit/storage-timeseries";
 import type { IngestRunResult } from "@/audit/types/timeseries";
-import { GBP_RANK_SCAN_FLAGS, PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
+import {
+  GBP_RANK_SCAN_FLAGS,
+  MARKET_DATA_FLAGS,
+  PLAN_RECONCILE_FLAGS,
+} from "@/lib/feature-flags";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { fetchGbpPerformanceDailySeries } from "@/lib/google/gbp-performance";
 import {
@@ -49,6 +53,12 @@ export interface IngestDailyOptions {
   targetDate?: Date;
   /** When true, skip writing ingest_runs row (for backfill batches). */
   skipRunLog?: boolean;
+  /** Override the twice-monthly Places rank pulse (primarily for tests/backfills). */
+  runRankPulse?: boolean;
+}
+
+export function shouldRunScheduledRankPulse(date: Date): boolean {
+  return MARKET_DATA_FLAGS.rankPulseDaysUtc.includes(date.getUTCDate());
 }
 
 function emptyResult(): IngestRunResult {
@@ -234,7 +244,8 @@ async function ingestRanksForBusiness(
 async function ingestBusiness(
   row: BusinessRecord,
   targetDate: string,
-  result: IngestRunResult
+  result: IngestRunResult,
+  runRankPulse: boolean
 ): Promise<void> {
   try {
     await ingestPerformanceForBusiness(row, targetDate, result);
@@ -246,14 +257,16 @@ async function ingestBusiness(
     });
   }
 
-  try {
-    await ingestRanksForBusiness(row, targetDate, result);
-  } catch (error) {
-    result.errors.push({
-      businessId: row.id,
-      step: "ranks",
-      message: error instanceof Error ? error.message : String(error),
-    });
+  if (runRankPulse) {
+    try {
+      await ingestRanksForBusiness(row, targetDate, result);
+    } catch (error) {
+      result.errors.push({
+        businessId: row.id,
+        step: "ranks",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   try {
@@ -334,6 +347,8 @@ export async function ingestDailyMetrics(
 ): Promise<IngestRunResult> {
   const targetDate = options.targetDate ?? addDays(new Date(), -1);
   const targetDateStr = formatDateYmd(targetDate);
+  const runRankPulse =
+    options.runRankPulse ?? shouldRunScheduledRankPulse(new Date());
   const result = emptyResult();
 
   let runId: string | null = null;
@@ -345,7 +360,7 @@ export async function ingestDailyMetrics(
     const businesses = await listOnboardedBusinesses();
 
     for (const row of businesses) {
-      await ingestBusiness(row, targetDateStr, result);
+      await ingestBusiness(row, targetDateStr, result, runRankPulse);
     }
 
     try {

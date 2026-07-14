@@ -305,6 +305,35 @@ function buildCompetitorSnapshot(
   };
 }
 
+/** Monthly market snapshot: one center search plus sparse-market widening. */
+export async function collectCompetitorSnapshot(
+  keyword: string,
+  location: GeoLocation,
+  matchOptions: BusinessMatchOptions,
+  locationLabel?: string
+): Promise<CompetitorSnapshot> {
+  const initialResults = await searchPlaces(
+    keyword,
+    location,
+    milesToMeters(1),
+    "nearby"
+  );
+  const harvest = await resolveCompetitorResults(
+    keyword,
+    location,
+    matchOptions,
+    {
+      initialResults,
+      locationLabel,
+    }
+  );
+  return buildCompetitorSnapshot(
+    keyword,
+    new Date().toISOString(),
+    harvest
+  );
+}
+
 const EMPTY_COMPETITOR_HARVEST: CompetitorHarvestResult = {
   localPack: [],
   widerRadius: [],

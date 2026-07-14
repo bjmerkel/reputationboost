@@ -10,6 +10,11 @@ export function usesGooglePlacesRankings(): boolean {
   return isGoogleMapsConfigured();
 }
 
+export function gridStorageBusinessId(client: ClientConfig): string | null {
+  if (client.id === "preview") return null;
+  return client.businessId ?? null;
+}
+
 /**
  * Combined Google Places collector — one geocode + search pass per keyword/radius.
  * Avoids duplicate API calls when building rankings and competitor snapshots.
@@ -17,9 +22,10 @@ export function usesGooglePlacesRankings(): boolean {
 export async function collectPlacesSnapshots(client: ClientConfig) {
   return collectPlacesRankData(client, {
     resolveStoredGrid: async (keyword) => {
-      if (!client.id || client.id === "preview") return null;
+      const businessId = gridStorageBusinessId(client);
+      if (!businessId) return null;
       return loadFreshKeywordGridAdmin(
-        client.id,
+        businessId,
         keyword,
         HEATMAP_FLAGS.auditReuseWeeklyGridDays
       );
