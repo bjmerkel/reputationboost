@@ -22,7 +22,7 @@ import {
   GOOGLE_UPDATES_STEP_NUMBER,
   isGoogleUpdateTask,
 } from "@/lib/google/gbp-update-helpers";
-import { buildAllGbpPlanSteps } from "../phase2/gbp-plan";
+import { buildAllGbpPlanSteps, isRetiredGbpPlanStep } from "../phase2/gbp-plan";
 import { resolveRecommendationTimestamp } from "./recommendation-timestamp";
 
 function groupTasksByStep(tasks: ExecutionTask[]): Map<number, ExecutionTask[]> {
@@ -151,6 +151,7 @@ export function buildPlan(
     globalCalibration
   );
   const planSteps = gbpPlan.steps
+    .filter((step) => !isRetiredGbpPlanStep(step.stepNumber))
     .map((step) =>
       buildPlanStep(
         audit,

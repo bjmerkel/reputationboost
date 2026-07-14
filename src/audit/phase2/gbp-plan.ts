@@ -17,6 +17,12 @@ import {
 import { buildGbpDescriptionDraft, cityFromAddress } from "@/lib/google/gbp-description-draft";
 import { resolveReviewResponseRate } from "@/audit/review-engagement";
 
+const RETIRED_GBP_PLAN_STEP_NUMBERS = new Set([16]);
+
+export function isRetiredGbpPlanStep(stepNumber: number): boolean {
+  return RETIRED_GBP_PLAN_STEP_NUMBERS.has(stepNumber);
+}
+
 function keywords(audit: Phase1AuditPayload): string[] {
   return audit.rankings.keywords.map((k) => k.keyword);
 }
@@ -341,21 +347,6 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       ],
       gbpAction: "update_booking_attributes",
       actionData: { bookingUri: audit.gbp.identity.website },
-    },
-    {
-      stepNumber: 16,
-      title: "Continuous Activity",
-      instruction:
-        "Google favors active profiles. Execute this cadence consistently for 6-12 months to move keywords into the Top 3.",
-      current: `${audit.rankings.keywordsInPack}/${audit.rankings.totalKeywords} keywords in 3-Pack (${audit.rankings.shareOfVoice}% share of voice)`,
-      recommended: "Top 3 for all target keywords within 6-12 months",
-      bullets: [
-        "Weekly: 5 new photos, 2 videos, 1 Google Post, respond to all reviews",
-        "Monthly: add 3-5 services, add new products, upload event photos, refresh descriptions",
-        ...outcomePriorityRankings(keywordRankings)
-          .slice(0, 3)
-          .map((k) => `Priority keyword: "${k.keyword}" — ${k.position}`),
-      ],
     },
   ];
 

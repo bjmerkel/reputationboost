@@ -3,7 +3,7 @@ import type { PlanPhase, PlanPhaseId } from "../types";
 const FOUNDATION_STEPS = [0, 1, 2, 3, 4, 5, 12, 13, 14, 15];
 const CONTENT_STEPS = [6, 7, 8, 9];
 const REPUTATION_STEPS = [10, 11];
-const ONGOING_STEPS = [16, 17];
+const ONGOING_STEPS = [17];
 
 const STEP_TO_PHASE = new Map<number, PlanPhaseId>([
   ...FOUNDATION_STEPS.map((n) => [n, "foundation"] as const),

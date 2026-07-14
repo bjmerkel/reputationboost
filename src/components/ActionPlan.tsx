@@ -30,14 +30,6 @@ const phases = [
       { title: "Review Responses", impact: 4 },
     ],
   },
-  {
-    id: "ongoing",
-    title: "Ongoing",
-    description: "Continuous activity to maintain momentum",
-    steps: [
-      { title: "Continuous Activity", impact: 3 },
-    ],
-  },
 ];
 
 export default function ActionPlan() {
@@ -55,7 +47,7 @@ export default function ActionPlan() {
               <span className="gradient-text">not a PDF that collects dust</span>
             </>
           }
-          subtitle="16 prioritized GBP optimizations across four phases. Each step shows projected Reputation Boost Score impact so you know what moves the needle."
+          subtitle="Prioritized GBP optimizations across three phases. Each step shows projected Reputation Boost Score impact so you know what moves the needle."
         />
 
         <div className="mt-16 grid gap-6 lg:grid-cols-2">

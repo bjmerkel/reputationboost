@@ -52,10 +52,9 @@ function gapLinksToStep(gap: GapFlag, stepNumber: number): boolean {
   if (gap.id === "no-search-keyword-data" && [1, 3, 8].includes(stepNumber)) {
     return true;
   }
-  if (gap.id.startsWith("rank-outside-pack") && [3, 4, 8, 10, 16].includes(stepNumber)) {
+  if (gap.id.startsWith("rank-outside-pack") && [3, 4, 8, 10].includes(stepNumber)) {
     return true;
   }
-  if (gap.id === "incomplete-prior-actions" && stepNumber === 16) return true;
   return false;
 }
 

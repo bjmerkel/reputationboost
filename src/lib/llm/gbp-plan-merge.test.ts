@@ -10,11 +10,12 @@ import {
 import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 
 describe("buildPlanStepCandidates", () => {
-  it("includes simulated impacts and satisfaction flags for all 15 steps", () => {
+  it("includes simulated impacts and satisfaction flags for all active steps", () => {
     const audit = createTestAudit();
     const candidates = buildPlanStepCandidates(audit);
 
-    assert.equal(candidates.length, 15);
+    assert.equal(candidates.length, 14);
+    assert.equal(candidates.some((candidate) => candidate.stepNumber === 16), false);
     const unsatisfied = candidates.filter((c) => !c.satisfied);
     assert.ok(unsatisfied.length > 0);
     assert.ok(unsatisfied.some((c) => c.driverScoreImpact > 0));

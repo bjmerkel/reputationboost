@@ -49,7 +49,7 @@ describe("counterfactual score simulation", () => {
 
   it("matches estimateStepHealthImpact when no calibration data exists", () => {
     const audit = createTestAudit();
-    for (let step = 1; step <= 16; step++) {
+    for (let step = 1; step <= 15; step++) {
       assert.equal(
         estimateStepHealthImpact(audit, step),
         simulateStepDriverImpact(audit, step)

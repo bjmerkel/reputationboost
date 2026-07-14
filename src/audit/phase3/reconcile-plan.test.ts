@@ -250,6 +250,26 @@ describe("selectTasksToAutoComplete", () => {
 });
 
 describe("refreshGbpPlanForReconcile", () => {
+  it("removes retired steps from persisted plans", () => {
+    const audit = createTestAudit();
+    audit.strategy.gbpPlan = {
+      ...audit.strategy.gbpPlan!,
+      steps: [
+        ...audit.strategy.gbpPlan!.steps,
+        {
+          stepNumber: 16,
+          title: "Continuous Activity",
+          instruction: "Keep posting and engaging every week.",
+        },
+      ],
+    };
+
+    const { plan } = refreshGbpPlanForReconcile(audit);
+
+    assert.ok(plan);
+    assert.equal(plan!.steps.some((step) => step.stepNumber === 16), false);
+  });
+
   it("appends keyword portfolio step when rotation is needed and missing", () => {
     const audit = createTestAudit();
     audit.strategy.gbpPlan = {
