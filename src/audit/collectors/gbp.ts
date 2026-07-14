@@ -36,6 +36,11 @@ import {
   primaryCategoryFromTypes,
   secondaryCategoriesFromTypes,
 } from "@/lib/google/place-details";
+import {
+  hasPersistedOwnedBusinessIdentity,
+  resolveOwnedBusinessIdentity,
+  shouldFetchConnectedPlacesFallback,
+} from "@/lib/google/owned-business-resolver";
 
 function reviewsSince(reviews: Array<{ createTime: string }>, days: number): number {
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
@@ -101,17 +106,6 @@ function mediaInventoryFromEnrichment(
 }
 
 /**
- * Places is a paid resilience fallback for connected profiles, not a parallel
- * source. A successful GBP profile plus Reviews API response is sufficient.
- */
-export function shouldFetchConnectedPlacesFallback(input: {
-  profileAvailable: boolean;
-  reviewsApiOk: boolean;
-}): boolean {
-  return !input.profileAvailable || !input.reviewsApiOk;
-}
-
-/**
  * Collects Google Business Profile snapshot from OAuth-connected GBP APIs.
  */
 export async function collectGbpSnapshot(
@@ -152,7 +146,7 @@ async function collectGbpFromApi(
   const fallbackPlaceId = connection.placeId ?? client.gbpPlaceId;
   const needsPlacesFallback = shouldFetchConnectedPlacesFallback({
     profileAvailable: Boolean(liveProfileResult),
-    reviewsApiOk: enrichment.reviewsApiOk,
+    persistedIdentityAvailable: hasPersistedOwnedBusinessIdentity(client),
   });
   const place =
     needsPlacesFallback && fallbackPlaceId
@@ -176,6 +170,11 @@ async function collectGbpFromApi(
       : undefined;
 
   const liveProfile = liveProfileResult;
+  const ownedBusiness = resolveOwnedBusinessIdentity(client, {
+    liveProfile,
+    place,
+    connectionPlaceId: connection.placeId,
+  });
   const description =
     liveProfile?.description || place?.description || "";
   const hasDescription = description.length > 0;
@@ -205,18 +204,13 @@ async function collectGbpFromApi(
     gbpReviews.length > 0 ? respondedReviews.length / gbpReviews.length : 0;
   const performance = enrichment.performance;
 
-  const primaryCategory =
-    liveProfile?.primaryCategory?.displayName ||
-    client.industry ||
-    primaryCategoryFromTypes(place?.types ?? []);
+  const primaryCategory = ownedBusiness.identity.primaryCategory;
   const placeActions = analyzeGbpPlaceActionCoverage({
     links: placeActionLinks,
     availableTypes: placeActionTypes,
     primaryCategory,
   });
-  const secondaryCategories = liveProfile?.additionalCategories.length
-    ? liveProfile.additionalCategories.map((c) => c.displayName)
-    : secondaryCategoriesFromTypes(place?.types ?? []);
+  const secondaryCategories = ownedBusiness.identity.secondaryCategories;
 
   const serviceItems = liveProfile?.serviceItems ?? [];
   const attributes =
@@ -234,13 +228,8 @@ async function collectGbpFromApi(
     totalCount: enrichment.media.totalMediaItemCount,
   });
 
-  const name = liveProfile?.title || place?.name || client.name;
-  const address = liveProfile?.address || place?.address || formatAddress(client);
-  const phone = liveProfile?.phone || place?.phone || client.phone || "";
-  const website = liveProfile?.website || place?.website || client.website || "";
-  const placeId =
-    liveProfile?.placeId || connection.placeId || client.gbpPlaceId || place?.placeId;
-  const mapsUrl = liveProfile?.mapsUri || place?.mapsUrl || client.gbpMapsUrl;
+  const { name, address, phone, website, placeId, mapsUrl } =
+    ownedBusiness.identity;
 
   const attributeCoverage =
     availableAttributes.length > 0
@@ -350,8 +339,7 @@ async function collectGbpFromApi(
     },
     issues: {
       isSuspended:
-        liveProfile?.openStatus === "CLOSED_PERMANENTLY" ||
-        (!liveProfile && place?.businessStatus === "CLOSED_PERMANENTLY"),
+        ownedBusiness.openStatus === "CLOSED_PERMANENTLY",
       isVerified: liveProfile?.hasVoiceOfMerchant ?? place?.isOperational ?? false,
       hasDuplicateListings: false,
       napInconsistencies: napDrift.map(
@@ -379,7 +367,7 @@ async function collectGbpFromApi(
         description,
         services: serviceItems,
         attributes,
-        source: liveProfile ? "oauth" : "places",
+        source: ownedBusiness.source === "places" ? "places" : "oauth",
       },
       monthlyActions:
         performance.calls + performance.directionRequests + performance.websiteClicks,
@@ -391,7 +379,7 @@ async function collectGbpFromApi(
       description,
       services: serviceItems,
       attributes,
-      source: liveProfile ? "oauth" : "places",
+      source: ownedBusiness.source === "places" ? "places" : "oauth",
     },
     recentPosts: sortedPosts.slice(0, 5).map((p) => ({
       createTime: p.createTime ?? "",

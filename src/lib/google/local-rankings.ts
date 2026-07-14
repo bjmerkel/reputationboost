@@ -12,6 +12,7 @@ import {
   type SearchRadiusMiles,
 } from "./places";
 import { collectKeywordGeoGrid } from "./geo-grid";
+import { resolveOwnedBusinessCoordinates } from "./owned-business-resolver";
 import { isRadialRankGrid, summarizeRadialRanks } from "./radial-rankings";
 
 const TOP_COMPETITORS = 5;
@@ -224,11 +225,9 @@ function formatClientAddress(client: ClientConfig): string {
 }
 
 export async function resolveBusinessLocation(client: ClientConfig): Promise<GeoLocation> {
-  const { lat, lng } = client.location;
-  if (lat && lng) {
-    return { lat, lng };
-  }
-  return geocodeAddress(formatClientAddress(client));
+  const stored = resolveOwnedBusinessCoordinates(client);
+  if (stored) return stored;
+  return geocodeAddress(client.gbpAddress || formatClientAddress(client));
 }
 
 async function loadAuditGeoGrid(
@@ -423,7 +422,7 @@ export async function collectPlacesRankData(
   const matchOptions: BusinessMatchOptions = {
     businessName: client.name,
     placeId: client.gbpPlaceId,
-    businessAddress: formatClientAddress(client),
+    businessAddress: client.gbpAddress || formatClientAddress(client),
   };
 
   const keywords: KeywordRankSnapshot[] = [];
