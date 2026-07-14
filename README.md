@@ -111,6 +111,9 @@ Radial Text Search requests use one result page (up to 20 businesses) and a mini
 (`places.id`, `places.displayName`) to control API cost.
 The dashboard’s **Refresh profile data** action refreshes free GBP profile/performance data and
 reuses the latest stored market snapshot; it does not launch live rank grids.
+Search responses use a six-hour Supabase-backed cache so the twice-monthly center pulse and
+monthly grid can share identical requests across serverless instances. Monthly market jobs are
+idempotent per business/keyword and reserve against a default 120-call monthly budget.
 
 ### How rankings work
 

@@ -1,9 +1,14 @@
 import { getGoogleMapsApiKey } from "./config";
 import {
   getCachedPlacesSearch,
+  PLACES_SEARCH_CACHE_TTL_MS,
   placesSearchCacheKey,
   setCachedPlacesSearch,
 } from "./places-cache";
+import {
+  getPersistentPlacesSearch,
+  setPersistentPlacesSearch,
+} from "./places-cache-store";
 
 const METERS_PER_MILE = 1609.34;
 /** Rank tracking only needs the first page (top ~20 results). */
@@ -230,11 +235,22 @@ export async function nearbySearch(
     Math.max(options.maxPages ?? DEFAULT_NEARBY_MAX_PAGES, 1),
     MAX_NEARBY_PAGES
   );
+  const cacheKey = placesSearchCacheKey(
+    keyword,
+    location.lat,
+    location.lng,
+    radiusMeters,
+    `nearby:${maxPages}`
+  );
 
   if (!options.skipCache) {
-    const cacheKey = placesSearchCacheKey(keyword, location.lat, location.lng, radiusMeters);
     const cached = getCachedPlacesSearch(cacheKey);
     if (cached) return cached;
+    const persistent = await getPersistentPlacesSearch(cacheKey);
+    if (persistent) {
+      setCachedPlacesSearch(cacheKey, persistent);
+      return persistent;
+    }
   }
 
   const key = apiKeyOrThrow();
@@ -266,8 +282,13 @@ export async function nearbySearch(
   }
 
   if (!options.skipCache) {
-    const cacheKey = placesSearchCacheKey(keyword, location.lat, location.lng, radiusMeters);
     setCachedPlacesSearch(cacheKey, results);
+    await setPersistentPlacesSearch(
+      cacheKey,
+      "nearby",
+      results,
+      PLACES_SEARCH_CACHE_TTL_MS
+    );
   }
 
   return results;
@@ -426,6 +447,11 @@ export async function textSearch(
   );
   const cached = getCachedPlacesSearch(cacheKey);
   if (cached) return cached;
+  const persistent = await getPersistentPlacesSearch(cacheKey);
+  if (persistent) {
+    setCachedPlacesSearch(cacheKey, persistent);
+    return persistent;
+  }
 
   let results: PlaceResult[];
   try {
@@ -435,6 +461,12 @@ export async function textSearch(
     results = await textSearchLegacy(keyword, location, radiusMeters, options.maxPages);
   }
   setCachedPlacesSearch(cacheKey, results);
+  await setPersistentPlacesSearch(
+    cacheKey,
+    "text",
+    results,
+    PLACES_SEARCH_CACHE_TTL_MS
+  );
   return results;
 }
 

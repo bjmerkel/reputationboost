@@ -28,6 +28,16 @@ import {
   resolveBusinessLocation,
   type BusinessMatchOptions,
 } from "@/lib/google/local-rankings";
+import {
+  claimMarketCollection,
+  completeMarketCollection,
+  failMarketCollection,
+  monthStartYmd,
+  MONTHLY_KEYWORD_CALL_RESERVATION,
+  recordPlacesCollectionSkipped,
+  reservePlacesApiCalls,
+  type MarketCollectionClaim,
+} from "@/lib/google/places-cost-governance";
 import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 
 const SEARCH_DELAY_MS = 250;
@@ -54,6 +64,8 @@ function emptyResult(): IngestRunResult {
     rankScansLive: 0,
     rankScansDeferred: 0,
     rankScansForced: 0,
+    placesCallsReserved: 0,
+    placesCollectionsSkipped: 0,
     errors: [],
   };
 }
@@ -133,37 +145,75 @@ async function ingestGridForBusiness(
   const competitorSnapshots: CompetitorSnapshot[] = [];
 
   for (const keyword of keywords) {
+    const claim: MarketCollectionClaim = {
+      businessId: row.id,
+      collectionType: "monthly_market",
+      keyword,
+      periodStart: monthStartYmd(targetDate),
+    };
     try {
-      const geoGrid = await collectKeywordGeoGrid(keyword, location, matchOptions, {
-        profile: gridProfileForCollection("weekly", client.heatmapProfile),
-        includeLocalPack: true,
-      });
-      await persistKeywordGridFromCollection(row.id, keyword, geoGrid, "weekly");
+      if (!(await claimMarketCollection(claim))) {
+        result.placesCollectionsSkipped =
+          (result.placesCollectionsSkipped ?? 0) + 1;
+        await recordPlacesCollectionSkipped(row.id, targetDate);
+        continue;
+      }
+      if (
+        !(await reservePlacesApiCalls(
+          row.id,
+          targetDate,
+          MONTHLY_KEYWORD_CALL_RESERVATION
+        ))
+      ) {
+        result.placesCollectionsSkipped =
+          (result.placesCollectionsSkipped ?? 0) + 1;
+        await recordPlacesCollectionSkipped(row.id, targetDate);
+        await completeMarketCollection(claim, 0);
+        continue;
+      }
+      result.placesCallsReserved =
+        (result.placesCallsReserved ?? 0) +
+        MONTHLY_KEYWORD_CALL_RESERVATION;
+
+      const geoGrid = await collectKeywordGeoGrid(
+        keyword,
+        location,
+        matchOptions,
+        {
+          profile: gridProfileForCollection("weekly", client.heatmapProfile),
+          includeLocalPack: true,
+        }
+      );
+      const competitorSnapshot = await collectCompetitorSnapshot(
+        keyword,
+        location,
+        matchOptions,
+        `${client.location.city}, ${client.location.state}`
+      );
+      await persistKeywordGridFromCollection(
+        row.id,
+        keyword,
+        geoGrid,
+        "weekly"
+      );
+      competitorSnapshots.push(competitorSnapshot);
       // 25 raw samples plus one aggregate row for each 1/3/5-mile ring.
       result.rankRowsUpserted += geoGrid.length + RADIAL_RING_MILES.length;
       result.rankScansLive = (result.rankScansLive ?? 0) + geoGrid.length;
+      await completeMarketCollection(
+        claim,
+        MONTHLY_KEYWORD_CALL_RESERVATION
+      );
       await sleep(SEARCH_DELAY_MS);
     } catch (error) {
+      await failMarketCollection(
+        claim,
+        MONTHLY_KEYWORD_CALL_RESERVATION,
+        error
+      ).catch(() => undefined);
       result.errors.push({
         businessId: row.id,
-        step: `weekly_grid:${keyword}`,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    try {
-      competitorSnapshots.push(
-        await collectCompetitorSnapshot(
-          keyword,
-          location,
-          matchOptions,
-          `${client.location.city}, ${client.location.state}`
-        )
-      );
-    } catch (error) {
-      result.errors.push({
-        businessId: row.id,
-        step: `monthly_competitors:${keyword}`,
+        step: `monthly_market:${keyword}`,
         message: error instanceof Error ? error.message : String(error),
       });
     }
