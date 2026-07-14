@@ -39,6 +39,7 @@ export interface BusinessRecord {
   webhook_delay_hours: number;
   webhook_trigger_events: string[];
   gbp_google_update_at: string | null;
+  last_manual_rank_refresh_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -355,6 +356,23 @@ export async function saveGbpServiceArea(
     .eq("id", businessId);
 
   if (error) throw new Error(`Failed to save GBP service area: ${error.message}`);
+}
+
+export async function saveManualRankRefreshAt(
+  userId: string,
+  businessId: string,
+  refreshedAt: string
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("businesses")
+    .update({
+      last_manual_rank_refresh_at: refreshedAt,
+      updated_at: refreshedAt,
+    })
+    .eq("user_id", userId)
+    .eq("id", businessId);
+  if (error) throw new Error(`Failed to save manual rank refresh: ${error.message}`);
 }
 
 export async function saveAvgCustomerValue(

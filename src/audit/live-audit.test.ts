@@ -134,5 +134,50 @@ describe("radial rank hydration", () => {
 
     assert.equal(hydrated.rankings.keywords[0]?.localPackPosition, 2);
     assert.equal(hydrated.rankings.keywords[0]?.inLocalPack, true);
+    assert.equal(hydrated.rankings.keywords[0]?.observationSource, "observed");
+  });
+
+  it("marks carried-forward ranks as estimated", () => {
+    const audit = minimalAudit({
+      rankings: {
+        collectedAt: "2026-07-01T10:00:00.000Z",
+        keywords: [
+          {
+            keyword: "ac repair",
+            localPackPosition: 2,
+            inLocalPack: true,
+            geoRanks: [],
+            packLeaderRating: 4.8,
+            packLeaderReviewCount: 100,
+            clientRating: 4.6,
+            clientReviewCount: 50,
+          },
+        ],
+        keywordsInPack: 1,
+        totalKeywords: 1,
+        shareOfVoice: 100,
+      },
+    });
+    const keyword = audit.rankings.keywords[0]!;
+    const hydrated = applyRankSnapshotsToAudit(audit, [
+      {
+        businessId: "business-1",
+        keyword: keyword.keyword,
+        date: "2026-07-10",
+        distanceMiles: 0,
+        gridNorth: 0,
+        gridEast: 0,
+        rank: 2,
+        inLocalPack: true,
+        localPackPosition: 2,
+        source: "deferred",
+        rankingModel: "radial_text_v2",
+      },
+    ]);
+
+    assert.equal(
+      hydrated.rankings.keywords[0]?.observationSource,
+      "carried_forward"
+    );
   });
 });

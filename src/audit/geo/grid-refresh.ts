@@ -11,7 +11,10 @@ import {
   type BusinessMatchOptions,
 } from "@/lib/google/local-rankings";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { gridProfileForCollection } from "@/lib/feature-flags";
+import {
+  gridProfileForCollection,
+  MARKET_REFRESH_FLAGS,
+} from "@/lib/feature-flags";
 
 async function loadBusinessClient(businessId: string) {
   const supabase = createAdminClient();
@@ -35,6 +38,7 @@ export async function refreshGridAfterTaskIfNeeded(
 ): Promise<void> {
   const { primaryKeyword, rankImproved, taskId } = options;
   if (!primaryKeyword || !rankImproved) return;
+  if (!MARKET_REFRESH_FLAGS.taskTriggeredGridEnabled) return;
   if (!isGoogleMapsConfigured()) return;
 
   const shouldRefresh = await shouldRefreshGridAfterTask(record.businessId, primaryKeyword);

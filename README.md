@@ -114,6 +114,9 @@ reuses the latest stored market snapshot; it does not launch live rank grids.
 Search responses use a six-hour Supabase-backed cache so the twice-monthly center pulse and
 monthly grid can share identical requests across serverless instances. Monthly market jobs are
 idempotent per business/keyword and reserve against a default 120-call monthly budget.
+Users may request a budget-aware center-rank refresh once every seven days. Ranking-signal GBP
+changes enqueue a center-rank check ten days later; task completion never launches an immediate
+25-point grid. Full grids remain monthly, and the live grid API is disabled by default.
 
 ### How rankings work
 

@@ -4,7 +4,11 @@ export const DEFAULT_PLACES_MONTHLY_CALL_BUDGET = 120;
 export const MONTHLY_KEYWORD_CALL_RESERVATION = 29;
 const STALE_CLAIM_MS = 2 * 60 * 60 * 1000;
 
-export type MarketCollectionType = "rank_pulse" | "monthly_market";
+export type MarketCollectionType =
+  | "rank_pulse"
+  | "monthly_market"
+  | "manual_rank_pulse"
+  | "event_rank_pulse";
 
 export interface MarketCollectionClaim {
   businessId: string;
@@ -23,6 +27,35 @@ export function monthStartYmd(date: string | Date): string {
 
 export function normalizeCollectionKeyword(keyword: string): string {
   return keyword.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export interface PlacesMonthlyUsage {
+  callsBudget: number;
+  callsReserved: number;
+  callsRemaining: number;
+  collectionsSkipped: number;
+}
+
+export async function getPlacesMonthlyUsage(
+  businessId: string,
+  date: string | Date = new Date()
+): Promise<PlacesMonthlyUsage> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("places_api_monthly_usage")
+    .select("calls_budget,calls_reserved,collections_skipped")
+    .eq("business_id", businessId)
+    .eq("month", monthStartYmd(date))
+    .maybeSingle();
+  if (error) throw new Error(`Failed to read Places API budget: ${error.message}`);
+  const callsBudget = Number(data?.calls_budget ?? DEFAULT_PLACES_MONTHLY_CALL_BUDGET);
+  const callsReserved = Number(data?.calls_reserved ?? 0);
+  return {
+    callsBudget,
+    callsReserved,
+    callsRemaining: Math.max(0, callsBudget - callsReserved),
+    collectionsSkipped: Number(data?.collections_skipped ?? 0),
+  };
 }
 
 export async function reservePlacesApiCalls(

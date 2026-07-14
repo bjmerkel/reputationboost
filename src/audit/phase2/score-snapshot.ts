@@ -64,6 +64,11 @@ export function applyRankSnapshotsToAudit(
 
     return {
       ...kw,
+      observationSource: centerSnapshot
+        ? centerSnapshot.source === "deferred"
+          ? "carried_forward" as const
+          : "observed" as const
+        : kw.observationSource,
       centerRank: snapAtPin ? snapAtPin.rank : kw.centerRank,
       localPackPosition: centerSnapshot
         ? packPositionFromSnapshot(centerSnapshot)
