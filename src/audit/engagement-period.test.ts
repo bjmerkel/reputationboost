@@ -109,7 +109,7 @@ describe("buildEngagementPeriodSummary", () => {
     assert.match(formatPerformanceIngestLabel(summary) ?? "", /data through Jul 9, 2026/);
   });
 
-  it("falls back to audit when ingest rows exist but action totals are zero", () => {
+  it("uses ingested rows when action totals are legitimately zero", () => {
     const bounds = rollingPeriodBounds(30, REF);
     const zeroIngest: DailyMetricPoint[] = [];
     const cursor = new Date(`${bounds.startDate}T12:00:00.000Z`);
@@ -143,9 +143,11 @@ describe("buildEngagementPeriodSummary", () => {
       },
     });
 
-    assert.equal(summary.source, "audit_fallback");
-    assert.equal(summary.calls.current, 2);
-    assert.equal(summary.websiteClicks.current, 3);
+    assert.equal(summary.source, "ingest");
+    assert.equal(summary.calls.current, 0);
+    assert.equal(summary.websiteClicks.current, 0);
+    assert.equal(summary.latestDataDate, bounds.endDate);
+    assert.equal(summary.lastIngestedAt, "2026-07-10T04:00:00.000Z");
   });
 });
 

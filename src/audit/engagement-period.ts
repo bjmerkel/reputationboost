@@ -145,24 +145,19 @@ function sumMetricInRange(
     .reduce((sum, p) => sum + p.value, 0);
 }
 
-function sumActionMetricsInRange(
-  points: DailyMetricPoint[],
-  startDate: string,
-  endDate: string
-): number {
-  return (
-    sumMetricInRange(points, "calls", startDate, endDate) +
-    sumMetricInRange(points, "direction_requests", startDate, endDate) +
-    sumMetricInRange(points, "website_clicks", startDate, endDate)
-  );
-}
-
 function hasUsableIngestedActionMetrics(
   points: DailyMetricPoint[],
   startDate: string,
   endDate: string
 ): boolean {
-  return sumActionMetricsInRange(points, startDate, endDate) > 0;
+  return points.some(
+    (point) =>
+      (point.metric === "calls" ||
+        point.metric === "direction_requests" ||
+        point.metric === "website_clicks") &&
+      point.date >= startDate &&
+      point.date <= endDate
+  );
 }
 
 /**

@@ -18,7 +18,7 @@ import {
   upsertPerformanceDaily,
   upsertRankSnapshots,
 } from "@/audit/storage-timeseries";
-import type { IngestRunResult } from "@/audit/types/timeseries";
+import type { DailyMetricPoint, IngestRunResult } from "@/audit/types/timeseries";
 import { GBP_RANK_SCAN_FLAGS, PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { fetchGbpPerformanceDailySeries } from "@/lib/google/gbp-performance";
@@ -29,6 +29,8 @@ import {
 import { getValidGbpConnectionForRecord } from "@/lib/google/token-store";
 
 const KEYWORD_SEARCH_DELAY_MS = 150;
+const PERFORMANCE_LOOKBACK_DAYS = 61;
+const ACTION_METRICS = ["calls", "direction_requests", "website_clicks"] as const;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -80,6 +82,37 @@ export function recordPlanReconcileMetrics(
   result.planReconcileBusinesses = (result.planReconcileBusinesses ?? 0) + 1;
 }
 
+/**
+ * Keep all newly available days in the rolling fetch and materialize missing
+ * action values as zero on dates where Google returned another metric.
+ */
+export function normalizePerformancePoints(
+  points: DailyMetricPoint[],
+  startDate: string,
+  targetDate: string
+): DailyMetricPoint[] {
+  const byDateMetric = new Map<string, DailyMetricPoint>();
+
+  for (const point of points) {
+    if (point.date < startDate || point.date > targetDate) continue;
+    byDateMetric.set(`${point.date}:${point.metric}`, point);
+  }
+
+  const dates = new Set([...byDateMetric.values()].map((point) => point.date));
+  for (const date of dates) {
+    for (const metric of ACTION_METRICS) {
+      const key = `${date}:${metric}`;
+      if (!byDateMetric.has(key)) {
+        byDateMetric.set(key, { date, metric, value: 0 });
+      }
+    }
+  }
+
+  return [...byDateMetric.values()].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.metric.localeCompare(b.metric)
+  );
+}
+
 async function ingestPerformanceForBusiness(
   row: BusinessRecord,
   targetDate: string,
@@ -96,22 +129,23 @@ async function ingestPerformanceForBusiness(
   }
 
   const end = addDays(new Date(`${targetDate}T12:00:00.000Z`), 1);
-  const start = addDays(end, -4);
+  const start = addDays(end, -PERFORMANCE_LOOKBACK_DAYS);
+  const startDate = formatDateYmd(start);
 
   const points = await fetchGbpPerformanceDailySeries(connection, start, end);
-  const forDate = points.filter((p) => p.date === targetDate);
+  const availablePoints = normalizePerformancePoints(points, startDate, targetDate);
 
-  if (forDate.length === 0) {
+  if (availablePoints.length === 0) {
     result.errors.push({
       businessId: row.id,
       step: "performance",
-      message: `No performance data returned for ${targetDate}`,
+      message: `No performance data returned from ${startDate} through ${targetDate}`,
     });
     return;
   }
 
   const count = await upsertPerformanceDaily(
-    forDate.map((p) => ({
+    availablePoints.map((p) => ({
       businessId: row.id,
       date: p.date,
       metric: p.metric,
