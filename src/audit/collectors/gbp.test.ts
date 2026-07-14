@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { GbpConnection } from "../types";
 import { listGbpReviewsWithSummary } from "@/lib/google/gbp-reviews";
-import { shouldFetchConnectedPlacesFallback } from "./gbp";
+import { shouldFetchConnectedPlacesFallback } from "@/lib/google/owned-business-resolver";
 
 const connection: GbpConnection = {
   businessId: "business-1",
@@ -14,28 +14,28 @@ const connection: GbpConnection = {
 };
 
 describe("connected GBP Places fallback policy", () => {
-  it("does not use paid Place Details when GBP profile and reviews succeed", () => {
+  it("does not use paid Place Details when the GBP profile succeeds", () => {
     assert.equal(
       shouldFetchConnectedPlacesFallback({
         profileAvailable: true,
-        reviewsApiOk: true,
+        persistedIdentityAvailable: false,
       }),
       false
     );
   });
 
-  it("keeps Place Details as a resilience fallback for failed GBP reads", () => {
+  it("uses persisted identity before Place Details after a live GBP failure", () => {
     assert.equal(
       shouldFetchConnectedPlacesFallback({
         profileAvailable: false,
-        reviewsApiOk: true,
+        persistedIdentityAvailable: true,
       }),
-      true
+      false
     );
     assert.equal(
       shouldFetchConnectedPlacesFallback({
-        profileAvailable: true,
-        reviewsApiOk: false,
+        profileAvailable: false,
+        persistedIdentityAvailable: false,
       }),
       true
     );

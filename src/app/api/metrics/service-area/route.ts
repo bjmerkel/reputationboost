@@ -27,12 +27,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Business not found" }, { status: 404 });
   }
 
-  if (!client.gbpConnection || !isGoogleBusinessApiConfigured()) {
+  if (!isGoogleBusinessApiConfigured()) {
     return NextResponse.json(EMPTY);
   }
 
   try {
-    const { places } = await fetchGbpServiceAreaData(client.gbpConnection);
+    let places = client.gbpServiceArea?.places ?? [];
+    if (!places.length && client.gbpConnection) {
+      const live = await fetchGbpServiceAreaData(client.gbpConnection);
+      places = live.places;
+    }
     if (!places.length) {
       return NextResponse.json(EMPTY);
     }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createBusiness, getPrimaryBusiness, saveAvgCustomerValue } from "@/audit/businesses";
 import { recomputeAttributionsForBusiness } from "@/audit/attribution";
-import { fetchPlaceDetails } from "@/lib/google/place-details";
 import { getUser } from "@/lib/supabase/server";
 
 export async function PATCH(request: Request) {
@@ -71,16 +70,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Business name and industry are required" }, { status: 400 });
     }
 
-    let mapsUrl = body.mapsUrl?.trim();
+    const mapsUrl = body.mapsUrl?.trim();
     const placeId = body.placeId?.trim();
-    if (!mapsUrl && placeId) {
-      try {
-        const place = await fetchPlaceDetails(placeId);
-        mapsUrl = place.mapsUrl || undefined;
-      } catch {
-        // Business can still be created without a stored Maps URL
-      }
-    }
 
     const business = await createBusiness(user.id, {
       name: body.name.trim(),
