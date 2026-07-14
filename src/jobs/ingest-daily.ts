@@ -5,7 +5,9 @@ import {
   backfillScoreDailyForBusiness,
   ingestScoreDailyForBusiness,
 } from "@/audit/phase2/score-ingest";
+import { planKeywordRankScans } from "@/audit/phase2/rank-scan-plan";
 import { reconcilePlanForBusiness } from "@/audit/phase3/reconcile-plan";
+import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin";
 import { refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import { refreshGlobalScoreModel } from "@/audit/storage-score-model";
 import { businessRecordToClientConfig, type BusinessRecord } from "@/audit/businesses";
@@ -17,7 +19,7 @@ import {
   upsertRankSnapshots,
 } from "@/audit/storage-timeseries";
 import type { IngestRunResult } from "@/audit/types/timeseries";
-import { PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
+import { GBP_RANK_SCAN_FLAGS, PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { fetchGbpPerformanceDailySeries } from "@/lib/google/gbp-performance";
 import {
@@ -60,6 +62,9 @@ function emptyResult(): IngestRunResult {
     planTasksCreated: 0,
     planTasksAutoCompleted: 0,
     planReconcileBusinesses: 0,
+    rankScansLive: 0,
+    rankScansDeferred: 0,
+    rankScansForced: 0,
     errors: [],
   };
 }
@@ -135,6 +140,21 @@ async function ingestRanksForBusiness(
   const keywords = client.keywords.filter(Boolean);
   if (keywords.length === 0) return;
 
+  const latestAudit = await loadLatestAuditForBusinessAdmin(
+    row.user_id,
+    row.id,
+    row.slug,
+    row.name
+  ).catch(() => null);
+  const scanPlan = planKeywordRankScans({
+    keywords,
+    audit: latestAudit,
+    targetDate,
+    context: "daily",
+    enabled: GBP_RANK_SCAN_FLAGS.enabled,
+    minLiveScans: GBP_RANK_SCAN_FLAGS.minDailyLiveScans,
+  });
+
   const location = await resolveBusinessLocation(client);
   const matchOptions = {
     businessName: client.name,
@@ -150,7 +170,7 @@ async function ingestRanksForBusiness(
   };
 
   const rows = [];
-  for (const keyword of keywords) {
+  for (const keyword of scanPlan.liveScan) {
     const { rank, inLocalPack, localPackPosition } = await searchKeywordAtOneMile(
       keyword,
       location,
@@ -174,8 +194,41 @@ async function ingestRanksForBusiness(
     await sleep(KEYWORD_SEARCH_DELAY_MS);
   }
 
+  const priorByKeyword = new Map(
+    (latestAudit?.rankings.keywords ?? []).map((item) => [
+      item.keyword.trim().toLowerCase(),
+      item,
+    ])
+  );
+  for (const deferred of scanPlan.deferred) {
+    const prior = priorByKeyword.get(deferred.keyword);
+    if (!prior) continue;
+    const priorPosition =
+      typeof prior.localPackPosition === "number"
+        ? prior.localPackPosition
+        : null;
+    rows.push({
+      businessId: row.id,
+      keyword: deferred.keyword,
+      date: targetDate,
+      distanceMiles: 0,
+      gridNorth: 0,
+      gridEast: 0,
+      rank: prior.centerRank ?? priorPosition,
+      inLocalPack: prior.inLocalPack,
+      localPackPosition: priorPosition,
+      source: "deferred" as const,
+      rankingModel: "radial_text_v2" as const,
+    });
+  }
+
   const count = await upsertRankSnapshots(rows);
   result.rankRowsUpserted += count;
+  result.rankScansLive = (result.rankScansLive ?? 0) + scanPlan.liveScan.length;
+  result.rankScansDeferred =
+    (result.rankScansDeferred ?? 0) + scanPlan.deferred.length;
+  result.rankScansForced =
+    (result.rankScansForced ?? 0) + scanPlan.forcedRescan.length;
 }
 
 async function ingestBusiness(

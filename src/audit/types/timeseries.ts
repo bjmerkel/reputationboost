@@ -43,7 +43,7 @@ export interface RankSnapshotRow {
   rank: number | null;
   inLocalPack: boolean;
   localPackPosition: number | null;
-  source: "api" | "audit_backfill";
+  source: "api" | "audit_backfill" | "deferred";
   rankingModel?: RankingModel;
 }
 
@@ -60,6 +60,12 @@ export interface IngestRunResult {
   planTasksAutoCompleted?: number;
   /** Businesses where plan reconcile ran successfully. */
   planReconcileBusinesses?: number;
+  /** Places rank searches executed after GBP-guided planning. */
+  rankScansLive?: number;
+  /** Paid rank searches replaced with a carried-forward rank. */
+  rankScansDeferred?: number;
+  /** Deferred keywords rotated back into a live scan. */
+  rankScansForced?: number;
   errors: Array<{ businessId: string; step: string; message: string }>;
 }
 
