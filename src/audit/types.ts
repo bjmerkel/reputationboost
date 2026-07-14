@@ -4,6 +4,13 @@ import type { GridProfileKey } from "@/lib/google/geo-grid";
 
 export type LocalPackPosition = 1 | 2 | 3 | "not_in_pack";
 
+export interface GbpPersistedServiceArea {
+  version: 1;
+  businessType: string | null;
+  places: Array<{ placeId: string; placeName: string }>;
+  businessLatLng: { lat: number; lng: number } | null;
+}
+
 export interface ClientConfig {
   id: string;
   businessId?: string;
@@ -20,6 +27,10 @@ export interface ClientConfig {
   keywords: string[];
   gbpPlaceId?: string;
   gbpMapsUrl?: string;
+  gbpAddress?: string;
+  gbpOpenStatus?: string | null;
+  gbpSecondaryCategories?: string[];
+  gbpServiceArea?: GbpPersistedServiceArea | null;
   website?: string;
   phone?: string;
   gbpConnection?: GbpConnection;

@@ -7,7 +7,6 @@ import GbpDisconnect from "@/components/GbpDisconnect";
 import GbpLocationSwitcher from "@/components/GbpLocationSwitcher";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import RoiSettings from "@/components/RoiSettings";
-import { fetchPlaceDetails } from "@/lib/google/place-details";
 import { getUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -32,15 +31,7 @@ export default async function SettingsPage() {
     business.gbpConnection && business.onboardingComplete && record?.gbp_location_id
   );
 
-  let mapsUrl = record?.gbp_maps_url ?? business.gbpMapsUrl ?? null;
-  if (!mapsUrl && business.gbpPlaceId) {
-    try {
-      const place = await fetchPlaceDetails(business.gbpPlaceId);
-      mapsUrl = place.mapsUrl || null;
-    } catch {
-      // Fall back to name+address search link in GoogleMapsLink
-    }
-  }
+  const mapsUrl = record?.gbp_maps_url ?? business.gbpMapsUrl ?? null;
 
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-[#f8f9fa] py-8 lg:py-10">
@@ -99,7 +90,10 @@ export default async function SettingsPage() {
               <GoogleMapsLink
                 mapsUrl={mapsUrl}
                 name={business.name}
-                address={`${business.location.address}, ${business.location.city}, ${business.location.state} ${business.location.zip}`}
+                address={
+                  business.gbpAddress ??
+                  `${business.location.address}, ${business.location.city}, ${business.location.state} ${business.location.zip}`
+                }
               />
             </div>
           </div>
