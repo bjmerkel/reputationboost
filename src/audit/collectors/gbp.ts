@@ -16,7 +16,6 @@ import {
 } from "@/lib/google/gbp-place-actions";
 import { analyzeGbpPlaceActionCoverage } from "@/lib/google/gbp-place-actions-coverage";
 import {
-  listGbpLocalPosts,
   localPostActionLabel,
   reportGbpLocalPostInsights,
 } from "@/lib/google/gbp-local-posts";

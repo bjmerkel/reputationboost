@@ -10,7 +10,6 @@ import {
   type GbpReview,
   type GbpReviewList,
 } from "./gbp-reviews";
-import { authHeadersForConnection } from "./token-store";
 
 export type { GbpReview } from "./gbp-reviews";
 export type { GbpLocalPost } from "./gbp-local-posts";
