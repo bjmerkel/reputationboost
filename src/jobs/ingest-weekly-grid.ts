@@ -1,6 +1,7 @@
 import { listOnboardedBusinesses } from "@/audit/businesses-admin";
 import { businessRecordToClientConfig, type BusinessRecord } from "@/audit/businesses";
 import { prioritizeKeywordsForGrid } from "@/audit/phase2/keyword-portfolio";
+import { planKeywordRankScans } from "@/audit/phase2/rank-scan-plan";
 import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin";
 import {
   completeIngestRun,
@@ -10,7 +11,11 @@ import {
 import { persistKeywordGridFromCollection } from "@/audit/storage-grid-snapshots";
 import type { IngestRunResult } from "@/audit/types/timeseries";
 import { ingestScoreDailyForBusiness, backfillScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
-import { gridProfileForCollection, HEATMAP_FLAGS } from "@/lib/feature-flags";
+import {
+  GBP_RANK_SCAN_FLAGS,
+  gridProfileForCollection,
+  HEATMAP_FLAGS,
+} from "@/lib/feature-flags";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { collectKeywordGeoGrid } from "@/lib/google/geo-grid";
 import {
@@ -40,6 +45,9 @@ function emptyResult(): IngestRunResult {
     planTasksCreated: 0,
     planTasksAutoCompleted: 0,
     planReconcileBusinesses: 0,
+    rankScansLive: 0,
+    rankScansDeferred: 0,
+    rankScansForced: 0,
     errors: [],
   };
 }
@@ -72,7 +80,27 @@ async function ingestGridForBusiness(
       row.name
     );
     if (audit) {
-      keywords = prioritizeKeywordsForGrid(audit, allKeywords, gridKeywordLimit);
+      const scanPlan = planKeywordRankScans({
+        keywords: allKeywords,
+        audit,
+        targetDate,
+        context: "weekly_grid",
+        enabled: GBP_RANK_SCAN_FLAGS.enabled,
+        minLiveScans: GBP_RANK_SCAN_FLAGS.minWeeklyLiveScans,
+      });
+      const forced = scanPlan.forcedRescan.slice(0, gridKeywordLimit);
+      const forcedSet = new Set(forced);
+      const prioritized = prioritizeKeywordsForGrid(
+        audit,
+        scanPlan.liveScan.filter((keyword) => !forcedSet.has(keyword)),
+        Math.max(0, gridKeywordLimit - forced.length)
+      );
+      keywords = [...prioritized, ...forced];
+      result.rankScansDeferred =
+        (result.rankScansDeferred ?? 0) + scanPlan.deferred.length * 25;
+      result.rankScansForced =
+        (result.rankScansForced ?? 0) +
+        forced.length * 25;
     }
   } catch {
     keywords = allKeywords.slice(0, gridKeywordLimit);
@@ -101,6 +129,7 @@ async function ingestGridForBusiness(
       await persistKeywordGridFromCollection(row.id, keyword, geoGrid, "weekly");
       // 25 raw samples plus one aggregate row for each 1/3/5-mile ring.
       result.rankRowsUpserted += geoGrid.length + RADIAL_RING_MILES.length;
+      result.rankScansLive = (result.rankScansLive ?? 0) + geoGrid.length;
       await sleep(SEARCH_DELAY_MS);
     } catch (error) {
       result.errors.push({

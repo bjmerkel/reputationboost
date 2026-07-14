@@ -6,6 +6,13 @@ export const PLAN_RECONCILE_FLAGS = {
   enabled: true,
 } as const;
 
+/** GBP demand-guided Places rank scan scheduling. */
+export const GBP_RANK_SCAN_FLAGS = {
+  enabled: true,
+  minDailyLiveScans: 3,
+  minWeeklyLiveScans: 2,
+} as const;
+
 export const HEATMAP_FLAGS = {
   insightPanel: true,
   zoneHighlights: true,
