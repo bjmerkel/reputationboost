@@ -64,6 +64,12 @@ export interface GbpReview {
   mediaItems: GbpReviewMediaItem[];
 }
 
+export interface GbpReviewList {
+  reviews: GbpReview[];
+  totalReviewCount: number;
+  averageRating: number;
+}
+
 interface ReviewApi {
   name?: string;
   reviewId?: string;
@@ -183,13 +189,15 @@ export function isReviewResponded(review: GbpReview): boolean {
   return Boolean(review.reviewReply?.comment);
 }
 
-/** accounts.locations.reviews.list — paginated, full field set. */
-export async function listGbpReviews(
+/** accounts.locations.reviews.list — paginated, including Google's profile-level aggregates. */
+export async function listGbpReviewsWithSummary(
   connection: GbpConnection,
   options?: { maxReviews?: number }
-): Promise<GbpReview[]> {
+): Promise<GbpReviewList> {
   const maxReviews = options?.maxReviews ?? 500;
   const reviews: GbpReview[] = [];
+  let totalReviewCount: number | null = null;
+  let profileAverageRating: number | null = null;
   let pageToken: string | undefined;
 
   do {
@@ -203,6 +211,8 @@ export async function listGbpReviews(
 
     const data = (await res.json()) as {
       reviews?: ReviewApi[];
+      totalReviewCount?: number;
+      averageRating?: number;
       nextPageToken?: string;
       error?: { message?: string };
     };
@@ -215,10 +225,31 @@ export async function listGbpReviews(
       reviews.push(parseGbpReview(review, reviews.length));
     }
 
+    totalReviewCount ??= data.totalReviewCount ?? null;
+    profileAverageRating ??= data.averageRating ?? null;
     pageToken = data.nextPageToken;
   } while (pageToken && reviews.length < maxReviews);
 
-  return reviews;
+  const sampledAverageRating =
+    reviews.length > 0
+      ? Math.round(
+          (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length) * 10
+        ) / 10
+      : 0;
+
+  return {
+    reviews,
+    totalReviewCount: totalReviewCount ?? reviews.length,
+    averageRating: profileAverageRating ?? sampledAverageRating,
+  };
+}
+
+/** Compatibility wrapper for callers that only need review records. */
+export async function listGbpReviews(
+  connection: GbpConnection,
+  options?: { maxReviews?: number }
+): Promise<GbpReview[]> {
+  return (await listGbpReviewsWithSummary(connection, options)).reviews;
 }
 
 /** accounts.locations.reviews.get */
