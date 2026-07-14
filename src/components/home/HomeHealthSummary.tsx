@@ -23,6 +23,18 @@ function gradeColor(grade: string): string {
   return "#e37400";
 }
 
+function formatScoreDate(value: string): string {
+  const date = new Date(value.length === 10 ? `${value}T12:00:00.000Z` : value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export default function HomeHealthSummary({
   audit,
   summary,
@@ -77,12 +89,22 @@ export default function HomeHealthSummary({
   const auditChangelog = mom?.scoreChangelog ?? [];
   const changelog = dailyChangelog.length > 0 ? dailyChangelog : auditChangelog;
   const gridCoverage = aggregateGridCoverage(audit.rankings.keywords);
+  const scoresLastUpdatedAt = liveScoreDate ?? audit.completedAt;
 
   return (
     <section className="rounded-xl border border-[#dadce0] bg-white p-5 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wider text-[#80868b]">
-        How am I doing?
-      </p>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#80868b]">
+          How am I doing?
+        </p>
+        <time
+          dateTime={scoresLastUpdatedAt}
+          className="text-xs text-[#80868b]"
+          title={scoresLastUpdatedAt}
+        >
+          Scores last updated {formatScoreDate(scoresLastUpdatedAt)}
+        </time>
+      </div>
 
       <div className="mt-4 flex flex-wrap items-start gap-4">
         <div
@@ -114,11 +136,6 @@ export default function HomeHealthSummary({
             {scores.grade.replace("_", " ")}
             <InfoTooltip {...SCORE_TOOLTIPS.grade} />
           </p>
-          {liveScoreDate && liveScore != null && liveScore !== scores.overall && (
-            <p className="mt-1 text-xs text-[#1a73e8]">
-              Live score {liveScore}/100 · updated {liveScoreDate}
-            </p>
-          )}
           {mom && mom.overallScoreChange !== 0 && !liveScoreDate && (
             <p
               className={`mt-1 inline-flex items-center gap-1 text-sm ${
