@@ -5,7 +5,11 @@ import {
 } from "./gbp-performance";
 import { fetchGbpMediaSummary, type GbpMediaSummary } from "./gbp-media";
 import { listGbpLocalPosts, type GbpLocalPost } from "./gbp-local-posts";
-import { listGbpReviews, type GbpReview } from "./gbp-reviews";
+import {
+  listGbpReviewsWithSummary,
+  type GbpReview,
+  type GbpReviewList,
+} from "./gbp-reviews";
 import { authHeadersForConnection } from "./token-store";
 
 export type { GbpReview } from "./gbp-reviews";
@@ -17,6 +21,7 @@ export interface GbpEnrichment {
   posts: GbpLocalPost[];
   postsApiOk: boolean;
   reviews: GbpReview[];
+  reviewSummary: Pick<GbpReviewList, "totalReviewCount" | "averageRating">;
   reviewsApiOk: boolean;
   media: GbpMediaSummary;
 }
@@ -35,14 +40,21 @@ export async function fetchGbpEnrichment(
     .catch(() => [] as GbpLocalPost[]);
 
   let reviewsApiOk = false;
-  const reviewsPromise = listGbpReviews(connection)
-    .then((items) => {
+  const reviewsPromise = listGbpReviewsWithSummary(connection)
+    .then((result) => {
       reviewsApiOk = true;
-      return items;
+      return result;
     })
-    .catch(() => [] as GbpReview[]);
+    .catch(
+      () =>
+        ({
+          reviews: [],
+          totalReviewCount: 0,
+          averageRating: 0,
+        }) satisfies GbpReviewList
+    );
 
-  const [performance, posts, reviews, media] = await Promise.all([
+  const [performance, posts, reviewList, media] = await Promise.all([
     fetchGbpPerformanceData(connection, 30, { platformEmail: options?.userEmail }),
     postsPromise,
     reviewsPromise,
@@ -56,5 +68,16 @@ export async function fetchGbpEnrichment(
     })),
   ]);
 
-  return { performance, posts, postsApiOk, reviews, reviewsApiOk, media };
+  return {
+    performance,
+    posts,
+    postsApiOk,
+    reviews: reviewList.reviews,
+    reviewSummary: {
+      totalReviewCount: reviewList.totalReviewCount,
+      averageRating: reviewList.averageRating,
+    },
+    reviewsApiOk,
+    media,
+  };
 }

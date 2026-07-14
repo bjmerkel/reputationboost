@@ -102,6 +102,17 @@ function mediaInventoryFromEnrichment(
 }
 
 /**
+ * Places is a paid resilience fallback for connected profiles, not a parallel
+ * source. A successful GBP profile plus Reviews API response is sufficient.
+ */
+export function shouldFetchConnectedPlacesFallback(input: {
+  profileAvailable: boolean;
+  reviewsApiOk: boolean;
+}): boolean {
+  return !input.profileAvailable || !input.reviewsApiOk;
+}
+
+/**
  * Collects Google Business Profile snapshot from OAuth-connected GBP APIs.
  */
 export async function collectGbpSnapshot(
@@ -129,19 +140,25 @@ async function collectGbpFromApi(
 ): Promise<GbpSnapshot> {
   const now = new Date().toISOString();
 
-  const [enrichment, liveProfileResult, place, notificationSetting, placeActionLinks, placeActionTypes] =
+  const [enrichment, liveProfileResult, notificationSetting, placeActionLinks, placeActionTypes] =
     await Promise.all([
     fetchGbpEnrichment(connection, { userEmail: options?.userEmail }),
     getGbpLocationProfile(connection)
       .then((profile) => enrichGbpLocationProfile(connection, profile))
       .catch(() => null),
-    (connection.placeId ?? client.gbpPlaceId)
-      ? fetchPlaceDetails(connection.placeId ?? client.gbpPlaceId!).catch(() => null)
-      : Promise.resolve(null),
     getGbpNotificationSetting(connection).catch(() => null),
     listGbpPlaceActionLinks(connection).catch(() => []),
     listGbpPlaceActionTypeMetadata(connection).catch(() => []),
   ]);
+  const fallbackPlaceId = connection.placeId ?? client.gbpPlaceId;
+  const needsPlacesFallback = shouldFetchConnectedPlacesFallback({
+    profileAvailable: Boolean(liveProfileResult),
+    reviewsApiOk: enrichment.reviewsApiOk,
+  });
+  const place =
+    needsPlacesFallback && fallbackPlaceId
+      ? await fetchPlaceDetails(fallbackPlaceId).catch(() => null)
+      : null;
   const notifications = analyzeGbpNotificationCoverage(notificationSetting);
 
   const attributeSummary = await getGbpEnabledAttributeLabels(connection, {
@@ -219,11 +236,12 @@ async function collectGbpFromApi(
   });
 
   const name = liveProfile?.title || place?.name || client.name;
-  const address = place?.address || formatAddress(client);
-  const phone = place?.phone || client.phone || "";
-  const website = place?.website || client.website || "";
-  const placeId = connection.placeId ?? client.gbpPlaceId ?? place?.placeId;
-  const mapsUrl = place?.mapsUrl || client.gbpMapsUrl;
+  const address = liveProfile?.address || place?.address || formatAddress(client);
+  const phone = liveProfile?.phone || place?.phone || client.phone || "";
+  const website = liveProfile?.website || place?.website || client.website || "";
+  const placeId =
+    liveProfile?.placeId || connection.placeId || client.gbpPlaceId || place?.placeId;
+  const mapsUrl = liveProfile?.mapsUri || place?.mapsUrl || client.gbpMapsUrl;
 
   const attributeCoverage =
     availableAttributes.length > 0
@@ -293,7 +311,7 @@ async function collectGbpFromApi(
       photosByType:
         Object.keys(enrichment.media.photosByType).length > 0
           ? enrichment.media.photosByType
-          : { all: place?.photoCount ?? 0 },
+          : { all: enrichment.media.photoCount || place?.photoCount || 0 },
       lastPhotoUpload: enrichment.media.lastPhotoUpload,
       mediaPreviews: mediaPreviewsFromEnrichment(enrichment.media.items),
       mediaCoverage,
@@ -303,8 +321,12 @@ async function collectGbpFromApi(
       lastPostDate: sortedPosts[0]?.createTime ?? null,
     },
     engagement: {
-      reviewCount: place?.reviewCount ?? gbpReviews.length,
-      averageRating: place?.rating ?? averageRating(gbpReviews),
+      reviewCount: enrichment.reviewsApiOk
+        ? enrichment.reviewSummary.totalReviewCount
+        : place?.reviewCount ?? gbpReviews.length,
+      averageRating: enrichment.reviewsApiOk
+        ? enrichment.reviewSummary.averageRating
+        : place?.rating ?? averageRating(gbpReviews),
       reviewsLast30Days: reviewsSince(gbpReviews, 30),
       reviewsLast90Days: reviewsSince(gbpReviews, 90),
       responseRate,
@@ -328,8 +350,10 @@ async function collectGbpFromApi(
       coverage: performance.coverage,
     },
     issues: {
-      isSuspended: place?.businessStatus === "CLOSED_PERMANENTLY",
-      isVerified: place?.isOperational ?? true,
+      isSuspended:
+        liveProfile?.openStatus === "CLOSED_PERMANENTLY" ||
+        (!liveProfile && place?.businessStatus === "CLOSED_PERMANENTLY"),
+      isVerified: liveProfile?.hasVoiceOfMerchant ?? place?.isOperational ?? false,
       hasDuplicateListings: false,
       napInconsistencies: napDrift.map(
         (d) => `${d.label}: onboarding "${d.canonical}" vs GBP "${d.live}"`
