@@ -116,7 +116,7 @@ describe("planKeywordRankScans", () => {
     const first = planKeywordRankScans({
       keywords,
       audit,
-      targetDate: "2026-07-14",
+      targetDate: "2026-06-30",
       context: "daily",
       enabled: true,
       minLiveScans: 3,
@@ -124,7 +124,7 @@ describe("planKeywordRankScans", () => {
     const next = planKeywordRankScans({
       keywords,
       audit,
-      targetDate: "2026-07-15",
+      targetDate: "2026-07-14",
       context: "daily",
       enabled: true,
       minLiveScans: 3,

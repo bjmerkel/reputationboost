@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness, listUserBusinesses } from "@/audit/businesses";
+import {
+  getBusinessRecord,
+  getPrimaryBusiness,
+  listUserBusinesses,
+  loadBusinessConfig,
+} from "@/audit/businesses";
+import {
+  buildLiveAudit,
+  persistLiveAuditSnapshot,
+} from "@/audit/live-audit";
 import { runPhase1Audit } from "@/audit/orchestrator";
+import { shouldReuseMarketData } from "@/audit/refresh-policy";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { getUser } from "@/lib/supabase/server";
 import type { AuditTrigger } from "@/audit/types";
@@ -47,9 +57,7 @@ export async function POST(request: Request) {
     };
 
     const business = body.clientId
-      ? await import("@/audit/businesses").then((m) =>
-          m.loadBusinessConfig(user.id, body.clientId!)
-        )
+      ? await loadBusinessConfig(user.id, body.clientId)
       : await getPrimaryBusiness(user.id);
 
     if (!business) {
@@ -59,9 +67,34 @@ export async function POST(request: Request) {
       );
     }
 
+    const trigger = body.trigger ?? "manual";
+    if (shouldReuseMarketData(trigger, Boolean(business.businessId)) && business.businessId) {
+      const row = await getBusinessRecord(user.id, business.businessId);
+      if (row) {
+        const bundle = await buildLiveAudit(row.id, {
+          refreshGbp: true,
+          businessRow: row,
+          userId: user.id,
+          clientSlug: row.slug,
+          avgCustomerValue: row.avg_customer_value,
+          currency: row.avg_customer_value_currency,
+        });
+        if (bundle) {
+          await persistLiveAuditSnapshot(row.id, bundle.audit);
+          return NextResponse.json({
+            success: true,
+            audit: bundle.audit,
+            storagePath: `supabase://audit_runs/${row.id}/latest`,
+            marketDataReused: true,
+            refreshedAt: bundle.refreshedAt,
+          });
+        }
+      }
+    }
+
     const result = await runPhase1Audit({
       clientId: business.id,
-      trigger: body.trigger ?? "manual",
+      trigger,
       userId: user.id,
       userEmail: user.email ?? undefined,
     });

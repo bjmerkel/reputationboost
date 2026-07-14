@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { IngestRunResult } from "@/audit/types/timeseries";
-import { normalizePerformancePoints, recordPlanReconcileMetrics } from "./ingest-daily";
+import {
+  normalizePerformancePoints,
+  recordPlanReconcileMetrics,
+  shouldRunScheduledRankPulse,
+} from "./ingest-daily";
 
 function emptyResult(): IngestRunResult {
   return {
@@ -93,5 +97,22 @@ describe("normalizePerformancePoints", () => {
     );
 
     assert.deepEqual(points, []);
+  });
+});
+
+describe("shouldRunScheduledRankPulse", () => {
+  it("runs paid center-rank checks only twice monthly", () => {
+    assert.equal(
+      shouldRunScheduledRankPulse(new Date("2026-07-01T06:00:00.000Z")),
+      true
+    );
+    assert.equal(
+      shouldRunScheduledRankPulse(new Date("2026-07-15T06:00:00.000Z")),
+      true
+    );
+    assert.equal(
+      shouldRunScheduledRankPulse(new Date("2026-07-14T06:00:00.000Z")),
+      false
+    );
   });
 });

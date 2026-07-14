@@ -19,6 +19,7 @@ import {
   loadLatestAuditForBusinessAdmin,
 } from "@/audit/storage-score-daily";
 import type {
+  CompetitorSnapshot,
   FullAuditPayload,
   GbpSnapshot,
   PathToHealthy,
@@ -74,6 +75,20 @@ export async function hydrateAuditFromTimeseries(
   let hydrated = applyRankSnapshotsToAudit(audit, smoothed);
   const grids = await loadLatestKeywordGridsAdmin(businessId, keywords, targetDate);
   hydrated = applyGridSnapshotsToAudit(hydrated, grids);
+  const latestObservedDate = snapshots
+    .filter((snapshot) => snapshot.source !== "deferred")
+    .map((snapshot) => snapshot.date)
+    .sort()
+    .at(-1);
+  if (latestObservedDate) {
+    hydrated = {
+      ...hydrated,
+      rankings: {
+        ...hydrated.rankings,
+        collectedAt: `${latestObservedDate}T12:00:00.000Z`,
+      },
+    };
+  }
 
   return hydrated;
 }
@@ -87,7 +102,7 @@ export async function refreshGbpSlicesForBusiness(
 
   const client = businessRecordToClientConfig(row);
   const [gbp, reviews] = await Promise.all([
-    collectGbpSnapshot(client, connection),
+    collectGbpSnapshot(client, connection, { allowPlacesFallback: false }),
     collectReviewSnapshot(client, connection),
   ]);
 
@@ -261,6 +276,38 @@ export async function persistLiveAuditSnapshot(
   }
 }
 
+export async function persistMarketCompetitorsToLatestAudit(
+  businessId: string,
+  snapshots: CompetitorSnapshot[]
+): Promise<void> {
+  if (snapshots.length === 0) return;
+  const stored = await loadLatestAuditForBusinessAdmin(businessId);
+  if (!stored) return;
+
+  const byKeyword = new Map(
+    stored.competitors.map((snapshot) => [
+      snapshot.keyword.toLowerCase(),
+      snapshot,
+    ])
+  );
+  for (const snapshot of snapshots) {
+    byKeyword.set(snapshot.keyword.toLowerCase(), snapshot);
+  }
+  const observedAt = snapshots
+    .map((snapshot) => snapshot.collectedAt)
+    .sort()
+    .at(-1);
+
+  await persistLiveAuditSnapshot(businessId, {
+    ...stored,
+    rankings: {
+      ...stored.rankings,
+      collectedAt: observedAt ?? stored.rankings.collectedAt,
+    },
+    competitors: [...byKeyword.values()],
+  });
+}
+
 /**
  * Persist business keyword edits onto the latest audit_runs payload so refresh
  * and page reload do not resurrect the previous ranking keyword set.
@@ -298,5 +345,3 @@ export async function buildAndPersistLiveAuditForBusiness(
   await persistLiveAuditSnapshot(row.id, bundle.audit);
   return true;
 }
-
-import { mergeLiveAuditState } from "@/audit/live-audit-merge";

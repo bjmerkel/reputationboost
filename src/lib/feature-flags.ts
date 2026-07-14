@@ -13,6 +13,11 @@ export const GBP_RANK_SCAN_FLAGS = {
   minWeeklyLiveScans: 2,
 } as const;
 
+/** Slow-moving market data cadence; GBP profile data still refreshes daily. */
+export const MARKET_DATA_FLAGS = {
+  rankPulseDaysUtc: [1, 15] as readonly number[],
+} as const;
+
 export const HEATMAP_FLAGS = {
   insightPanel: true,
   zoneHighlights: true,
@@ -32,8 +37,8 @@ export const HEATMAP_FLAGS = {
   dailyMultiRadius: false,
   /** Max keywords per business in weekly grid cron */
   weeklyKeywordLimit: 3,
-  /** Reuse a stored weekly grid during audits when newer than this many days */
-  auditReuseWeeklyGridDays: 7,
+  /** Reuse a stored monthly grid during full audits when newer than this many days. */
+  auditReuseWeeklyGridDays: 35,
 } as const;
 
 export type HeatmapCollectionContext = "audit" | "weekly" | "task_trigger" | "api";

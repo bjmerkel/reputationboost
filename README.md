@@ -102,13 +102,15 @@ open http://localhost:3000/platform/audit
 
 | Flag | Default | Effect |
 |------|---------|--------|
-| `dailyMultiRadius` | `false` | Deprecated; daily cron records the business-pin Text Search baseline |
-| `weeklyKeywordLimit` | `3` | Weekly 25-point radial scans per business |
-| `auditReuseWeeklyGridDays` | `7` | Audits reuse a stored radial scan instead of 25 live searches/keyword |
+| `rankPulseDaysUtc` | `1, 15` | Twice-monthly business-pin rank pulse; daily cron remains GBP-only otherwise |
+| `weeklyKeywordLimit` | `3` | Monthly 25-point radial scans per business |
+| `auditReuseWeeklyGridDays` | `35` | Full audits reuse the monthly radial scan instead of 25 live searches/keyword |
 | `gridProfile` | `compact` | Legacy preference for pre-radial stored grids |
 
 Radial Text Search requests use one result page (up to 20 businesses) and a minimal field mask
 (`places.id`, `places.displayName`) to control API cost.
+The dashboard’s **Refresh profile data** action refreshes free GBP profile/performance data and
+reuses the latest stored market snapshot; it does not launch live rank grids.
 
 ### How rankings work
 

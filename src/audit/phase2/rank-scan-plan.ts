@@ -25,8 +25,12 @@ function normalize(keyword: string): string {
 function rotationIndex(date: string, context: RankScanContext, count: number): number {
   if (count <= 1) return 0;
   const parsed = new Date(`${date}T12:00:00.000Z`);
-  const day = Math.floor(parsed.getTime() / 86_400_000);
-  const period = context === "daily" ? day : Math.floor(day / 7);
+  const year = parsed.getUTCFullYear();
+  const month = parsed.getUTCMonth();
+  const period =
+    context === "daily"
+      ? year * 24 + month * 2 + (parsed.getUTCDate() >= 15 ? 1 : 0)
+      : year * 12 + month;
   return ((period % count) + count) % count;
 }
 

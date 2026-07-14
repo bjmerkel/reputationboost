@@ -12,7 +12,7 @@ function verifyCronSecret(request: Request): boolean {
   return auth === `Bearer ${secret}`;
 }
 
-/** Vercel Cron: weekly full geo-grid snapshots per keyword. */
+/** Vercel Cron: monthly full rank-grid and competitor market snapshot. */
 export async function GET(request: Request) {
   if (!verifyCronSecret(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "Weekly grid ingest failed",
+        error: error instanceof Error ? error.message : "Monthly market ingest failed",
       },
       { status: 500 }
     );

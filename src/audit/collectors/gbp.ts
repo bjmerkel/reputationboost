@@ -111,7 +111,7 @@ function mediaInventoryFromEnrichment(
 export async function collectGbpSnapshot(
   client: ClientConfig,
   connection?: GbpConnection | null,
-  options?: { userEmail?: string }
+  options?: { userEmail?: string; allowPlacesFallback?: boolean }
 ): Promise<GbpSnapshot> {
   if (connection) {
     return collectGbpFromApi(client, connection, options);
@@ -129,7 +129,7 @@ export async function collectGbpSnapshot(
 async function collectGbpFromApi(
   client: ClientConfig,
   connection: GbpConnection,
-  options?: { userEmail?: string }
+  options?: { userEmail?: string; allowPlacesFallback?: boolean }
 ): Promise<GbpSnapshot> {
   const now = new Date().toISOString();
 
@@ -147,7 +147,7 @@ async function collectGbpFromApi(
   const needsPlacesFallback = shouldFetchConnectedPlacesFallback({
     profileAvailable: Boolean(liveProfileResult),
     persistedIdentityAvailable: hasPersistedOwnedBusinessIdentity(client),
-  });
+  }) && options?.allowPlacesFallback !== false;
   const place =
     needsPlacesFallback && fallbackPlaceId
       ? await fetchPlaceDetails(fallbackPlaceId).catch(() => null)

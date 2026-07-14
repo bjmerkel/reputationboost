@@ -105,10 +105,10 @@ const features = [
     ),
   },
   {
-    id: "daily-ranks",
-    title: "Daily Rank Tracking",
+    id: "scheduled-ranks",
+    title: "Smart Rank Tracking",
     description:
-      "Rankings update nightly — not in a monthly PDF. See pack entry, position changes, and trends over time.",
+      "Rank pulses run twice monthly, with deeper monthly service-area scans. See pack entry, position changes, and trends without wasteful daily searches.",
     gradient: "from-amber-500 to-orange-500",
     preview: (
       <div className="flex items-end justify-between gap-1 px-1">
@@ -226,7 +226,7 @@ export default function Features() {
               <span className="gradient-text">what to fix</span>
             </>
           }
-          subtitle="Eight data layers that power your Reputation Boost Score — from keyword discovery to daily rank tracking and revenue projections."
+          subtitle="Eight data layers that power your Reputation Boost Score — from keyword discovery to scheduled rank tracking and revenue projections."
         />
 
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
