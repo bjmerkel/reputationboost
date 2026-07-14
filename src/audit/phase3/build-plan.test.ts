@@ -11,14 +11,14 @@ describe("plan-phases", () => {
     assert.equal(getPhaseForStep(1), "foundation");
     assert.equal(getPhaseForStep(6), "content");
     assert.equal(getPhaseForStep(11), "reputation");
-    assert.equal(getPhaseForStep(16), "ongoing");
+    assert.equal(getPhaseForStep(17), "ongoing");
   });
 
   it("defines all core plan steps across phases", () => {
     const covered = PLAN_PHASE_DEFINITIONS.flatMap((p) => p.stepNumbers);
-    assert.equal(covered.length, 18);
+    assert.equal(covered.length, 17);
     assert.deepEqual([...new Set(covered)].sort((a, b) => a - b), [
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17,
     ]);
   });
 
@@ -91,6 +91,30 @@ describe("buildPlan", () => {
     assert.equal(
       plan!.progress.needsApproval,
       plan!.steps.filter((s) => s.status === "needs_approval").length
+    );
+  });
+
+  it("hides the retired continuous activity step from persisted plans", () => {
+    const audit = createTestAudit();
+    audit.strategy.gbpPlan = {
+      ...audit.strategy.gbpPlan!,
+      steps: [
+        ...audit.strategy.gbpPlan!.steps,
+        {
+          stepNumber: 16,
+          title: "Continuous Activity",
+          instruction: "Keep posting and engaging every week.",
+        },
+      ],
+    };
+
+    const plan = buildPlan(audit, audit.execution!.tasks);
+
+    assert.ok(plan);
+    assert.equal(plan!.steps.some((step) => step.stepNumber === 16), false);
+    assert.equal(
+      plan!.phases.some((phase) => phase.stepNumbers.includes(16)),
+      false
     );
   });
 
@@ -243,7 +267,7 @@ describe("buildPlan", () => {
     const ongoingPhase = plan!.phases.find((p) => p.id === "ongoing");
     assert.ok(ongoingPhase);
     assert.ok(ongoingPhase!.stepNumbers.includes(18));
-    assert.ok(ongoingPhase!.stepNumbers.includes(16));
+    assert.equal(ongoingPhase!.stepNumbers.includes(16), false);
 
     const planWithoutCustomProjection = buildPlan(audit, audit.execution!.tasks);
     assert.equal(

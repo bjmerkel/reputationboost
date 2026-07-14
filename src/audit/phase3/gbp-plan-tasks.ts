@@ -975,7 +975,7 @@ export function tasksFromNotificationGaps(audit: FullAuditPayload): ExecutionTas
   if (!getGbpPubsubTopic()) return [];
 
   const step: GbpPlanStep = {
-    stepNumber: 16,
+    stepNumber: 14,
     title: "Real-time GBP alerts",
     instruction: "Enable Pub/Sub notifications for time-sensitive listing events.",
     gbpAction: "manual",

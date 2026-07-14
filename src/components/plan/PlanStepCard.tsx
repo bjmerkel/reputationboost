@@ -306,13 +306,7 @@ export default function PlanStepCard({
             </div>
           )}
 
-          {step.tasks.length === 0 && step.stepNumber === 16 && (
-            <p className={`mt-4 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-              {step.instruction}
-            </p>
-          )}
-
-          {step.tasks.length === 0 && step.stepNumber !== 16 && (
+          {step.tasks.length === 0 && (
             <p className={`mt-4 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
               Manual step — follow the checklist above in Google Business Profile.
             </p>

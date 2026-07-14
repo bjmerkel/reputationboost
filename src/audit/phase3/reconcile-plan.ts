@@ -2,6 +2,7 @@ import { buildTemplateContent, type AuditGeneratedContent } from "@/lib/llm/cont
 import {
   buildAllGbpPlanSteps,
   buildTemplateGbpPlan,
+  isRetiredGbpPlanStep,
   selectGbpPlanSteps,
 } from "@/audit/phase2/gbp-plan";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
@@ -125,7 +126,7 @@ function mergePlanStepMetadata(
   };
 }
 
-/** Refresh current/recommended on existing steps; append newly required steps. */
+/** Drop retired steps, refresh existing metadata, and append newly required steps. */
 export function refreshGbpPlanForReconcile(
   audit: FullAuditPayload
 ): { plan: GbpOptimizationPlan | null; appendedStepNumbers: number[]; refreshedStepCount: number } {
@@ -137,10 +138,13 @@ export function refreshGbpPlanForReconcile(
   const allFresh = buildAllGbpPlanSteps(audit);
   const freshByNumber = new Map(allFresh.map((step) => [step.stepNumber, step]));
   const required = selectGbpPlanSteps(audit, allFresh);
-  const existingNumbers = new Set(existingPlan.steps.map((step) => step.stepNumber));
+  const activeExistingSteps = existingPlan.steps.filter(
+    (step) => !isRetiredGbpPlanStep(step.stepNumber)
+  );
+  const existingNumbers = new Set(activeExistingSteps.map((step) => step.stepNumber));
 
   let refreshedStepCount = 0;
-  const mergedSteps = existingPlan.steps.map((step) => {
+  const mergedSteps = activeExistingSteps.map((step) => {
     const fresh = freshByNumber.get(step.stepNumber);
     const next = mergePlanStepMetadata(step, fresh);
     if (
