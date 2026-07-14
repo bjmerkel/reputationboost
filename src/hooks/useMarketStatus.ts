@@ -43,7 +43,10 @@ export function useMarketStatus(clientId: string, enabled: boolean) {
   }, [clientId, enabled]);
 
   useEffect(() => {
-    void refresh();
+    const timer = window.setTimeout(() => {
+      void refresh();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [refresh]);
 
   return { status, loading, error, refresh };
