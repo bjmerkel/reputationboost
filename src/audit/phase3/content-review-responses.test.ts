@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { FullAuditPayload, ReviewRecord } from "@/audit/types";
-import { generateReviewResponses } from "./content";
+import {
+  generateReviewResponses,
+  looksLikeMangledReviewReply,
+} from "./content";
 import { resolveReviewResponseKeywordContext } from "@/lib/review-responses/keyword-context";
+import { textContainsKeyword } from "@/audit/attribution/keywords";
 
 const ANNE_REVIEW =
   "My son has been going here since May of 2019. When he started he was very shy, very closed off and very nervous of other people. Since attending North Shore, he has become more outgoing, is caught up to where he needs to be academically, and is overall just a happier kid. He went into the pre-K program and was set up for success to enter kindergarten. He now goes to North Shore for the before, and after school program, and it really is his happy place after a long day of kindergarten. He enjoys being there and has always been welcomed with open arms. There is no other preschool or childcare center I will ever recommend to anyone other than Northshore! Thank you to everyone at northshore, especially the teachers who have shown nothing but patience and love for my son!";
+
+const SHAY_REVIEW =
+  "My 3 year old is in the blue jay class and she loves going to school. The teachers and the front desk staff are amazing. My daughter has learned her numbers and letters and she has friends her age now. Even on the weekends she sings songs that she has learned from school and talks about her teachers. Northshore is an amazing school and my older children will be there for summer camp.";
 
 function review(overrides: Partial<ReviewRecord> = {}): ReviewRecord {
   return {
@@ -54,9 +61,17 @@ function northshoreAudit(overrides: Partial<FullAuditPayload> = {}): FullAuditPa
           localPackPosition: null,
           geoRanks: [],
         },
+        {
+          keyword: "child learning center las vegas",
+          inLocalPack: false,
+          clientReviewCount: 2,
+          packLeaderReviewCount: 30,
+          localPackPosition: null,
+          geoRanks: [],
+        },
       ],
       keywordsInPack: 0,
-      totalKeywords: 2,
+      totalKeywords: 3,
       shareOfVoice: 0,
     },
     reviews: {
@@ -77,7 +92,11 @@ function northshoreAudit(overrides: Partial<FullAuditPayload> = {}): FullAuditPa
     competitors: [],
     strategy: {
       gbpPlan: {
-        targetKeywords: ["learning center near me", "daycare near las vegas"],
+        targetKeywords: [
+          "learning center near me",
+          "daycare near las vegas",
+          "child learning center las vegas",
+        ],
         keywordRankings: [
           {
             keyword: "learning center near me",
@@ -92,6 +111,13 @@ function northshoreAudit(overrides: Partial<FullAuditPayload> = {}): FullAuditPa
             reviewGap: 32,
             clientReviews: 3,
             packLeaderReviews: 35,
+          },
+          {
+            keyword: "child learning center las vegas",
+            inLocalPack: false,
+            reviewGap: 28,
+            clientReviews: 2,
+            packLeaderReviews: 30,
           },
         ],
       },
@@ -113,16 +139,40 @@ describe("generateReviewResponses templates", () => {
     assert.doesNotMatch(response, /when he started he was very shy/i);
   });
 
+  it("references praise themes instead of pasting Shay's first-person story", () => {
+    const audit = northshoreAudit({
+      reviews: {
+        ...northshoreAudit().reviews,
+        reviews: [
+          review({
+            id: "shay-review",
+            author: "Shay Love",
+            text: SHAY_REVIEW,
+          }),
+        ],
+      },
+    });
+
+    const response = generateReviewResponses(audit)[0].response;
+    assert.match(response, /^Thank you so much, Shay!/);
+    assert.match(response, /teachers|front desk|learning progress|classroom/i);
+    assert.doesNotMatch(response, /We're glad my 3 year old/i);
+    assert.doesNotMatch(response, /meant a lot to you/i);
+    assert.doesNotMatch(response, /…/);
+    assert.doesNotMatch(response, /neighbors with child(?!\s+learning)/i);
+    assert.match(response, /child learning center|daycare|learning center/i);
+  });
+
   it("weaves a natural service phrase instead of a raw SEO token", () => {
     const drafts = generateReviewResponses(northshoreAudit());
     const response = drafts[0].response;
 
-    assert.match(response, /Las Vegas neighbors with learning center/i);
-    assert.doesNotMatch(response, /neighbors with learning(?!\s+center)/i);
+    assert.match(response, /Las Vegas families at our (learning center|child learning center|daycare)/i);
     assert.doesNotMatch(response, /learning center near me/i);
+    assert.doesNotMatch(response, /neighbors with learning(?!\s+center)/i);
   });
 
-  it("still embeds short impersonal praise when it fits naturally", () => {
+  it("still names short praise themes for concise reviews", () => {
     const audit = northshoreAudit({
       reviews: {
         ...northshoreAudit().reviews,
@@ -137,14 +187,39 @@ describe("generateReviewResponses templates", () => {
     });
 
     const response = generateReviewResponses(audit)[0].response;
-    assert.match(response, /We're so glad to hear "Wonderful teachers and a caring staff"/);
-    assert.match(response, /learning center/i);
+    assert.match(response, /mentioned our teachers/i);
+    assert.match(response, /learning center|daycare|child learning center/i);
   });
 
-  it("does not treat a lone 'center' mention as the customer naming the SEO keyword", () => {
+  it("detects mangled legacy review replies", () => {
+    assert.equal(
+      looksLikeMangledReviewReply(
+        "Thank you so much, Shay! We're glad my 3 year old is in the blue jay class and she loves going to school. The teache… meant a lot to you — we love helping Las Vegas neighbors with child."
+      ),
+      true
+    );
+    assert.equal(
+      looksLikeMangledReviewReply(
+        "Thank you so much, Shay! It means so much that you mentioned our teachers. We're grateful to serve Las Vegas families at our child learning center."
+      ),
+      false
+    );
+  });
+
+  it("does not treat a lone 'center' or 'children' mention as the SEO keyword", () => {
+    assert.equal(
+      textContainsKeyword(SHAY_REVIEW, "child learning center las vegas"),
+      false
+    );
+
     const context = resolveReviewResponseKeywordContext(
-      northshoreAudit(),
-      review()
+      northshoreAudit({
+        reviews: {
+          ...northshoreAudit().reviews,
+          reviews: [review({ id: "shay", author: "Shay Love", text: SHAY_REVIEW })],
+        },
+      }),
+      review({ id: "shay", author: "Shay Love", text: SHAY_REVIEW })
     );
 
     assert.notEqual(context.reason, "review_mentions_service");

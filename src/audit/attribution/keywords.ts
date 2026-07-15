@@ -17,6 +17,10 @@ const KEYWORD_STOP_WORDS = new Set([
   "area",
 ]);
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /** Significant tokens from a keyword phrase (drops short words and stop words). */
 export function significantKeywordTokens(keyword: string): string[] {
   return keyword
@@ -26,14 +30,25 @@ export function significantKeywordTokens(keyword: string): string[] {
 }
 
 /**
+ * Whole-word token match (with simple plurals). Avoids "child" matching "children".
+ */
+export function textHasSignificantToken(text: string, token: string): boolean {
+  const escaped = escapeRegExp(token.toLowerCase());
+  const lower = text.toLowerCase();
+  if (new RegExp(`\\b${escaped}\\b`, "i").test(lower)) return true;
+  if (new RegExp(`\\b${escaped}s\\b`, "i").test(lower)) return true;
+  if (new RegExp(`\\b${escaped}es\\b`, "i").test(lower)) return true;
+  return false;
+}
+
+/**
  * Whether text covers a keyword's concepts — token overlap, not exact phrase match.
  * "CarPlay installations in Arlington" matches "carplay installation arlington va".
  */
 export function textContainsKeyword(text: string, keyword: string): boolean {
   const tokens = significantKeywordTokens(keyword);
-  const lower = text.toLowerCase();
-  if (tokens.length === 0) return lower.includes(keyword.toLowerCase());
-  return tokens.some((token) => lower.includes(token));
+  if (tokens.length === 0) return text.toLowerCase().includes(keyword.toLowerCase());
+  return tokens.some((token) => textHasSignificantToken(text, token));
 }
 
 /** Keywords whose concepts are not represented in text (smart token matching). */
