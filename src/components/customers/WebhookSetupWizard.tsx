@@ -27,6 +27,7 @@ interface WebhookSettings {
 
 const WIZARD_STEP_KEY = "rb-webhook-wizard-step";
 const WIZARD_TEMPLATE_KEY = "rb-webhook-wizard-template";
+const WIZARD_OPT_OUT_KEY = "rb-webhook-wizard-opt-out";
 
 const CUSTOM_TEMPLATE: ZapierTemplate = {
   id: "custom",
@@ -130,7 +131,7 @@ export default function WebhookSetupWizard() {
   const [copied, setCopied] = useState<string | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  const [includeOptOut, setIncludeOptOut] = useState(false);
+  const [includeOptOut, setIncludeOptOut] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
@@ -157,11 +158,13 @@ export default function WebhookSetupWizard() {
     try {
       const savedStep = localStorage.getItem(WIZARD_STEP_KEY);
       const savedTemplate = localStorage.getItem(WIZARD_TEMPLATE_KEY);
+      const savedOptOut = localStorage.getItem(WIZARD_OPT_OUT_KEY);
       if (savedStep) {
         const idx = STEPS.findIndex((s) => s.id === savedStep);
         if (idx >= 0) setStepIndex(idx);
       }
       if (savedTemplate) setSelectedTemplateId(savedTemplate);
+      if (savedOptOut === "false") setIncludeOptOut(false);
     } catch {
       // Ignore storage failures
     }
@@ -175,10 +178,11 @@ export default function WebhookSetupWizard() {
       if (selectedTemplateId) {
         localStorage.setItem(WIZARD_TEMPLATE_KEY, selectedTemplateId);
       }
+      localStorage.setItem(WIZARD_OPT_OUT_KEY, includeOptOut ? "true" : "false");
     } catch {
       // Ignore storage failures
     }
-  }, [stepIndex, selectedTemplateId, hydrated]);
+  }, [stepIndex, selectedTemplateId, includeOptOut, hydrated]);
 
   const reviewTemplates = useMemo(() => {
     const fromApi = (settings?.zapierTemplates ?? []).filter(
@@ -390,7 +394,13 @@ export default function WebhookSetupWizard() {
             </div>
 
             {optOutTemplate && (
-              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[#dadce0] bg-[#f8f9fa] p-4">
+              <label
+                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 ${
+                  includeOptOut
+                    ? "border-emerald-200 bg-emerald-50"
+                    : "border-[#dadce0] bg-[#f8f9fa]"
+                }`}
+              >
                 <input
                   type="checkbox"
                   checked={includeOptOut}
@@ -399,9 +409,16 @@ export default function WebhookSetupWizard() {
                 />
                 <div>
                   <p className="font-semibold text-[#202124]">
-                    {TOOL_ICONS["customer-opt-out"]} Also set up SMS opt-out handling
+                    {TOOL_ICONS["customer-opt-out"]} Set up SMS opt-out handling{" "}
+                    <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
+                      Recommended
+                    </span>
                   </p>
                   <p className="mt-1 text-sm text-[#5f6368]">{optOutTemplate.description}</p>
+                  <p className="mt-1 text-sm text-[#5f6368]">
+                    Required when sending SMS review requests — honors STOP and unsubscribe replies
+                    automatically.
+                  </p>
                 </div>
               </label>
             )}
@@ -573,7 +590,7 @@ export default function WebhookSetupWizard() {
 
             {includeOptOut && optOutTemplate && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <p className="font-semibold text-amber-950">SMS opt-out Zap (optional second Zap)</p>
+                <p className="font-semibold text-amber-950">SMS opt-out Zap (recommended second Zap)</p>
                 <p className="mt-1 text-sm text-amber-900">{optOutTemplate.description}</p>
                 <a
                   href={optOutTemplate.templateUrl}
