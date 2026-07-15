@@ -21,15 +21,14 @@ export function resolveRecommendationTimestamp(input: {
     const created = Date.parse(task.createdAt);
     if (!Number.isNaN(created)) candidates.push(created);
 
-    const refreshed = task.payload?.descriptionDraftRefreshedAt;
-    if (typeof refreshed === "string") {
-      const refreshedAt = Date.parse(refreshed);
-      if (!Number.isNaN(refreshedAt)) candidates.push(refreshedAt);
-    }
-
-    const recommendedAt = task.payload?.recommendedAt;
-    if (typeof recommendedAt === "string") {
-      const parsed = Date.parse(recommendedAt);
+    for (const key of [
+      "recommendedAt",
+      "descriptionDraftRefreshedAt",
+      "reviewReplyDraftRefreshedAt",
+    ] as const) {
+      const value = task.payload?.[key];
+      if (typeof value !== "string") continue;
+      const parsed = Date.parse(value);
       if (!Number.isNaN(parsed)) candidates.push(parsed);
     }
   }

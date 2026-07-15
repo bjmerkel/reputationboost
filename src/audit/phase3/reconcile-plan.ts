@@ -367,6 +367,42 @@ export function selectReviewResponseDraftsToRefresh(
   return refreshed;
 }
 
+/**
+ * Stamp recommendedAt on every open mutable task so Plan "Recommended …"
+ * reflects the latest profile/plan check — not the original Jul 11 create time.
+ */
+export function stampRecommendedAtOnOpenTasks(
+  existing: ExecutionTask[],
+  draftUpdates: ExecutionTask[],
+  now: string
+): ExecutionTask[] {
+  const draftById = new Map(draftUpdates.map((task) => [task.id, task]));
+  const stampedDrafts = draftUpdates.map((task) => ({
+    ...task,
+    payload: {
+      ...task.payload,
+      recommendedAt: now,
+    },
+  }));
+
+  const additional: ExecutionTask[] = [];
+  for (const task of existing) {
+    if (!isMutableByReconcile(task)) continue;
+    if (task.status === "completed" || task.status === "rejected") continue;
+    if (draftById.has(task.id)) continue;
+
+    additional.push({
+      ...task,
+      payload: {
+        ...task.payload,
+        recommendedAt: now,
+      },
+    });
+  }
+
+  return [...stampedDrafts, ...additional];
+}
+
 /** Upgrade legacy step-5 product/checklist tasks to publishable GBP service tasks. */
 export function selectStep5ServiceTasksToUpgrade(
   audit: FullAuditPayload,
@@ -456,16 +492,27 @@ export function computePlanReconcile(
       };
 
   const content = options.content ?? buildTemplateContent(nextAudit);
-  const missingTasks = collectMissingReconcileTasks(nextAudit, existing, { content });
+  const missingTasks = collectMissingReconcileTasks(nextAudit, existing, { content }).map(
+    (task) => ({
+      ...task,
+      payload: {
+        ...task.payload,
+        recommendedAt: now,
+      },
+    })
+  );
   const tasksToComplete = selectTasksToAutoComplete(nextAudit, existing).map((task) =>
     withReconcileCompletion(task, now)
   );
   const completedIds = new Set(tasksToComplete.map((task) => task.id));
-  const tasksToUpdate = [
+  const draftUpdates = [
     ...selectDescriptionDraftsToRefresh(nextAudit, existing),
     ...selectReviewResponseDraftsToRefresh(nextAudit, existing, content),
     ...selectStep5ServiceTasksToUpgrade(nextAudit, existing),
   ].filter((task) => !completedIds.has(task.id));
+  const tasksToUpdate = stampRecommendedAtOnOpenTasks(existing, draftUpdates, now).filter(
+    (task) => !completedIds.has(task.id)
+  );
 
   return {
     nextAudit,

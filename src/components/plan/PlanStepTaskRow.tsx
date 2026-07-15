@@ -91,9 +91,11 @@ export default function PlanStepTaskRow({
   const recommendationTime = formatPlanTimestamp(
     typeof task.payload.recommendedAt === "string"
       ? task.payload.recommendedAt
-      : typeof task.payload.descriptionDraftRefreshedAt === "string"
-        ? task.payload.descriptionDraftRefreshedAt
-        : task.createdAt
+      : typeof task.payload.reviewReplyDraftRefreshedAt === "string"
+        ? task.payload.reviewReplyDraftRefreshedAt
+        : typeof task.payload.descriptionDraftRefreshedAt === "string"
+          ? task.payload.descriptionDraftRefreshedAt
+          : task.createdAt
   );
 
   return (

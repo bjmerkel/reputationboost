@@ -10,10 +10,12 @@ import {
   persistLiveAuditSnapshot,
 } from "@/audit/live-audit";
 import { runPhase1Audit } from "@/audit/orchestrator";
+import { reconcilePlanForUser } from "@/audit/phase3/reconcile-plan";
 import { shouldReuseMarketData } from "@/audit/refresh-policy";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
+import { PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
 import { getUser } from "@/lib/supabase/server";
-import type { AuditTrigger } from "@/audit/types";
+import type { AuditTrigger, ClientConfig, FullAuditPayload } from "@/audit/types";
 
 /** Vercel Pro serverless limit; audits should finish well under this after perf tuning. */
 export const maxDuration = 300;
@@ -42,6 +44,24 @@ export async function GET() {
   );
 
   return NextResponse.json({ user: { id: user.id, email: user.email }, clients: latest });
+}
+
+async function reconcileAfterProfileRefresh(
+  userId: string,
+  client: ClientConfig,
+  audit: FullAuditPayload
+): Promise<FullAuditPayload> {
+  if (!PLAN_RECONCILE_FLAGS.enabled) return audit;
+
+  try {
+    const result = await reconcilePlanForUser(userId, client, {
+      auditId: audit.auditId,
+    });
+    return result?.audit ?? audit;
+  } catch (error) {
+    console.error("[api/audit] plan reconcile after profile refresh failed:", error);
+    return audit;
+  }
 }
 
 export async function POST(request: Request) {
@@ -81,12 +101,14 @@ export async function POST(request: Request) {
         });
         if (bundle) {
           await persistLiveAuditSnapshot(row.id, bundle.audit);
+          const audit = await reconcileAfterProfileRefresh(user.id, business, bundle.audit);
           return NextResponse.json({
             success: true,
-            audit: bundle.audit,
+            audit,
             storagePath: `supabase://audit_runs/${row.id}/latest`,
             marketDataReused: true,
             refreshedAt: bundle.refreshedAt,
+            planReconciledAt: audit.strategy.planReconciledAt ?? null,
           });
         }
       }
