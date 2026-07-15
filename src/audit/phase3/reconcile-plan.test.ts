@@ -388,4 +388,81 @@ describe("computePlanReconcile", () => {
     assert.match(result.tasksToUpdate[0]?.draftContent ?? "", /Nestled in Las Vegas since 1997/);
     assert.doesNotMatch(result.tasksToUpdate[0]?.draftContent ?? "", /clean vehicles/i);
   });
+
+  it("refreshes mangled legacy review reply drafts on reconcile", () => {
+    const audit = createTestAudit();
+    audit.clientName = "Northshore Learning Center";
+    audit.gbp.identity.address = "123 Main St, Las Vegas, NV 89129";
+    audit.gbp.identity.primaryCategory = "Day care center";
+    audit.gbp.identity.phone = "702-555-0100";
+    audit.rankings.keywords = [
+      {
+        keyword: "child learning center las vegas",
+        inLocalPack: false,
+        clientReviewCount: 2,
+        packLeaderReviewCount: 30,
+        localPackPosition: null,
+        geoRanks: [],
+      },
+    ];
+    audit.strategy.gbpPlan = {
+      ...audit.strategy.gbpPlan!,
+      targetKeywords: ["child learning center las vegas"],
+      keywordRankings: [
+        {
+          keyword: "child learning center las vegas",
+          inLocalPack: false,
+          reviewGap: 28,
+          clientReviews: 2,
+          packLeaderReviews: 30,
+        },
+      ],
+    };
+
+    const reviewText =
+      "My 3 year old is in the blue jay class and she loves going to school. The teachers and the front desk staff are amazing. My daughter has learned her numbers and letters and she has friends her age now.";
+    audit.reviews.reviews = [
+      {
+        id: "reviews/shay",
+        rating: 5,
+        text: reviewText,
+        author: "Shay Love",
+        publishedAt: "2026-07-11T02:01:00.000Z",
+        responded: false,
+        sentiment: "positive",
+        responseTimeHours: null,
+      },
+    ];
+
+    const mangled =
+      "Thank you so much, Shay! We're glad my 3 year old is in the blue jay class and she loves going to school. The teache… meant a lot to you — we love helping Las Vegas neighbors with child.";
+
+    const pendingReply = task({
+      id: "pending-shay-reply",
+      type: "review_response",
+      status: "pending_approval",
+      planStepNumber: 11,
+      actionItemId: "gbp-step-11",
+      title: "Respond to Shay (5★)",
+      draftContent: mangled,
+      payload: {
+        gbpStepNumber: 11,
+        reviewId: "reviews/shay",
+        reviewAuthor: "Shay Love",
+        reviewText,
+        rating: 5,
+      },
+    });
+
+    const result = computePlanReconcile(audit, [pendingReply], {
+      now: "2026-07-15T01:00:00.000Z",
+    });
+
+    const updated = result.tasksToUpdate.find((item) => item.id === "pending-shay-reply");
+    assert.ok(updated);
+    assert.doesNotMatch(updated?.draftContent ?? "", /meant a lot to you/i);
+    assert.doesNotMatch(updated?.draftContent ?? "", /We're glad my 3 year old/i);
+    assert.match(updated?.draftContent ?? "", /Thank you so much, Shay!/);
+    assert.match(updated?.draftContent ?? "", /teachers|front desk|learning progress/i);
+  });
 });

@@ -28,6 +28,7 @@ const REVIEW_RESPONSE_SYSTEM = `You write public Google Business Profile review 
 
 Rules:
 - Read the customer's review carefully and reference at least one SPECIFIC detail they mentioned (service, staff name, vehicle, event, complaint, praise).
+- Paraphrase in the business's voice — never paste or truncate the customer's first-person sentences into the reply.
 - Match tone to star rating: warm gratitude for 4-5★, empathetic and accountable for 1-2★, constructive for 3★.
 - 2-4 sentences. Professional, human, not corporate.
 - For 1-2★ reviews: apologize sincerely, acknowledge their specific concern, invite them to call the business phone number to resolve offline.

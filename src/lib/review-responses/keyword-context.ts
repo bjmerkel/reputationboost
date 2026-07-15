@@ -1,6 +1,7 @@
 import {
   significantKeywordTokens,
   textContainsKeyword,
+  textHasSignificantToken,
 } from "@/audit/attribution/keywords";
 import type { FullAuditPayload, ReviewRecord } from "@/audit/types";
 import type { CustomerKeywordHint } from "./customer-match";
@@ -73,8 +74,7 @@ function reviewMentionsCount(audit: FullAuditPayload, keyword: string): number {
   if (tokens.length === 0) return 0;
 
   return audit.reviews.reviews.filter((review) => {
-    const lower = review.text.toLowerCase();
-    return tokens.some((token) => lower.includes(token));
+    return tokens.some((token) => textHasSignificantToken(review.text, token));
   }).length;
 }
 
@@ -92,8 +92,7 @@ function isOutsidePack(audit: FullAuditPayload, keyword: string): boolean {
 
 function matchingTokensInText(text: string, keyword: string): string[] {
   const tokens = significantKeywordTokens(keyword);
-  const lower = text.toLowerCase();
-  return tokens.filter((token) => lower.includes(token));
+  return tokens.filter((token) => textHasSignificantToken(text, token));
 }
 
 /** Strong enough overlap to claim the customer mentioned this service. */

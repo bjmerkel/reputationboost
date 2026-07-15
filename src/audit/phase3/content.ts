@@ -6,6 +6,8 @@ import {
 } from "@/lib/review-responses/keyword-context";
 import { naturalServicePhrase } from "@/lib/review-requests/service-phrase";
 import { buildGbpDescriptionDraft } from "@/lib/google/gbp-description-draft";
+import type { ReviewResponseDraft } from "@/lib/review-responses/types";
+import { isReviewRecordResponded } from "@/audit/review-engagement";
 
 export function generateGooglePosts(audit: FullAuditPayload): string[] {
   const city = audit.gbp.identity.address.split(",")[1]?.trim() ?? "your area";
@@ -32,9 +34,6 @@ export function generateGbpDescription(audit: FullAuditPayload): string {
   return buildGbpDescriptionDraft(audit);
 }
 
-import type { ReviewResponseDraft } from "@/lib/review-responses/types";
-import { isReviewRecordResponded } from "@/audit/review-engagement";
-
 export function generateReviewResponses(audit: FullAuditPayload): ReviewResponseDraft[] {
   const pending = audit.reviews.reviews.filter(
     (r) => !isReviewRecordResponded(r) || r.replyState === "REJECTED"
@@ -52,22 +51,19 @@ export function generateReviewResponses(audit: FullAuditPayload): ReviewResponse
   }));
 }
 
-/** Max length for a phrase we can embed mid-sentence without sounding broken. */
-const EMBEDDABLE_DETAIL_MAX = 72;
-
 /**
- * Short praise suitable for embedding in a reply. Returns null for long or
- * first-person narrative reviews — those must not be truncated into templates
- * like "We're glad my son has been going here since May of 2019… meant a lot".
+ * Legacy template pasted truncated first-person review text into
+ * "We're glad … meant a lot to you" — detect those so reconcile can refresh.
  */
-function extractEmbeddableDetail(text: string): string | null {
-  const cleaned = text.trim().replace(/\s+/g, " ");
-  if (!cleaned) return null;
-  if (cleaned.length > EMBEDDABLE_DETAIL_MAX) return null;
-  // Multi-sentence or first-person stories read as the business speaking as the customer
-  if (cleaned.includes(". ") || cleaned.includes("! ") || cleaned.includes("? ")) return null;
-  if (/^(i|i'm|i’m|i've|i’ve|my|we|we're|we’re|our|me)\b/i.test(cleaned)) return null;
-  return cleaned.replace(/[.!?]+$/u, "").trim() || null;
+export function looksLikeMangledReviewReply(text: string): boolean {
+  const cleaned = text.trim();
+  if (!cleaned) return false;
+  if (/…\s*meant a lot to you/i.test(cleaned)) return true;
+  if (/\.\.\.\s*meant a lot to you/i.test(cleaned)) return true;
+  // Long first-person paste between "We're glad" and "meant a lot"
+  if (/we're glad\s+my\b.{20,}meant a lot to you/i.test(cleaned)) return true;
+  if (/we're glad\s+.{80,}meant a lot to you/i.test(cleaned)) return true;
+  return false;
 }
 
 function locationFromAddress(address: string): { city: string | null; state: string | null } {
@@ -92,50 +88,91 @@ function resolveServicePhrase(
   return keywordContext?.serviceTokens[0] ?? null;
 }
 
-function buildTemplateReviewResponse(
+/** Short praise themes we can reference without pasting the customer's words. */
+const PRAISE_THEME_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /\bteachers?\b/i, label: "teachers" },
+  { pattern: /\bfront desk\b/i, label: "front desk team" },
+  { pattern: /\bstaff\b/i, label: "staff" },
+  { pattern: /\b(class|classroom)\b/i, label: "classroom" },
+  { pattern: /\b(numbers?|letters?|academically)\b/i, label: "learning progress" },
+  { pattern: /\bfriends?\b/i, label: "friendships" },
+  { pattern: /\b(songs?|singing)\b/i, label: "songs and activities" },
+  { pattern: /\b(summer camp|camp)\b/i, label: "summer programs" },
+  { pattern: /\b(clean|punctual|professional)\b/i, label: "professional service" },
+  { pattern: /\b(friendly|welcoming|patient|caring)\b/i, label: "caring team" },
+];
+
+function extractPraiseThemes(text: string, limit = 2): string[] {
+  const themes: string[] = [];
+  for (const { pattern, label } of PRAISE_THEME_PATTERNS) {
+    if (!pattern.test(text)) continue;
+    if (themes.includes(label)) continue;
+    themes.push(label);
+    if (themes.length >= limit) break;
+  }
+  return themes;
+}
+
+function formatThemeMention(themes: string[]): string {
+  if (themes.length === 0) return "";
+  if (themes.length === 1) return themes[0];
+  return `${themes[0]} and ${themes[1]}`;
+}
+
+function positiveSpecificOpener(name: string, reviewText: string, clientName: string): string {
+  const themes = extractPraiseThemes(reviewText);
+  if (themes.length > 0) {
+    return `Thank you so much, ${name}! It means so much that you mentioned our ${formatThemeMention(themes)}.`;
+  }
+  return `Thank you so much, ${name}! We're thrilled you had a great experience with ${clientName}.`;
+}
+
+function weaveCloser(area: string | null, servicePhrase: string | null): string | null {
+  if (servicePhrase && area) {
+    return `We're grateful to serve ${area} families at our ${servicePhrase}.`;
+  }
+  if (servicePhrase) {
+    return `We're grateful for your support of our ${servicePhrase} team.`;
+  }
+  if (area) {
+    return `We're grateful to serve neighbors here in ${area}.`;
+  }
+  return null;
+}
+
+export function buildTemplateReviewResponse(
   audit: FullAuditPayload,
   review: { id: string; rating: number; text: string; author: string },
   keywordContext: ReviewResponseKeywordContext | null = null
 ): string {
   const phone = audit.gbp.identity.phone;
   const name = review.author.split(" ")[0] || review.author;
-  const detail = extractEmbeddableDetail(review.text);
   const area = extractAreaToken(audit.gbp.identity.address);
   const servicePhrase = resolveServicePhrase(audit, keywordContext);
   const canWeaveKeyword = review.rating >= 3 && Boolean(servicePhrase);
+  const themes = extractPraiseThemes(review.text, 1);
+  const concern = themes[0] ?? null;
 
   if (review.rating <= 2) {
-    return detail
-      ? `Thank you for your honest feedback, ${name}. We're sorry your experience didn't meet expectations — especially regarding "${detail}". Please call us at ${phone} so we can make this right.`
+    return concern
+      ? `Thank you for your honest feedback, ${name}. We're sorry your experience with our ${concern} didn't meet expectations. Please call us at ${phone} so we can make this right.`
       : `Thank you for your honest feedback, ${name}. We're sorry we missed the mark. Please contact us at ${phone} — we'd like to make this right.`;
   }
 
   if (review.rating === 3) {
-    if (canWeaveKeyword && servicePhrase) {
-      return detail
-        ? `Thanks for sharing your experience, ${name}. We hear you on "${detail}" and we're always working to improve our ${servicePhrase} — reach out anytime at ${phone}.`
-        : `Thanks for sharing your experience, ${name}. We're always working to improve our ${servicePhrase} — reach out anytime at ${phone}.`;
-    }
-    return detail
-      ? `Thanks for sharing your experience, ${name}. We hear you on "${detail}" and we're always working to improve — reach out anytime at ${phone}.`
-      : `Thanks for sharing your experience, ${name}. We're always working to improve — reach out anytime at ${phone}.`;
+    const improveFocus = canWeaveKeyword && servicePhrase ? ` our ${servicePhrase}` : "";
+    return concern
+      ? `Thanks for sharing your experience, ${name}. We hear you on ${concern} and we're always working to improve${improveFocus} — reach out anytime at ${phone}.`
+      : `Thanks for sharing your experience, ${name}. We're always working to improve${improveFocus} — reach out anytime at ${phone}.`;
   }
 
-  if (canWeaveKeyword && area && servicePhrase) {
-    return detail
-      ? `Thank you so much, ${name}! We're so glad to hear "${detail}" — we love helping ${area} neighbors with ${servicePhrase}.`
-      : `Thank you so much, ${name}! We're thrilled you had a great experience with ${audit.clientName}. We love helping ${area} neighbors with ${servicePhrase}.`;
-  }
+  const opener = positiveSpecificOpener(name, review.text, audit.clientName);
+  const closer =
+    (canWeaveKeyword ? weaveCloser(area, servicePhrase) : null) ??
+    weaveCloser(area, null) ??
+    "We truly appreciate your support!";
 
-  if (canWeaveKeyword && servicePhrase) {
-    return detail
-      ? `Thank you so much, ${name}! We're so glad to hear "${detail}" — we truly appreciate your support for our ${servicePhrase} team.`
-      : `Thank you so much, ${name}! We're thrilled you had a great experience with ${audit.clientName}. We appreciate your support for our ${servicePhrase} team!`;
-  }
-
-  return detail
-    ? `Thank you so much, ${name}! We're so glad to hear "${detail}". We truly appreciate your support!`
-    : `Thank you so much, ${name}! We're thrilled you had a great experience with ${audit.clientName}. We appreciate your support!`;
+  return `${opener} ${closer}`;
 }
 
 export function generateReviewRequestSms(audit: FullAuditPayload): string {

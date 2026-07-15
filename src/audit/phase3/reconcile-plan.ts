@@ -50,9 +50,14 @@ import {
 } from "@/lib/google/gbp-description-draft";
 import { sanitizeGbpDescriptionDraft } from "@/lib/google/gbp-description";
 import {
+  generateReviewResponses,
+  looksLikeMangledReviewReply,
+} from "@/audit/phase3/content";
+import {
   isPlanServiceCopyBlockLabel,
   parsePlanServiceBlock,
 } from "@/lib/google/gbp-service-descriptions";
+import { reviewResponseKeywordFields } from "@/lib/review-responses/payload";
 
 /** Task types safe to auto-complete when live profile already satisfies the step/intent. */
 const AUTO_COMPLETE_TYPES = new Set<ExecutionTask["type"]>([
@@ -314,6 +319,54 @@ export function selectDescriptionDraftsToRefresh(
   return refreshed;
 }
 
+/** Rewrite pending review replies that still use the mangled legacy template. */
+export function selectReviewResponseDraftsToRefresh(
+  audit: FullAuditPayload,
+  existing: ExecutionTask[],
+  content?: AuditGeneratedContent
+): ExecutionTask[] {
+  const drafts =
+    content?.reviewResponses && content.reviewResponses.length > 0
+      ? content.reviewResponses
+      : generateReviewResponses(audit);
+  const byReviewId = new Map(drafts.map((draft) => [draft.reviewId, draft]));
+  const refreshed: ExecutionTask[] = [];
+
+  for (const task of existing) {
+    if (!isMutableByReconcile(task)) continue;
+    if (task.type !== "review_response") continue;
+    if (!looksLikeMangledReviewReply(task.draftContent)) continue;
+
+    const reviewId = String(task.payload.reviewId ?? "");
+    const draft = byReviewId.get(reviewId);
+    if (!draft?.response?.trim()) continue;
+    if (draft.response.trim() === task.draftContent.trim()) continue;
+
+    const reviewText =
+      typeof task.payload.reviewText === "string"
+        ? task.payload.reviewText
+        : audit.reviews.reviews.find((row) => row.id === reviewId)?.text ?? "";
+
+    refreshed.push({
+      ...task,
+      draftContent: draft.response,
+      payload: {
+        ...task.payload,
+        ...reviewResponseKeywordFields(
+          audit,
+          reviewId,
+          draft.response,
+          reviewText,
+          draft.keywordWeave
+        ),
+        reviewReplyDraftRefreshedAt: new Date().toISOString(),
+      },
+    });
+  }
+
+  return refreshed;
+}
+
 /** Upgrade legacy step-5 product/checklist tasks to publishable GBP service tasks. */
 export function selectStep5ServiceTasksToUpgrade(
   audit: FullAuditPayload,
@@ -410,6 +463,7 @@ export function computePlanReconcile(
   const completedIds = new Set(tasksToComplete.map((task) => task.id));
   const tasksToUpdate = [
     ...selectDescriptionDraftsToRefresh(nextAudit, existing),
+    ...selectReviewResponseDraftsToRefresh(nextAudit, existing, content),
     ...selectStep5ServiceTasksToUpgrade(nextAudit, existing),
   ].filter((task) => !completedIds.has(task.id));
 
