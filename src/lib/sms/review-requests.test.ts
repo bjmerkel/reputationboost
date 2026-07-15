@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { parseCustomerCsv, parseCustomerJson } from "@/lib/customers/parse-import";
 import { normalizePhoneE164 } from "@/lib/sms/phone";
-import { personalizeReviewRequestSms, ensureBusinessInTemplate, previewReviewRequestSms } from "@/lib/sms/personalize";
+import { personalizeReviewRequestSms, ensureBusinessInTemplate, previewReviewRequestSms, normalizeUnsupportedPlaceholders, stripRemainingPlaceholders } from "@/lib/sms/personalize";
 import {
   googleReviewUrlForBusiness,
   googleWriteReviewUrl,
@@ -73,6 +73,45 @@ describe("personalizeReviewRequestSms", () => {
     assert.match(message, /Northshore Learning Center/);
     assert.match(message, /Hi Sam/);
     assert.match(message, /after school program/);
+  });
+
+  it("rewrites unsupported [OWNER_NAME] before send", () => {
+    const template =
+      "Hi [FIRST_NAME], it's [OWNER_NAME] from [BUSINESS]! I'm so glad you enjoyed our [SERVICE]. If you have a moment, could you please leave us a quick Google review? [REVIEW_LINK]";
+    const message = personalizeReviewRequestSms({
+      template,
+      customer: { first_name: "Brad", last_name: "Smith", service_notes: "nursery service" },
+      businessName: "Northshore Learning Center",
+      reviewUrl: googleWriteReviewUrl("ChIJtest"),
+    });
+    assert.match(message, /Hi Brad/);
+    assert.match(message, /Northshore Learning Center here/);
+    assert.match(message, /nursery service/);
+    assert.doesNotMatch(message, /\[OWNER_NAME\]/);
+    assert.doesNotMatch(message, /\[BUSINESS\]/);
+  });
+});
+
+describe("normalizeUnsupportedPlaceholders", () => {
+  it("rewrites owner intro to business voice", () => {
+    const normalized = normalizeUnsupportedPlaceholders(
+      "Hi [FIRST_NAME], it's [OWNER_NAME] from [BUSINESS]! [REVIEW_LINK]"
+    );
+    assert.equal(normalized, "Hi [FIRST_NAME], [BUSINESS] here! [REVIEW_LINK]");
+  });
+
+  it("falls back to team voice for stray owner placeholders", () => {
+    const normalized = normalizeUnsupportedPlaceholders("Thanks from [OWNER_NAME]!");
+    assert.equal(normalized, "Thanks from the team!");
+  });
+});
+
+describe("stripRemainingPlaceholders", () => {
+  it("removes leftover bracket tokens", () => {
+    assert.equal(
+      stripRemainingPlaceholders("Hi Brad, it's [OWNER_NAME] from Acme!"),
+      "Hi Brad, it's from Acme!"
+    );
   });
 });
 

@@ -29,6 +29,36 @@ export function customerFirstName(
   return customer.first_name.trim() || customer.last_name.trim() || "there";
 }
 
+/**
+ * LLM-generated templates sometimes invent placeholders we do not substitute.
+ * Rewrites known unsupported tokens before personalization.
+ */
+export function normalizeUnsupportedPlaceholders(template: string): string {
+  let result = template;
+
+  result = result.replace(
+    /\bit['']s\s+\[OWNER_NAME\]\s+from\s+\[BUSINESS\]/gi,
+    "[BUSINESS] here"
+  );
+  result = result.replace(/\bit['']s\s+\[OWNER_NAME\]\s+from\s+/gi, "from ");
+  result = result.replace(/\[OWNER_NAME\]/gi, "the team");
+
+  return result;
+}
+
+/** Final safety: drop any [TOKEN] left after substitution. */
+export function stripRemainingPlaceholders(message: string): string {
+  return message
+    .replace(/\[[A-Z][A-Z0-9_]*\]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.!?])/g, "$1")
+    .trim();
+}
+
+function prepareReviewRequestTemplate(template: string, businessName: string): string {
+  return ensureBusinessInTemplate(normalizeUnsupportedPlaceholders(template), businessName);
+}
+
 export function personalizeReviewRequestSms(options: PersonalizeSmsOptions): string {
   const { template, customer, businessName, reviewUrl, focusKeyword, location } = options;
   const firstName = customerFirstName(customer);
@@ -38,12 +68,14 @@ export function personalizeReviewRequestSms(options: PersonalizeSmsOptions): str
     location,
   });
 
-  return substituteReviewLink(ensureBusinessInTemplate(template, businessName), reviewUrl, {
+  const message = substituteReviewLink(prepareReviewRequestTemplate(template, businessName), reviewUrl, {
     FIRST_NAME: firstName,
     NAME: customerDisplayName(customer),
     BUSINESS: businessName,
     SERVICE: service,
   });
+
+  return stripRemainingPlaceholders(message);
 }
 
 /** Ensures the customer can tell who sent the text — via [BUSINESS] or the literal name. */
@@ -75,7 +107,7 @@ export function previewReviewRequestSms(options: {
 }): string {
   const { template, businessName, reviewUrl, customer, serviceFallback, focusKeyword, location } =
     options;
-  const resolvedTemplate = ensureBusinessInTemplate(template, businessName);
+  const resolvedTemplate = prepareReviewRequestTemplate(template, businessName);
 
   if (customer) {
     return personalizeReviewRequestSms({
@@ -93,10 +125,12 @@ export function previewReviewRequestSms(options: {
     location,
   });
 
-  return substituteReviewLink(resolvedTemplate, reviewUrl, {
-    FIRST_NAME: "[FIRST_NAME]",
-    NAME: "[NAME]",
-    BUSINESS: businessName,
-    SERVICE: service,
-  });
+  return stripRemainingPlaceholders(
+    substituteReviewLink(resolvedTemplate, reviewUrl, {
+      FIRST_NAME: "[FIRST_NAME]",
+      NAME: "[NAME]",
+      BUSINESS: businessName,
+      SERVICE: service,
+    })
+  );
 }
