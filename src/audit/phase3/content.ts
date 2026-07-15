@@ -102,7 +102,7 @@ function buildTemplateReviewResponse(
   const detail = extractEmbeddableDetail(review.text);
   const area = extractAreaToken(audit.gbp.identity.address);
   const servicePhrase = resolveServicePhrase(audit, keywordContext);
-  const canWeaveKeyword = review.rating >= 4 && Boolean(servicePhrase);
+  const canWeaveKeyword = review.rating >= 3 && Boolean(servicePhrase);
 
   if (review.rating <= 2) {
     return detail
@@ -111,6 +111,11 @@ function buildTemplateReviewResponse(
   }
 
   if (review.rating === 3) {
+    if (canWeaveKeyword && servicePhrase) {
+      return detail
+        ? `Thanks for sharing your experience, ${name}. We hear you on "${detail}" and we're always working to improve our ${servicePhrase} — reach out anytime at ${phone}.`
+        : `Thanks for sharing your experience, ${name}. We're always working to improve our ${servicePhrase} — reach out anytime at ${phone}.`;
+    }
     return detail
       ? `Thanks for sharing your experience, ${name}. We hear you on "${detail}" and we're always working to improve — reach out anytime at ${phone}.`
       : `Thanks for sharing your experience, ${name}. We're always working to improve — reach out anytime at ${phone}.`;

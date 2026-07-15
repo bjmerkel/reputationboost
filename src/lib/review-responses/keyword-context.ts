@@ -44,7 +44,6 @@ export type ReviewKeywordSkipReason =
   | null;
 
 const SCORE_THRESHOLD = 50;
-const ROTATION_SCORE_THRESHOLD = 35;
 
 function trackedKeywords(audit: FullAuditPayload): string[] {
   const fromPlan = audit.strategy.gbpPlan?.targetKeywords ?? [];
@@ -289,8 +288,10 @@ function rotationKeywords(audit: FullAuditPayload): string[] {
 }
 
 /**
- * Assign per-review keyword contexts across a batch, rotating opportunities
- * so multiple replies can subtly cover different outside-pack gaps.
+ * Assign per-review keyword contexts across a batch.
+ * Keyword weave is the default for every non-negative review: prefer
+ * high-scoring opportunities, then rotate service terms so each reply
+ * still gets a natural weave target (reusing keywords when the pool is small).
  */
 export function assignReviewResponseKeywordContexts(
   audit: FullAuditPayload,
@@ -301,6 +302,10 @@ export function assignReviewResponseKeywordContexts(
   const usedKeywords = new Set<string>();
 
   const positiveReviews = reviews.filter((review) => review.rating >= 3);
+  const weavePool = (() => {
+    const rotation = rotationKeywords(audit);
+    return rotation.length > 0 ? rotation : trackedKeywords(audit);
+  })();
 
   for (const review of positiveReviews) {
     const context = resolveReviewResponseKeywordContext(audit, review, options);
@@ -313,38 +318,40 @@ export function assignReviewResponseKeywordContexts(
     }
   }
 
-  const rotation = rotationKeywords(audit);
   let rotationIndex = 0;
 
-  for (const review of positiveReviews.filter((row) => row.rating >= 4 && !contexts.has(row.id))) {
-    if (rotation.length === 0) break;
+  for (const review of positiveReviews.filter((row) => !contexts.has(row.id))) {
+    if (weavePool.length === 0) break;
 
-    let assigned = false;
-    for (let attempt = 0; attempt < rotation.length; attempt += 1) {
-      const keyword = rotation[(rotationIndex + attempt) % rotation.length];
+    let assignedKeyword: string | null = null;
+
+    for (let attempt = 0; attempt < weavePool.length; attempt += 1) {
+      const keyword = weavePool[(rotationIndex + attempt) % weavePool.length];
       if (usedKeywords.has(keyword.toLowerCase())) continue;
-
-      const { score } = scoreKeywordForReview(audit, review, keyword, options);
-      if (score < ROTATION_SCORE_THRESHOLD) continue;
-
-      contexts.set(
-        review.id,
-        buildContextForKeyword(audit, review, keyword, "batch_rotation", options)
-      );
+      assignedKeyword = keyword;
       usedKeywords.add(keyword.toLowerCase());
-      rotationIndex = (rotationIndex + attempt + 1) % rotation.length;
-      assigned = true;
+      rotationIndex = (rotationIndex + attempt + 1) % weavePool.length;
       break;
     }
 
-    if (!assigned) {
-      rotationIndex = (rotationIndex + 1) % Math.max(rotation.length, 1);
+    if (!assignedKeyword) {
+      // Prefer variety first; when the pool is exhausted, reuse so every reply still weaves.
+      assignedKeyword = weavePool[rotationIndex % weavePool.length];
+      rotationIndex = (rotationIndex + 1) % weavePool.length;
     }
+
+    contexts.set(
+      review.id,
+      buildContextForKeyword(audit, review, assignedKeyword, "batch_rotation", options)
+    );
   }
 
   for (const review of reviews) {
     if (!contexts.has(review.id)) {
-      contexts.set(review.id, emptyContext(audit, review));
+      contexts.set(
+        review.id,
+        emptyContext(audit, review, review.rating <= 2 ? "negative_review" : "no_natural_hook")
+      );
     }
   }
 
@@ -371,11 +378,11 @@ export function buildKeywordPromptBlock(context: ReviewResponseKeywordContext): 
     : "";
 
   return `
-KEYWORD OPPORTUNITY (optional — skip if unnatural):
+KEYWORD OPPORTUNITY (default — weave naturally unless forced):
 - Service focus: "${serviceTerm}" (not the full phrase "${context.suggestedKeyword}" unless the customer used it)
 - Natural hooks:
 ${hooks}
-${areaLine}- Do NOT use if: reply is primarily an apology, or the keyword would sound forced.`;
+${areaLine}- Skip only if: reply is primarily an apology, or the keyword would sound forced.`;
 }
 
 export function weaveReasonLabel(context: ReviewResponseKeywordContext): string | null {

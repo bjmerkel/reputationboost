@@ -117,13 +117,13 @@ describe("keyword-context", () => {
     assert.equal(context.skipReason, "negative_review");
   });
 
-  it("builds optional keyword prompt block", () => {
+  it("builds keyword prompt block with default weave guidance", () => {
     const audit = minimalAudit();
     const context = resolveReviewResponseKeywordContext(audit, review());
     const block = buildKeywordPromptBlock(context);
 
     assert.match(block, /KEYWORD OPPORTUNITY/);
-    assert.match(block, /optional/i);
+    assert.match(block, /default/i);
     assert.doesNotMatch(block, /mandatory/i);
   });
 
@@ -188,7 +188,31 @@ describe("keyword-context", () => {
       .map((context) => context.suggestedKeyword)
       .filter(Boolean);
 
-    assert.ok(suggested.length >= 2);
+    // Keyword weave is default for every non-negative review (reuse when pool is small).
+    assert.equal(suggested.length, 3);
+    assert.ok(new Set(suggested).size >= 2);
+  });
+
+  it("defaults keyword weave for every positive review even without a score hook", () => {
+    const audit = minimalAudit({
+      reviews: {
+        ...minimalAudit().reviews,
+        reviews: [
+          review({ id: "r1", rating: 5, text: "Wonderful staff" }),
+          review({ id: "r2", rating: 4, text: "Nice visit" }),
+          review({ id: "r3", rating: 3, text: "It was okay" }),
+          review({ id: "r4", rating: 1, text: "Terrible experience", sentiment: "negative" }),
+        ],
+      },
+    });
+
+    const contexts = assignReviewResponseKeywordContexts(audit, audit.reviews.reviews);
+
+    assert.ok(contexts.get("r1")?.suggestedKeyword);
+    assert.ok(contexts.get("r2")?.suggestedKeyword);
+    assert.ok(contexts.get("r3")?.suggestedKeyword);
+    assert.equal(contexts.get("r4")?.suggestedKeyword, null);
+    assert.equal(contexts.get("r4")?.skipReason, "negative_review");
   });
 
   it("boosts active campaign keywords", () => {
