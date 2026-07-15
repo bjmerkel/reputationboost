@@ -2,7 +2,11 @@ import type { FullAuditPayload } from "@/audit/types";
 import { generateReviewRequestSms as templateReviewRequestSms } from "@/audit/phase3/content";
 import type { CustomerRecord } from "@/lib/customers/types";
 import { normalizeKeywordInReviewTemplate } from "@/lib/review-requests/service-phrase";
-import { customerFirstName, ensureBusinessInTemplate } from "@/lib/sms/personalize";
+import {
+  customerFirstName,
+  ensureBusinessInTemplate,
+  normalizeUnsupportedPlaceholders,
+} from "@/lib/sms/personalize";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
 import { normalizeOptionalText } from "./normalize-content";
@@ -16,6 +20,7 @@ Rules:
 - Reference the customer's first name with [FIRST_NAME] placeholder
 - Reference their service with [SERVICE] when provided — we substitute a short program name (e.g. "enrichment programs"), never a full SEO keyword or city name
 - Always include [REVIEW_LINK] exactly once — we substitute the real URL
+- Use ONLY these placeholders: [FIRST_NAME], [SERVICE], [BUSINESS], [REVIEW_LINK] — never [OWNER_NAME] or any other bracket tokens
 - One clear ask: leave a quick Google review
 - No emojis unless the business tone is very casual
 - Do not invent details not in the context
@@ -75,7 +80,8 @@ function finalizeReviewRequestTemplate(
   context: ReviewRequestContext
 ): string {
   const withBusiness = ensureBusinessInTemplate(template, context.businessName);
-  return normalizeKeywordInReviewTemplate(withBusiness, context.focusKeyword, {
+  const normalized = normalizeUnsupportedPlaceholders(withBusiness);
+  return normalizeKeywordInReviewTemplate(normalized, context.focusKeyword, {
     city: context.city,
     state: context.state,
   });
