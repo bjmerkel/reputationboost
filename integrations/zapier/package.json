@@ -1,0 +1,22 @@
+{
+  "name": "reputation-boost-zapier",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reputation Boost Zapier integration — send job events and opt-outs without Webhooks by Zapier.",
+  "main": "index.js",
+  "scripts": {
+    "test": "zapier-platform test",
+    "validate": "zapier-platform validate",
+    "push": "zapier-platform push"
+  },
+  "engines": {
+    "node": ">=18",
+    "npm": ">=8"
+  },
+  "dependencies": {
+    "zapier-platform-core": "17.7.2"
+  },
+  "devDependencies": {
+    "zapier-platform-cli": "17.7.2"
+  }
+}

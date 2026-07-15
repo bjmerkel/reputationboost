@@ -9,6 +9,7 @@ import {
 } from "@/lib/integrations/webhook-storage";
 import { auditHasReviewGap } from "@/lib/review-requests/eligibility";
 import { ZAPIER_SETUP_STEPS, ZAPIER_TEMPLATES } from "@/lib/integrations/zapier-templates";
+import { getZapierEmbedConfig } from "@/lib/integrations/zapier-embed";
 import { getUser } from "@/lib/supabase/server";
 
 function buildWebhookUrl(request: Request, token: string): string {
@@ -36,9 +37,11 @@ export async function GET(request: Request) {
     });
     const audit = rawAudit ? ensureStrategy(rawAudit) : null;
     const hasReviewGap = auditHasReviewGap(audit);
+    const webhookUrl = buildWebhookUrl(request, settings.webhookToken);
+    const zapierEmbed = getZapierEmbedConfig(webhookUrl);
 
     return NextResponse.json({
-      webhookUrl: buildWebhookUrl(request, settings.webhookToken),
+      webhookUrl,
       autoSend: settings.autoSend,
       delayHours: settings.delayHours,
       triggerEvents: settings.triggerEvents,
@@ -46,6 +49,7 @@ export async function GET(request: Request) {
       privateFeedbackUrl: record?.private_feedback_url ?? null,
       zapierTemplates: ZAPIER_TEMPLATES,
       zapierSteps: ZAPIER_SETUP_STEPS,
+      zapierEmbed,
       samplePayload: {
         event: "job.completed",
         phone: "214-555-0100",

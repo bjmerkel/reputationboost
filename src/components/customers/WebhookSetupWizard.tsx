@@ -12,6 +12,22 @@ interface ZapierTemplate {
   sampleFields: string[];
 }
 
+interface ZapierTemplateEmbed {
+  id: string;
+  label: string;
+  description: string;
+  createUrl: string;
+  embedUrl: string | null;
+}
+
+interface ZapierEmbedConfig {
+  enabled: boolean;
+  appSlug: string;
+  appDirectoryUrl: string;
+  createZapUrl: string;
+  templates: ZapierTemplateEmbed[];
+}
+
 interface WebhookSettings {
   webhookUrl: string;
   autoSend: boolean;
@@ -21,6 +37,7 @@ interface WebhookSettings {
   privateFeedbackUrl?: string | null;
   zapierSteps?: string[];
   zapierTemplates?: ZapierTemplate[];
+  zapierEmbed?: ZapierEmbedConfig;
   samplePayload: Record<string, unknown>;
   optOutSamplePayload?: Record<string, unknown>;
 }
@@ -53,7 +70,21 @@ const TOOL_ICONS: Record<string, string> = {
   "customer-opt-out": "🛑",
 };
 
-function getSetupSteps(template: ZapierTemplate, webhookUrl: string): string[] {
+function getNativeZapierSteps(template: ZapierTemplate): string[] {
+  const toolName = template.label.split("—")[0]?.trim() ?? "your tool";
+  const actionName =
+    template.eventType === "invoice.paid" ? "Invoice Paid" : "Job Completed";
+
+  return [
+    `Click "Set up in Zapier" below — your webhook URL is copied automatically.`,
+    `In Zapier, connect ${toolName} as the trigger (${actionName}).`,
+    `Choose Reputation Boost as the action — paste your webhook URL once when prompted.`,
+    "Map customer phone, name, and service fields from the trigger into the labeled inputs.",
+    "Test the Zap, then turn it on.",
+  ];
+}
+
+function getManualZapierSteps(template: ZapierTemplate, webhookUrl: string): string[] {
   const fieldHint =
     template.id === "jobber-job-completed"
       ? "Map Jobber customer phone, first/last name, and job type or line items into phone, firstName, lastName, and service."
@@ -129,6 +160,7 @@ export default function WebhookSetupWizard() {
   const [stepIndex, setStepIndex] = useState(0);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showManualZapier, setShowManualZapier] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   const loadSettings = useCallback(async () => {
@@ -196,6 +228,15 @@ export default function WebhookSetupWizard() {
       (selectedTemplateId === "customer-opt-out" ? optOutTemplate : null)
     );
   }, [selectedTemplateId, reviewTemplates, optOutTemplate]);
+
+  const selectedZapierEmbed = useMemo(() => {
+    if (!selectedTemplateId || !settings?.zapierEmbed) return null;
+    return settings.zapierEmbed.templates.find((t) => t.id === selectedTemplateId) ?? null;
+  }, [selectedTemplateId, settings?.zapierEmbed]);
+
+  const optOutZapierEmbed = useMemo(() => {
+    return settings?.zapierEmbed?.templates.find((t) => t.id === "customer-opt-out") ?? null;
+  }, [settings?.zapierEmbed]);
 
   const currentStep = STEPS[stepIndex];
 
@@ -279,8 +320,16 @@ export default function WebhookSetupWizard() {
 
   const zapierSteps =
     selectedTemplate && settings.webhookUrl
-      ? getSetupSteps(selectedTemplate, settings.webhookUrl)
+      ? showManualZapier
+        ? getManualZapierSteps(selectedTemplate, settings.webhookUrl)
+        : getNativeZapierSteps(selectedTemplate)
       : (settings.zapierSteps ?? []);
+
+  const zapierSetupUrl =
+    selectedZapierEmbed?.createUrl ??
+    settings?.zapierEmbed?.createZapUrl ??
+    selectedTemplate?.templateUrl ??
+    "https://zapier.com/apps/webhook/integrations";
 
   return (
     <div className="rounded-xl border border-[#dadce0] bg-white shadow-sm">
@@ -494,32 +543,61 @@ export default function WebhookSetupWizard() {
               </button>
             </div>
             <p className="text-xs text-[#80868b]">
-              Tip: copy now so it&apos;s ready when you configure the Webhooks POST action in
-              Zapier.
+              Tip: copy now — Zapier will ask for this once when you connect Reputation Boost.
             </p>
           </div>
         )}
 
         {currentStep.id === "zapier" && selectedTemplate && (
           <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-semibold text-[#202124]">Set up {selectedTemplate.label}</p>
-                <p className="mt-1 text-sm text-[#5f6368]">
-                  Follow these steps in Zapier. Your webhook URL is included below each step that
-                  needs it.
-                </p>
+            <div className="rounded-xl border-2 border-[#ff4f00]/20 bg-[#fff7f3] p-5">
+              <p className="font-semibold text-[#202124]">One-click setup with Reputation Boost on Zapier</p>
+              <p className="mt-2 text-sm text-[#5f6368]">
+                Use the native Reputation Boost Zapier app — labeled fields instead of raw JSON,
+                and your webhook URL only needs to be connected once.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <a
+                  href={zapierSetupUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => void copyText("url", settings.webhookUrl)}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#ff4f00] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#e64800]"
+                >
+                  Set up in Zapier
+                  <span aria-hidden>↗</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void copyText("url", settings.webhookUrl)}
+                  className="rounded-full border border-[#dadce0] bg-white px-5 py-2.5 text-sm font-semibold text-[#3c4043] hover:bg-[#f8f9fa]"
+                >
+                  {copied === "url" ? "Webhook URL copied" : "Copy webhook URL"}
+                </button>
               </div>
-              <a
-                href={selectedTemplate.templateUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#ff4f00] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#e64800]"
-              >
-                Open in Zapier
-                <span aria-hidden>↗</span>
-              </a>
+              {selectedZapierEmbed ? (
+                <p className="mt-3 text-xs text-[#80868b]">
+                  Opens a pre-filled Zap for {selectedZapierEmbed.label}. Your webhook URL is
+                  included in the link.
+                </p>
+              ) : (
+                <p className="mt-3 text-xs text-[#80868b]">
+                  In Zapier, pick <strong>{selectedTemplate.label}</strong> as the trigger and{" "}
+                  <strong>Reputation Boost</strong> as the action ({selectedTemplate.eventType}).
+                </p>
+              )}
             </div>
+
+            {selectedZapierEmbed?.embedUrl && (
+              <div className="overflow-hidden rounded-xl border border-[#dadce0] bg-white">
+                <iframe
+                  title={`Set up ${selectedZapierEmbed.label} in Zapier`}
+                  src={selectedZapierEmbed.embedUrl}
+                  className="h-[520px] w-full"
+                  loading="lazy"
+                />
+              </div>
+            )}
 
             <ol className="space-y-3">
               {zapierSteps.map((step, i) => (
@@ -537,7 +615,7 @@ export default function WebhookSetupWizard() {
 
             <div className="rounded-lg border border-[#dadce0] bg-white p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">
-                Fields to map
+                Fields to map in Reputation Boost
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {selectedTemplate.sampleFields.map((field) => (
@@ -562,13 +640,45 @@ export default function WebhookSetupWizard() {
                   review request Zap.
                 </p>
                 <a
-                  href={optOutTemplate.templateUrl}
+                  href={optOutZapierEmbed?.createUrl ?? optOutTemplate.templateUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-3 inline-flex text-sm font-semibold text-amber-950 underline"
                 >
-                  Open opt-out template in Zapier
+                  Set up opt-out Zap in Zapier
                 </a>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowManualZapier((v) => !v)}
+              className="text-sm font-semibold text-[#5f6368] hover:text-[#202124]"
+            >
+              {showManualZapier
+                ? "Hide manual Webhooks-by-Zapier setup"
+                : "Advanced: manual Webhooks-by-Zapier setup"}
+            </button>
+
+            {showManualZapier && (
+              <div className="space-y-3 rounded-lg border border-[#dadce0] bg-[#f8f9fa] p-4 text-sm text-[#5f6368]">
+                <p>
+                  Legacy fallback if the Reputation Boost app is not available in your Zapier
+                  account yet. Uses Webhooks by Zapier → POST with raw JSON.
+                </p>
+                <a
+                  href={selectedTemplate.templateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex font-semibold text-[#1a73e8] hover:underline"
+                >
+                  Open generic webhook template
+                </a>
+                <ol className="list-decimal space-y-1 pl-5">
+                  {getManualZapierSteps(selectedTemplate, settings.webhookUrl).map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
               </div>
             )}
           </div>
