@@ -8,6 +8,7 @@ import {
   customerServiceMatchesKeyword,
   customerServiceNotesForReviewer,
 } from "./customer-match";
+import { naturalServicePhrase } from "@/lib/review-requests/service-phrase";
 
 export type ReviewKeywordWeaveReason =
   | "review_mentions_service"
@@ -96,6 +97,17 @@ function matchingTokensInText(text: string, keyword: string): string[] {
   return tokens.filter((token) => lower.includes(token));
 }
 
+/** Strong enough overlap to claim the customer mentioned this service. */
+function reviewMentionsService(text: string, keyword: string): boolean {
+  const lower = text.toLowerCase();
+  const natural = naturalServicePhrase(keyword).toLowerCase();
+  if (natural && natural.length > 3 && lower.includes(natural)) {
+    return true;
+  }
+
+  return textContainsKeyword(text, keyword);
+}
+
 function isActiveCampaignKeyword(keyword: string, options?: ReviewResponseKeywordOptions): boolean {
   const campaigns = options?.activeCampaignKeywords ?? [];
   return campaigns.some((row) => row.toLowerCase() === keyword.toLowerCase());
@@ -115,7 +127,7 @@ function scoreKeywordForReview(
   let reason: ReviewKeywordWeaveReason = null;
   const reviewText = review.text ?? "";
 
-  if (textContainsKeyword(reviewText, keyword)) {
+  if (reviewMentionsService(reviewText, keyword)) {
     score += 40;
     reason = "review_mentions_service";
   }
@@ -343,7 +355,11 @@ export function buildKeywordPromptBlock(context: ReviewResponseKeywordContext): 
   if (!context.suggestedKeyword || context.skipReason) return "";
 
   const serviceTerm =
-    context.serviceTokens[0] ?? context.suggestedKeyword.split(/\s+/).slice(0, 2).join(" ");
+    naturalServicePhrase(context.suggestedKeyword, {
+      city: context.areaToken,
+    }) ||
+    context.serviceTokens[0] ||
+    context.suggestedKeyword.split(/\s+/).slice(0, 2).join(" ");
 
   const hooks =
     context.weaveHints.length > 0

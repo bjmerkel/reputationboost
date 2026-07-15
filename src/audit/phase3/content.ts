@@ -3,8 +3,8 @@ import type { ReviewResponseKeywordContext } from "@/lib/review-responses/keywor
 import {
   assignReviewResponseKeywordContexts,
   extractAreaToken,
-  extractServiceTokens,
 } from "@/lib/review-responses/keyword-context";
+import { naturalServicePhrase } from "@/lib/review-requests/service-phrase";
 import { buildGbpDescriptionDraft } from "@/lib/google/gbp-description-draft";
 
 export function generateGooglePosts(audit: FullAuditPayload): string[] {
@@ -52,11 +52,44 @@ export function generateReviewResponses(audit: FullAuditPayload): ReviewResponse
   }));
 }
 
-function excerpt(text: string, maxLen = 80): string {
+/** Max length for a phrase we can embed mid-sentence without sounding broken. */
+const EMBEDDABLE_DETAIL_MAX = 72;
+
+/**
+ * Short praise suitable for embedding in a reply. Returns null for long or
+ * first-person narrative reviews — those must not be truncated into templates
+ * like "We're glad my son has been going here since May of 2019… meant a lot".
+ */
+function extractEmbeddableDetail(text: string): string | null {
   const cleaned = text.trim().replace(/\s+/g, " ");
-  if (!cleaned) return "";
-  if (cleaned.length <= maxLen) return cleaned;
-  return `${cleaned.slice(0, maxLen).trim()}…`;
+  if (!cleaned) return null;
+  if (cleaned.length > EMBEDDABLE_DETAIL_MAX) return null;
+  // Multi-sentence or first-person stories read as the business speaking as the customer
+  if (cleaned.includes(". ") || cleaned.includes("! ") || cleaned.includes("? ")) return null;
+  if (/^(i|i'm|i’m|i've|i’ve|my|we|we're|we’re|our|me)\b/i.test(cleaned)) return null;
+  return cleaned.replace(/[.!?]+$/u, "").trim() || null;
+}
+
+function locationFromAddress(address: string): { city: string | null; state: string | null } {
+  const parts = address.split(",").map((part) => part.trim());
+  const city = parts[1] || null;
+  const stateZip = parts[2] ?? "";
+  const state = stateZip.split(/\s+/)[0] || null;
+  return { city, state };
+}
+
+function resolveServicePhrase(
+  audit: FullAuditPayload,
+  keywordContext: ReviewResponseKeywordContext | null
+): string | null {
+  const keyword = keywordContext?.suggestedKeyword?.trim();
+  if (!keyword) return null;
+
+  const location = locationFromAddress(audit.gbp.identity.address);
+  const phrase = naturalServicePhrase(keyword, location);
+  if (phrase) return phrase;
+
+  return keywordContext?.serviceTokens[0] ?? null;
 }
 
 function buildTemplateReviewResponse(
@@ -66,15 +99,10 @@ function buildTemplateReviewResponse(
 ): string {
   const phone = audit.gbp.identity.phone;
   const name = review.author.split(" ")[0] || review.author;
-  const detail = excerpt(review.text);
+  const detail = extractEmbeddableDetail(review.text);
   const area = extractAreaToken(audit.gbp.identity.address);
-  const serviceToken =
-    keywordContext?.serviceTokens[0] ??
-    (keywordContext?.suggestedKeyword
-      ? extractServiceTokens(keywordContext.suggestedKeyword)[0]
-      : null);
-  const canWeaveKeyword =
-    review.rating >= 4 && keywordContext?.suggestedKeyword && serviceToken;
+  const servicePhrase = resolveServicePhrase(audit, keywordContext);
+  const canWeaveKeyword = review.rating >= 4 && Boolean(servicePhrase);
 
   if (review.rating <= 2) {
     return detail
@@ -88,20 +116,20 @@ function buildTemplateReviewResponse(
       : `Thanks for sharing your experience, ${name}. We're always working to improve — reach out anytime at ${phone}.`;
   }
 
-  if (canWeaveKeyword && area) {
+  if (canWeaveKeyword && area && servicePhrase) {
     return detail
-      ? `Thank you so much, ${name}! We're glad ${detail.charAt(0).toLowerCase()}${detail.slice(1)} meant a lot to you — we love helping ${area} neighbors with ${serviceToken}.`
-      : `Thank you so much, ${name}! We're thrilled you had a great experience with ${audit.clientName} and appreciate your support here in ${area}.`;
+      ? `Thank you so much, ${name}! We're so glad to hear "${detail}" — we love helping ${area} neighbors with ${servicePhrase}.`
+      : `Thank you so much, ${name}! We're thrilled you had a great experience with ${audit.clientName}. We love helping ${area} neighbors with ${servicePhrase}.`;
   }
 
-  if (canWeaveKeyword) {
+  if (canWeaveKeyword && servicePhrase) {
     return detail
-      ? `Thank you so much, ${name}! We're glad ${detail.charAt(0).toLowerCase()}${detail.slice(1)} meant a lot to you — we truly appreciate your support for our ${serviceToken} team.`
-      : `Thank you so much, ${name}! We're thrilled you had a great experience with ${audit.clientName}. We appreciate your support!`;
+      ? `Thank you so much, ${name}! We're so glad to hear "${detail}" — we truly appreciate your support for our ${servicePhrase} team.`
+      : `Thank you so much, ${name}! We're thrilled you had a great experience with ${audit.clientName}. We appreciate your support for our ${servicePhrase} team!`;
   }
 
   return detail
-    ? `Thank you so much, ${name}! We're glad ${detail.charAt(0).toLowerCase()}${detail.slice(1)} meant a lot to you. We truly appreciate your support!`
+    ? `Thank you so much, ${name}! We're so glad to hear "${detail}". We truly appreciate your support!`
     : `Thank you so much, ${name}! We're thrilled you had a great experience with ${audit.clientName}. We appreciate your support!`;
 }
 

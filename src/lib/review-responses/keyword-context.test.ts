@@ -94,6 +94,7 @@ describe("keyword-context", () => {
   it("extracts area and service tokens", () => {
     assert.equal(extractAreaToken("123 Main St, Arlington, VA"), "Arlington");
     assert.deepEqual(extractServiceTokens("oil change arlington va"), ["change", "arlington"]);
+    assert.deepEqual(extractServiceTokens("learning center near me"), ["learning"]);
   });
 
   it("suggests keyword when review mentions service tokens", () => {
