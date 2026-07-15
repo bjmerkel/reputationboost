@@ -10,6 +10,7 @@ import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
 import ScoreChangelog from "@/components/audit/ScoreChangelog";
 import EngagementPeriodCard from "@/components/engagement/EngagementPeriodCard";
 import InfoTooltip from "@/components/ui/InfoTooltip";
+import { formatScoreCalculatedAt } from "@/lib/scores/format-score-date";
 import { SCORE_TOOLTIPS } from "@/lib/scores/score-tooltips";
 
 function formatDelta(change: number, suffix = ""): string {
@@ -114,12 +115,18 @@ export default function HomeHealthSummary({
             {scores.grade.replace("_", " ")}
             <InfoTooltip {...SCORE_TOOLTIPS.grade} />
           </p>
-          {liveScoreDate && liveScore != null && liveScore !== scores.overall && (
-            <p className="mt-1 text-xs text-[#1a73e8]">
-              Live score {liveScore}/100 · updated {liveScoreDate}
+          {liveScoreDate && (
+            <p className="mt-1 text-xs text-[#80868b]">
+              Calculated {formatScoreCalculatedAt(liveScoreDate)}
+              {liveScore != null && liveScore !== scores.overall && (
+                <span className="text-[#1a73e8]">
+                  {" "}
+                  · live score {liveScore}/100
+                </span>
+              )}
             </p>
           )}
-          {mom && mom.overallScoreChange !== 0 && !liveScoreDate && (
+          {mom && mom.overallScoreChange !== 0 && (
             <p
               className={`mt-1 inline-flex items-center gap-1 text-sm ${
                 mom.overallScoreChange > 0 ? "text-[#137333]" : "text-[#d93025]"

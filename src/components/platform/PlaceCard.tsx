@@ -24,6 +24,7 @@ interface PlaceCardProps {
   industry?: string;
   /** Hide hero, score breakdown, and metrics when content lives in the main panel. */
   minimalChrome?: boolean;
+  scoreCalculatedAt?: string | null;
   children: React.ReactNode;
 }
 
@@ -37,6 +38,7 @@ export default function PlaceCard({
   engagement,
   industry,
   minimalChrome = false,
+  scoreCalculatedAt,
   children,
 }: PlaceCardProps) {
   const { gbp } = audit;
@@ -89,7 +91,11 @@ export default function PlaceCard({
         </div>
 
         {!minimalChrome && (
-          <PlaceCardDetails audit={audit} onPreviewCustomer={onPreviewCustomer} />
+          <PlaceCardDetails
+            audit={audit}
+            onPreviewCustomer={onPreviewCustomer}
+            scoreCalculatedAt={scoreCalculatedAt}
+          />
         )}
 
         <PlaceCardTabNav

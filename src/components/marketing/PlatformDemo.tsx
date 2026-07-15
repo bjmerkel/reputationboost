@@ -18,6 +18,7 @@ import PlatformShell from "@/components/platform/PlatformShell";
 import RankingMap from "@/components/platform/RankingMap";
 import ViewAsCustomerModal from "@/components/platform/ViewAsCustomerModal";
 import { SIGNUP_URL, SIGNUP_CTA_LABEL } from "@/lib/constants";
+import { resolveScoreCalculatedAt } from "@/lib/scores/format-score-date";
 import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 
 interface PlatformDemoProps {
@@ -192,6 +193,10 @@ export default function PlatformDemo({
     () => buildEngagementPeriodSummary([], 30, { audit }),
     [audit]
   );
+  const scoreCalculatedAt = useMemo(
+    () => resolveScoreCalculatedAt(null, audit),
+    [audit]
+  );
 
   const keywordRank = useMemo(() => {
     return (
@@ -248,10 +253,16 @@ export default function PlatformDemo({
             onPreviewCustomer={() => setPreviewOpen(true)}
             industry={industry}
             minimalChrome={view === "audit"}
+            scoreCalculatedAt={scoreCalculatedAt}
           >
             {view === "report" && (
               <div className="space-y-6">
-                <HomeHealthSummary audit={audit} summary={null} engagement={demoEngagement} />
+                <HomeHealthSummary
+                  audit={audit}
+                  summary={null}
+                  engagement={demoEngagement}
+                  liveScoreDate={scoreCalculatedAt}
+                />
                 <HomeReviewInbox
                   audit={audit}
                   pendingReplyCount={
