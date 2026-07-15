@@ -31,6 +31,7 @@ import { useMarketStatus } from "@/hooks/useMarketStatus";
 import { usePlanTasks, type PlanTasksState } from "@/hooks/usePlanTasks";
 import { useScoreHistory } from "@/hooks/useScoreHistory";
 import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
+import { resolveScoreCalculatedAt } from "@/lib/scores/format-score-date";
 
 interface BusinessLocation {
   lat: number;
@@ -87,6 +88,11 @@ export default function AuditDashboard({
     scoreLatestDate: scoreHistory.latestDate,
     enabled: Boolean(preparedInitial),
   });
+
+  const scoreCalculatedAt = useMemo(
+    () => resolveScoreCalculatedAt(scoreHistory.latestDate, audit ?? preparedInitial),
+    [scoreHistory.latestDate, audit, preparedInitial]
+  );
   const marketStatus = useMarketStatus(
     clientId,
     Boolean(preparedInitial && gbpConnected)
@@ -472,6 +478,7 @@ export default function AuditDashboard({
           engagement={attributionData.engagement}
           industry={businessIndustry}
           minimalChrome={view === "audit"}
+          scoreCalculatedAt={scoreCalculatedAt}
         >
           {view === "report" && (
             <HomeView
@@ -485,7 +492,7 @@ export default function AuditDashboard({
               avgCustomerValue={avgCustomerValue}
               avgCustomerValueCurrency={avgCustomerValueCurrency}
               liveScore={scoreHistory.liveScores?.overall ?? null}
-              liveScoreDate={scoreHistory.latestDate}
+              liveScoreDate={scoreCalculatedAt}
               scoreChangelog={scoreHistory.changelog}
               globalCalibration={scoreHistory.globalCalibration}
               performancePoints={attributionData.performanceSeries}

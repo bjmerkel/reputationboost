@@ -4,14 +4,20 @@ import type { FullAuditPayload } from "@/audit/types";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
 import InfoTooltip from "@/components/ui/InfoTooltip";
+import { formatScoreCalculatedAt } from "@/lib/scores/format-score-date";
 import { SCORE_TOOLTIPS } from "@/lib/scores/score-tooltips";
 
 interface PlaceCardDetailsProps {
   audit: FullAuditPayload;
   onPreviewCustomer?: () => void;
+  scoreCalculatedAt?: string | null;
 }
 
-export default function PlaceCardDetails({ audit, onPreviewCustomer }: PlaceCardDetailsProps) {
+export default function PlaceCardDetails({
+  audit,
+  onPreviewCustomer,
+  scoreCalculatedAt,
+}: PlaceCardDetailsProps) {
   const { gbp, strategy } = audit;
   const score = strategy?.scores.overall ?? 0;
   const grade = strategy?.scores.grade ?? "at_risk";
@@ -32,6 +38,11 @@ export default function PlaceCardDetails({ audit, onPreviewCustomer }: PlaceCard
           <p className="text-sm font-medium text-[#202124]">
             {score}/100 · {grade.replace("_", " ")}
           </p>
+          {scoreCalculatedAt && (
+            <p className="mt-0.5 text-[10px] text-[#80868b]">
+              Calculated {formatScoreCalculatedAt(scoreCalculatedAt)}
+            </p>
+          )}
           {strategy?.scores && (
             <div className="mt-2">
               <ScoreBreakdown scores={strategy.scores} compact showInsight variant="light" />
