@@ -35,11 +35,11 @@ Rules:
 - Do not invent facts not supported by the review or business context.
 - Use the reviewer's first name when natural.
 
-Local SEO (optional, subtle):
-- You may receive an OPTIONAL keyword opportunity. Use it only if it fits naturally in the reply.
+Local SEO (default when a keyword opportunity is provided):
+- You will often receive a keyword opportunity for positive reviews. Prefer weaving it in naturally.
 - Prefer the customer's own words or a short service term — never paste a long SEO phrase verbatim.
 - Mention city/area only when it flows from the conversation (e.g. thanking a neighbor, referencing the visit).
-- If the keyword doesn't fit, ignore it completely. Never sacrifice authenticity for SEO.
+- Skip only if the keyword would sound forced or the reply is primarily an apology. Never sacrifice authenticity for SEO.
 - At most one service or location concept beyond what the customer already said.
 
 Return valid JSON only: { "response": "the published reply text" }`;
