@@ -1,7 +1,21 @@
 import type { ExecutionTask } from "@/audit/types";
 import { keywordsHitInText } from "@/lib/review-responses/keyword-quality";
 
-const KEYWORD_STOP_WORDS = new Set(["near", "best", "local"]);
+const KEYWORD_STOP_WORDS = new Set([
+  "near",
+  "best",
+  "local",
+  // Generic nouns that appear in many SEO keywords but are too weak alone
+  "center",
+  "centre",
+  "service",
+  "services",
+  "company",
+  "shop",
+  "store",
+  "place",
+  "area",
+]);
 
 /** Significant tokens from a keyword phrase (drops short words and stop words). */
 export function significantKeywordTokens(keyword: string): string[] {
