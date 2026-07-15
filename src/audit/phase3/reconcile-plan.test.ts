@@ -445,6 +445,7 @@ describe("computePlanReconcile", () => {
       actionItemId: "gbp-step-11",
       title: "Respond to Shay (5★)",
       draftContent: mangled,
+      createdAt: "2026-07-11T02:01:00.000Z",
       payload: {
         gbpStepNumber: 11,
         reviewId: "reviews/shay",
@@ -464,5 +465,34 @@ describe("computePlanReconcile", () => {
     assert.doesNotMatch(updated?.draftContent ?? "", /We're glad my 3 year old/i);
     assert.match(updated?.draftContent ?? "", /Thank you so much, Shay!/);
     assert.match(updated?.draftContent ?? "", /teachers|front desk|learning progress/i);
+    assert.equal(updated?.payload.recommendedAt, "2026-07-15T01:00:00.000Z");
+  });
+
+  it("stamps recommendedAt on open tasks so Plan dates refresh after reconcile", () => {
+    const audit = createTestAudit();
+    const pendingDescription = task({
+      id: "old-description",
+      type: "gbp_description",
+      status: "pending_approval",
+      planStepNumber: 3,
+      actionItemId: "gbp-step-3",
+      createdAt: "2026-07-11T02:01:00.000Z",
+      draftContent:
+        "Nestled in Las Vegas since 1997, Northshore Learning Center offers a safe and supportive environment where children from 6 weeks to 12 years can learn, play, and grow.",
+      payload: {
+        gbpStepNumber: 3,
+        field: "description",
+      },
+    });
+
+    const result = computePlanReconcile(audit, [pendingDescription], {
+      now: "2026-07-15T13:00:00.000Z",
+    });
+
+    const updated = result.tasksToUpdate.find((item) => item.id === "old-description");
+    assert.ok(updated, "open description task should be stamped on reconcile");
+    assert.equal(updated?.payload.recommendedAt, "2026-07-15T13:00:00.000Z");
+    assert.equal(result.nextAudit.strategy.planReconciledAt, "2026-07-15T13:00:00.000Z");
+    assert.equal(result.tasksToComplete.some((item) => item.id === "old-description"), false);
   });
 });

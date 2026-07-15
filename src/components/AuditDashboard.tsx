@@ -253,11 +253,18 @@ export default function AuditDashboard({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ clientId, trigger }),
         });
-        const data = await parseJsonResponse<{ error?: string; audit?: FullAuditPayload }>(res);
+        const data = await parseJsonResponse<{
+          error?: string;
+          audit?: FullAuditPayload;
+          planReconciledAt?: string | null;
+        }>(res);
         if (!res.ok) throw new Error(data.error ?? "Audit failed");
         if (!data.audit) throw new Error("Audit completed but returned no data.");
         const nextAudit = ensureStrategy(data.audit);
         applyAudit(nextAudit);
+        // Profile refresh reuses the same audit id — reload Plan tasks so
+        // "Recommended …" and refreshed drafts show up immediately.
+        await refreshExecutionTasks();
         void refreshLiveAudit();
         if (nextAudit.rankings.keywords[0]) {
           setActiveKeyword(nextAudit.rankings.keywords[0].keyword);
@@ -269,7 +276,7 @@ export default function AuditDashboard({
         setLoading(false);
       }
     },
-    [clientId, setView, applyAudit, refreshLiveAudit]
+    [clientId, setView, applyAudit, refreshLiveAudit, refreshExecutionTasks]
   );
 
   const refreshRankings = useCallback(async () => {
