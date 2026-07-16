@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getPrimaryBusiness } from "@/audit/businesses";
+import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
+import { ensureStrategy } from "@/audit/ensure-strategy";
 import { getReviewDispute, updateReviewDispute } from "@/lib/review-disputes/storage";
-import { buildGbpReviewReportUrl } from "@/lib/review-disputes/gbp-report-url";
+import { resolveDisputeReportUrl } from "@/lib/review-disputes/gbp-report-url";
 import type { ReviewDisputeStatus } from "@/lib/review-disputes/types";
 import { getUser } from "@/lib/supabase/server";
 
@@ -29,9 +31,24 @@ export async function PATCH(
   try {
     const business = await getPrimaryBusiness(user.id);
     const dispute = await updateReviewDispute(user.id, disputeId, body);
+
+    const rawAudit =
+      business?.id && business.businessId
+        ? await loadLatestAuditFromSupabase(user.id, business.id, {
+            businessName: business.name,
+            businessUuid: business.businessId,
+          })
+        : null;
+    const audit = rawAudit ? ensureStrategy(rawAudit) : null;
+
     return NextResponse.json({
       dispute,
-      reportUrl: buildGbpReviewReportUrl(business?.gbpPlaceId),
+      reportUrl: resolveDisputeReportUrl({
+        name: audit?.clientName ?? business?.name,
+        address: audit?.gbp.identity.address ?? business?.gbpAddress,
+        mapsUrl: audit?.gbp.identity.mapsUrl ?? business?.gbpMapsUrl,
+        placeId: business?.gbpPlaceId,
+      }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update dispute";

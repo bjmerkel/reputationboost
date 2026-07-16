@@ -528,7 +528,7 @@ export default function ReviewDisputePanel({
                   : "border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/15"
               }`}
             >
-              Open in Google ↗
+              Open reviews in Google ↗
             </a>
           </div>
 
