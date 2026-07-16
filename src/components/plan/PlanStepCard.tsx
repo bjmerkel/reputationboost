@@ -239,7 +239,7 @@ export default function PlanStepCard({
           )}
 
           {reviewDisputeTasks.length > 0 && (
-            <div className="mt-4">
+            <div className={`mt-6 -mx-2 sm:mx-0`}>
               <ReviewDisputePanel
                 tasks={reviewDisputeTasks}
                 actions={actions}
