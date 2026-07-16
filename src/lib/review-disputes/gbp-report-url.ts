@@ -133,35 +133,10 @@ export function parseGoogleMapsPlaceUrl(urlString: string): ParsedGoogleMapsPlac
   }
 }
 
-/**
- * Official Places API `reviewsUri` format — opens the reviews tab directly.
- * @see https://developers.google.com/maps/architecture/maps-url
- */
-export function buildGooglePlacesReviewsUri(cidHex: string): string {
-  return `https://www.google.com/maps/place//data=!4m4!3m3!1s${cidHex}!9m1!1b1`;
-}
-
-/**
- * Google Search local reviews deep link — reliably opens the reviews panel.
- */
-export function buildGoogleLocalReviewsUrl(placeId: string, name?: string | null): string {
-  const url = new URL("https://search.google.com/local/reviews");
-  url.searchParams.set("placeid", placeId.trim());
-  const label = name?.trim();
-  if (label) {
-    url.searchParams.set("q", label);
-  }
-  return url.toString();
-}
-
 /** Build a stable reviews-focused Maps URL (no tracking params, `!9m1!1b1` reviews hint). */
 export function buildStableGoogleMapsReviewsUrl(
   parts: ParsedGoogleMapsPlace & { name: string }
 ): string | null {
-  if (parts.cidHex) {
-    return buildGooglePlacesReviewsUri(parts.cidHex);
-  }
-
   const name = parts.name.trim();
   if (!name) return null;
 
@@ -175,6 +150,9 @@ export function buildStableGoogleMapsReviewsUrl(
   const slug = encodePlaceSlug(name);
 
   let data = "!4m8!3m7";
+  if (parts.cidHex) {
+    data += `!1s${parts.cidHex}`;
+  }
   data += `!8m2!3d${lat}!4d${lng}!9m1!1b1`;
   if (parts.kgMid) {
     data += `!16s${encodeURIComponent(parts.kgMid)}`;
@@ -182,7 +160,7 @@ export function buildStableGoogleMapsReviewsUrl(
   data += "!5m1!1e2";
 
   let url = `https://www.google.com/maps/place/${slug}/@${lat},${lng},${zoom}z/data=${data}`;
-  if (parts.cidDecimal) {
+  if (parts.cidDecimal && !parts.cidHex) {
     url += `?cid=${parts.cidDecimal}`;
   }
   return url;
@@ -201,32 +179,38 @@ function mergeParsedWithInput(
 }
 
 /**
- * Per-business stable URL that opens the listing on the reviews view.
- * Prefers Google's official reviews deep links over overview-style place URLs.
+ * Per-business stable Maps URL that opens the listing on the reviews view.
+ * Prefers rebuilding from stored Maps URI plus business coordinates.
  */
 export function buildGoogleMapsReviewsDisputeUrl(input: GoogleMapsReviewsUrlInput): string {
-  const placeId = input.placeId?.trim();
-  if (placeId) {
-    return buildGoogleLocalReviewsUrl(placeId, input.name);
-  }
-
   const mapsUrl = input.mapsUrl?.trim();
-  let parsed: ParsedGoogleMapsPlace | null = null;
   if (mapsUrl && isGoogleMapsUrl(mapsUrl)) {
     const stripped = stripEphemeralGoogleMapsParams(mapsUrl);
-    parsed = mergeParsedWithInput(parseGoogleMapsPlaceUrl(stripped), input);
-
-    if (parsed.cidHex) {
-      return buildGooglePlacesReviewsUri(parsed.cidHex);
+    const parsed = mergeParsedWithInput(parseGoogleMapsPlaceUrl(stripped), input);
+    const name = parsed.name || input.name?.trim();
+    if (name) {
+      const rebuilt = buildStableGoogleMapsReviewsUrl({ ...parsed, name });
+      if (rebuilt) return rebuilt;
     }
-  } else {
-    parsed = mergeParsedWithInput(null, input);
+
+    if (/!9m1!1b1/i.test(stripped)) {
+      return stripped.split("?")[0] ?? stripped;
+    }
   }
 
-  const name = parsed.name || input.name?.trim();
-  if (name) {
-    const rebuilt = buildStableGoogleMapsReviewsUrl({ ...parsed, name });
+  const name = input.name?.trim();
+  if (name && isValidCoord(input.lat) && isValidCoord(input.lng)) {
+    const rebuilt = buildStableGoogleMapsReviewsUrl({
+      name,
+      lat: input.lat,
+      lng: input.lng,
+    });
     if (rebuilt) return rebuilt;
+  }
+
+  const placeId = input.placeId?.trim();
+  if (placeId) {
+    return `https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(placeId)}`;
   }
 
   const query = [input.name, input.address].filter(Boolean).join(", ").trim();
@@ -267,7 +251,7 @@ export function resolveDisputeReportUrlFromContext(options: {
     name: audit?.clientName ?? business.name,
     address: audit?.gbp.identity.address ?? business.gbpAddress,
     mapsUrl: audit?.gbp.identity.mapsUrl ?? business.gbpMapsUrl,
-    placeId: business.gbpPlaceId ?? audit?.gbp.identity.placeId,
+    placeId: business.gbpPlaceId,
     lat: coords.lat,
     lng: coords.lng,
   });
