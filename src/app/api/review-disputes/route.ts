@@ -3,7 +3,7 @@ import { getPrimaryBusiness } from "@/audit/businesses";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { identifyDisputeCandidates } from "@/lib/review-disputes/candidates";
-import { resolveDisputeReportUrl } from "@/lib/review-disputes/gbp-report-url";
+import { resolveDisputeReportUrlFromContext } from "@/lib/review-disputes/gbp-report-url";
 import { estimateDisputeOverallScoreGain } from "@/lib/review-disputes/score-impact";
 import { listReviewDisputes, upsertReviewDispute } from "@/lib/review-disputes/storage";
 import type { ReviewDisputePolicyViolation } from "@/lib/review-disputes/types";
@@ -30,12 +30,7 @@ export async function GET() {
     const candidates = audit ? identifyDisputeCandidates(audit, disputes) : [];
     const projectedOverallGain = audit ? estimateDisputeOverallScoreGain(audit) : 0;
 
-    const reportUrl = resolveDisputeReportUrl({
-      name: audit?.clientName ?? business.name,
-      address: audit?.gbp.identity.address ?? business.gbpAddress,
-      mapsUrl: audit?.gbp.identity.mapsUrl ?? business.gbpMapsUrl,
-      placeId: business.gbpPlaceId,
-    });
+    const reportUrl = resolveDisputeReportUrlFromContext({ audit, business });
 
     return NextResponse.json({
       disputes,
@@ -102,12 +97,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       dispute,
-      reportUrl: resolveDisputeReportUrl({
-        name: audit?.clientName ?? business.name,
-        address: audit?.gbp.identity.address ?? business.gbpAddress,
-        mapsUrl: audit?.gbp.identity.mapsUrl ?? business.gbpMapsUrl,
-        placeId: business.gbpPlaceId,
-      }),
+      reportUrl: resolveDisputeReportUrlFromContext({ audit, business }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to save dispute";
