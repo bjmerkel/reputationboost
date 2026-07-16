@@ -264,6 +264,25 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       },
     },
     {
+      stepNumber: 9,
+      title: "Dispute Illegitimate Reviews",
+      instruction:
+        "Flag and dispute policy-violating reviews that drag down your rating. Each candidate is pre-classified with evidence templates — approve to track, then submit through Google Business Profile. Successful removals can lift your Reputation Boost Score.",
+      current: `${audit.reviews.disputeCandidates.length} dispute candidate(s) · ${audit.gbp.engagement.averageRating}★ average`,
+      recommended: "Dispute fake, spam, or off-topic reviews; respond to legitimate negatives in Step 11",
+      bullets: [
+        ...audit.reviews.reviews
+          .filter((r) => audit.reviews.disputeCandidates.includes(r.id))
+          .slice(0, 4)
+          .map(
+            (r) =>
+              `${r.rating}★ from ${r.isAnonymous ? "Anonymous" : r.author.split(" ")[0]} — ${(r.text || "no text").slice(0, 80)}${(r.text?.length ?? 0) > 80 ? "…" : ""}`
+          ),
+        "Google has no public API for disputes — we guide you with one-click evidence and track outcomes",
+        "Spectrum plan includes account-manager escalation for high-impact disputes",
+      ],
+    },
+    {
       stepNumber: 10,
       title: "Request more reviews",
       instruction:

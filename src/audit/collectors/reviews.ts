@@ -7,6 +7,7 @@ import {
 } from "@/lib/google/gbp-reviews";
 import { analyzeGbpReviewCoverage } from "@/lib/google/gbp-reviews-coverage";
 import { fetchPlaceDetails } from "@/lib/google/place-details";
+import { isDisputeableReview } from "@/lib/review-disputes/candidates";
 
 export async function collectReviewSnapshot(
   client: ClientConfig,
@@ -121,7 +122,7 @@ function buildReviewSnapshot(now: string, reviews: ReviewRecord[]): ReviewSnapsh
       neutralCount: reviews.filter((r) => r.sentiment === "neutral").length,
     },
     unrespondedNegative,
-    disputeCandidates: reviews.filter((r) => r.rating <= 2 && !r.responded).map((r) => r.id),
+    disputeCandidates: reviews.filter((r) => isDisputeableReview(r)).map((r) => r.id),
     velocityVsPriorMonth,
     avgResponseTimeHours,
     pendingReplies,

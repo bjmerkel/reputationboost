@@ -4,6 +4,13 @@ function stepHaystack(step: GbpPlanStep): string {
   return `${step.title} ${step.instruction}`.toLowerCase();
 }
 
+/** Plan step is about disputing illegitimate reviews. */
+export function isReviewDisputePlanStep(step: GbpPlanStep): boolean {
+  if (step.stepNumber === 9) return true;
+  const haystack = stepHaystack(step);
+  return /dispute|policy.violat|illegitimate review|flag review|report review/.test(haystack);
+}
+
 /** Plan step is about replying to existing reviews (not soliciting new ones). */
 export function isReviewResponsePlanStep(step: GbpPlanStep): boolean {
   if (step.stepNumber === 11) return true;

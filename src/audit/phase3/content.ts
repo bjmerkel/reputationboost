@@ -215,6 +215,7 @@ export function mapActionToExecutionType(actionId: string): ExecutionType | null
   }
   if (actionId.startsWith("rank-outside-pack")) return "gbp_description";
   if (actionId === "unresponded-negative" || actionId === "low-response-rate") return "review_response";
+  if (actionId === "dispute-candidates") return "review_dispute";
   if (
     actionId === "rejected-review-replies" ||
     actionId === "pending-review-replies"

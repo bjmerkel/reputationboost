@@ -152,5 +152,6 @@ export function gapScoreImpact(gap: GapFlag): number {
     return Math.min(10, base + 2);
   }
   if (gap.id === "unresponded-negative") return Math.min(10, base + 1);
+  if (gap.id === "dispute-candidates") return Math.min(10, base + 2);
   return base;
 }

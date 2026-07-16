@@ -277,6 +277,8 @@ export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): 
       return gbp.content.videoCount >= 2;
     case 8:
       return daysSince(gbp.content.lastPostDate) <= POST_FRESH_DAYS;
+    case 9:
+      return audit.reviews.disputeCandidates.length === 0;
     case 10: {
       const hasReviewGap = audit.rankings.keywords.some(
         (k) => k.inLocalPack && k.clientReviewCount < k.packLeaderReviewCount * 0.5
@@ -390,6 +392,22 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
       audit.gbp.content.lastPostDate = new Date().toISOString();
       audit.gbp.content.postCount = Math.max(1, audit.gbp.content.postCount);
       break;
+    case 9: {
+      const toRemove = new Set(audit.reviews.disputeCandidates);
+      audit.reviews.reviews = audit.reviews.reviews.filter((r) => !toRemove.has(r.id));
+      audit.reviews.disputeCandidates = [];
+      const remaining = audit.reviews.reviews;
+      if (remaining.length > 0) {
+        const totalRating = remaining.reduce((sum, r) => sum + r.rating, 0);
+        audit.gbp.engagement.reviewCount = remaining.length;
+        audit.gbp.engagement.averageRating =
+          Math.round((totalRating / remaining.length) * 10) / 10;
+      }
+      audit.reviews.unrespondedNegative = remaining.filter(
+        (r) => r.rating <= 3 && !r.responded
+      ).length;
+      break;
+    }
     case 10: {
       const avgLeader =
         audit.rankings.keywords.reduce((s, k) => s + k.packLeaderReviewCount, 0) /
@@ -537,6 +555,9 @@ export function applyGapMutation(audit: Phase1AuditPayload, gap: GapFlag): void 
       break;
     case "unresponded-negative":
       audit.reviews.unrespondedNegative = 0;
+      break;
+    case "dispute-candidates":
+      applyStepMutation(audit, 9);
       break;
     case "low-response-rate":
       audit.gbp.engagement.responseRate = 1;
@@ -911,6 +932,7 @@ function rankDeltaForStep(
     case 4:
     case 8:
       return 2;
+    case 9:
     case 10:
     case 11:
     case 6:
@@ -935,6 +957,7 @@ function keywordsTargetedByStep(audit: Phase1AuditPayload, stepNumber: number): 
       return needsWork.length > 0 ? needsWork : keywords.map((k) => k.keyword);
     case 5:
       return outsidePack;
+    case 9:
     case 10:
     case 11:
       return keywords

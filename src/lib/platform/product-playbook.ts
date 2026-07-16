@@ -132,7 +132,9 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
   const batchPending = pendingBatchTasks(input.tasks);
   const planPendingCount = pendingCounts.total;
   const reviewPending = pendingCounts.reviewReplies;
+  const disputePending = pendingCounts.reviewDisputes;
   const unrespondedNegative = input.audit?.reviews.unrespondedNegative ?? 0;
+  const disputeCandidates = input.audit?.reviews.disputeCandidates.length ?? 0;
   const auditAgeDays = daysSince(input.audit?.completedAt);
   const overallScore = input.audit?.strategy?.scores.overall ?? null;
   const gaps = input.audit?.strategy?.gaps ?? [];
@@ -243,6 +245,25 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
       status: googleDiffFields.length === 0 ? "done" : "pending",
       action: "open_plan",
       estimatedMinutes: Math.max(3, googleDiffFields.length * 2),
+    });
+  }
+
+  if (disputeCandidates > 0 || disputePending > 0) {
+    items.push({
+      id: "dispute-reviews",
+      stage: "execute",
+      title:
+        disputePending > 0
+          ? `Dispute ${disputePending} flagged review${disputePending === 1 ? "" : "s"}`
+          : `Review ${disputeCandidates} dispute candidate${disputeCandidates === 1 ? "" : "s"}`,
+      description:
+        "Flag policy-violating reviews with evidence templates, submit through Google, and track outcomes.",
+      why: "Removing illegitimate low-star reviews can lift your rating and Reputation Boost Score.",
+      priority: PRIORITY.high,
+      status: disputeCandidates === 0 && disputePending === 0 ? "done" : "pending",
+      action: "open_plan",
+      planStepNumber: 9,
+      estimatedMinutes: Math.max(5, (disputeCandidates || disputePending) * 4),
     });
   }
 

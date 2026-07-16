@@ -10,6 +10,8 @@ export interface PendingApprovalCounts {
   generating: number;
   /** Review-reply drafts awaiting approval. */
   reviewReplies: number;
+  /** Review dispute drafts awaiting approval. */
+  reviewDisputes: number;
 }
 
 export function getPendingApprovalCounts(tasks: ExecutionTask[]): PendingApprovalCounts {
@@ -20,6 +22,7 @@ export function getPendingApprovalCounts(tasks: ExecutionTask[]): PendingApprova
     batchable: batchable.length,
     generating: all.length - batchable.length,
     reviewReplies: all.filter((t) => t.type === "review_response").length,
+    reviewDisputes: all.filter((t) => t.type === "review_dispute").length,
   };
 }
 

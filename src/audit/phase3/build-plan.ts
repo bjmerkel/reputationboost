@@ -171,6 +171,7 @@ export function buildPlan(
           (task.status === "approved" &&
             (task.type === "review_response" ||
               task.type === "review_delete_reply" ||
+              task.type === "review_dispute" ||
               task.type === "update_tracked_keywords"))
       );
     });

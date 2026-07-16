@@ -536,6 +536,20 @@ export function detectGaps(
         ).length
       : audit.reviews.unrespondedNegative;
 
+  if (audit.reviews.disputeCandidates.length > 0) {
+    gaps.push(
+      gap(
+        "dispute-candidates",
+        "P0",
+        "disputes",
+        `${audit.reviews.disputeCandidates.length} review(s) eligible for dispute`,
+        "Policy-violating or suspicious low-star reviews drag down your rating. Flag and dispute illegitimate reviews before requesting new ones.",
+        9,
+        3
+      )
+    );
+  }
+
   if (unrespondedNegative > 0) {
     gaps.push(
       gap(

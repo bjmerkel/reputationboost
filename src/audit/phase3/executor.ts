@@ -136,6 +136,7 @@ export async function executeTask(
     update_tracked_keywords: `Updated tracked keywords from portfolio recommendations.`,
     review_response: `Posted review response for review ${task.payload.reviewId ?? "unknown"}.`,
     review_delete_reply: `Removed review reply for review ${task.payload.reviewId ?? "unknown"}.`,
+    review_dispute: `Dispute flagged for review ${task.payload.reviewId ?? "unknown"}. Submit via Google Business Profile using the evidence template.`,
     review_request: `Sent ${task.payload.batchSize ?? 15} SMS review requests.`,
     schema_markup: "Generated LocalBusiness schema snippet for developer install.",
     social_post: "Scheduled Facebook and Instagram post.",
@@ -412,6 +413,7 @@ async function executeTaskLive(
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
     case "gbp_checklist":
+    case "review_dispute":
     case "review_request":
     case "schema_markup":
     case "social_post":
