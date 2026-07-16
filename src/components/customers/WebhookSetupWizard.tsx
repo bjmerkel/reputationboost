@@ -49,7 +49,7 @@ const CUSTOM_TEMPLATE: ZapierTemplate = {
   id: "custom",
   label: "Other — Zapier, Make, or custom",
   description: "Build your own automation with Webhooks by Zapier or Make.",
-  templateUrl: "https://zapier.com/apps/webhook/integrations",
+  templateUrl: "https://zapier.com/webintent/create-zap?utm_source=reputation_boost&utm_medium=wizard&utm_campaign=zapier_setup",
   eventType: "job.completed",
   sampleFields: ["phone", "firstName", "lastName", "service", "externalId"],
 };
@@ -329,7 +329,7 @@ export default function WebhookSetupWizard() {
     selectedZapierEmbed?.createUrl ??
     settings?.zapierEmbed?.createZapUrl ??
     selectedTemplate?.templateUrl ??
-    "https://zapier.com/apps/webhook/integrations";
+    "https://zapier.com/webintent/create-zap";
 
   return (
     <div className="rounded-xl border border-[#dadce0] bg-white shadow-sm">
@@ -582,8 +582,9 @@ export default function WebhookSetupWizard() {
                 </p>
               ) : (
                 <p className="mt-3 text-xs text-[#80868b]">
-                  In Zapier, pick <strong>{selectedTemplate.label}</strong> as the trigger and{" "}
-                  <strong>Reputation Boost</strong> as the action ({selectedTemplate.eventType}).
+                  Opens Zapier to connect <strong>{selectedTemplate.label.split("—")[0]?.trim()}</strong>{" "}
+                  → <strong>Reputation Boost</strong>. Pick a workflow or create a new Zap, then
+                  connect with your webhook URL.
                 </p>
               )}
             </div>
