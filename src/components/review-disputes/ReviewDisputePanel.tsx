@@ -92,13 +92,11 @@ export default function ReviewDisputePanel({
   const [reportUrl, setReportUrl] = useState("https://business.google.com/reviews");
   const [projectedOverallGain, setProjectedOverallGain] = useState(0);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
-  const [evidenceNotes, setEvidenceNotes] = useState("");
   const [policyViolation, setPolicyViolation] = useState<ReviewDisputePolicyViolation>("low_quality_information");
   const [saving, setSaving] = useState(false);
 
   const applyCandidate = useCallback((candidate: DisputeCandidate) => {
     setActiveReviewId(candidate.reviewId);
-    setEvidenceNotes(candidate.evidenceTemplate);
     setPolicyViolation(candidate.suggestedViolation);
   }, []);
 
@@ -128,7 +126,6 @@ export default function ReviewDisputePanel({
             : data.candidates[0]?.reviewId ?? null;
         const nextCandidate = data.candidates.find((c) => c.reviewId === nextId);
         if (nextCandidate && nextId !== prev) {
-          setEvidenceNotes(nextCandidate.evidenceTemplate);
           setPolicyViolation(nextCandidate.suggestedViolation);
         }
         return nextId;
@@ -157,7 +154,7 @@ export default function ReviewDisputePanel({
   const pendingCount = candidates.length;
   const trackedCount = disputes.filter((d) => d.status !== "removed" && d.status !== "declined").length;
 
-  async function handleFlag(status: "flagged" | "submitted") {
+  async function handleSubmit() {
     if (!activeCandidate) return;
     setSaving(true);
     setError(null);
@@ -168,23 +165,24 @@ export default function ReviewDisputePanel({
         body: JSON.stringify({
           reviewId: activeCandidate.reviewId,
           policyViolation,
-          evidenceNotes,
+          evidenceNotes: activeCandidate.evidenceTemplate,
           reviewerName: activeCandidate.author,
           reviewRating: activeCandidate.rating,
           reviewText: activeCandidate.text,
           reviewPublishedAt: activeCandidate.publishedAt,
           executionTaskId: activeTask?.id,
           projectedScoreGain: activeCandidate.projectedScoreGain,
-          status,
+          status: "submitted",
         }),
       });
       const data = await parseJsonResponse<{ dispute: ReviewDisputeRecord; reportUrl: string; error?: string }>(res);
       if (!res.ok) throw new Error(data.error ?? "Failed to save dispute");
 
-      if (activeTask && status === "submitted") {
-        await actions.approveAndPublish(activeTask, { draftContent: evidenceNotes, payload: { policyViolation } });
-      } else if (activeTask) {
-        await actions.updateDraft(activeTask.id, evidenceNotes);
+      if (activeTask) {
+        await actions.approveAndPublish(activeTask, {
+          draftContent: activeCandidate.evidenceTemplate,
+          payload: { policyViolation },
+        });
       }
 
       setReportUrl(data.reportUrl);
@@ -244,7 +242,7 @@ export default function ReviewDisputePanel({
           No dispute candidates right now
         </p>
         <p className={`mx-auto mt-2 max-w-md text-sm leading-relaxed ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-          When we detect low-star reviews that may violate Google&apos;s policies, they&apos;ll appear here with evidence templates and score impact estimates.
+          When we detect low-star reviews that may violate Google&apos;s policies, they&apos;ll appear here with policy recommendations and score impact estimates.
         </p>
       </div>
     );
@@ -469,29 +467,6 @@ export default function ReviewDisputePanel({
             </div>
           </div>
 
-          <div>
-            <label
-              htmlFor="dispute-evidence"
-              className={`block text-sm font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}
-            >
-              Evidence notes
-            </label>
-            <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
-              Edit this template before submitting to Google. Include customer records or context where relevant.
-            </p>
-            <textarea
-              id="dispute-evidence"
-              value={evidenceNotes}
-              onChange={(e) => setEvidenceNotes(e.target.value)}
-              rows={14}
-              className={`mt-3 w-full rounded-xl border px-4 py-3 font-mono text-sm leading-relaxed ${
-                isLight
-                  ? "border-[#dadce0] bg-white text-[#202124]"
-                  : "border-white/10 bg-white/5 text-white"
-              }`}
-            />
-          </div>
-
           <div
             className={`sticky bottom-0 -mx-6 flex flex-wrap items-center gap-3 border-t px-6 py-4 ${
               isLight ? "border-[#e8eaed] bg-white/95" : "border-white/10 bg-[#0b1220]/95"
@@ -500,19 +475,7 @@ export default function ReviewDisputePanel({
             <button
               type="button"
               disabled={saving}
-              onClick={() => void handleFlag("flagged")}
-              className={`rounded-xl px-5 py-2.5 text-sm font-medium ${
-                isLight
-                  ? "border border-[#dadce0] bg-white text-[#3c4043] hover:bg-[#f8f9fa]"
-                  : "border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
-              }`}
-            >
-              Save draft
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void handleFlag("submitted")}
+              onClick={() => void handleSubmit()}
               className="rounded-xl bg-[#1a73e8] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1765cc] disabled:opacity-60"
             >
               {saving ? "Saving…" : "Mark submitted"}
