@@ -23,9 +23,11 @@ interface ReviewDisputePanelProps {
 }
 
 const WORKFLOW_STEPS = [
-  { title: "Pick a review", detail: "Choose a flagged low-star review below" },
-  { title: "Prepare evidence", detail: "Confirm the policy violation and edit your notes" },
-  { title: "Submit in Google", detail: "File the dispute, then record the outcome here" },
+  { title: "Reviews tab", detail: "Click on the Reviews tab" },
+  { title: "Find the review", detail: "Search the review using the search magnifying glass" },
+  { title: "Report review", detail: "Click the 3 dots and press Report review" },
+  { title: "Policy violation", detail: "Select the policy violation type we recommended" },
+  { title: "Submit", detail: "Press Submit" },
 ] as const;
 
 function formatReviewDate(iso: string): string {
@@ -291,7 +293,7 @@ export default function ReviewDisputePanel({
           </div>
         </dl>
 
-        <ol className="mt-5 grid gap-3 sm:grid-cols-3">
+        <ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {WORKFLOW_STEPS.map((step, index) => (
             <li
               key={step.title}
