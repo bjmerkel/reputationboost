@@ -34,7 +34,6 @@ interface WebhookSettings {
   delayHours: number;
   triggerEvents: string[];
   auditHasReviewGap?: boolean;
-  privateFeedbackUrl?: string | null;
   zapierSteps?: string[];
   zapierTemplates?: ZapierTemplate[];
   zapierEmbed?: ZapierEmbedConfig;
@@ -243,7 +242,6 @@ export default function WebhookSetupWizard() {
   async function updateSettings(
     patch: Partial<Pick<WebhookSettings, "autoSend" | "delayHours" | "triggerEvents">> & {
       rotateToken?: boolean;
-      privateFeedbackUrl?: string | null;
     }
   ) {
     setSaving(true);
@@ -264,7 +262,6 @@ export default function WebhookSetupWizard() {
               autoSend: data.autoSend,
               delayHours: data.delayHours,
               triggerEvents: data.triggerEvents,
-              privateFeedbackUrl: data.privateFeedbackUrl,
             }
           : prev
       );
@@ -494,29 +491,6 @@ export default function WebhookSetupWizard() {
                 <option value={4}>4 hours after event</option>
                 <option value={24}>24 hours after event</option>
               </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-semibold text-[#3c4043]">
-                Private feedback URL{" "}
-                <span className="font-normal text-[#80868b]">(optional)</span>
-              </label>
-              <p className="mt-1 text-sm text-[#5f6368]">
-                Unhappy customers with <code className="text-xs">sentiment: negative</code> get
-                this link instead of a Google review ask.
-              </p>
-              <input
-                type="url"
-                defaultValue={settings.privateFeedbackUrl ?? ""}
-                placeholder="https://forms.google.com/..."
-                className="mt-2 w-full rounded-lg border border-[#dadce0] px-3 py-2.5 text-sm"
-                onBlur={(e) => {
-                  const value = e.target.value.trim();
-                  if (value !== (settings.privateFeedbackUrl ?? "")) {
-                    void updateSettings({ privateFeedbackUrl: value || null });
-                  }
-                }}
-              />
             </div>
           </div>
         )}
