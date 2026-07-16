@@ -3,7 +3,7 @@ import { getPrimaryBusiness } from "@/audit/businesses";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { getReviewDispute, updateReviewDispute } from "@/lib/review-disputes/storage";
-import { resolveDisputeReportUrl } from "@/lib/review-disputes/gbp-report-url";
+import { resolveDisputeReportUrlFromContext } from "@/lib/review-disputes/gbp-report-url";
 import type { ReviewDisputeStatus } from "@/lib/review-disputes/types";
 import { getUser } from "@/lib/supabase/server";
 
@@ -43,12 +43,9 @@ export async function PATCH(
 
     return NextResponse.json({
       dispute,
-      reportUrl: resolveDisputeReportUrl({
-        name: audit?.clientName ?? business?.name,
-        address: audit?.gbp.identity.address ?? business?.gbpAddress,
-        mapsUrl: audit?.gbp.identity.mapsUrl ?? business?.gbpMapsUrl,
-        placeId: business?.gbpPlaceId,
-      }),
+      reportUrl: business
+        ? resolveDisputeReportUrlFromContext({ audit, business })
+        : "https://www.google.com/maps",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update dispute";
