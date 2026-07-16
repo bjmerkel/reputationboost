@@ -21,6 +21,14 @@ const TEMPLATE_ENV_KEYS: Record<string, string> = {
   "customer-opt-out": "ZAPIER_TEMPLATE_OPT_OUT",
 };
 
+const TRIGGER_APP_SLUGS: Record<string, string> = {
+  "jobber-job-completed": "jobber",
+  "hcp-job-completed": "housecall-pro",
+  "quickbooks-invoice-paid": "quickbooks-online",
+  "customer-opt-out": "twilio",
+  custom: "webhook",
+};
+
 const TEMPLATE_LABELS: Record<string, { label: string; description: string }> = {
   "jobber-job-completed": {
     label: "Jobber → Reputation Boost",
@@ -40,15 +48,25 @@ const TEMPLATE_LABELS: Record<string, { label: string; description: string }> = 
   },
 };
 
+const UTM_PARAMS = {
+  utm_source: "reputation_boost",
+  utm_medium: "wizard",
+  utm_campaign: "zapier_setup",
+} as const;
+
 function readTemplateId(templateKey: string): string | null {
   const envKey = TEMPLATE_ENV_KEYS[templateKey];
   const value = process.env[envKey]?.trim();
   return value || null;
 }
 
+function withUtm(base: string): string {
+  const params = new URLSearchParams(UTM_PARAMS);
+  return `${base}?${params.toString()}`;
+}
+
 /**
- * Build a Partner Embed create URL with the user's webhook URL prefilled on the
- * Reputation Boost connection (step index 1 is typical for trigger → action Zaps).
+ * Partner Embed create URL with the user's webhook URL prefilled.
  */
 export function buildZapierEmbedUrl(
   appSlug: string,
@@ -56,18 +74,41 @@ export function buildZapierEmbedUrl(
   webhookUrl: string
 ): string {
   const base = `https://api.zapier.com/v1/embed/${appSlug}/create/${templateId}`;
-  const params = new URLSearchParams();
+  const params = new URLSearchParams(UTM_PARAMS);
   params.set("steps[1][params][webhook_url]", webhookUrl);
   return `${base}?${params.toString()}`;
 }
 
+/** Opens Zapier editor to create a new Zap (better than the app directory page). */
+export function buildZapierWebIntentUrl(): string {
+  return withUtm("https://zapier.com/webintent/create-zap");
+}
+
+/** App pair page, e.g. Jobber integrations that connect to Reputation Boost. */
+export function buildZapierPairUrl(triggerAppSlug: string, actionAppSlug: string): string {
+  return withUtm(`https://zapier.com/apps/${triggerAppSlug}/integrations/${actionAppSlug}`);
+}
+
+export function buildZapierSetupUrl(
+  templateId: string,
+  appSlug: string,
+  webhookUrl: string,
+  publishedTemplateId?: string | null
+): string {
+  if (publishedTemplateId) {
+    return buildZapierEmbedUrl(appSlug, publishedTemplateId, webhookUrl);
+  }
+
+  const triggerSlug = TRIGGER_APP_SLUGS[templateId];
+  if (triggerSlug && templateId !== "custom") {
+    return buildZapierPairUrl(triggerSlug, appSlug);
+  }
+
+  return buildZapierWebIntentUrl();
+}
+
 export function buildZapierCreateZapUrl(appSlug: string): string {
-  const params = new URLSearchParams({
-    utm_source: "reputation_boost",
-    utm_medium: "wizard",
-    utm_campaign: "zapier_setup",
-  });
-  return `https://zapier.com/apps/${appSlug}/integrations?${params.toString()}`;
+  return buildZapierWebIntentUrl();
 }
 
 export function getZapierEmbedConfig(webhookUrl: string): ZapierEmbedConfig {
@@ -75,24 +116,23 @@ export function getZapierEmbedConfig(webhookUrl: string): ZapierEmbedConfig {
   const templates: ZapierTemplateEmbed[] = [];
 
   for (const [id, meta] of Object.entries(TEMPLATE_LABELS)) {
-    const templateId = readTemplateId(id);
-    if (!templateId) continue;
+    const publishedTemplateId = readTemplateId(id);
+    const createUrl = buildZapierSetupUrl(id, appSlug, webhookUrl, publishedTemplateId);
 
-    const createUrl = buildZapierEmbedUrl(appSlug, templateId, webhookUrl);
     templates.push({
       id,
       label: meta.label,
       description: meta.description,
       createUrl,
-      embedUrl: createUrl,
+      embedUrl: publishedTemplateId ? createUrl : null,
     });
   }
 
   return {
-    enabled: templates.length > 0,
+    enabled: templates.some((template) => template.embedUrl !== null),
     appSlug,
-    appDirectoryUrl: buildZapierCreateZapUrl(appSlug),
-    createZapUrl: buildZapierCreateZapUrl(appSlug),
+    appDirectoryUrl: withUtm(`https://zapier.com/apps/${appSlug}/integrations`),
+    createZapUrl: buildZapierWebIntentUrl(),
     templates,
   };
 }
