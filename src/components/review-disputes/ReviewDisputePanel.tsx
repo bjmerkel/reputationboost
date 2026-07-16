@@ -93,7 +93,7 @@ export default function ReviewDisputePanel({
   const [projectedOverallGain, setProjectedOverallGain] = useState(0);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
   const [evidenceNotes, setEvidenceNotes] = useState("");
-  const [policyViolation, setPolicyViolation] = useState<ReviewDisputePolicyViolation>("off_topic");
+  const [policyViolation, setPolicyViolation] = useState<ReviewDisputePolicyViolation>("low_quality_information");
   const [saving, setSaving] = useState(false);
 
   const applyCandidate = useCallback((candidate: DisputeCandidate) => {

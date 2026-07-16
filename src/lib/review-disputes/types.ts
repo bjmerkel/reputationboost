@@ -1,11 +1,11 @@
 export const REVIEW_DISPUTE_POLICY_VIOLATIONS = [
-  "off_topic",
-  "spam",
-  "conflict_of_interest",
+  "low_quality_information",
   "profanity",
+  "harmful",
   "bullying_or_harassment",
   "discrimination_or_hate_speech",
   "personal_information",
+  "not_helpful",
 ] as const;
 
 export type ReviewDisputePolicyViolation = (typeof REVIEW_DISPUTE_POLICY_VIOLATIONS)[number];
@@ -69,46 +69,51 @@ export interface DisputeCandidate {
   evidenceTemplate: string;
 }
 
-/** Google Business Profile dispute categories (display titles). */
+/** Google Maps report-review categories (display titles). */
 export const POLICY_VIOLATION_LABELS: Record<ReviewDisputePolicyViolation, string> = {
-  off_topic: "Off topic",
-  spam: "Spam",
-  conflict_of_interest: "Conflict of interest",
+  low_quality_information: "Low quality information",
   profanity: "Profanity",
+  harmful: "Harmful",
   bullying_or_harassment: "Bullying or harassment",
   discrimination_or_hate_speech: "Discrimination or hate speech",
   personal_information: "Personal information",
+  not_helpful: "Not helpful",
 };
 
-/** Google's descriptions for each dispute category. */
+/** Google's descriptions for each report-review category. */
 export const POLICY_VIOLATION_DESCRIPTIONS: Record<ReviewDisputePolicyViolation, string> = {
-  off_topic: "Review doesn't pertain to an experience at or with this business",
-  spam: "Review is from a bot, a fake account, or contains ads and promotions",
-  conflict_of_interest:
-    "Review is from someone affiliated with the business or a competitor's business",
+  low_quality_information:
+    "Review is off-topic, contains ads, or is gibberish or repetitive",
   profanity:
-    "Review contains swear words, has sexually explicit language, or details graphic violence or other illegal activity",
+    "Review contains swear words, or has pornographic or sexually explicit language",
+  harmful:
+    "Review contains content that encourages, promotes or provides instructions for self-harm, misuse of dangerous items or substances, or details or encourages graphic violence to people or animals",
   bullying_or_harassment: "Review personally attacks a specific individual",
   discrimination_or_hate_speech:
     "Review has harmful language about an individual or group based on identity",
-  personal_information: "Contains personal information such as address or phone number",
+  personal_information:
+    "Review contains personal information, such as an address or phone number",
+  not_helpful: "Review doesn't help people decide whether to go to this place",
 };
 
 const LEGACY_POLICY_VIOLATION_ALIASES: Record<string, ReviewDisputePolicyViolation> = {
-  fake_content: "spam",
-  not_a_customer: "off_topic",
+  off_topic: "low_quality_information",
+  spam: "low_quality_information",
+  conflict_of_interest: "low_quality_information",
+  fake_content: "low_quality_information",
+  not_a_customer: "low_quality_information",
   harassment: "bullying_or_harassment",
   privacy_violation: "personal_information",
-  other: "off_topic",
+  other: "not_helpful",
 };
 
 /** Normalize stored values from older dispute records. */
 export function normalizePolicyViolation(
   value: string | null | undefined
 ): ReviewDisputePolicyViolation {
-  if (!value) return "off_topic";
+  if (!value) return "low_quality_information";
   if ((REVIEW_DISPUTE_POLICY_VIOLATIONS as readonly string[]).includes(value)) {
     return value as ReviewDisputePolicyViolation;
   }
-  return LEGACY_POLICY_VIOLATION_ALIASES[value] ?? "off_topic";
+  return LEGACY_POLICY_VIOLATION_ALIASES[value] ?? "low_quality_information";
 }

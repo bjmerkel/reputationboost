@@ -16,6 +16,8 @@ const SPAM_PATTERNS =
   /\b(click here|visit (my|our) website|promo code|discount code|www\.|https?:\/\/|buy now|call now)\b/i;
 const PROFANITY_PATTERNS =
   /\b(fuck|shit|damn|asshole|bitch|bastard|crap|piss|dick|cock|pussy)\b/i;
+const HARMFUL_PATTERNS =
+  /\b(self[- ]?harm|suicide|kill yourself|overdose|graphic violence|torture|animal abuse|misuse (of )?(drugs|weapons)|dangerous substance)\b/i;
 const BULLYING_PATTERNS =
   /\b(idiot|moron|stupid (owner|manager|employee)|you people|loser|pathetic|worthless)\b/i;
 const HARASSMENT_PATTERNS =
@@ -27,7 +29,12 @@ const PII_PATTERNS =
 const OFF_TOPIC_PATTERNS =
   /\b(politics|religion|covid|vaccine|election|president|government)\b/i;
 
-function classify(text: string, violation: ReviewDisputePolicyViolation, confidence: PolicyClassification["confidence"], detail?: string): PolicyClassification {
+function classify(
+  text: string,
+  violation: ReviewDisputePolicyViolation,
+  confidence: PolicyClassification["confidence"],
+  detail?: string
+): PolicyClassification {
   return {
     violation,
     confidence,
@@ -39,27 +46,61 @@ export function classifyReviewPolicyViolation(review: ReviewRecord): PolicyClass
   const text = `${review.text ?? ""} ${review.author ?? ""}`.trim();
 
   if (NOT_CUSTOMER_PATTERNS.test(text)) {
-    return classify(text, "off_topic", "high", "Review text suggests no real experience with your business.");
+    return classify(
+      text,
+      "low_quality_information",
+      "high",
+      "Review text suggests no real experience with your business."
+    );
   }
 
   if (COMPETITOR_PATTERNS.test(text)) {
-    return classify(text, "conflict_of_interest", "high", "Language suggests a competitor or coordinated attack.");
+    return classify(
+      text,
+      "low_quality_information",
+      "high",
+      "Language suggests a competitor or coordinated attack."
+    );
   }
 
   if (SPAM_PATTERNS.test(text)) {
-    return classify(text, "spam", "high", "Review contains promotional links or spam patterns.");
+    return classify(
+      text,
+      "low_quality_information",
+      "high",
+      "Review contains promotional links or ad-like content."
+    );
   }
 
   if (PII_PATTERNS.test(text)) {
-    return classify(text, "personal_information", "high", "Review appears to include a phone number, email, or address.");
+    return classify(
+      text,
+      "personal_information",
+      "high",
+      "Review appears to include a phone number, email, or address."
+    );
   }
 
   if (PROFANITY_PATTERNS.test(text)) {
-    return classify(text, "profanity", "high", "Review contains profane or explicit language.");
+    return classify(text, "profanity", "high", "Review contains profane or sexually explicit language.");
+  }
+
+  if (HARMFUL_PATTERNS.test(text)) {
+    return classify(
+      text,
+      "harmful",
+      "high",
+      "Review may include harmful content related to violence, self-harm, or dangerous substances."
+    );
   }
 
   if (DISCRIMINATION_PATTERNS.test(text)) {
-    return classify(text, "discrimination_or_hate_speech", "high", "Review may include discriminatory or hateful language.");
+    return classify(
+      text,
+      "discrimination_or_hate_speech",
+      "high",
+      "Review may include discriminatory or hateful language."
+    );
   }
 
   if (BULLYING_PATTERNS.test(text) || HARASSMENT_PATTERNS.test(text)) {
@@ -67,21 +108,26 @@ export function classifyReviewPolicyViolation(review: ReviewRecord): PolicyClass
   }
 
   if (OFF_TOPIC_PATTERNS.test(text)) {
-    return classify(text, "off_topic", "medium", "Review content appears unrelated to your business.");
+    return classify(text, "low_quality_information", "medium", "Review content appears unrelated to your business.");
   }
 
   if (review.rating <= 1 && (!review.text || review.text.length < 20)) {
-    return classify(text, "spam", "medium", "One-star review with little or no detail — common bot or fake-account pattern.");
+    return classify(
+      text,
+      "low_quality_information",
+      "medium",
+      "One-star review with little or no detail — may be gibberish or low quality."
+    );
   }
 
   if (review.rating <= 2) {
     return classify(
       text,
-      "off_topic",
+      "not_helpful",
       "low",
-      "Low rating worth reviewing — confirm whether it describes a real customer experience."
+      "Low rating worth reviewing — confirm whether it helps prospective customers decide."
     );
   }
 
-  return classify(text, "off_topic", "low");
+  return classify(text, "not_helpful", "low");
 }

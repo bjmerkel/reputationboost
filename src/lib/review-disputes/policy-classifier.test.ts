@@ -18,15 +18,15 @@ function review(overrides: Partial<ReviewRecord> = {}): ReviewRecord {
   };
 }
 
-test("classifyReviewPolicyViolation maps non-customer language to off_topic", () => {
+test("classifyReviewPolicyViolation maps non-customer language to low_quality_information", () => {
   const result = classifyReviewPolicyViolation(review());
-  assert.equal(result.violation, "off_topic");
+  assert.equal(result.violation, "low_quality_information");
   assert.equal(result.confidence, "high");
 });
 
-test("classifyReviewPolicyViolation flags sparse one-star reviews as spam", () => {
+test("classifyReviewPolicyViolation flags sparse one-star reviews as low_quality_information", () => {
   const result = classifyReviewPolicyViolation(review({ text: "Bad" }));
-  assert.equal(result.violation, "spam");
+  assert.equal(result.violation, "low_quality_information");
 });
 
 test("classifyReviewPolicyViolation detects personal information", () => {
@@ -37,7 +37,9 @@ test("classifyReviewPolicyViolation detects personal information", () => {
 });
 
 test("normalizePolicyViolation maps legacy stored values", () => {
-  assert.equal(normalizePolicyViolation("fake_content"), "spam");
+  assert.equal(normalizePolicyViolation("fake_content"), "low_quality_information");
   assert.equal(normalizePolicyViolation("harassment"), "bullying_or_harassment");
-  assert.equal(normalizePolicyViolation("off_topic"), "off_topic");
+  assert.equal(normalizePolicyViolation("off_topic"), "low_quality_information");
+  assert.equal(normalizePolicyViolation("spam"), "low_quality_information");
+  assert.equal(normalizePolicyViolation("conflict_of_interest"), "low_quality_information");
 });
