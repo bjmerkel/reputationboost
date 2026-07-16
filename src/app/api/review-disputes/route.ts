@@ -3,7 +3,7 @@ import { getPrimaryBusiness } from "@/audit/businesses";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { identifyDisputeCandidates } from "@/lib/review-disputes/candidates";
-import { buildGbpReviewReportUrl } from "@/lib/review-disputes/gbp-report-url";
+import { resolveDisputeReportUrl } from "@/lib/review-disputes/gbp-report-url";
 import { estimateDisputeOverallScoreGain } from "@/lib/review-disputes/score-impact";
 import { listReviewDisputes, upsertReviewDispute } from "@/lib/review-disputes/storage";
 import type { ReviewDisputePolicyViolation } from "@/lib/review-disputes/types";
@@ -30,11 +30,18 @@ export async function GET() {
     const candidates = audit ? identifyDisputeCandidates(audit, disputes) : [];
     const projectedOverallGain = audit ? estimateDisputeOverallScoreGain(audit) : 0;
 
+    const reportUrl = resolveDisputeReportUrl({
+      name: audit?.clientName ?? business.name,
+      address: audit?.gbp.identity.address ?? business.gbpAddress,
+      mapsUrl: audit?.gbp.identity.mapsUrl ?? business.gbpMapsUrl,
+      placeId: business.gbpPlaceId,
+    });
+
     return NextResponse.json({
       disputes,
       candidates,
       projectedOverallGain,
-      reportUrl: buildGbpReviewReportUrl(business.gbpPlaceId),
+      reportUrl,
       businessName: business.name,
     });
   } catch (error) {
@@ -72,6 +79,12 @@ export async function POST(request: Request) {
   }
 
   try {
+    const rawAudit = await loadLatestAuditFromSupabase(user.id, business.id, {
+      businessName: business.name,
+      businessUuid: business.businessId,
+    });
+    const audit = rawAudit ? ensureStrategy(rawAudit) : null;
+
     const dispute = await upsertReviewDispute({
       businessId: business.businessId,
       userId: user.id,
@@ -89,7 +102,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       dispute,
-      reportUrl: buildGbpReviewReportUrl(business.gbpPlaceId),
+      reportUrl: resolveDisputeReportUrl({
+        name: audit?.clientName ?? business.name,
+        address: audit?.gbp.identity.address ?? business.gbpAddress,
+        mapsUrl: audit?.gbp.identity.mapsUrl ?? business.gbpMapsUrl,
+        placeId: business.gbpPlaceId,
+      }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to save dispute";
