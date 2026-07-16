@@ -32,6 +32,7 @@ import { usePlanTasks, type PlanTasksState } from "@/hooks/usePlanTasks";
 import { useScoreHistory } from "@/hooks/useScoreHistory";
 import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 import { resolveScoreCalculatedAt } from "@/lib/scores/format-score-date";
+import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
 
 interface BusinessLocation {
   lat: number;
@@ -136,7 +137,29 @@ export default function AuditDashboard({
   const {
     tasks: liveTasks,
     refresh: refreshExecutionTasks,
+    syncGoogleUpdates,
   } = planTasks;
+
+  useEffect(() => {
+    if (!gbpConnected || !audit || !needsGoogleUpdateRefresh(audit, gbpGoogleUpdateAt)) return;
+
+    let cancelled = false;
+    void syncGoogleUpdates()
+      .then((updated) => {
+        if (!cancelled && updated) applyAudit(updated);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    audit,
+    applyAudit,
+    gbpConnected,
+    gbpGoogleUpdateAt,
+    syncGoogleUpdates,
+  ]);
 
   const handleKeywordsUpdated = useCallback(
     (nextKeywords: string[]) => {

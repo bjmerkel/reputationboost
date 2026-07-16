@@ -8,12 +8,9 @@ import {
 import type { FullAuditPayload } from "@/audit/types";
 import type { RecordGbpEventInput } from "@/audit/types/gbp-events";
 import { getValidGbpConnectionForRecord } from "@/lib/google/token-store";
-import {
-  enrichGbpLocationProfile,
-  fetchGoogleUpdateState,
-  getGbpLocationProfile,
-} from "./gbp-location";
+import type { GbpLocationProfile } from "./gbp-location";
 import { getGoogleDiffFields, getGooglePendingFields } from "./gbp-update-helpers";
+import { syncGoogleUpdatesForBusiness } from "./gbp-update-sync";
 import { listGbpLocalPosts } from "./gbp-local-posts";
 import { listGbpReviews } from "./gbp-reviews";
 import { isScanManagedExternalId } from "./gbp-event-ids";
@@ -106,25 +103,14 @@ export function externalIdInReconcileScopes(
 }
 
 async function scanGoogleUpdates(
-  record: BusinessRecord,
-  audit: FullAuditPayload,
-  events: RecordGbpEventInput[]
+  syncedAudit: FullAuditPayload,
+  profile: GbpLocationProfile | null,
+  events: RecordGbpEventInput[],
+  record: BusinessRecord
 ): Promise<ScanSectionResult> {
-  const connection = await getValidGbpConnectionForRecord(record);
-  if (!connection) return "skipped";
+  if (!profile) return "skipped";
 
-  const profile = await enrichGbpLocationProfile(connection, await getGbpLocationProfile(connection));
-  const googleUpdateState = await fetchGoogleUpdateState(connection, profile);
-  const patchedAudit: FullAuditPayload = {
-    ...audit,
-    gbp: {
-      ...audit.gbp,
-      googleUpdateState,
-      hasGoogleUpdated: profile.hasGoogleUpdated,
-    },
-  };
-
-  for (const field of getGoogleDiffFields(patchedAudit)) {
+  for (const field of getGoogleDiffFields(syncedAudit)) {
     events.push(
       baseEvent(record, {
         eventType: "GOOGLE_UPDATE",
@@ -136,7 +122,7 @@ async function scanGoogleUpdates(
     );
   }
 
-  for (const field of getGooglePendingFields(patchedAudit)) {
+  for (const field of getGooglePendingFields(syncedAudit)) {
     events.push(
       baseEvent(record, {
         eventType: "GOOGLE_UPDATE",
@@ -351,9 +337,16 @@ export async function scanBusinessModeration(record: BusinessRecord): Promise<Mo
 
   const pendingEvents: RecordGbpEventInput[] = [];
   const reconcileScopes = new Set<ModerationReconcileScope>();
+  let syncedAudit = audit;
+  let syncedProfile: GbpLocationProfile | null = null;
 
   try {
-    const section = await scanGoogleUpdates(record, audit, pendingEvents);
+    const sync = await syncGoogleUpdatesForBusiness(record, { ensureTasks: false });
+    if (sync.audit && sync.live) {
+      syncedAudit = sync.audit;
+      syncedProfile = sync.live.profile;
+    }
+    const section = await scanGoogleUpdates(syncedAudit, syncedProfile, pendingEvents, record);
     if (section === "ok") reconcileScopes.add("google-updates");
   } catch (error) {
     result.errors.push(

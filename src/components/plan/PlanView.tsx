@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
-import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { usePlanTasks, type PlanTasksState } from "@/hooks/usePlanTasks";
@@ -179,11 +178,6 @@ export default function PlanView({
       void ensurePhotoTasks().catch(() => undefined);
     }
   }, [gbpConnected, plan, ensurePhotoTasks]);
-
-  useEffect(() => {
-    if (!gbpConnected || !needsGoogleUpdateRefresh(audit, gbpGoogleUpdateAt)) return;
-    void refreshGoogleUpdates().catch(() => undefined);
-  }, [audit.auditId, gbpConnected, gbpGoogleUpdateAt, refreshGoogleUpdates]);
 
   if (loading && !plan) {
     return (

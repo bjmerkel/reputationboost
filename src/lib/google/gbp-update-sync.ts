@@ -10,6 +10,7 @@ import type {
   GbpConnection,
   GbpGoogleSuggestion,
   GbpGoogleUpdateState,
+  GbpLocationInventory,
 } from "@/audit/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getValidGbpConnectionForRecord } from "@/lib/google/token-store";
@@ -18,11 +19,14 @@ import {
   fetchAllGoogleSuggestions,
   fetchGoogleUpdateState,
   getGbpLocationProfile,
+  type GbpLocationProfile,
 } from "./gbp-location";
+import { buildGbpLocationInventory } from "./gbp-location-inventory";
 import { isGoogleUpdateResolved } from "./gbp-google-updated";
 import { missingGoogleSuggestionTasks } from "./gbp-update-helpers";
 
 export interface LiveGoogleUpdateState {
+  profile: GbpLocationProfile;
   googleUpdateState: GbpGoogleUpdateState;
   googleSuggestions: GbpGoogleSuggestion[];
   hasGoogleUpdated: boolean;
@@ -41,6 +45,7 @@ export async function fetchLiveGoogleUpdateState(
   const googleSuggestions = await fetchAllGoogleSuggestions(connection, profile);
 
   return {
+    profile,
     googleUpdateState,
     googleSuggestions,
     hasGoogleUpdated: profile.hasGoogleUpdated,
@@ -49,10 +54,58 @@ export async function fetchLiveGoogleUpdateState(
   };
 }
 
+/** Rebuild command-center inventory from live profile + Google update masks. */
+export function rebuildLocationInventoryForAudit(
+  audit: FullAuditPayload,
+  profile: GbpLocationProfile,
+  googleUpdateState: GbpGoogleUpdateState
+): GbpLocationInventory | undefined {
+  if (!audit.gbp.locationInventory) return undefined;
+
+  const monthlyActions =
+    audit.gbp.performance.calls +
+    audit.gbp.performance.directionRequests +
+    audit.gbp.performance.websiteClicks;
+
+  return buildGbpLocationInventory({
+    collectedAt: new Date().toISOString(),
+    source: audit.gbp.locationInventory.source,
+    profile,
+    identity: audit.gbp.identity,
+    completeness: {
+      ...audit.gbp.completeness,
+      noPendingEdits: !profile.hasPendingEdits,
+    },
+    content: audit.gbp.content,
+    engagement: audit.gbp.engagement,
+    performance: audit.gbp.performance,
+    issues: {
+      ...audit.gbp.issues,
+      isVerified: profile.hasVoiceOfMerchant || audit.gbp.issues.isVerified,
+    },
+    googleUpdateState,
+    liveProfile: audit.gbp.liveProfile ?? {
+      primaryCategory: profile.primaryCategory,
+      secondaryCategories: profile.additionalCategories,
+      description: profile.description,
+      services: profile.serviceItems,
+      attributes: profile.attributes,
+      source: "oauth",
+    },
+    monthlyActions,
+    attributeCoverage: audit.gbp.attributeCoverage,
+    targetKeywords: audit.rankings.keywords.map((keyword) => keyword.keyword),
+  });
+}
+
 export function applyGoogleUpdatePatchToAudit(
   audit: FullAuditPayload,
   live: LiveGoogleUpdateState
 ): FullAuditPayload {
+  const locationInventory =
+    rebuildLocationInventoryForAudit(audit, live.profile, live.googleUpdateState) ??
+    audit.gbp.locationInventory;
+
   return {
     ...audit,
     gbp: {
@@ -60,9 +113,14 @@ export function applyGoogleUpdatePatchToAudit(
       googleUpdateState: live.googleUpdateState,
       googleSuggestions: live.googleSuggestions,
       hasGoogleUpdated: live.hasGoogleUpdated,
+      locationInventory,
       completeness: {
         ...audit.gbp.completeness,
         noPendingEdits: live.noPendingEdits,
+      },
+      issues: {
+        ...audit.gbp.issues,
+        isVerified: live.profile.hasVoiceOfMerchant || audit.gbp.issues.isVerified,
       },
     },
   };
