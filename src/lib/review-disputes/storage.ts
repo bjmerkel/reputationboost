@@ -4,6 +4,7 @@ import type {
   ReviewDisputeRecord,
   ReviewDisputeStatus,
 } from "./types";
+import { normalizePolicyViolation } from "./types";
 
 interface ReviewDisputeRow {
   id: string;
@@ -33,7 +34,7 @@ function mapRow(row: ReviewDisputeRow): ReviewDisputeRecord {
     userId: row.user_id,
     reviewId: row.review_id,
     status: row.status as ReviewDisputeStatus,
-    policyViolation: row.policy_violation as ReviewDisputePolicyViolation,
+    policyViolation: normalizePolicyViolation(row.policy_violation),
     evidenceNotes: row.evidence_notes,
     reviewerName: row.reviewer_name,
     reviewRating: row.review_rating,

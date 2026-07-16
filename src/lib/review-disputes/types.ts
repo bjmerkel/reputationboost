@@ -1,12 +1,11 @@
 export const REVIEW_DISPUTE_POLICY_VIOLATIONS = [
-  "fake_content",
-  "not_a_customer",
-  "conflict_of_interest",
   "off_topic",
   "spam",
-  "harassment",
-  "privacy_violation",
-  "other",
+  "conflict_of_interest",
+  "profanity",
+  "bullying_or_harassment",
+  "discrimination_or_hate_speech",
+  "personal_information",
 ] as const;
 
 export type ReviewDisputePolicyViolation = (typeof REVIEW_DISPUTE_POLICY_VIOLATIONS)[number];
@@ -70,13 +69,46 @@ export interface DisputeCandidate {
   evidenceTemplate: string;
 }
 
+/** Google Business Profile dispute categories (display titles). */
 export const POLICY_VIOLATION_LABELS: Record<ReviewDisputePolicyViolation, string> = {
-  fake_content: "Fake or misleading content",
-  not_a_customer: "Not a genuine customer",
+  off_topic: "Off topic",
+  spam: "Spam",
   conflict_of_interest: "Conflict of interest",
-  off_topic: "Off-topic / irrelevant",
-  spam: "Spam or promotional",
-  harassment: "Harassment or hate speech",
-  privacy_violation: "Privacy violation",
-  other: "Other policy violation",
+  profanity: "Profanity",
+  bullying_or_harassment: "Bullying or harassment",
+  discrimination_or_hate_speech: "Discrimination or hate speech",
+  personal_information: "Personal information",
 };
+
+/** Google's descriptions for each dispute category. */
+export const POLICY_VIOLATION_DESCRIPTIONS: Record<ReviewDisputePolicyViolation, string> = {
+  off_topic: "Review doesn't pertain to an experience at or with this business",
+  spam: "Review is from a bot, a fake account, or contains ads and promotions",
+  conflict_of_interest:
+    "Review is from someone affiliated with the business or a competitor's business",
+  profanity:
+    "Review contains swear words, has sexually explicit language, or details graphic violence or other illegal activity",
+  bullying_or_harassment: "Review personally attacks a specific individual",
+  discrimination_or_hate_speech:
+    "Review has harmful language about an individual or group based on identity",
+  personal_information: "Contains personal information such as address or phone number",
+};
+
+const LEGACY_POLICY_VIOLATION_ALIASES: Record<string, ReviewDisputePolicyViolation> = {
+  fake_content: "spam",
+  not_a_customer: "off_topic",
+  harassment: "bullying_or_harassment",
+  privacy_violation: "personal_information",
+  other: "off_topic",
+};
+
+/** Normalize stored values from older dispute records. */
+export function normalizePolicyViolation(
+  value: string | null | undefined
+): ReviewDisputePolicyViolation {
+  if (!value) return "off_topic";
+  if ((REVIEW_DISPUTE_POLICY_VIOLATIONS as readonly string[]).includes(value)) {
+    return value as ReviewDisputePolicyViolation;
+  }
+  return LEGACY_POLICY_VIOLATION_ALIASES[value] ?? "off_topic";
+}
