@@ -10,6 +10,7 @@ import type {
   GbpConnection,
   GbpGoogleSuggestion,
   GbpGoogleUpdateState,
+  GbpLiveProfile,
   GbpLocationInventory,
 } from "@/audit/types";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -24,6 +25,19 @@ import {
 import { buildGbpLocationInventory } from "./gbp-location-inventory";
 import { isGoogleUpdateResolved } from "./gbp-google-updated";
 import { missingGoogleSuggestionTasks } from "./gbp-update-helpers";
+
+function liveProfileFromLocationProfile(profile: GbpLocationProfile): GbpLiveProfile {
+  return {
+    primaryCategory: profile.primaryCategory?.displayName ?? "",
+    secondaryCategories: profile.additionalCategories
+      .map((category) => category.displayName)
+      .filter(Boolean),
+    description: profile.description,
+    services: profile.serviceItems,
+    attributes: profile.attributes,
+    source: "oauth",
+  };
+}
 
 export interface LiveGoogleUpdateState {
   profile: GbpLocationProfile;
@@ -84,14 +98,7 @@ export function rebuildLocationInventoryForAudit(
       isVerified: profile.hasVoiceOfMerchant || audit.gbp.issues.isVerified,
     },
     googleUpdateState,
-    liveProfile: audit.gbp.liveProfile ?? {
-      primaryCategory: profile.primaryCategory,
-      secondaryCategories: profile.additionalCategories,
-      description: profile.description,
-      services: profile.serviceItems,
-      attributes: profile.attributes,
-      source: "oauth",
-    },
+    liveProfile: audit.gbp.liveProfile ?? liveProfileFromLocationProfile(profile),
     monthlyActions,
     attributeCoverage: audit.gbp.attributeCoverage,
     targetKeywords: audit.rankings.keywords.map((keyword) => keyword.keyword),
