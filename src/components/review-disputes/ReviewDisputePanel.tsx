@@ -5,6 +5,7 @@ import type { ExecutionTask } from "@/audit/types";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
 import {
+  POLICY_VIOLATION_DESCRIPTIONS,
   POLICY_VIOLATION_LABELS,
   REVIEW_DISPUTE_POLICY_VIOLATIONS,
   type DisputeCandidate,
@@ -90,7 +91,7 @@ export default function ReviewDisputePanel({
   const [projectedOverallGain, setProjectedOverallGain] = useState(0);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
   const [evidenceNotes, setEvidenceNotes] = useState("");
-  const [policyViolation, setPolicyViolation] = useState<ReviewDisputePolicyViolation>("fake_content");
+  const [policyViolation, setPolicyViolation] = useState<ReviewDisputePolicyViolation>("off_topic");
   const [saving, setSaving] = useState(false);
 
   const applyCandidate = useCallback((candidate: DisputeCandidate) => {
@@ -417,7 +418,10 @@ export default function ReviewDisputePanel({
             <p className={`text-sm font-semibold ${isLight ? "text-[#1967d2]" : "text-cyan-300"}`}>
               AI recommendation: {POLICY_VIOLATION_LABELS[activeCandidate.suggestedViolation]}
             </p>
-            <p className={`mt-1 text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
+            <p className={`mt-1 text-sm leading-relaxed ${isLight ? "text-[#1967d2]" : "text-cyan-300"}`}>
+              {POLICY_VIOLATION_DESCRIPTIONS[activeCandidate.suggestedViolation]}
+            </p>
+            <p className={`mt-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
               {activeCandidate.violationReason}
             </p>
           </div>
@@ -449,6 +453,9 @@ export default function ReviewDisputePanel({
                   </option>
                 ))}
               </select>
+              <p className={`mt-2 text-sm leading-relaxed ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                {POLICY_VIOLATION_DESCRIPTIONS[policyViolation]}
+              </p>
             </div>
 
             <div>

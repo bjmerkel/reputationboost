@@ -1,6 +1,6 @@
 import type { Phase1AuditPayload, ReviewRecord } from "@/audit/types";
 import type { PolicyClassification } from "./policy-classifier";
-import { POLICY_VIOLATION_LABELS } from "./types";
+import { POLICY_VIOLATION_DESCRIPTIONS, POLICY_VIOLATION_LABELS } from "./types";
 
 export function buildDisputeEvidenceTemplate(
   audit: Phase1AuditPayload,
@@ -8,6 +8,7 @@ export function buildDisputeEvidenceTemplate(
   classification: PolicyClassification
 ): string {
   const violationLabel = POLICY_VIOLATION_LABELS[classification.violation];
+  const violationDescription = POLICY_VIOLATION_DESCRIPTIONS[classification.violation];
   const reviewDate = new Date(review.publishedAt).toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -21,8 +22,9 @@ export function buildDisputeEvidenceTemplate(
     `Reviewer: ${review.isAnonymous ? "Anonymous" : review.author}`,
     `Rating: ${review.rating}★`,
     "",
-    `Policy concern: ${violationLabel}`,
-    `Why: ${classification.reason}`,
+    `Dispute category: ${violationLabel}`,
+    `Google policy: ${violationDescription}`,
+    `Why we flagged this: ${classification.reason}`,
     "",
     "Review text:",
     `"${review.text || "(no text provided)"}"`,
