@@ -292,25 +292,6 @@ export default function ReviewDisputePanel({
             </dd>
           </div>
         </dl>
-
-        <ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {WORKFLOW_STEPS.map((step, index) => (
-            <li
-              key={step.title}
-              className={`rounded-xl border px-4 py-3 ${
-                isLight ? "border-[#e8eaed] bg-white" : "border-white/10 bg-white/[0.02]"
-              }`}
-            >
-              <p className={`text-xs font-semibold uppercase tracking-wide ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
-                Step {index + 1}
-              </p>
-              <p className={`mt-1 text-sm font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>{step.title}</p>
-              <p className={`mt-0.5 text-xs leading-relaxed ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-                {step.detail}
-              </p>
-            </li>
-          ))}
-        </ol>
       </div>
 
       {error && (
@@ -464,11 +445,27 @@ export default function ReviewDisputePanel({
               <p className={`text-sm font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
                 What happens next
               </p>
-              <ul className={`mt-3 space-y-2 text-sm leading-relaxed ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-                <li>1. Save a draft or mark submitted after you file in Google</li>
-                <li>2. Use the evidence notes when reporting the review</li>
-                <li>3. Come back and record whether Google removed it</li>
-              </ul>
+              <ol className="mt-3 space-y-3">
+                {WORKFLOW_STEPS.map((step, index) => (
+                  <li key={step.title} className="flex gap-3">
+                    <span
+                      className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                        isLight ? "bg-[#e8f0fe] text-[#1967d2]" : "bg-cyan-500/15 text-cyan-300"
+                      }`}
+                    >
+                      {index + 1}
+                    </span>
+                    <div>
+                      <p className={`text-sm font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+                        {step.title}
+                      </p>
+                      <p className={`mt-0.5 text-sm leading-relaxed ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                        {step.detail}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </div>
           </div>
 
