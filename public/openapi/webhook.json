@@ -1,0 +1,188 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Reputation Boost Integrations API",
+    "version": "1.0.0",
+    "description": "Inbound webhook API used by Zapier, Make, and custom integrations to add customers and trigger review requests."
+  },
+  "servers": [
+    {
+      "url": "https://reputationboost.vercel.app",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/api/integrations/webhook": {
+      "post": {
+        "operationId": "postInboundWebhook",
+        "summary": "Receive a customer or job event",
+        "description": "Creates or updates a customer and optionally queues an SMS review request. Authenticate with the per-business webhook token.",
+        "security": [
+          { "WebhookTokenQuery": [] },
+          { "WebhookTokenHeader": [] },
+          { "WebhookTokenBearer": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/WebhookPayload" },
+              "examples": {
+                "jobCompleted": {
+                  "summary": "Job completed",
+                  "value": {
+                    "event": "job.completed",
+                    "phone": "2145550100",
+                    "firstName": "Jane",
+                    "lastName": "Doe",
+                    "service": "water heater install",
+                    "serviceDate": "2026-07-05",
+                    "externalId": "job-12345",
+                    "source": "jobber",
+                    "sendReviewRequest": true
+                  }
+                },
+                "invoicePaid": {
+                  "summary": "Invoice paid",
+                  "value": {
+                    "event": "invoice.paid",
+                    "phone": "2145550100",
+                    "firstName": "Jane",
+                    "lastName": "Doe",
+                    "service": "hvac maintenance",
+                    "source": "quickbooks",
+                    "sendReviewRequest": true
+                  }
+                },
+                "customerOptedOut": {
+                  "summary": "Customer opted out",
+                  "value": {
+                    "event": "customer.opted_out",
+                    "phone": "2145550100",
+                    "optedOut": true,
+                    "source": "twilio"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event processed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WebhookProcessResult" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid webhook token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Processing error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "WebhookTokenQuery": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "token",
+        "description": "Per-business webhook token (wb_...). Preferred for Zapier auth."
+      },
+      "WebhookTokenHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Webhook-Token",
+        "description": "Webhook token as a header alternative."
+      },
+      "WebhookTokenBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Webhook token as Authorization: Bearer wb_..."
+      }
+    },
+    "schemas": {
+      "WebhookPayload": {
+        "type": "object",
+        "required": ["event", "phone"],
+        "properties": {
+          "event": {
+            "type": "string",
+            "description": "Event type, e.g. job.completed, invoice.paid, customer.opted_out",
+            "example": "job.completed"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Customer phone. US 10-digit numbers supported.",
+            "example": "2145550100"
+          },
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "name": { "type": "string", "description": "Full name alternative to firstName/lastName" },
+          "email": { "type": "string" },
+          "service": { "type": "string", "description": "Service or job description" },
+          "jobType": { "type": "string" },
+          "lineItemTitle": { "type": "string" },
+          "serviceDate": { "type": "string", "format": "date" },
+          "externalId": { "type": "string", "description": "External job or invoice ID" },
+          "source": { "type": "string", "example": "zapier" },
+          "sendReviewRequest": {
+            "type": "boolean",
+            "description": "When true, queue an SMS review request if eligible"
+          },
+          "optedOut": {
+            "type": "boolean",
+            "description": "Set true for opt-out events"
+          }
+        }
+      },
+      "WebhookProcessResult": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean", "example": true },
+          "customerId": { "type": "string", "format": "uuid" },
+          "eventId": { "type": "string", "format": "uuid" },
+          "eventType": { "type": "string" },
+          "reviewRequestSent": { "type": "boolean" },
+          "reviewRequestScheduled": { "type": "boolean" },
+          "scheduledAt": { "type": "string", "format": "date-time" },
+          "scheduledSmsId": { "type": "string", "format": "uuid" },
+          "auditHasReviewGap": { "type": "boolean" },
+          "reviewRequestSkippedReason": { "type": "string" },
+          "optedOut": { "type": "boolean" },
+          "optOutApplied": { "type": "boolean" },
+          "optInApplied": { "type": "boolean" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    }
+  }
+}
