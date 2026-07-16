@@ -1,4 +1,5 @@
 import type { GbpOptimizationPlan, GbpPlanStep, KeywordRankAnalysis, Phase1AuditPayload } from "../types";
+import { formatStarRating } from "@/lib/format-star-rating";
 import { isStepSatisfied } from "./counterfactual";
 import { planStepsRequiredByInventory } from "@/lib/google/gbp-field-plan-map";
 import { buildServicePlanBlocks, buildOutcomePriorityServiceBlocks } from "@/lib/google/gbp-service-descriptions";
@@ -268,7 +269,7 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       title: "Dispute Illegitimate Reviews",
       instruction:
         "Flag and dispute policy-violating reviews that drag down your rating. Each candidate is pre-classified with evidence templates — approve to track, then submit through Google Business Profile. Successful removals can lift your Reputation Boost Score.",
-      current: `${audit.reviews.disputeCandidates.length} dispute candidate(s) · ${audit.gbp.engagement.averageRating}★ average`,
+      current: `${audit.reviews.disputeCandidates.length} dispute candidate(s) · ${formatStarRating(audit.gbp.engagement.averageRating)}★ average`,
       recommended: "Dispute fake, spam, or off-topic reviews; respond to legitimate negatives in Step 11",
       bullets: [
         ...audit.reviews.reviews
@@ -287,7 +288,7 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       title: "Request more reviews",
       instruction:
         "Send personalized SMS review requests to recent customers. More Google reviews strengthen rankings — especially for keywords where you trail competitors on review count.",
-      current: `${audit.gbp.engagement.reviewCount} reviews at ${audit.gbp.engagement.averageRating}★`,
+      current: `${audit.gbp.engagement.reviewCount} reviews at ${formatStarRating(audit.gbp.engagement.averageRating)}★`,
       recommended: `${reviewTarget}+ reviews with keyword-rich natural language`,
       bullets: [
         ...keywordRankings
