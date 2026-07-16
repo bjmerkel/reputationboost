@@ -9,6 +9,7 @@ const TASK_LABELS: Partial<Record<ExecutionType, string>> = {
   gbp_media_delete: "Photo removed",
   gbp_notifications: "Real-time alerts enabled",
   review_response: "Review reply posted",
+  review_dispute: "Review dispute submitted",
   gbp_services: "Services updated",
   gbp_primary_category: "Category updated",
   gbp_secondary_categories: "Categories updated",

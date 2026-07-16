@@ -42,6 +42,8 @@ import { generateReviewResponses } from "@/audit/phase3/content";
 import { resolvePlanStepAction } from "./gbp-plan-actions";
 import { parsePlanServiceBlock } from "@/lib/google/gbp-service-descriptions";
 import { matchKeywordsInText } from "@/audit/attribution/keywords";
+import { identifyDisputeCandidates } from "@/lib/review-disputes/candidates";
+import { POLICY_VIOLATION_LABELS } from "@/lib/review-disputes/types";
 import { reviewResponseKeywordFields, optionalReviewResponseKeywordWeave } from "@/lib/review-responses/payload";
 import { getPhaseForStep } from "./plan-phases";
 import { isCustomPlanStep } from "./plan-custom-steps";
@@ -71,6 +73,7 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "google_post",
     "review_response",
     "review_delete_reply",
+    "review_dispute",
     "gbp_description",
     "gbp_primary_category",
     "gbp_secondary_categories",
@@ -319,6 +322,37 @@ export function buildReviewResponseTasks(
   }
 
   return [];
+}
+
+export function buildReviewDisputeTasks(
+  audit: FullAuditPayload,
+  step: GbpPlanStep
+): ExecutionTask[] {
+  const candidates = identifyDisputeCandidates(audit);
+  if (candidates.length === 0) return [];
+
+  return candidates.map((candidate) => {
+    const author = candidate.author.split(" ")[0] ?? "customer";
+    const violationLabel = POLICY_VIOLATION_LABELS[candidate.suggestedViolation];
+    return buildGbpTask(
+      audit,
+      step,
+      "review_dispute",
+      `Dispute ${candidate.rating}★ review from ${author}`,
+      candidate.evidenceTemplate,
+      {
+        reviewId: candidate.reviewId,
+        reviewRating: candidate.rating,
+        reviewAuthor: candidate.author,
+        reviewText: candidate.text,
+        reviewPublishedAt: candidate.publishedAt,
+        policyViolation: candidate.suggestedViolation,
+        violationConfidence: candidate.violationConfidence,
+        violationReason: candidate.violationReason,
+        projectedScoreGain: candidate.projectedScoreGain,
+      }
+    );
+  });
 }
 
 export function buildPhotoExecutionTasks(
@@ -700,6 +734,10 @@ export function tasksFromGbpPlanStep(
     }
     default:
       break;
+  }
+
+  if (step.stepNumber === 9) {
+    return buildReviewDisputeTasks(audit, step);
   }
 
   if (step.stepNumber === 10) {

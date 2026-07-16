@@ -42,6 +42,7 @@ const TYPE_LABELS: Partial<Record<ExecutionTask["type"], string>> = {
   gbp_reject_suggestion: "Keep your version",
   review_response: "Review reply",
   review_delete_reply: "Remove reply",
+  review_dispute: "Review dispute",
   review_request: "Review request",
 };
 

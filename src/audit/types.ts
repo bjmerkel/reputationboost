@@ -1224,6 +1224,7 @@ export type ExecutionType =
   | "update_tracked_keywords"
   | "review_response"
   | "review_delete_reply"
+  | "review_dispute"
   | "review_request"
   | "schema_markup"
   | "social_post";

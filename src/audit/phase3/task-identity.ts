@@ -95,6 +95,7 @@ export function taskIdentityKey(task: Pick<ExecutionTask, "type" | "title" | "ac
 
     case "review_response":
     case "review_delete_reply":
+    case "review_dispute":
       return `${type}|review:${payloadString(payload, "reviewId")}`;
 
     case "gbp_hours": {

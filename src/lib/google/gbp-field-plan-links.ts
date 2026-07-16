@@ -83,6 +83,11 @@ const FIELD_PLAN_LINKS: Record<string, GbpFieldPlanLink> = {
     alternateTaskTypes: ["review_request"],
     fixLabel: "Respond to reviews",
   },
+  "engagement.disputes": {
+    planStepNumber: 9,
+    taskTypes: ["review_dispute"],
+    fixLabel: "Dispute reviews",
+  },
   "metadata.hasGoogleUpdated": {
     planStepNumber: GOOGLE_UPDATES_STEP_NUMBER,
     taskTypes: ["gbp_accept_suggestion", "gbp_reject_suggestion"],

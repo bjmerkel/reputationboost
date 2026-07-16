@@ -13,6 +13,7 @@ import PlanStepAttributes from "./PlanStepAttributes";
 import PlanStepHours from "./PlanStepHours";
 import PlanStepPlaceActions from "./PlanStepPlaceActions";
 import ReviewRequestPanel from "@/components/review-requests/ReviewRequestPanel";
+import ReviewDisputePanel from "@/components/review-disputes/ReviewDisputePanel";
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
 
 const STATUS_STYLES = {
@@ -70,11 +71,15 @@ export default function PlanStepCard({
   const reviewRequestTask = step.tasks.find(
     (t) => t.type === "review_request" && t.status !== "completed"
   );
+  const reviewDisputeTasks = step.tasks.filter(
+    (t) => t.type === "review_dispute" && t.status !== "completed"
+  );
   const [expanded, setExpanded] = useState(
     defaultExpanded ||
       step.status === "needs_approval" ||
       step.status === "approved" ||
-      reviewRequestTask != null
+      reviewRequestTask != null ||
+      reviewDisputeTasks.length > 0
   );
 
   const hasPhotoTasks = step.tasks.some((t) => t.type === "gbp_photo");
@@ -96,6 +101,7 @@ export default function PlanStepCard({
       t.type !== "gbp_photo" &&
       t.type !== "gbp_video" &&
       t.type !== "review_request" &&
+      t.type !== "review_dispute" &&
       t.type !== "gbp_attributes" &&
       t.type !== "gbp_hours" &&
       t.type !== "gbp_place_action" &&
@@ -230,6 +236,17 @@ export default function PlanStepCard({
               actions={actions}
               variant={variant}
             />
+          )}
+
+          {reviewDisputeTasks.length > 0 && (
+            <div className="mt-4">
+              <ReviewDisputePanel
+                tasks={reviewDisputeTasks}
+                actions={actions}
+                projectedStepGain={step.context.healthScoreImpact ?? undefined}
+                variant={variant}
+              />
+            </div>
           )}
 
           {reviewRequestTask && businessName && (
