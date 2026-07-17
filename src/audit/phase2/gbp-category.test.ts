@@ -4,10 +4,13 @@ import { createTestAudit } from "../phase3/test-fixtures";
 import { isStepSatisfied } from "./counterfactual";
 import {
   categoryLabelsMatch,
+  filterActionableSecondaryCategories,
+  isKeepAsPrimaryCategoryLabel,
   primaryCategoryUpdateIsNoOp,
   resolveLivePrimaryCategory,
   resolveRecommendedPrimaryCategory,
 } from "./gbp-category";
+import { inferRecommendedSecondaryCategories } from "./gbp-current-state";
 import { buildAllGbpPlanSteps, selectGbpPlanSteps } from "./gbp-plan";
 import { selectTasksToAutoComplete } from "../phase3/reconcile-plan";
 import { tasksFromGbpPlanStep } from "../phase3/gbp-plan-tasks";
@@ -144,5 +147,151 @@ describe("primary category plan no-op", () => {
 
     assert.equal(primaryCategoryUpdateIsNoOp(audit), false);
     assert.equal(isStepSatisfied(audit, 1), false);
+  });
+});
+
+describe("secondary categories never duplicate primary", () => {
+  it("detects keep-as-primary placeholder labels", () => {
+    assert.equal(isKeepAsPrimaryCategoryLabel("Air conditioning contractor (keep as primary)"), true);
+    assert.equal(isKeepAsPrimaryCategoryLabel("Heating contractor"), false);
+  });
+
+  it("filters primary and keep-as-primary labels from secondary recommendations", () => {
+    const audit = createTestAudit();
+    audit.gbp.identity.primaryCategory = "Air conditioning contractor";
+    audit.gbp.liveProfile = {
+      ...audit.gbp.liveProfile!,
+      primaryCategory: "Air conditioning contractor",
+      secondaryCategories: [
+        "HVAC contractor",
+        "Heating contractor",
+        "Furnace repair service",
+        "Air conditioning repair service",
+      ],
+      source: "oauth",
+    };
+
+    assert.deepEqual(
+      filterActionableSecondaryCategories(audit, [
+        "Air conditioning contractor (keep as primary)",
+        "Air conditioning contractor",
+        "Water heater repair",
+        "Water heater repair",
+      ]),
+      ["Water heater repair"]
+    );
+  });
+
+  it("does not recommend the primary category as a secondary fallback", () => {
+    const audit = createTestAudit();
+    audit.gbp.identity.primaryCategory = "Air conditioning contractor";
+    audit.gbp.liveProfile = {
+      ...audit.gbp.liveProfile!,
+      primaryCategory: "Air conditioning contractor",
+      secondaryCategories: [
+        "HVAC contractor",
+        "Heating contractor",
+        "Furnace repair service",
+        "Air conditioning repair service",
+      ],
+      source: "oauth",
+    };
+    audit.rankings.keywords = [
+      {
+        keyword: "hvac air conditioning heating repair near newark nj",
+        localPackPosition: "not_in_pack",
+        inLocalPack: false,
+        clientReviewCount: 10,
+        packLeaderReviewCount: 40,
+        packLeaderRating: 4.8,
+        clientRating: 4.5,
+        geoRanks: [],
+      },
+      {
+        keyword: "ac repair",
+        localPackPosition: "not_in_pack",
+        inLocalPack: false,
+        clientReviewCount: 10,
+        packLeaderReviewCount: 40,
+        packLeaderRating: 4.8,
+        clientRating: 4.5,
+        geoRanks: [],
+      },
+    ];
+
+    const recommended = inferRecommendedSecondaryCategories(audit);
+    assert.equal(recommended.length, 0);
+    assert.equal(
+      recommended.some((c) => /air conditioning contractor/i.test(c)),
+      false
+    );
+    assert.equal(isStepSatisfied(audit, 2), true);
+    assert.equal(
+      selectGbpPlanSteps(audit, buildAllGbpPlanSteps(audit)).some((s) => s.stepNumber === 2),
+      false
+    );
+  });
+
+  it("does not create a secondary-category task for keep-as-primary payloads", () => {
+    const audit = createTestAudit();
+    audit.gbp.identity.primaryCategory = "Air conditioning contractor";
+    audit.gbp.liveProfile = {
+      ...audit.gbp.liveProfile!,
+      primaryCategory: "Air conditioning contractor",
+      secondaryCategories: ["HVAC contractor", "Heating contractor"],
+      source: "oauth",
+    };
+
+    const step = {
+      stepNumber: 2,
+      title: "Add Secondary Categories",
+      instruction: "Add secondary categories",
+      current: "HVAC contractor, Heating contractor",
+      recommended: "Air conditioning contractor (keep as primary)",
+      gbpAction: "add_secondary_categories" as const,
+      actionData: {
+        secondaryCategories: ["Air conditioning contractor (keep as primary)"],
+      },
+    };
+
+    const tasks = tasksFromGbpPlanStep(audit, step, buildTemplateContent(audit));
+    assert.equal(tasks.length, 0);
+  });
+
+  it("auto-completes pending secondary tasks that only repeat the primary", () => {
+    const audit = createTestAudit();
+    audit.gbp.identity.primaryCategory = "Air conditioning contractor";
+    audit.gbp.liveProfile = {
+      ...audit.gbp.liveProfile!,
+      primaryCategory: "Air conditioning contractor",
+      secondaryCategories: ["HVAC contractor", "Heating contractor"],
+      source: "oauth",
+    };
+
+    const task: ExecutionTask = {
+      id: "task-secondary-1",
+      auditId: "2026-07-03",
+      actionItemId: "gbp-step-2",
+      type: "gbp_secondary_categories",
+      title: "Add Secondary Categories",
+      description: "",
+      priority: "P1",
+      status: "pending_approval",
+      draftContent: "Air conditioning contractor (keep as primary)",
+      payload: {
+        secondaryCategories: ["Air conditioning contractor (keep as primary)"],
+        gbpStepNumber: 2,
+      },
+      requiresApproval: true,
+      scheduledFor: null,
+      completedAt: null,
+      result: null,
+      createdAt: "2026-07-03T12:00:00.000Z",
+      planStepNumber: 2,
+    };
+
+    const completed = selectTasksToAutoComplete(audit, [task]);
+    assert.equal(completed.length, 1);
+    assert.equal(completed[0].id, "task-secondary-1");
   });
 });

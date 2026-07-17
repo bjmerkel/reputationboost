@@ -183,9 +183,26 @@ async function executeTaskLive(
       return { ...task, status: "completed", completedAt: now, result: result.message };
     }
     case "gbp_secondary_categories": {
-      const categories = Array.isArray(task.payload.secondaryCategories)
+      const rawCategories = Array.isArray(task.payload.secondaryCategories)
         ? (task.payload.secondaryCategories as string[])
         : task.draftContent.split("\n").filter(Boolean);
+      // Prefer filtering against live audit categories when available on the task payload.
+      const categories = rawCategories
+        .map((name) => String(name).trim())
+        .filter(
+          (name) =>
+            name &&
+            !/\bkeep as primary\b/i.test(name) &&
+            !/\(primary\)/i.test(name)
+        );
+      if (categories.length === 0) {
+        return {
+          ...task,
+          status: "completed",
+          completedAt: now,
+          result: "No secondary categories to add — primary category cannot also be secondary.",
+        };
+      }
       const result = await applyGbpAction(connection, "add_secondary_categories", {
         secondaryCategories: categories,
       });
