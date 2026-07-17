@@ -293,6 +293,7 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
               `${r.rating}★ from ${r.isAnonymous ? "Anonymous" : r.author.split(" ")[0]} — ${(r.text || "no text").slice(0, 80)}${(r.text?.length ?? 0) > 80 ? "…" : ""}`
           ),
         "Google has no public API for disputes — we guide you with one-click evidence and track outcomes",
+        "After you mark a dispute submitted, we queue the same review again — Google often needs multiple reports",
         "Spectrum plan includes account-manager escalation for high-impact disputes",
       ],
     },

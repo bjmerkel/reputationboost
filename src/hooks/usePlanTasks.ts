@@ -322,6 +322,8 @@ export type PlanTaskActions = Pick<
   | "syncGoogleUpdates"
   | "approveAllRoutine"
   | "regenerateReviewResponse"
+  | "reconcilePlanNow"
+  | "refresh"
   | "loadingTaskId"
   | "error"
 >;

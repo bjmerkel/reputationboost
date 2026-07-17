@@ -4,7 +4,7 @@ import { estimateReviewRemovalScoreGain } from "./score-impact";
 import type { DisputeCandidate } from "./types";
 import { buildDisputeEvidenceTemplate } from "./evidence-template";
 import type { ReviewDisputeRecord } from "./types";
-import { OPEN_DISPUTE_STATUSES } from "./types";
+import { DISPUTE_CANDIDATE_SUPPRESS_STATUSES } from "./types";
 
 const MAX_CANDIDATES = 12;
 
@@ -14,22 +14,26 @@ export function isDisputeableReview(review: ReviewRecord): boolean {
   return true;
 }
 
+/** Whether an existing dispute record should keep this review off the candidate list. */
+export function shouldSuppressDisputeCandidate(dispute: ReviewDisputeRecord): boolean {
+  return DISPUTE_CANDIDATE_SUPPRESS_STATUSES.includes(dispute.status);
+}
+
 export function identifyDisputeCandidates(
   audit: Phase1AuditPayload,
   existingDisputes: ReviewDisputeRecord[] = []
 ): DisputeCandidate[] {
-  const activeDisputeReviewIds = new Set(
-    existingDisputes
-      .filter((d) => OPEN_DISPUTE_STATUSES.includes(d.status) || d.status === "removed")
-      .map((d) => d.reviewId)
+  const suppressedReviewIds = new Set(
+    existingDisputes.filter(shouldSuppressDisputeCandidate).map((d) => d.reviewId)
   );
 
   return audit.reviews.reviews
     .filter((review) => isDisputeableReview(review))
-    .filter((review) => !activeDisputeReviewIds.has(review.id))
+    .filter((review) => !suppressedReviewIds.has(review.id))
     .map((review) => {
       const classification = classifyReviewPolicyViolation(review);
       const projectedScoreGain = estimateReviewRemovalScoreGain(audit, review.id);
+      const prior = existingDisputes.find((d) => d.reviewId === review.id);
       return {
         reviewId: review.id,
         rating: review.rating,
@@ -41,6 +45,8 @@ export function identifyDisputeCandidates(
         violationReason: classification.reason,
         projectedScoreGain,
         evidenceTemplate: buildDisputeEvidenceTemplate(audit, review, classification),
+        priorSubmissionAt: prior?.submittedAt ?? null,
+        priorDisputeStatus: prior?.status ?? null,
       };
     })
     .sort((a, b) => b.projectedScoreGain - a.projectedScoreGain || a.rating - b.rating)

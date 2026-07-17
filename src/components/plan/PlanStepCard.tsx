@@ -74,6 +74,10 @@ export default function PlanStepCard({
   const reviewDisputeTasks = step.tasks.filter(
     (t) => t.type === "review_dispute" && t.status !== "completed"
   );
+  const showReviewDisputePanel =
+    reviewDisputeTasks.length > 0 ||
+    step.stepNumber === 9 ||
+    /dispute/i.test(step.title);
   const [expanded, setExpanded] = useState(
     defaultExpanded ||
       step.status === "needs_approval" ||
@@ -238,13 +242,16 @@ export default function PlanStepCard({
             />
           )}
 
-          {reviewDisputeTasks.length > 0 && (
+          {showReviewDisputePanel && (
             <div className={`mt-6 -mx-2 sm:mx-0`}>
               <ReviewDisputePanel
                 tasks={reviewDisputeTasks}
                 actions={actions}
                 projectedStepGain={step.context.healthScoreImpact ?? undefined}
                 variant={variant}
+                onDisputeUpdated={() => {
+                  void actions.refresh?.();
+                }}
               />
             </div>
           )}
