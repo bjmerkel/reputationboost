@@ -738,14 +738,59 @@ async function patchOwnerFieldValue(
       break;
     case "storefrontAddress":
       await patchGbpLocationValidated(connection, "storefrontAddress", {
-        storefrontAddress: preferredValue
-          ? { addressLines: [preferredValue], regionCode: "US" }
-          : { addressLines: [profile.address], regionCode: "US" },
+        storefrontAddress: resolveStorefrontAddressPayload(preferredValue, profile),
       });
       break;
     default:
       throw new Error(`Unsupported Google suggestion field: ${field}`);
   }
+}
+
+function resolveStorefrontAddressPayload(
+  preferredValue: string | undefined,
+  profile: Awaited<ReturnType<typeof getGbpLocationProfile>>
+): {
+  addressLines?: string[];
+  locality?: string;
+  administrativeArea?: string;
+  postalCode?: string;
+  regionCode?: string;
+  languageCode?: string;
+} {
+  const trimmed = preferredValue?.trim();
+  if (trimmed?.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed) as {
+        addressLines?: string[];
+        locality?: string;
+        administrativeArea?: string;
+        postalCode?: string;
+        regionCode?: string;
+        languageCode?: string;
+      };
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        (Array.isArray(parsed.addressLines) ||
+          typeof parsed.locality === "string" ||
+          typeof parsed.postalCode === "string")
+      ) {
+        return parsed;
+      }
+    } catch {
+      // Fall through to structured/profile address.
+    }
+  }
+
+  if (profile.storefrontAddress) {
+    return profile.storefrontAddress;
+  }
+
+  const line = trimmed || profile.address;
+  return {
+    addressLines: line ? [line] : [],
+    regionCode: "US",
+  };
 }
 
 async function patchGoogleFieldValue(
@@ -804,6 +849,25 @@ async function patchGoogleFieldValue(
   }
 }
 
+function alreadyResolvedGoogleUpdateResult(
+  field: string,
+  action: "accepted" | "rejected",
+  snapshot: { diffMask: string; pendingMask: string }
+): GbpApplyResult {
+  const label = fieldLabel(field);
+  return {
+    success: true,
+    message: `No active Google conflict for ${label} — it may already be resolved. Refresh to update.`,
+    applied: {
+      field,
+      action,
+      alreadyResolved: true,
+      diffMask: snapshot.diffMask,
+      pendingMask: snapshot.pendingMask,
+    },
+  };
+}
+
 export async function applyGoogleSuggestion(
   connection: GbpConnection,
   field: string
@@ -822,7 +886,8 @@ export async function applyGoogleSuggestion(
   ]);
 
   if (!maskIncludesField(snapshot.diffMask, field)) {
-    throw new Error(`No Google update conflict for ${fieldLabel(field)}.`);
+    // Stale/false-positive suggestion tasks should complete cleanly instead of failing.
+    return alreadyResolvedGoogleUpdateResult(field, "accepted", snapshot);
   }
 
   await patchGoogleFieldValue(connection, field, snapshot.location, profile);
@@ -844,7 +909,7 @@ export async function rejectGoogleSuggestion(
   ]);
 
   if (!maskIncludesField(snapshot.diffMask, field)) {
-    throw new Error(`No Google update conflict for ${fieldLabel(field)}.`);
+    return alreadyResolvedGoogleUpdateResult(field, "rejected", snapshot);
   }
 
   await patchOwnerFieldValue(connection, field, profile, preferredValue);
