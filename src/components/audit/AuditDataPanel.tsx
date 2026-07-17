@@ -38,6 +38,7 @@ import { buildReviewsHealthReport } from "@/lib/google/gbp-reviews-health";
 import { buildLocalPostsHealthReport } from "@/lib/google/gbp-local-posts-health";
 import { buildPlaceActionsHealthReport } from "@/lib/google/gbp-place-actions-health";
 import { competitorMapRank } from "@/lib/google/local-rankings";
+import { formatStarRating } from "@/lib/format-star-rating";
 import { computeKeywordPortfolio, listUntrackedGbpSearchTerms } from "@/audit/phase2/keyword-portfolio";
 import KeywordPortfolioPanel from "@/components/audit/KeywordPortfolioPanel";
 import RankingsCoverageTable from "@/components/audit/RankingsCoverageTable";
@@ -121,7 +122,7 @@ function CompetitorRows({
         #{competitorMapRank(competitor.mapPositions, keyword, index)} {competitor.name}
       </span>
       <span className={`text-sm ${theme.muted}`}>
-        {competitor.averageRating}★ · {competitor.reviewCount} reviews
+        {formatStarRating(competitor.averageRating)}★ · {competitor.reviewCount} reviews
       </span>
     </div>
   ));
@@ -421,7 +422,7 @@ export default function AuditDataPanel({
               rows={[
                 [
                   "Reviews",
-                  `${audit.gbp.engagement.reviewCount} (${audit.gbp.engagement.averageRating}★)`,
+                  `${audit.gbp.engagement.reviewCount} (${formatStarRating(audit.gbp.engagement.averageRating)}★)`,
                 ],
                 ["New (30d)", String(audit.gbp.engagement.reviewsLast30Days)],
                 ["Response rate", `${Math.round(audit.gbp.engagement.responseRate * 100)}%`],
@@ -943,7 +944,7 @@ function ReviewsHealthPanel({
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           { label: "Reviews", value: report.reviewCount },
-          { label: "Avg rating", value: `${report.averageRating}★` },
+          { label: "Avg rating", value: `${formatStarRating(report.averageRating)}★` },
           { label: "Response rate", value: `${report.responseRate}%` },
           {
             label: "Avg reply",

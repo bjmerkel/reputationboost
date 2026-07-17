@@ -8,6 +8,7 @@ import {
   formatCustomerAttribution,
   selectPreferredHeroPreview,
 } from "@/lib/google/gbp-media-display";
+import { formatStarRating } from "@/lib/format-star-rating";
 
 interface ViewAsCustomerModalProps {
   audit: FullAuditPayload;
@@ -150,7 +151,7 @@ function CustomerPlaceCard({
         <h3 className="mt-1 text-lg text-[#202124]">{gbp.identity.name}</h3>
         {(rating > 0 || reviewCount > 0) && (
           <p className="mt-1 text-sm text-[#5f6368]">
-            {rating.toFixed(1)} ★ ({reviewCount})
+            {formatStarRating(rating)} ★ ({reviewCount})
           </p>
         )}
         {category && <p className="mt-0.5 text-sm text-[#5f6368]">{category}</p>}

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import type { GeoGridPoint } from "@/audit/types";
 import { rankColor } from "@/components/platform/heatmap/rank-colors";
+import { formatStarRating } from "@/lib/format-star-rating";
 
 export default function CellDetailModal({
   cell,
@@ -106,7 +107,7 @@ export default function CellDetailModal({
                       #{entry.position} {entry.name}
                     </span>
                     <span className="text-[#5f6368]">
-                      {entry.rating != null ? `${entry.rating}★` : "—"} · {entry.reviewCount} reviews
+                      {entry.rating != null ? `${formatStarRating(entry.rating)}★` : "—"} · {entry.reviewCount} reviews
                     </span>
                   </li>
                 ))}

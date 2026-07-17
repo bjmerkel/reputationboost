@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReviewCampaignPlan } from "@/lib/review-requests/campaign-plan";
+import { formatStarRating } from "@/lib/format-star-rating";
 
 interface ReviewCampaignPlanCardProps {
   plan: ReviewCampaignPlan;
@@ -56,7 +57,7 @@ export default function ReviewCampaignPlanCard({
         <div>
           <dt className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>Current reviews</dt>
           <dd className="font-semibold">
-            {plan.currentReviewCount} at {plan.averageRating}★
+            {plan.currentReviewCount} at {formatStarRating(plan.averageRating)}★
           </dd>
         </div>
         <div>

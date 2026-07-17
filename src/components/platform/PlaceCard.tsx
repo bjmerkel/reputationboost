@@ -12,6 +12,7 @@ import {
   formatCustomerAttribution,
   selectPreferredHeroPreview,
 } from "@/lib/google/gbp-media-display";
+import { formatStarRating } from "@/lib/format-star-rating";
 
 interface PlaceCardProps {
   audit: FullAuditPayload;
@@ -73,7 +74,7 @@ export default function PlaceCard({
 
           {(rating > 0 || reviewCount > 0) && (
             <div className="mt-1 flex items-center gap-1.5 text-sm">
-              <span className="font-medium text-[#202124]">{rating.toFixed(1)}</span>
+              <span className="font-medium text-[#202124]">{formatStarRating(rating)}</span>
               <StarRating rating={rating} />
               <span className="text-[#5f6368]">({reviewCount})</span>
             </div>

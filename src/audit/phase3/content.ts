@@ -8,11 +8,12 @@ import { naturalServicePhrase } from "@/lib/review-requests/service-phrase";
 import { buildGbpDescriptionDraft } from "@/lib/google/gbp-description-draft";
 import type { ReviewResponseDraft } from "@/lib/review-responses/types";
 import { isReviewRecordResponded } from "@/audit/review-engagement";
+import { formatStarRating } from "@/lib/format-star-rating";
 
 export function generateGooglePosts(audit: FullAuditPayload): string[] {
   const city = audit.gbp.identity.address.split(",")[1]?.trim() ?? "your area";
   const service = audit.gbp.identity.primaryCategory;
-  const rating = audit.gbp.engagement.averageRating;
+  const rating = formatStarRating(audit.gbp.engagement.averageRating);
   const reviews = audit.gbp.engagement.reviewCount;
 
   const topKeyword =
