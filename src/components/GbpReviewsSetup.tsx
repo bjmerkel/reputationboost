@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { GbpReviewCoverage } from "@/audit/types";
+import { formatStarRating } from "@/lib/format-star-rating";
 
 interface ReviewPreview {
   reviewId: string;
@@ -156,7 +157,7 @@ export default function GbpReviewsSetup({
 
           {coverage && (
             <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-              {coverage.reviewCount} reviews · {coverage.averageRating}★ average ·{" "}
+              {coverage.reviewCount} reviews · {formatStarRating(coverage.averageRating)}★ average ·{" "}
               {coverage.responseRate}% responded
               {coverage.avgResponseTimeHours != null
                 ? ` · ${coverage.avgResponseTimeHours}h avg reply`

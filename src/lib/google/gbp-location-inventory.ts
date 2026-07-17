@@ -18,6 +18,7 @@ import {
   hasAdequateHolidayCoverage,
   hasSpecialHourPeriods,
 } from "./gbp-hours";
+import { formatStarRating } from "@/lib/format-star-rating";
 
 export interface BuildGbpLocationInventoryInput {
   collectedAt: string;
@@ -510,7 +511,7 @@ export function buildGbpLocationInventory(
       apiPath: "engagement.reviews",
       label: "Reviews",
       section: "engagement",
-      current: `${engagement.reviewCount} reviews · ${engagement.averageRating}★ · ${Math.round(
+      current: `${engagement.reviewCount} reviews · ${formatStarRating(engagement.averageRating)}★ · ${Math.round(
         engagement.responseRate * 100
       )}% responded`,
       status: fieldStatus(

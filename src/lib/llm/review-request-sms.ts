@@ -10,6 +10,7 @@ import {
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
 import { normalizeOptionalText } from "./normalize-content";
+import { formatStarRating } from "@/lib/format-star-rating";
 
 const REVIEW_REQUEST_SYSTEM = `You write short SMS messages asking happy customers to leave a Google review.
 
@@ -117,7 +118,7 @@ export async function generateReviewRequestMessage(
           content: `Write an SMS review request for this business.
 
 Business: ${context.businessName} (${context.industry}) in ${context.city}
-Rating: ${context.averageRating}★ from ${context.reviewCount} reviews
+Rating: ${formatStarRating(context.averageRating)}★ from ${context.reviewCount} reviews
 Customers praise: ${context.positiveThemes.join(", ") || "quality work"}
 ${keywordLine}
 ${sampleLine}

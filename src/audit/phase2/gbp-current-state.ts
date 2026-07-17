@@ -11,6 +11,7 @@ import { resolveReviewResponseRate } from "@/audit/review-engagement";
 import {
   filterActionableSecondaryCategories,
 } from "./gbp-category";
+import { formatStarRating } from "@/lib/format-star-rating";
 
 function profile(audit: Phase1AuditPayload) {
   return audit.gbp.liveProfile;
@@ -109,7 +110,7 @@ export function buildGbpCurrentState(audit: Phase1AuditPayload): GbpCurrentState
     },
     {
       label: "Google Posts",
-      current: `${audit.gbp.engagement.reviewCount} reviews · ${audit.gbp.engagement.averageRating}★ · ${Math.round(resolveReviewResponseRate(audit) * 100)}% responded`,
+      current: `${audit.gbp.engagement.reviewCount} reviews · ${formatStarRating(audit.gbp.engagement.averageRating)}★ · ${Math.round(resolveReviewResponseRate(audit) * 100)}% responded`,
       status: fieldStatus(
         String(audit.gbp.engagement.reviewCount),
         resolveReviewResponseRate(audit) >= 0.9

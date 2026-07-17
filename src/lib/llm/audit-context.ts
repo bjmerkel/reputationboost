@@ -1,4 +1,5 @@
 import type { FullAuditPayload, Phase1AuditPayload, StrategyReport } from "@/audit/types";
+import { formatStarRating } from "@/lib/format-star-rating";
 
 /** Condensed audit payload for LLM prompts — keeps token usage reasonable. */
 export function buildAuditContext(audit: Phase1AuditPayload): string {
@@ -15,7 +16,7 @@ export function buildAuditContext(audit: Phase1AuditPayload): string {
     keyword: snap.keyword,
     top3: snap.competitors.slice(0, 3).map((c) => ({
       name: c.name,
-      rating: c.averageRating,
+      rating: formatStarRating(c.averageRating),
       reviews: c.reviewCount,
       postsLast30Days: c.postsLast30Days,
     })),
@@ -72,7 +73,7 @@ export function buildAuditContext(audit: Phase1AuditPayload): string {
       serviceCount: audit.gbp.completeness.serviceCount,
       attributeCount: audit.gbp.completeness.attributeCount,
       reviewCount: audit.gbp.engagement.reviewCount,
-      averageRating: audit.gbp.engagement.averageRating,
+      averageRating: formatStarRating(audit.gbp.engagement.averageRating),
       responseRate: audit.gbp.engagement.responseRate,
       calls30d: audit.gbp.performance.calls,
       directions30d: audit.gbp.performance.directionRequests,
