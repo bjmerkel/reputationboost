@@ -8,6 +8,9 @@ import { isProfileLinkCoverageItem, isUriAttributeType, resolveProfileLinkMissin
 import { keywordCoveredByServices, missingServiceKeywords as missingServiceKeywordsForNames } from "@/lib/google/gbp-service-descriptions";
 import { detectPackFragility } from "./scoring";
 import { resolveReviewResponseRate } from "@/audit/review-engagement";
+import {
+  filterActionableSecondaryCategories,
+} from "./gbp-category";
 
 function profile(audit: Phase1AuditPayload) {
   return audit.gbp.liveProfile;
@@ -242,7 +245,6 @@ export function inferRecommendedSecondaryCategories(audit: Phase1AuditPayload): 
       c.toLowerCase()
     )
   );
-  const primary = audit.gbp.identity.primaryCategory;
   const suggestions: string[] = [];
 
   for (const kw of audit.rankings.keywords) {
@@ -258,13 +260,8 @@ export function inferRecommendedSecondaryCategories(audit: Phase1AuditPayload): 
     }
   }
 
-  if (suggestions.length === 0 && primary) {
-    suggestions.push(`${primary} (keep as primary)`);
-  }
-
-  return [...new Set(suggestions)].filter(
-    (s) => !s.toLowerCase().includes("keep as primary") || suggestions.length === 1
-  ).slice(0, 5);
+  // Never fall back to the primary category — it cannot also be a secondary.
+  return filterActionableSecondaryCategories(audit, [...new Set(suggestions)]).slice(0, 5);
 }
 
 export function missingKeywordsForServices(audit: Phase1AuditPayload): string[] {

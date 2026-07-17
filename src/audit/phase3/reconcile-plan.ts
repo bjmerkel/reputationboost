@@ -41,6 +41,7 @@ import { isMutableByReconcile } from "./task-identity";
 import { PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
 import {
   categoryLabelsMatch,
+  filterActionableSecondaryCategories,
   primaryCategoryUpdateIsNoOp,
   resolveLivePrimaryCategory,
 } from "@/audit/phase2/gbp-category";
@@ -268,6 +269,20 @@ export function selectTasksToAutoComplete(
         categoryLabelsMatch(live, payloadCategory) ||
         (stepNumber != null && isStepSatisfied(audit, stepNumber))
       ) {
+        completed.push(task);
+      }
+      continue;
+    }
+
+    if (task.type === "gbp_secondary_categories") {
+      const raw = Array.isArray(task.payload.secondaryCategories)
+        ? task.payload.secondaryCategories.map(String)
+        : String(task.draftContent ?? "")
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean);
+      const actionable = filterActionableSecondaryCategories(audit, raw);
+      if (actionable.length === 0 || (stepNumber != null && isStepSatisfied(audit, stepNumber))) {
         completed.push(task);
       }
       continue;

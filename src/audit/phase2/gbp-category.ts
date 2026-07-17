@@ -33,3 +33,42 @@ export function primaryCategoryUpdateIsNoOp(audit: Phase1AuditPayload): boolean 
   const recommended = resolveRecommendedPrimaryCategory(audit);
   return categoryLabelsMatch(live, recommended);
 }
+
+/** Placeholder labels like "HVAC contractor (keep as primary)" are not addable secondaries. */
+export function isKeepAsPrimaryCategoryLabel(value: string): boolean {
+  return /\bkeep as primary\b/i.test(value) || /\(primary\)/i.test(value);
+}
+
+/**
+ * Drop primary-category labels and "keep as primary" placeholders from secondary
+ * recommendations — a category cannot be both primary and secondary.
+ */
+export function filterActionableSecondaryCategories(
+  audit: Phase1AuditPayload,
+  categories: string[]
+): string[] {
+  const primaryLabels = [
+    resolveLivePrimaryCategory(audit),
+    audit.gbp.identity.primaryCategory,
+  ]
+    .map((label) => normalizeCategoryLabel(label))
+    .filter(Boolean);
+
+  const primarySet = new Set(primaryLabels);
+  const seen = new Set<string>();
+  const actionable: string[] = [];
+
+  for (const raw of categories) {
+    if (typeof raw !== "string") continue;
+    const trimmed = raw.trim();
+    if (!trimmed || isKeepAsPrimaryCategoryLabel(trimmed)) continue;
+
+    const normalized = normalizeCategoryLabel(trimmed);
+    if (!normalized || primarySet.has(normalized) || seen.has(normalized)) continue;
+
+    seen.add(normalized);
+    actionable.push(trimmed);
+  }
+
+  return actionable;
+}

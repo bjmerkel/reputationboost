@@ -32,6 +32,7 @@ import {
 import { buildTemplateGbpPlan, NOTIFICATIONS_PLAN_STEP, PLACE_ACTIONS_PLAN_STEP } from "@/audit/phase2/gbp-plan";
 import {
   categoryLabelsMatch,
+  filterActionableSecondaryCategories,
   primaryCategoryUpdateIsNoOp,
   resolveLivePrimaryCategory,
   resolveRecommendedPrimaryCategory,
@@ -514,17 +515,28 @@ export function tasksFromGbpPlanStep(
         ),
       ];
     }
-    case "add_secondary_categories":
+    case "add_secondary_categories": {
+      const rawCategories = Array.isArray(data.secondaryCategories)
+        ? data.secondaryCategories
+        : Array.isArray(step.actionData?.secondaryCategories)
+          ? step.actionData.secondaryCategories
+          : [];
+      const categories = filterActionableSecondaryCategories(
+        audit,
+        rawCategories.map(String)
+      );
+      if (categories.length === 0) return [];
       return [
         buildGbpTask(
           audit,
           step,
           "gbp_secondary_categories",
           step.title,
-          (data.secondaryCategories ?? step.bullets ?? []).join("\n"),
-          { secondaryCategories: data.secondaryCategories ?? step.bullets }
+          categories.join("\n"),
+          { secondaryCategories: categories }
         ),
       ];
+    }
     case "update_description":
       return [
         buildGbpTask(

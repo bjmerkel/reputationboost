@@ -249,14 +249,12 @@ export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): 
       // no-op "update" to the same primary label.
       return primaryCategoryUpdateIsNoOp(audit);
     case 2: {
+      const recommended = inferRecommendedSecondaryCategories(audit);
+      // Nothing actionable to add (and never recommend the primary as secondary).
+      if (recommended.length === 0) return true;
+
       const secondary =
         gbp.liveProfile?.secondaryCategories ?? gbp.identity.secondaryCategories;
-      if (secondary.length < 2) return false;
-
-      const recommended = inferRecommendedSecondaryCategories(audit).filter(
-        (c) => !c.toLowerCase().includes("keep as primary")
-      );
-      if (recommended.length === 0) return true;
       const existing = new Set(secondary.map((c) => c.toLowerCase()));
       return recommended.every((c) => existing.has(c.toLowerCase()));
     }
@@ -333,9 +331,7 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
     }
     case 2: {
       ensureLiveProfile(audit);
-      const recommended = inferRecommendedSecondaryCategories(audit).filter(
-        (c) => !c.toLowerCase().includes("keep as primary")
-      );
+      const recommended = inferRecommendedSecondaryCategories(audit);
       const existing = new Set(
         audit.gbp.liveProfile!.secondaryCategories.map((c) => c.toLowerCase())
       );

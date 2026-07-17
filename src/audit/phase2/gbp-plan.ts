@@ -179,11 +179,14 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       instruction:
         "Secondary categories expand relevance for related searches. Compare what's live on your profile vs what keywords need coverage.",
       current: liveSecondary.length ? liveSecondary.join(", ") : "None listed",
-      recommended: recommendedSecondary.join(", ") || "Add categories matching your target keywords",
+      recommended: recommendedSecondary.length
+        ? recommendedSecondary.join(", ")
+        : "Add categories matching your target keywords (not your primary category)",
       bullets: [
         `Currently on profile: ${liveSecondary.length ? liveSecondary.join(", ") : "none"}`,
         ...recommendedSecondary.map((c) => `Add: ${c}`),
         "Only add categories for services you actively offer",
+        "Do not add your primary category as a secondary — Google requires unique categories",
       ],
       gbpAction: "add_secondary_categories",
       actionData: { secondaryCategories: recommendedSecondary },
