@@ -1,4 +1,8 @@
-import { buildTemplateContent, type AuditGeneratedContent } from "@/lib/llm/content";
+import {
+  applyGeneratedDescriptionToAudit,
+} from "@/lib/llm/apply-gbp-description";
+import { buildTemplateContent, generateAuditContent, type AuditGeneratedContent } from "@/lib/llm/content";
+import { isLlmConfigured } from "@/lib/llm/config";
 import {
   buildAllGbpPlanSteps,
   buildTemplateGbpPlan,
@@ -308,9 +312,14 @@ function withReconcileCompletion(task: ExecutionTask, now: string): ExecutionTas
 /** Rewrite pending description drafts that still use the keyword-stuffed template. */
 export function selectDescriptionDraftsToRefresh(
   audit: FullAuditPayload,
-  existing: ExecutionTask[]
+  existing: ExecutionTask[],
+  content?: AuditGeneratedContent
 ): ExecutionTask[] {
-  const nextDraft = sanitizeGbpDescriptionDraft(buildGbpDescriptionDraft(audit));
+  const nextDraft = sanitizeGbpDescriptionDraft(
+    content?.gbpDescription?.trim()
+      ? content.gbpDescription
+      : buildGbpDescriptionDraft(audit)
+  );
   const refreshed: ExecutionTask[] = [];
 
   for (const task of existing) {
@@ -327,11 +336,50 @@ export function selectDescriptionDraftsToRefresh(
         field: "description",
         targetKeywords: audit.rankings.keywords.map((item) => item.keyword),
         descriptionDraftRefreshedAt: new Date().toISOString(),
+        ...(content?.contentSource ? { descriptionContentSource: content.contentSource } : {}),
       },
     });
   }
 
   return refreshed;
+}
+
+function planOrTaskNeedsDescriptionRefresh(
+  audit: FullAuditPayload,
+  existing: ExecutionTask[]
+): boolean {
+  const hasStuffedTask = existing.some(
+    (task) =>
+      isMutableByReconcile(task) &&
+      task.type === "gbp_description" &&
+      looksLikeKeywordStuffedDescription(task.draftContent)
+  );
+  if (hasStuffedTask) return true;
+
+  const step = audit.strategy.gbpPlan?.steps.find((item) => item.stepNumber === 3);
+  const planText = String(
+    step?.actionData?.description ?? step?.copyBlocks?.[0]?.content ?? ""
+  );
+  return !planText.trim() || looksLikeKeywordStuffedDescription(planText);
+}
+
+/** Prefer LLM description drafts when refreshing weak/stuffed copy; else templates. */
+export async function resolveReconcileContent(
+  audit: FullAuditPayload,
+  existing: ExecutionTask[],
+  provided?: AuditGeneratedContent
+): Promise<AuditGeneratedContent> {
+  if (provided) return provided;
+
+  if (planOrTaskNeedsDescriptionRefresh(audit, existing) && isLlmConfigured()) {
+    try {
+      return await generateAuditContent(audit);
+    } catch (error) {
+      console.error("[reconcile] LLM content generation failed, using templates:", error);
+    }
+  }
+
+  return buildTemplateContent(audit);
 }
 
 /** Rewrite pending review replies that still use the mangled legacy template. */
@@ -507,30 +555,31 @@ export function computePlanReconcile(
       };
 
   const content = options.content ?? buildTemplateContent(nextAudit);
-  const missingTasks = collectMissingReconcileTasks(nextAudit, existing, { content }).map(
-    (task) => ({
-      ...task,
-      payload: {
-        ...task.payload,
-        recommendedAt: now,
-      },
-    })
-  );
-  const tasksToComplete = selectTasksToAutoComplete(nextAudit, existing).map((task) =>
+  const auditWithDescription = applyGeneratedDescriptionToAudit(nextAudit, content);
+  const missingTasks = collectMissingReconcileTasks(auditWithDescription, existing, {
+    content,
+  }).map((task) => ({
+    ...task,
+    payload: {
+      ...task.payload,
+      recommendedAt: now,
+    },
+  }));
+  const tasksToComplete = selectTasksToAutoComplete(auditWithDescription, existing).map((task) =>
     withReconcileCompletion(task, now)
   );
   const completedIds = new Set(tasksToComplete.map((task) => task.id));
   const draftUpdates = [
-    ...selectDescriptionDraftsToRefresh(nextAudit, existing),
-    ...selectReviewResponseDraftsToRefresh(nextAudit, existing, content),
-    ...selectStep5ServiceTasksToUpgrade(nextAudit, existing),
+    ...selectDescriptionDraftsToRefresh(auditWithDescription, existing, content),
+    ...selectReviewResponseDraftsToRefresh(auditWithDescription, existing, content),
+    ...selectStep5ServiceTasksToUpgrade(auditWithDescription, existing),
   ].filter((task) => !completedIds.has(task.id));
   const tasksToUpdate = stampRecommendedAtOnOpenTasks(existing, draftUpdates, now).filter(
     (task) => !completedIds.has(task.id)
   );
 
   return {
-    nextAudit,
+    nextAudit: auditWithDescription,
     missingTasks,
     tasksToComplete,
     tasksToUpdate,
@@ -585,9 +634,8 @@ export async function reconcilePlanForBusiness(
     audit.auditId
   );
 
-  const computation = computePlanReconcile(audit, existing, {
-    content: options.content,
-  });
+  const content = await resolveReconcileContent(audit, existing, options.content);
+  const computation = computePlanReconcile(audit, existing, { content });
 
   if (!options.dryRun) {
     if (computation.missingTasks.length > 0) {
@@ -652,9 +700,8 @@ export async function reconcilePlanForUser(
   if (options.auditId && raw.auditId !== options.auditId) return null;
 
   const existing = await listExecutionTasks(userId, client.id, raw.auditId);
-  const computation = computePlanReconcile(raw, existing, {
-    content: options.content,
-  });
+  const content = await resolveReconcileContent(raw, existing, options.content);
+  const computation = computePlanReconcile(raw, existing, { content });
 
   if (!options.dryRun) {
     if (computation.missingTasks.length > 0) {

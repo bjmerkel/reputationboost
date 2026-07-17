@@ -18,8 +18,8 @@ import { buildMediaMaintenanceActions } from "@/lib/google/gbp-media-maintenance
 import { mediaCategoryLabel } from "@/lib/google/gbp-media-coverage";
 import { formatMediaViewCountLabel } from "@/lib/google/gbp-media-maintenance";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
-import { sanitizeGbpDescriptionDraft } from "@/lib/google/gbp-description";
 import { sanitizeGbpPostDraft } from "@/lib/google/gbp-post-content";
+import { resolveGbpDescriptionDraft } from "@/lib/llm/apply-gbp-description";
 import { defaultUsHolidayDescriptions } from "@/lib/google/gbp-hours";
 import {
   attributeDisplayName,
@@ -544,13 +544,9 @@ export function tasksFromGbpPlanStep(
           step,
           "gbp_description",
           step.title,
-          // Strip phone numbers, URLs, and HTML from generated drafts —
-          // Google's guidelines keep contact details out of the description.
-          sanitizeGbpDescriptionDraft(
-            data.description ??
-              step.copyBlocks?.[0]?.content ??
-              content.gbpDescription
-          ),
+          // Prefer LLM content-writer copy when available; fall back to plan/template.
+          // Strip phone numbers, URLs, and HTML — Google keeps contact details elsewhere.
+          resolveGbpDescriptionDraft(step, content, data.description),
           {
             field: "description",
             targetKeywords: audit.rankings.keywords.map((k) => k.keyword),

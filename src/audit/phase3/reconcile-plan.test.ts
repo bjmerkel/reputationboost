@@ -401,6 +401,41 @@ describe("computePlanReconcile", () => {
     assert.doesNotMatch(result.tasksToUpdate[0]?.draftContent ?? "", /clean vehicles/i);
   });
 
+  it("refreshes stuffed description drafts with provided LLM content", () => {
+    const audit = createTestAudit();
+    const stuffed =
+      "Acme provides professional HVAC throughout town. We specialize in ac repair near me, furnace near me, heat pump near me. With clean vehicles, punctual arrivals, and 24/7 availability.";
+    const llmDescription =
+      "Acme Heating keeps local homes comfortable with careful diagnostics and lasting repairs neighbors trust.";
+
+    const pendingDescription = task({
+      id: "pending-description-llm",
+      type: "gbp_description",
+      status: "pending_approval",
+      planStepNumber: 3,
+      actionItemId: "gbp-step-3",
+      draftContent: stuffed,
+      payload: { gbpStepNumber: 3, field: "description" },
+    });
+
+    const result = computePlanReconcile(audit, [pendingDescription], {
+      now: "2026-07-10T04:00:00.000Z",
+      content: {
+        googlePosts: ["a", "b", "c", "d"],
+        gbpDescription: llmDescription,
+        reviewResponses: [],
+        reviewRequestSms: "sms",
+        socialPost: "social",
+        gbpPhotoJobs: [],
+        contentSource: "llm",
+      },
+    });
+
+    assert.equal(result.tasksToUpdate[0]?.draftContent, llmDescription);
+    const step = result.nextAudit.strategy.gbpPlan?.steps.find((item) => item.stepNumber === 3);
+    assert.equal(step?.actionData?.description, llmDescription);
+  });
+
   it("refreshes mangled legacy review reply drafts on reconcile", () => {
     const audit = createTestAudit();
     audit.clientName = "Northshore Learning Center";

@@ -183,3 +183,34 @@ describe("tasksFromGbpPlanStep step 5 services", () => {
     assert.equal(tasks[0].draftContent, tasks[0].payload.serviceDescription);
   });
 });
+
+describe("tasksFromGbpPlanStep description", () => {
+  it("prefers LLM gbpDescription over stuffed plan actionData", () => {
+    const audit = createTestAudit();
+    const stuffed =
+      "Acme provides professional HVAC throughout town. We specialize in ac repair near me, furnace near me, heat pump near me. The team is known for clean vehicles, with a focus on punctual arrivals.";
+    const llmDescription =
+      "Acme Heating keeps local homes comfortable year-round with careful diagnostics, clear pricing, and lasting repairs neighbors recommend.";
+
+    const tasks = tasksFromGbpPlanStep(
+      audit,
+      {
+        stepNumber: 3,
+        title: "Rewrite the Business Description",
+        instruction: "Update the description.",
+        gbpAction: "update_description",
+        copyBlocks: [{ label: "Recommended description (paste into GBP)", content: stuffed }],
+        actionData: { description: stuffed },
+      },
+      {
+        ...buildTemplateContent(audit),
+        gbpDescription: llmDescription,
+        contentSource: "llm",
+      }
+    );
+
+    assert.equal(tasks.length, 1);
+    assert.equal(tasks[0]?.type, "gbp_description");
+    assert.equal(tasks[0]?.draftContent, llmDescription);
+  });
+});
