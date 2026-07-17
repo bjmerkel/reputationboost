@@ -261,6 +261,16 @@ describe("refreshGbpPlanForReconcile", () => {
           title: "Continuous Activity",
           instruction: "Keep posting and engaging every week.",
         },
+        {
+          stepNumber: 14,
+          title: "Messaging",
+          instruction: "Turn on GBP chat/messages.",
+        },
+        {
+          stepNumber: 15,
+          title: "Booking Feature",
+          instruction: "Enable online booking.",
+        },
       ],
     };
 
@@ -268,6 +278,8 @@ describe("refreshGbpPlanForReconcile", () => {
 
     assert.ok(plan);
     assert.equal(plan!.steps.some((step) => step.stepNumber === 16), false);
+    assert.equal(plan!.steps.some((step) => step.title === "Messaging"), false);
+    assert.equal(plan!.steps.some((step) => step.title === "Booking Feature"), false);
   });
 
   it("appends keyword portfolio step when rotation is needed and missing", () => {

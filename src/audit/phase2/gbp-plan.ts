@@ -18,11 +18,21 @@ import {
 import { buildGbpDescriptionDraft, cityFromAddress } from "@/lib/google/gbp-description-draft";
 import { resolveReviewResponseRate } from "@/audit/review-engagement";
 
+/** Continuous Activity (16) was a cadence summary, not an actionable step. */
 const RETIRED_GBP_PLAN_STEP_NUMBERS = new Set([16]);
 
-export function isRetiredGbpPlanStep(stepNumber: number): boolean {
-  return RETIRED_GBP_PLAN_STEP_NUMBERS.has(stepNumber);
+/** Checklist steps that can't be enabled or updated via GBP APIs. */
+const RETIRED_GBP_PLAN_STEP_TITLES = new Set(["Messaging", "Booking Feature", "Continuous Activity"]);
+
+export function isRetiredGbpPlanStep(stepNumber: number, title?: string): boolean {
+  if (RETIRED_GBP_PLAN_STEP_NUMBERS.has(stepNumber)) return true;
+  if (title && RETIRED_GBP_PLAN_STEP_TITLES.has(title)) return true;
+  return false;
 }
+
+/** Gap-driven steps for API-managed alerts and place action links (replacing Messaging / Booking Feature). */
+export const NOTIFICATIONS_PLAN_STEP = 14;
+export const PLACE_ACTIONS_PLAN_STEP = 15;
 
 function keywords(audit: Phase1AuditPayload): string[] {
   return audit.rankings.keywords.map((k) => k.keyword);
@@ -343,30 +353,6 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
         "Enable every applicable attribute to strengthen relevance and trust. Google exposes category-specific attributes — fill out all that apply to your business.",
       ...buildAttributePlanContent(audit),
       gbpAction: "update_attributes",
-    },
-    {
-      stepNumber: 14,
-      title: "Messaging",
-      instruction: "Turn on GBP chat/messages and respond within minutes when possible.",
-      current: "Check Messaging tab in GBP",
-      recommended: "Enable messaging with fast response times",
-      bullets: [
-        "Fast response rates increase engagement signals",
-        "Set up mobile notifications for new messages",
-      ],
-    },
-    {
-      stepNumber: 15,
-      title: "Booking Feature",
-      instruction: "Enable online booking or appointment links if available.",
-      current: audit.gbp.identity.website || "No website linked",
-      recommended: `Link booking to ${audit.gbp.identity.website || "your booking page"}`,
-      bullets: [
-        "Booking creates conversion signals directly inside Google",
-        "Use your website URL if you accept online bookings",
-      ],
-      gbpAction: "update_booking_attributes",
-      actionData: { bookingUri: audit.gbp.identity.website },
     },
   ];
 

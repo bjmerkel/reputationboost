@@ -49,7 +49,7 @@ describe("counterfactual score simulation", () => {
 
   it("matches estimateStepHealthImpact when no calibration data exists", () => {
     const audit = createTestAudit();
-    for (let step = 1; step <= 15; step++) {
+    for (let step = 1; step <= 13; step++) {
       assert.equal(
         estimateStepHealthImpact(audit, step),
         simulateStepDriverImpact(audit, step)
@@ -72,33 +72,6 @@ describe("counterfactual score simulation", () => {
   it("derives positive driver impact for new API coverage gaps", () => {
     const audit = createTestAudit();
     const gaps: Array<{ id: string; setup: (a: ReturnType<typeof createTestAudit>) => void }> = [
-      {
-        id: "missing-place-action-links",
-        setup: (a) => {
-          a.gbp.placeActions = {
-            apiAvailable: true,
-            partialApi: false,
-            coverageScore: 20,
-            linkCount: 0,
-            merchantLinkCount: 0,
-            configuredTypes: [],
-            availableTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
-            missingRecommendedTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
-            missingAvailableTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
-            typeCatalog: [
-              { placeActionType: "APPOINTMENT", displayName: "Book appointment" },
-              { placeActionType: "ONLINE_APPOINTMENT", displayName: "Book online appointment" },
-            ],
-            hasAppointmentLink: false,
-            hasOnlineAppointmentLink: false,
-            hasDiningReservationLink: false,
-            hasFoodOrderingLink: false,
-            hasShopOnlineLink: false,
-            endpoints: { links: "ok", typeMetadata: "ok" },
-            recommendations: [],
-          };
-        },
-      },
       {
         id: "rejected-review-replies",
         setup: (a) => {
@@ -172,6 +145,36 @@ describe("counterfactual score simulation", () => {
       const impact = simulateGapDriverImpact(mutated, gap);
       assert.ok(impact > 0, `expected positive impact for ${id}, got ${impact}`);
     }
+  });
+
+  it("excludes place-action / booking gaps from Reputation Boost Score impact", () => {
+    const audit = createTestAudit();
+    audit.gbp.placeActions = {
+      apiAvailable: true,
+      partialApi: false,
+      coverageScore: 20,
+      linkCount: 0,
+      merchantLinkCount: 0,
+      configuredTypes: [],
+      availableTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+      missingRecommendedTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+      missingAvailableTypes: ["APPOINTMENT", "ONLINE_APPOINTMENT"],
+      typeCatalog: [
+        { placeActionType: "APPOINTMENT", displayName: "Book appointment" },
+        { placeActionType: "ONLINE_APPOINTMENT", displayName: "Book online appointment" },
+      ],
+      hasAppointmentLink: false,
+      hasOnlineAppointmentLink: false,
+      hasDiningReservationLink: false,
+      hasFoodOrderingLink: false,
+      hasShopOnlineLink: false,
+      endpoints: { links: "ok", typeMetadata: "ok" },
+      recommendations: [],
+    };
+    const gap = detectGaps(audit).find((g) => g.id === "missing-place-action-links") ?? ({
+      id: "missing-place-action-links",
+    } as GapFlag);
+    assert.equal(simulateGapDriverImpact(audit, gap), 0);
   });
 
   it("filters satisfied steps from the template plan", () => {

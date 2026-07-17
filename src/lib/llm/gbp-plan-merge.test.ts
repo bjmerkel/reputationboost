@@ -14,8 +14,10 @@ describe("buildPlanStepCandidates", () => {
     const audit = createTestAudit();
     const candidates = buildPlanStepCandidates(audit);
 
-    assert.equal(candidates.length, 14);
+    assert.equal(candidates.length, 13);
     assert.equal(candidates.some((candidate) => candidate.stepNumber === 16), false);
+    assert.equal(candidates.some((candidate) => candidate.title === "Messaging"), false);
+    assert.equal(candidates.some((candidate) => candidate.title === "Booking Feature"), false);
     const unsatisfied = candidates.filter((c) => !c.satisfied);
     assert.ok(unsatisfied.length > 0);
     assert.ok(unsatisfied.some((c) => c.driverScoreImpact > 0));

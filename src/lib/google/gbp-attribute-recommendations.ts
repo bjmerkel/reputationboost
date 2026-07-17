@@ -364,7 +364,7 @@ export function recommendAttributeUpdates(
   return buildAttributeCoverage(available, current, options).autoUpdates.slice(0, limit);
 }
 
-/** Booking / appointment URI attributes only (step 15). */
+/** Booking / appointment URI attributes only (legacy update_booking_attributes action). */
 export function recommendBookingAttributes(
   available: GbpAttributeMetadata[],
   current: GbpLocationAttribute[],

@@ -287,7 +287,6 @@ export function buildAttributePlanContent(audit: Phase1AuditPayload): {
         enabledLabels.length > 0 ? enabledLabels.join(", ") : "No attributes detected on profile",
       recommended: "Enable all applicable business attributes",
       bullets: [
-        "Online appointments / booking",
         "Accessibility, ownership, and identity attributes where applicable",
         `Currently ${audit.gbp.completeness.attributeCount} attributes on profile`,
       ],
