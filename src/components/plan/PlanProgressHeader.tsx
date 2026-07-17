@@ -35,8 +35,8 @@ export default function PlanProgressHeader({
 
   return (
     <div
-      className={`sticky top-0 z-10 rounded-xl border p-4 backdrop-blur-sm ${
-        isLight ? "border-[#dadce0] bg-white/95" : "border-white/10 bg-slate-900/95"
+      className={`rounded-xl border p-4 ${
+        isLight ? "border-[#dadce0] bg-white" : "border-white/10 bg-slate-900"
       }`}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
