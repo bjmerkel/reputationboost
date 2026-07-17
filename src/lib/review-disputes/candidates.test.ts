@@ -43,6 +43,8 @@ describe("identifyDisputeCandidates", () => {
         publishedAt: "2026-06-01T00:00:00.000Z",
         responded: false,
         isAnonymous: false,
+        responseTimeHours: null,
+        sentiment: "negative",
       },
       {
         id: "review-flagged",
@@ -52,6 +54,8 @@ describe("identifyDisputeCandidates", () => {
         publishedAt: "2026-06-02T00:00:00.000Z",
         responded: false,
         isAnonymous: false,
+        responseTimeHours: null,
+        sentiment: "negative",
       },
       {
         id: "review-removed",
@@ -61,6 +65,8 @@ describe("identifyDisputeCandidates", () => {
         publishedAt: "2026-06-03T00:00:00.000Z",
         responded: false,
         isAnonymous: false,
+        responseTimeHours: null,
+        sentiment: "negative",
       },
       {
         id: "review-fresh",
@@ -70,6 +76,8 @@ describe("identifyDisputeCandidates", () => {
         publishedAt: "2026-06-04T00:00:00.000Z",
         responded: false,
         isAnonymous: false,
+        responseTimeHours: null,
+        sentiment: "negative",
       },
     ];
     audit.reviews.disputeCandidates = audit.reviews.reviews.map((r) => r.id);
@@ -108,6 +116,8 @@ describe("identifyDisputeCandidates", () => {
         publishedAt: "2026-06-01T00:00:00.000Z",
         responded: false,
         isAnonymous: false,
+        responseTimeHours: null,
+        sentiment: "negative",
       },
     ];
     audit.reviews.disputeCandidates = ["review-declined"];
