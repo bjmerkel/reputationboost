@@ -35,6 +35,18 @@ export const RESOLVED_DISPUTE_STATUSES: ReviewDisputeStatus[] = [
   "withdrawn",
 ];
 
+/**
+ * Statuses that hide a review from the dispute candidate list / plan.
+ * `submitted` and `under_review` intentionally do NOT suppress — Google often
+ * requires multiple dispute attempts, so Mark Submitted should return the
+ * review to the plan for another round.
+ */
+export const DISPUTE_CANDIDATE_SUPPRESS_STATUSES: ReviewDisputeStatus[] = [
+  "draft",
+  "flagged",
+  "removed",
+];
+
 export interface ReviewDisputeRecord {
   id: string;
   businessId: string;
@@ -67,6 +79,9 @@ export interface DisputeCandidate {
   violationReason: string;
   projectedScoreGain: number;
   evidenceTemplate: string;
+  /** When set, this review was already filed with Google and is back for another attempt. */
+  priorSubmissionAt?: string | null;
+  priorDisputeStatus?: ReviewDisputeStatus | null;
 }
 
 /** Google Maps report-review categories (display titles). */

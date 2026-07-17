@@ -27,7 +27,11 @@ const WORKFLOW_STEPS = [
   { title: "Find the review", detail: "Search the review using the search magnifying glass" },
   { title: "Report review", detail: "Click the 3 dots and press Report review" },
   { title: "Policy violation", detail: "Select the policy violation type we recommended" },
-  { title: "Submit", detail: "Press Submit" },
+  {
+    title: "Submit & repeat",
+    detail:
+      "Press Submit in Google, then Mark submitted here. Google often needs multiple reports — we'll put this review back on your plan for another dispute round.",
+  },
 ] as const;
 
 function formatReviewDate(iso: string): string {
@@ -186,6 +190,15 @@ export default function ReviewDisputePanel({
       }
 
       setReportUrl(data.reportUrl);
+
+      // Submitted reviews stay eligible for another dispute attempt. Reconcile so
+      // a fresh pending plan task is created for the same review.
+      if (actions.reconcilePlanNow) {
+        await actions.reconcilePlanNow();
+      } else if (actions.refresh) {
+        await actions.refresh();
+      }
+
       await loadDisputes();
       onDisputeUpdated?.();
     } catch (err) {
@@ -258,7 +271,7 @@ export default function ReviewDisputePanel({
               Dispute illegitimate reviews
             </p>
             <p className={`mt-1 max-w-2xl text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
-              Flag policy-violating reviews, file them in Google Business Profile, and track outcomes. Google has no public dispute API — we guide you through the manual process.
+              Flag policy-violating reviews, file them in Google Business Profile, and track outcomes. Google has no public dispute API — we guide you through the manual process. After you mark a report submitted, we put the review back on your plan so you can dispute again (Google often needs multiple attempts).
             </p>
           </div>
           {gainLabel > 0 && (
@@ -353,7 +366,18 @@ export default function ReviewDisputePanel({
                   <span
                     className={`mt-3 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${disputeStatusStyles(existing.status, isLight)}`}
                   >
-                    {statusLabel(existing.status)}
+                    {existing.status === "submitted" || existing.status === "under_review"
+                      ? "Dispute again"
+                      : statusLabel(existing.status)}
+                  </span>
+                )}
+                {!existing && candidate.priorSubmissionAt && (
+                  <span
+                    className={`mt-3 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      isLight ? "bg-blue-50 text-blue-800" : "bg-blue-500/15 text-blue-300"
+                    }`}
+                  >
+                    Dispute again
                   </span>
                 )}
               </button>
@@ -478,7 +502,13 @@ export default function ReviewDisputePanel({
               onClick={() => void handleSubmit()}
               className="rounded-xl bg-[#1a73e8] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1765cc] disabled:opacity-60"
             >
-              {saving ? "Saving…" : "Mark submitted"}
+              {saving
+                ? "Saving…"
+                : activeCandidate.priorSubmissionAt ||
+                    activeDispute?.status === "submitted" ||
+                    activeDispute?.status === "under_review"
+                  ? "Mark submitted — queue next dispute"
+                  : "Mark submitted"}
             </button>
             <a
               href={reportUrl}
