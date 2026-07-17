@@ -301,9 +301,6 @@ export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): 
       }
       return gbp.completeness.attributeCount >= 5;
     }
-    case 14:
-    case 15:
-      return false;
     case KEYWORD_PORTFOLIO_PLAN_STEP:
       return portfolioStepIsSatisfied(audit);
     default:
@@ -457,9 +454,6 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
       bumpCompleteness(audit);
       break;
     }
-    case 14:
-    case 15:
-      break;
     case KEYWORD_PORTFOLIO_PLAN_STEP:
       applyKeywordPortfolioToAudit(audit);
       break;

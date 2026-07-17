@@ -22,7 +22,7 @@ import {
   GOOGLE_UPDATES_STEP_NUMBER,
   isGoogleUpdateTask,
 } from "@/lib/google/gbp-update-helpers";
-import { buildAllGbpPlanSteps, isRetiredGbpPlanStep } from "../phase2/gbp-plan";
+import { buildAllGbpPlanSteps, isRetiredGbpPlanStep, NOTIFICATIONS_PLAN_STEP, PLACE_ACTIONS_PLAN_STEP } from "../phase2/gbp-plan";
 import { resolveRecommendationTimestamp } from "./recommendation-timestamp";
 
 function groupTasksByStep(tasks: ExecutionTask[]): Map<number, ExecutionTask[]> {
@@ -35,6 +35,10 @@ function groupTasksByStep(tasks: ExecutionTask[]): Map<number, ExecutionTask[]> 
     grouped.set(stepNumber, existing);
   }
   return grouped;
+}
+
+function gapDrivenPlanStep(stepNumber: number, title: string, instruction: string): GbpPlanStep {
+  return { stepNumber, title, instruction, gbpAction: "manual" };
 }
 
 function deriveStepStatus(tasks: ExecutionTask[]): PlanStepStatus {
@@ -151,7 +155,7 @@ export function buildPlan(
     globalCalibration
   );
   const planSteps = gbpPlan.steps
-    .filter((step) => !isRetiredGbpPlanStep(step.stepNumber))
+    .filter((step) => !isRetiredGbpPlanStep(step.stepNumber, step.title))
     .map((step) =>
       buildPlanStep(
         audit,
@@ -201,6 +205,55 @@ export function buildPlan(
   }
 
   const includedStepNumbers = new Set(planSteps.map((step) => step.stepNumber));
+
+  // Place action links and Pub/Sub alerts are gap-driven (API-managed). They reuse
+  // step numbers 14/15 after Messaging / Booking Feature checklist steps were retired.
+  if (!includedStepNumbers.has(PLACE_ACTIONS_PLAN_STEP)) {
+    const placeActionTasks = (tasksByStep.get(PLACE_ACTIONS_PLAN_STEP) ?? []).filter(
+      (task) => task.type === "gbp_place_action"
+    );
+    if (placeActionTasks.length > 0) {
+      planSteps.push(
+        buildPlanStep(
+          audit,
+          gapDrivenPlanStep(
+            PLACE_ACTIONS_PLAN_STEP,
+            "Place action links",
+            "Add booking, ordering, or shop links on your Google Business Profile."
+          ),
+          placeActionTasks,
+          attributions,
+          calibration,
+          avgCustomerValue
+        )
+      );
+      includedStepNumbers.add(PLACE_ACTIONS_PLAN_STEP);
+    }
+  }
+
+  if (!includedStepNumbers.has(NOTIFICATIONS_PLAN_STEP)) {
+    const notificationTasks = (tasksByStep.get(NOTIFICATIONS_PLAN_STEP) ?? []).filter(
+      (task) => task.type === "gbp_notifications"
+    );
+    if (notificationTasks.length > 0) {
+      planSteps.push(
+        buildPlanStep(
+          audit,
+          gapDrivenPlanStep(
+            NOTIFICATIONS_PLAN_STEP,
+            "Real-time GBP alerts",
+            "Enable Pub/Sub notifications for time-sensitive listing events."
+          ),
+          notificationTasks,
+          attributions,
+          calibration,
+          avgCustomerValue
+        )
+      );
+      includedStepNumbers.add(NOTIFICATIONS_PLAN_STEP);
+    }
+  }
+
   const templateSteps = buildAllGbpPlanSteps(audit);
   for (const [stepNumber, orphanTasks] of tasksByStep) {
     if (stepNumber === GOOGLE_UPDATES_STEP_NUMBER || includedStepNumbers.has(stepNumber)) continue;

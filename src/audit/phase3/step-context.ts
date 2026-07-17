@@ -178,9 +178,9 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
       return `Your profile is missing ${coverage.missingCount} of ${coverage.availableCount} available attributes — enabling them improves completeness and your Reputation Boost Score.`;
     }
     case 14:
-      return "Enable messaging and respond quickly to increase engagement signals.";
+      return "Subscribe to real-time GBP Pub/Sub alerts so you catch new reviews and Google edits quickly.";
     case 15:
-      return "Enable online booking to create conversion signals inside Google.";
+      return "Add appointment, ordering, or shop links customers can use directly from Google Maps.";
     case 16:
       return "Execute the weekly cadence consistently to move keywords into the Top 3.";
     case 17:

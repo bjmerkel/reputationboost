@@ -1,6 +1,6 @@
 import type { PlanPhase, PlanPhaseId } from "../types";
 
-const FOUNDATION_STEPS = [0, 1, 2, 3, 4, 5, 12, 13, 14, 15];
+const FOUNDATION_STEPS = [0, 1, 2, 3, 4, 5, 12, 13];
 const CONTENT_STEPS = [6, 7, 8];
 const REPUTATION_STEPS = [9, 10, 11];
 const ONGOING_STEPS = [17];
@@ -21,6 +21,9 @@ export const PLAN_PHASE_DEFINITIONS: PlanPhase[] = [
 
 export function getPhaseForStep(stepNumber: number): PlanPhaseId {
   if (stepNumber === 0) return "foundation";
+  // Place action links (15) and GBP alert subscriptions (14) stay in Foundation
+  // even though Messaging / Booking Feature checklist steps were retired.
+  if (stepNumber === 14 || stepNumber === 15) return "foundation";
   if (stepNumber >= 18) return "ongoing";
   return STEP_TO_PHASE.get(stepNumber) ?? "foundation";
 }

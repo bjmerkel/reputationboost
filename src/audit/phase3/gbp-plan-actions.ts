@@ -11,7 +11,6 @@ const AUTOMATED_ACTIONS = new Set<GbpPlanActionType>([
   "update_website",
   "update_hours",
   "accept_google_suggestion",
-  "update_booking_attributes",
   "create_post",
 ]);
 
@@ -26,7 +25,6 @@ const ACTION_BY_STEP: Partial<Record<number, GbpPlanActionType>> = {
   8: "create_post",
   12: "update_hours",
   13: "update_attributes",
-  15: "update_booking_attributes",
 };
 
 /** LLM plans often set gbpAction to "manual" — fall back to template or step number. */

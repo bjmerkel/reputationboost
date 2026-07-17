@@ -144,7 +144,7 @@ export function refreshGbpPlanForReconcile(
   const freshByNumber = new Map(allFresh.map((step) => [step.stepNumber, step]));
   const required = selectGbpPlanSteps(audit, allFresh);
   const activeExistingSteps = existingPlan.steps.filter(
-    (step) => !isRetiredGbpPlanStep(step.stepNumber)
+    (step) => !isRetiredGbpPlanStep(step.stepNumber, step.title)
   );
   const existingNumbers = new Set(activeExistingSteps.map((step) => step.stepNumber));
 

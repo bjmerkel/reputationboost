@@ -426,20 +426,18 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
     }
   }
 
-  const placeActionScore = gbp.placeActions?.apiAvailable
-    ? clamp(gbp.placeActions.coverageScore)
-    : 50;
   const notificationScore =
     gbp.notifications != null ? clamp(gbp.notifications.coverageScore) : 50;
 
+  // Place-action / booking link coverage is excluded from the Reputation Boost Score:
+  // Messaging and Booking Feature aren't writable via the Business Profile APIs we use.
   let profileTrust =
-    reviewStrength * 0.32 +
-    completeness * 0.18 +
+    reviewStrength * 0.35 +
+    completeness * 0.2 +
     photoScore * 0.12 +
     videoScore * 0.05 +
     postScore * 0.11 +
     responseScore * 0.14 +
-    placeActionScore * 0.05 +
     notificationScore * 0.03;
 
   if (reviews.unrespondedNegative > 0) {

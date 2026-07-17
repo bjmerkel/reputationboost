@@ -41,7 +41,7 @@ function PlatformDemoPlan({ audit }: { audit: FullAuditPayload }) {
     { id: "foundation", label: "Foundation", range: [1, 4] },
     { id: "content", label: "Content Engine", range: [5, 8] },
     { id: "reputation", label: "Reputation", range: [9, 12] },
-    { id: "ongoing", label: "Ongoing", range: [13, 16] },
+    { id: "ongoing", label: "Ongoing", range: [13, 17] },
   ] as const;
 
   return (

@@ -29,13 +29,13 @@ import {
   isUriAttributeType,
   resolveProfileLinkMissing,
 } from "@/lib/google/gbp-attribute-recommendations";
+import { buildTemplateGbpPlan, NOTIFICATIONS_PLAN_STEP, PLACE_ACTIONS_PLAN_STEP } from "@/audit/phase2/gbp-plan";
 import {
   categoryLabelsMatch,
   primaryCategoryUpdateIsNoOp,
   resolveLivePrimaryCategory,
   resolveRecommendedPrimaryCategory,
 } from "@/audit/phase2/gbp-category";
-import { buildTemplateGbpPlan } from "@/audit/phase2/gbp-plan";
 import { computeKeywordPortfolio, KEYWORD_PORTFOLIO_PLAN_STEP, portfolioStepIsSatisfied } from "@/audit/phase2/keyword-portfolio";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
 import { generateReviewResponses } from "@/audit/phase3/content";
@@ -956,7 +956,7 @@ export function tasksFromPlaceActionGaps(audit: FullAuditPayload): ExecutionTask
 
   const website = audit.gbp.identity.website?.trim() || "https://";
   const step: GbpPlanStep = {
-    stepNumber: 15,
+    stepNumber: PLACE_ACTIONS_PLAN_STEP,
     title: "Place action links",
     instruction: "Add booking, ordering, or shop links on your Google Business Profile.",
     gbpAction: "manual",
@@ -1013,7 +1013,7 @@ export function tasksFromNotificationGaps(audit: FullAuditPayload): ExecutionTas
   if (!getGbpPubsubTopic()) return [];
 
   const step: GbpPlanStep = {
-    stepNumber: 14,
+    stepNumber: NOTIFICATIONS_PLAN_STEP,
     title: "Real-time GBP alerts",
     instruction: "Enable Pub/Sub notifications for time-sensitive listing events.",
     gbpAction: "manual",

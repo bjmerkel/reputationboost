@@ -15,7 +15,7 @@ export const SCORE_TOOLTIPS = {
   profileStrength: {
     title: "Profile strength",
     calculation:
-      "Reviews (rating and volume vs competitors), profile completeness, photos and videos, post recency, review response rate, keyword relevance, place actions, and notifications — weighted into one 0–100 score.",
+      "Reviews (rating and volume vs competitors), profile completeness, photos and videos, post recency, review response rate, keyword relevance, and notifications — weighted into one 0–100 score.",
     importance:
       "These are signals you control directly on your Google Business Profile. A stronger profile helps Google trust and recommend your business.",
   },

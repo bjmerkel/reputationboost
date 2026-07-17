@@ -16,10 +16,15 @@ describe("plan-phases", () => {
 
   it("defines all core plan steps across phases", () => {
     const covered = PLAN_PHASE_DEFINITIONS.flatMap((p) => p.stepNumbers);
-    assert.equal(covered.length, 17);
+    assert.equal(covered.length, 15);
     assert.deepEqual([...new Set(covered)].sort((a, b) => a - b), [
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17,
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 17,
     ]);
+  });
+
+  it("keeps gap-driven alert and place-action steps in foundation", () => {
+    assert.equal(getPhaseForStep(14), "foundation");
+    assert.equal(getPhaseForStep(15), "foundation");
   });
 
   it("maps custom plan steps to ongoing phase", () => {
@@ -116,6 +121,34 @@ describe("buildPlan", () => {
       plan!.phases.some((phase) => phase.stepNumbers.includes(16)),
       false
     );
+  });
+
+  it("hides retired Messaging and Booking Feature steps from persisted plans", () => {
+    const audit = createTestAudit();
+    audit.strategy.gbpPlan = {
+      ...audit.strategy.gbpPlan!,
+      steps: [
+        ...audit.strategy.gbpPlan!.steps.filter(
+          (step) => step.stepNumber !== 14 && step.stepNumber !== 15
+        ),
+        {
+          stepNumber: 14,
+          title: "Messaging",
+          instruction: "Turn on GBP chat/messages.",
+        },
+        {
+          stepNumber: 15,
+          title: "Booking Feature",
+          instruction: "Enable online booking.",
+        },
+      ],
+    };
+
+    const plan = buildPlan(audit, audit.execution!.tasks);
+
+    assert.ok(plan);
+    assert.equal(plan!.steps.some((step) => step.title === "Messaging"), false);
+    assert.equal(plan!.steps.some((step) => step.title === "Booking Feature"), false);
   });
 
   it("attaches outcomes from attributions to completed steps", () => {
