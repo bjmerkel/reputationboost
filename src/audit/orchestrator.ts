@@ -11,6 +11,7 @@ import { collectPlacesSnapshots } from "./collectors/places";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { getValidGbpConnection } from "@/lib/google/token-store";
 import { generateStrategy } from "@/lib/llm/strategy";
+import { applyGeneratedDescriptionToAudit } from "@/lib/llm/apply-gbp-description";
 import { generateAuditContent } from "@/lib/llm/content";
 import { extractKeywordRelevance } from "@/lib/llm/relevance";
 import { getActiveKeywordCampaigns } from "@/lib/review-requests/campaign-storage";
@@ -178,10 +179,13 @@ export async function runPhase1Audit(
     activeCampaignKeywords,
     customers: customerKeywordHints,
   });
-  const execution = generateExecutionQueue(auditWithStrategy, content);
+  // Plan step copyBlocks/actionData default to a deterministic template; overwrite
+  // with the content-writer LLM description so Plan UI and tasks stay aligned.
+  const auditWithDescription = applyGeneratedDescriptionToAudit(auditWithStrategy, content);
+  const execution = generateExecutionQueue(auditWithDescription, content);
 
   const audit: FullAuditPayload = {
-    ...auditWithStrategy,
+    ...auditWithDescription,
     execution,
   };
 

@@ -86,10 +86,12 @@ async function collectReviewsFromPlaceDetails(client: ClientConfig): Promise<Rev
 
 function buildReviewSnapshot(now: string, reviews: ReviewRecord[]): ReviewSnapshot {
   const positiveThemes = extractThemes(
-    reviews.filter((r) => r.sentiment === "positive").map((r) => r.text)
+    reviews.filter((r) => r.sentiment === "positive").map((r) => r.text),
+    POSITIVE_THEME_KEYWORDS
   );
   const negativeThemes = extractThemes(
-    reviews.filter((r) => r.sentiment === "negative").map((r) => r.text)
+    reviews.filter((r) => r.sentiment === "negative").map((r) => r.text),
+    NEGATIVE_THEME_KEYWORDS
   );
 
   const unrespondedNegative = reviews.filter((r) => r.rating <= 3 && !r.responded).length;
@@ -136,17 +138,25 @@ function ratingToSentiment(rating: number): ReviewRecord["sentiment"] {
   return "neutral";
 }
 
-const THEME_KEYWORDS: Record<string, string[]> = {
-  "quality work": ["quality", "excellent", "great job", "professional"],
-  "fair pricing": ["fair", "price", "affordable", "value"],
-  "good communication": ["communication", "responsive", "reachable", "phone"],
-  "scheduling delays": ["late", "delay", "schedule", "wait"],
-  "hard to reach": ["reach", "callback", "no answer", "unresponsive"],
+const POSITIVE_THEME_KEYWORDS: Record<string, string[]> = {
+  "quality work": ["quality", "excellent", "great job", "professional", "skilled"],
+  "fair pricing": ["fair", "price", "affordable", "value", "reasonable"],
+  "good communication": ["communication", "responsive", "reachable", "explained"],
+  "friendly service": ["friendly", "courteous", "kind", "helpful", "polite"],
+  "fast response": ["quick", "fast", "prompt", "same day", "timely"],
 };
 
-function extractThemes(texts: string[]): string[] {
+const NEGATIVE_THEME_KEYWORDS: Record<string, string[]> = {
+  "scheduling delays": ["late", "delay", "waited", "reschedule", "no-show"],
+  "hard to reach": ["callback", "no answer", "unresponsive", "never called"],
+};
+
+function extractThemes(
+  texts: string[],
+  catalog: Record<string, string[]>
+): string[] {
   const joined = texts.join(" ").toLowerCase();
-  return Object.entries(THEME_KEYWORDS)
+  return Object.entries(catalog)
     .filter(([, keywords]) => keywords.some((kw) => joined.includes(kw)))
     .map(([theme]) => theme)
     .slice(0, 4);
