@@ -14,6 +14,15 @@ const FIELD_LABELS: Record<string, string> = {
 
 export const ATTRIBUTE_SUGGESTION_PREFIX = "attribute:";
 
+export interface GbpPostalAddress {
+  addressLines?: string[];
+  locality?: string;
+  administrativeArea?: string;
+  postalCode?: string;
+  regionCode?: string;
+  languageCode?: string;
+}
+
 function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
   const parts = path.split(".");
   let current: unknown = obj;
@@ -24,12 +33,52 @@ function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
   return current;
 }
 
+/** Human-readable postal address for diffs/UI (avoids raw JSON float/shape noise). */
+export function formatPostalAddress(value: unknown): string {
+  if (!value || typeof value !== "object") return "";
+  const addr = value as GbpPostalAddress;
+  const street = addr.addressLines?.filter(Boolean).join(", ") ?? "";
+  const regionLine = [addr.administrativeArea, addr.postalCode].filter(Boolean).join(" ");
+  return [street, addr.locality, regionLine].filter(Boolean).join(", ");
+}
+
+function looksLikePostalAddress(value: unknown): value is GbpPostalAddress {
+  if (!value || typeof value !== "object") return false;
+  const addr = value as GbpPostalAddress;
+  return Boolean(
+    addr.addressLines ||
+      addr.locality ||
+      addr.administrativeArea ||
+      addr.postalCode ||
+      addr.regionCode
+  );
+}
+
+/** Normalize address strings so structured vs flattened forms can match. */
+export function normalizeAddressForCompare(value: unknown): string {
+  const formatted =
+    typeof value === "string"
+      ? value
+      : looksLikePostalAddress(value)
+        ? formatPostalAddress(value)
+        : stringifyValue(value);
+  return formatted
+    .toLowerCase()
+    .replace(/[.,#]/g, " ")
+    .replace(/\b(united states|usa|us)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function stringifyValue(value: unknown): string {
   if (value === undefined || value === null) return "";
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (typeof value === "object" && value !== null && "displayName" in value) {
     return String((value as { displayName?: string }).displayName ?? "");
+  }
+  if (looksLikePostalAddress(value)) {
+    return formatPostalAddress(value) || JSON.stringify(value);
   }
   try {
     return JSON.stringify(value);
@@ -38,6 +87,14 @@ function stringifyValue(value: unknown): string {
   }
 }
 
+function valuesEquivalent(field: string, ownerValue: unknown, googleValue: unknown): boolean {
+  if (field === "storefrontAddress" || field.startsWith("storefrontAddress.")) {
+    const ownerNorm = normalizeAddressForCompare(ownerValue);
+    const googleNorm = normalizeAddressForCompare(googleValue);
+    if (ownerNorm && googleNorm && ownerNorm === googleNorm) return true;
+  }
+  return stringifyValue(ownerValue) === stringifyValue(googleValue);
+}
 const DIFF_PATHS = [
   "title",
   "profile.description",
@@ -110,7 +167,12 @@ export function pendingFieldsFromMask(
   }));
 }
 
-/** Compare owner location vs Google-updated snapshot (fallback when diffMask is empty). */
+/**
+ * Compare owner location vs Google-updated snapshot.
+ * Only used as a last-resort fallback — prefer Google's diffMask.
+ * Address comparisons are normalized so structured vs flattened forms do not
+ * create false conflicts that cannot be approved.
+ */
 export function diffGoogleUpdatedLocation(
   owner: Record<string, unknown>,
   googleUpdated: Record<string, unknown>
@@ -118,11 +180,13 @@ export function diffGoogleUpdatedLocation(
   const suggestions: GbpGoogleSuggestion[] = [];
 
   for (const field of DIFF_PATHS) {
-    const ownerValue = stringifyValue(getNestedValue(owner, field));
-    const googleValue = stringifyValue(getNestedValue(googleUpdated, field));
+    const ownerRaw = getNestedValue(owner, field);
+    const googleRaw = getNestedValue(googleUpdated, field);
+    const ownerValue = stringifyValue(ownerRaw);
+    const googleValue = stringifyValue(googleRaw);
 
     if (!googleValue) continue;
-    if (ownerValue === googleValue) continue;
+    if (valuesEquivalent(field, ownerRaw, googleRaw)) continue;
 
     suggestions.push({
       field,

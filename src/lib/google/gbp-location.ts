@@ -5,15 +5,17 @@ import { categoryStableId } from "./gbp-service-items";
 import { authHeadersForConnection } from "./auth-headers";
 import {
   diffGoogleUpdatedAttributes,
-  diffGoogleUpdatedLocation,
   pendingFieldsFromMask,
   suggestionsFromDiffMask,
+  type GbpPostalAddress,
 } from "./gbp-google-updated";
 import type { BusinessHours, SpecialHours } from "./gbp-hours";
 import {
   hasFullWeekCoverage,
   hasSpecialHourPeriods,
 } from "./gbp-hours";
+
+export type { GbpPostalAddress } from "./gbp-google-updated";
 
 const BI_BASE = "https://mybusinessbusinessinformation.googleapis.com/v1";
 
@@ -37,6 +39,8 @@ export interface GbpLocationProfile {
   additionalPhones: string[];
   website: string;
   address: string;
+  /** Structured storefront address from the Location API when available. */
+  storefrontAddress?: GbpPostalAddress | null;
   placeId: string;
   mapsUri: string;
   primaryCategory: GbpCategoryRef | null;
@@ -107,13 +111,7 @@ interface LocationApi {
   profile?: { description?: string };
   phoneNumbers?: { primaryPhone?: string; additionalPhones?: string[] };
   websiteUri?: string;
-  storefrontAddress?: {
-    addressLines?: string[];
-    locality?: string;
-    administrativeArea?: string;
-    postalCode?: string;
-    regionCode?: string;
-  };
+  storefrontAddress?: GbpPostalAddress;
   categories?: {
     primaryCategory?: CategoryApi;
     additionalCategories?: CategoryApi[];
@@ -695,6 +693,7 @@ export async function getGbpLocationProfile(
     additionalPhones: data.phoneNumbers?.additionalPhones ?? [],
     website: data.websiteUri ?? "",
     address: data.storefrontAddress ? formatStorefrontAddress(data.storefrontAddress) : "",
+    storefrontAddress: data.storefrontAddress ?? null,
     placeId: data.metadata?.placeId ?? "",
     mapsUri: data.metadata?.mapsUri ?? "",
     primaryCategory: primary?.name
@@ -954,7 +953,10 @@ export function ownerLocationForDiff(profile: GbpLocationProfile): Record<string
         ? { displayName: profile.primaryCategory.displayName, name: profile.primaryCategory.name }
         : undefined,
     },
-    storefrontAddress: profile.address ? { addressLines: [profile.address] } : undefined,
+    // Prefer the structured PostalAddress from locations.get. Never wrap the
+    // already-formatted display string as a single addressLines entry — that
+    // creates false Address conflicts against Google's structured version.
+    storefrontAddress: profile.storefrontAddress ?? undefined,
     regularHours: profile.regularHours,
     specialHours: profile.specialHours,
   };
@@ -968,9 +970,12 @@ export async function fetchGoogleUpdateState(
   const snapshot = await getGoogleUpdatedSnapshot(connection);
   const owner = ownerLocationForDiff(profile);
 
+  // Trust Google's diffMask for conflicts that need a decision. The location
+  // fallback invents false Address conflicts (structured vs display formatting)
+  // that then fail on Approve with "No Google update conflict for Address".
   const diffFields = snapshot.diffMask
     ? suggestionsFromDiffMask(owner, snapshot.location, snapshot.diffMask)
-    : diffGoogleUpdatedLocation(owner, snapshot.location);
+    : [];
 
   const pendingFields = pendingFieldsFromMask(owner, snapshot.pendingMask);
 

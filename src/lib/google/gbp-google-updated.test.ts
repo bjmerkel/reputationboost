@@ -4,8 +4,10 @@ import {
   ATTRIBUTE_SUGGESTION_PREFIX,
   diffGoogleUpdatedAttributes,
   diffGoogleUpdatedLocation,
+  formatPostalAddress,
   isGoogleUpdateResolved,
   maskIncludesField,
+  normalizeAddressForCompare,
   parseUpdateMask,
   pendingFieldsFromMask,
   suggestionsFromDiffMask,
@@ -29,6 +31,50 @@ describe("diffGoogleUpdatedLocation", () => {
     assert.ok(diffs.some((d) => d.field === "profile.description"));
     assert.ok(diffs.some((d) => d.field === "phoneNumbers.primaryPhone"));
     assert.equal(diffs[0].kind, "diff");
+  });
+
+  it("does not treat structured vs flattened equivalent addresses as conflicts", () => {
+    const owner = {
+      storefrontAddress: {
+        addressLines: ["7901 West Gowan Road, Las Vegas, NV, 89129"],
+      },
+    };
+    const google = {
+      storefrontAddress: {
+        regionCode: "US",
+        languageCode: "en",
+        postalCode: "89129",
+        administrativeArea: "NV",
+        locality: "Las Vegas",
+        addressLines: ["7901 West Gowan Road"],
+      },
+    };
+
+    const diffs = diffGoogleUpdatedLocation(owner, google);
+    assert.equal(diffs.length, 0);
+  });
+
+  it("still flags a real address street change", () => {
+    const owner = {
+      storefrontAddress: {
+        addressLines: ["100 Main St"],
+        locality: "Las Vegas",
+        administrativeArea: "NV",
+        postalCode: "89129",
+      },
+    };
+    const google = {
+      storefrontAddress: {
+        addressLines: ["200 Main St"],
+        locality: "Las Vegas",
+        administrativeArea: "NV",
+        postalCode: "89129",
+      },
+    };
+
+    const diffs = diffGoogleUpdatedLocation(owner, google);
+    assert.equal(diffs.length, 1);
+    assert.equal(diffs[0].field, "storefrontAddress");
   });
 });
 
@@ -63,6 +109,7 @@ describe("update masks", () => {
     const mask = "profile.description,phoneNumbers.primaryPhone";
     assert.equal(maskIncludesField(mask, "profile.description"), true);
     assert.equal(maskIncludesField(mask, "title"), false);
+    assert.equal(maskIncludesField("storefrontAddress.addressLines", "storefrontAddress"), true);
   });
 
   it("builds diff suggestions from diffMask", () => {
@@ -76,6 +123,31 @@ describe("update masks", () => {
     assert.equal(suggestions.length, 1);
     assert.equal(suggestions[0].kind, "diff");
     assert.equal(suggestions[0].googleValue, "Google text");
+  });
+
+  it("formats postal addresses as human-readable values in diff suggestions", () => {
+    const owner = {
+      storefrontAddress: {
+        addressLines: ["7901 West Gowan Road"],
+        locality: "Las Vegas",
+        administrativeArea: "NV",
+        postalCode: "89129",
+      },
+    };
+    const google = {
+      storefrontAddress: {
+        regionCode: "US",
+        languageCode: "en",
+        postalCode: "89101",
+        administrativeArea: "NV",
+        locality: "Las Vegas",
+        addressLines: ["7901 West Gowan Road"],
+      },
+    };
+    const suggestions = suggestionsFromDiffMask(owner, google, "storefrontAddress");
+    assert.equal(suggestions.length, 1);
+    assert.equal(suggestions[0].ownerValue, "7901 West Gowan Road, Las Vegas, NV 89129");
+    assert.equal(suggestions[0].googleValue, "7901 West Gowan Road, Las Vegas, NV 89101");
   });
 
   it("builds pending suggestions from pendingMask", () => {
@@ -92,5 +164,23 @@ describe("update masks", () => {
     assert.equal(isGoogleUpdateResolved("", false), true);
     assert.equal(isGoogleUpdateResolved("profile.description", false), false);
     assert.equal(isGoogleUpdateResolved("", true), false);
+  });
+});
+
+describe("address helpers", () => {
+  it("formats and normalizes postal addresses", () => {
+    const google = {
+      regionCode: "US",
+      languageCode: "en",
+      postalCode: "89129",
+      administrativeArea: "NV",
+      locality: "Las Vegas",
+      addressLines: ["7901 West Gowan Road"],
+    };
+    assert.equal(formatPostalAddress(google), "7901 West Gowan Road, Las Vegas, NV 89129");
+    assert.equal(
+      normalizeAddressForCompare(google),
+      normalizeAddressForCompare("7901 West Gowan Road, Las Vegas, NV, 89129")
+    );
   });
 });
