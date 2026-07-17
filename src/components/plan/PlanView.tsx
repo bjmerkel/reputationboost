@@ -94,6 +94,8 @@ export default function PlanView({
       syncGoogleUpdates,
       approveAllRoutine,
       regenerateReviewResponse,
+      reconcilePlanNow,
+      refresh,
       loadingTaskId,
       error,
     }),
@@ -111,6 +113,8 @@ export default function PlanView({
       syncGoogleUpdates,
       approveAllRoutine,
       regenerateReviewResponse,
+      reconcilePlanNow,
+      refresh,
       loadingTaskId,
       error,
     ]
