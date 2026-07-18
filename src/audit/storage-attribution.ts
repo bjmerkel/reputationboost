@@ -288,6 +288,35 @@ export async function listActionAttributionsForUser(
   );
 }
 
+/** Admin/service-role attribution list for reconcile and projection snapshots. */
+export async function listActionAttributionsForBusinessAdmin(
+  businessId: string,
+  limit = 50
+): Promise<ActionAttribution[]> {
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from("action_attributions")
+    .select("*")
+    .eq("business_id", businessId)
+    .order("published_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) return [];
+
+  const taskIds = data.map((row) => row.execution_task_id as string);
+  const { data: tasks } = await supabase
+    .from("execution_tasks")
+    .select("id, title")
+    .in("id", taskIds);
+
+  const titleByTaskId = new Map((tasks ?? []).map((t) => [t.id as string, t.title as string]));
+
+  return data.map((row) =>
+    rowToAttribution(row as Record<string, unknown>, titleByTaskId.get(row.execution_task_id) ?? "")
+  );
+}
+
 export async function buildAttributionSummary(
   userId: string,
   businessSlug: string,

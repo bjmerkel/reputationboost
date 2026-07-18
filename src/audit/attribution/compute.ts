@@ -33,10 +33,18 @@ import { loadGlobalScoreCalibrationAdmin, refreshGlobalScoreCalibration } from "
 import { MARKET_REFRESH_FLAGS } from "@/lib/feature-flags";
 import {
   getRankSnapshotsInRange,
+  listActionAttributionsForBusinessAdmin,
+  listCompletedTasksForBusiness,
   sumPerformanceInRange,
   upsertActionAttribution,
 } from "@/audit/storage-attribution";
 import { listScoreDailyForBusinessAdmin } from "@/audit/storage-score-daily";
+import {
+  applyAttributionCredit,
+  countOverlappingPostWindows,
+  formatAttributionCreditNote,
+} from "./credit-sharing";
+import { buildAttributionCalibration } from "@/audit/phase2/attribution-calibration";
 
 const DEFAULT_WINDOW_DAYS = 14;
 
@@ -192,14 +200,50 @@ export async function computeAttributionForTask(
     formatDateYmd(postStart),
     formatDateYmd(addDays(effectivePostEnd, -1))
   );
+  const priorBaselineStart = addDays(publishedAt, -windowDays * 2);
+  const priorBaselineEnd = addDays(publishedAt, -windowDays);
+  const priorBaseline = await sumPerformanceInRange(
+    businessId,
+    formatDateYmd(priorBaselineStart),
+    formatDateYmd(addDays(priorBaselineEnd, -1))
+  );
 
-  const callsDelta = postMetrics.calls - preMetrics.calls;
-  const directionsDelta = postMetrics.direction_requests - preMetrics.direction_requests;
-  const websiteClicksDelta = postMetrics.website_clicks - preMetrics.website_clicks;
-  const impressionsDelta =
-    postMetrics.impressions_maps +
-    postMetrics.impressions_search -
-    (preMetrics.impressions_maps + preMetrics.impressions_search);
+  const peerTasks = await listCompletedTasksForBusiness(businessId, windowDays * 4);
+  const overlapCount = countOverlappingPostWindows(
+    publishedAt,
+    windowDays,
+    peerTasks
+      .filter((record) => record.task.completedAt)
+      .map((record) => ({
+        taskId: record.task.id,
+        publishedAt: record.task.completedAt!,
+      })),
+    task.id
+  );
+
+  const canAffectRank = taskCanAffectLocalRank(task.type);
+  const credit = applyAttributionCredit({
+    pre: preMetrics,
+    post: postMetrics,
+    priorBaseline,
+    rank: {
+      rankBefore,
+      rankAfter,
+      rankDelta,
+      keywordsImproved,
+    },
+    overlapCount,
+    canAffectRank,
+  });
+
+  const callsDelta = credit.engagement.calls;
+  const directionsDelta = credit.engagement.directions;
+  const websiteClicksDelta = credit.engagement.websiteClicks;
+  const impressionsDelta = credit.engagement.impressions;
+  const creditedRankBefore = credit.rank.rankBefore;
+  const creditedRankAfter = credit.rank.rankAfter;
+  const creditedRankDelta = credit.rank.rankDelta;
+  const creditedKeywordsImproved = credit.rank.keywordsImproved;
 
   const preliminary = now < postEnd;
 
@@ -262,8 +306,8 @@ export async function computeAttributionForTask(
     publishedAt: task.completedAt,
     primaryKeyword,
     keywordsMentioned: task.type === "review_response" ? keywordsMentioned : undefined,
-    rankBefore,
-    rankAfter,
+    rankBefore: creditedRankBefore,
+    rankAfter: creditedRankAfter,
     serviceAreaVisibilityBefore: primaryVisibility?.before ?? null,
     serviceAreaVisibilityAfter: primaryVisibility?.after ?? null,
     widerRadiusImproved: primaryVisibility?.widerRadiusImproved ?? null,
@@ -275,6 +319,11 @@ export async function computeAttributionForTask(
     gridCoverageAfter,
     cellsImproved,
   });
+
+  const creditNote = formatAttributionCreditNote(overlapCount, canAffectRank);
+  if (creditNote) {
+    narrative += creditNote;
+  }
 
   if (estimatedRevenue && estimatedRevenue > 0) {
     narrative += ` → ~${formatCurrency(estimatedRevenue, avgCustomerValueCurrency)} estimated`;
@@ -344,10 +393,10 @@ export async function computeAttributionForTask(
     publishedAt: task.completedAt,
     windowDays,
     primaryKeyword,
-    rankBefore,
-    rankAfter,
-    rankDelta,
-    keywordsImproved,
+    rankBefore: creditedRankBefore,
+    rankAfter: creditedRankAfter,
+    rankDelta: creditedRankDelta,
+    keywordsImproved: creditedKeywordsImproved,
     callsDelta,
     directionsDelta,
     websiteClicksDelta,
@@ -369,8 +418,9 @@ export async function computeAttributionForTask(
   });
 
   const rankImproved =
-    rankBefore !== null && rankAfter !== null
-      ? rankAfter < rankBefore
+    creditedRankBefore !== null &&
+    creditedRankAfter !== null
+      ? creditedRankAfter < creditedRankBefore
       : rankBefore === null && rankAfter !== null && rankAfter <= 3;
 
   const serviceAreaImprovedFlag =
@@ -395,9 +445,17 @@ async function prepareRecordWithProjectionSnapshot(
   if (!audit) return record;
 
   const globalCalibration = await loadGlobalScoreCalibrationAdmin().catch(() => ({}));
+  const businessAttributions = await listActionAttributionsForBusinessAdmin(
+    record.businessId,
+    50
+  ).catch(() => []);
+  const businessCalibration = buildAttributionCalibration(
+    businessAttributions.filter((row) => !row.preliminary)
+  );
 
   const snapshot = snapshotTaskProjections(audit, record.task, {
     avgCustomerValue: record.avgCustomerValue,
+    calibration: businessCalibration,
     globalCalibration,
   });
 
