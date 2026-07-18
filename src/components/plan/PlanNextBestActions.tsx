@@ -37,11 +37,13 @@ export default function PlanNextBestActions({
         Next best actions
       </p>
       <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-        {hasRevenue
-          ? "Ordered by estimated revenue impact — do these first."
-          : hasLeads
-            ? "Ordered by estimated lead impact — do these first."
-            : "Ordered by estimated impact — do these first."}
+        {hasRevenue && hasLeads
+          ? "Ordered by estimated revenue, then leads — do these first."
+          : hasRevenue
+            ? "Ordered by estimated revenue impact — do these first."
+            : hasLeads
+              ? "Ordered by estimated lead impact — do these first."
+              : "Ordered by estimated impact — do these first."}
       </p>
       <ol className="mt-3 space-y-2">
         {nextSteps.map((step, index) => {

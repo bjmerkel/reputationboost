@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import {
@@ -14,6 +14,10 @@ import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { usePlanTasks, type PlanTasksState } from "@/hooks/usePlanTasks";
 import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
+import {
+  consumePlanRefreshAfterAcvSave,
+  hasPlanRefreshAfterAcvSave,
+} from "@/components/results/results-focus";
 import GoogleUpdatesPanel from "./GoogleUpdatesPanel";
 import PlanAcvNudge from "./PlanAcvNudge";
 import PlanKeywordPriority from "./PlanKeywordPriority";
@@ -63,6 +67,7 @@ export default function PlanView({
   const isLight = variant === "light";
   const [syncingGoogleUpdates, setSyncingGoogleUpdates] = useState(false);
   const [localFocusStep, setLocalFocusStep] = useState<number | null>(null);
+  const acvRefreshStartedRef = useRef(false);
   const internalPlanTasks = usePlanTasks({
     clientId,
     auditId: audit.auditId,
@@ -164,13 +169,39 @@ export default function PlanView({
       const element = document.getElementById(elementId);
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "start" });
-        onFocusHandled?.();
       }
+      // Always clear so deep-links never hang when the step card is missing.
+      onFocusHandled?.();
     };
 
     const timer = window.setTimeout(scrollToTarget, 150);
     return () => window.clearTimeout(timer);
   }, [focusScrollTarget, focusStep, loading, onFocusHandled]);
+
+  // After Settings saves ACV, reconcile once so $/mo order updates without cron.
+  useEffect(() => {
+    if (loading || reconciling) return;
+    if (avgCustomerValue == null || avgCustomerValue <= 0) return;
+    if (acvRefreshStartedRef.current) return;
+    if (!hasPlanRefreshAfterAcvSave()) return;
+
+    acvRefreshStartedRef.current = true;
+    void reconcilePlanNow()
+      .then((result) => {
+        consumePlanRefreshAfterAcvSave();
+        if (result.audit) onAuditUpdated?.(result.audit);
+      })
+      .catch(() => {
+        // Allow a retry on the next visit if reconcile failed.
+        acvRefreshStartedRef.current = false;
+      });
+  }, [
+    avgCustomerValue,
+    loading,
+    reconciling,
+    reconcilePlanNow,
+    onAuditUpdated,
+  ]);
 
   const businessCalibration = useMemo(
     () => buildAttributionCalibration(attributions),

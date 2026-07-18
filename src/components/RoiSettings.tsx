@@ -1,7 +1,10 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency } from "@/audit/attribution/roi";
+import { markPlanRefreshAfterAcvSave } from "@/components/results/results-focus";
 
 export default function RoiSettings({
   businessId,
@@ -12,6 +15,7 @@ export default function RoiSettings({
   initialValue: number | null;
   currency?: string;
 }) {
+  const router = useRouter();
   const [value, setValue] = useState(initialValue != null ? String(initialValue) : "");
   const [savedValue, setSavedValue] = useState(initialValue);
   const [loading, setLoading] = useState(false);
@@ -42,6 +46,10 @@ export default function RoiSettings({
 
       setSavedValue(parsed);
       setSaved(true);
+      if (parsed != null && parsed > 0) {
+        markPlanRefreshAfterAcvSave();
+      }
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -82,7 +90,21 @@ export default function RoiSettings({
         )}
 
         {error && <p className="text-sm text-[#d93025]">{error}</p>}
-        {saved && <p className="text-sm text-[#137333]">Saved. ROI estimates will refresh shortly.</p>}
+        {saved && (
+          <div className="space-y-1 text-sm text-[#137333]">
+            <p>Saved. Dollar estimates are ready on Plan.</p>
+            <p className="text-[#5f6368]">
+              Open Plan to refresh step order for $/mo impact — it won&apos;t wait on the nightly
+              reconcile.
+            </p>
+            <Link
+              href="/platform/audit?view=strategy"
+              className="inline-flex text-xs font-semibold text-[#1a73e8] hover:underline"
+            >
+              Open Plan and refresh order →
+            </Link>
+          </div>
+        )}
 
         <button
           type="submit"
