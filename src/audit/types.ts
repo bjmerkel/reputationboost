@@ -42,6 +42,8 @@ export interface ClientConfig {
   onboardingComplete?: boolean;
   avgCustomerValue?: number | null;
   avgCustomerValueCurrency?: string;
+  /** When set, conversion-family NBA and plan ordering prefer this channel. */
+  preferredConversionChannel?: import("@/audit/phase2/conversion-channel").ConversionChannelBias;
   heatmapProfile?: GridProfileKey;
   privateFeedbackUrl?: string;
   /** Set when Google sends GOOGLE_UPDATE Pub/Sub notifications. */
@@ -823,6 +825,8 @@ export interface PathToHealthyOptions {
    * Defaults to true whenever a plan is passed to buildPathToHealthy.
    */
   preferPlanDisplayOrder?: boolean;
+  /** User-preferred conversion channel when calls, directions, or website drive value. */
+  preferredConversionChannel?: import("./phase2/conversion-channel").ConversionChannelBias;
 }
 
 export interface PathToHealthyStep {

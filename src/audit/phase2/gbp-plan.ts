@@ -8,6 +8,7 @@ import {
 import {
   conversionLeversForChannel,
   resolveConversionChannelBias,
+  type ConversionChannelBias,
 } from "./conversion-channel";
 import { CONVERSION_PLAN_STEPS } from "./conversion-constants";
 import {
@@ -41,6 +42,7 @@ export interface GbpPlanBuildOptions {
   avgCustomerValue?: number | null;
   /** Closed-loop attribution blend for displayOrder / impact ranking. */
   calibration?: AttributionCalibration;
+  preferredConversionChannel?: ConversionChannelBias;
 }
 
 export { auditNeedsConversionBoost } from "./conversion-boost";
@@ -49,7 +51,7 @@ export { CONVERSION_PLAN_STEPS } from "./conversion-constants";
 const CONVERSION_BOOST_STEPS = new Set<number>(CONVERSION_PLAN_STEPS);
 
 /** Relative effort (1 easy → 10 hard) — used so fast CTR wins beat slow busywork. */
-const PLAN_STEP_EFFORT: Record<number, number> = {
+export const PLAN_STEP_EFFORT: Record<number, number> = {
   0: 1,
   1: 3,
   2: 3,
@@ -74,7 +76,8 @@ export function planStepImpactScore(
   audit: Phase1AuditPayload,
   stepNumber: number,
   avgCustomerValue?: number | null,
-  calibration?: AttributionCalibration
+  calibration?: AttributionCalibration,
+  preferredConversionChannel?: ConversionChannelBias
 ): number {
   const revenue =
     estimateStepRevenueImpact(audit, stepNumber, avgCustomerValue, calibration) ?? 0;
@@ -93,7 +96,11 @@ export function planStepImpactScore(
     if (auditPrefersConversionOverRank(audit)) {
       score += 75;
     }
-    const preferred = conversionLeversForChannel(resolveConversionChannelBias(audit));
+    const preferred = conversionLeversForChannel(
+      resolveConversionChannelBias(audit, {
+        preferredChannel: preferredConversionChannel,
+      })
+    );
     const channelRank = preferred.indexOf(stepNumber);
     if (channelRank >= 0) {
       score += (preferred.length - channelRank) * 5;
@@ -132,13 +139,26 @@ export function orderGbpPlanStepsByImpact(
   audit: Phase1AuditPayload,
   steps: GbpPlanStep[],
   avgCustomerValue?: number | null,
-  calibration?: AttributionCalibration
+  calibration?: AttributionCalibration,
+  preferredConversionChannel?: ConversionChannelBias
 ): GbpPlanStep[] {
   return [...steps]
     .sort(
       (a, b) =>
-        planStepImpactScore(audit, b.stepNumber, avgCustomerValue, calibration) -
-        planStepImpactScore(audit, a.stepNumber, avgCustomerValue, calibration)
+        planStepImpactScore(
+          audit,
+          b.stepNumber,
+          avgCustomerValue,
+          calibration,
+          preferredConversionChannel
+        ) -
+        planStepImpactScore(
+          audit,
+          a.stepNumber,
+          avgCustomerValue,
+          calibration,
+          preferredConversionChannel
+        )
     )
     .map((step, index) => ({ ...step, displayOrder: index }));
 }
@@ -185,7 +205,8 @@ export function selectGbpPlanSteps(
     audit,
     selected,
     options.avgCustomerValue,
-    options.calibration
+    options.calibration,
+    options.preferredConversionChannel
   );
 }
 
