@@ -28,7 +28,7 @@ export default function PlanKeywordPlaybooks({
     () =>
       buildKeywordPlaybooks(audit, plan, {
         avgCustomerValue,
-        limit: 3,
+        limit: 5,
       }),
     [audit, plan, avgCustomerValue]
   );

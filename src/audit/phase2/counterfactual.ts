@@ -4,7 +4,6 @@ import {
   inferRecommendedSecondaryCategories,
   missingKeywordsForServices,
 } from "./gbp-current-state";
-import { resolveKeywordRelevance } from "./relevance-heuristic";
 import { computeHealthScores } from "./scoring";
 import {
   blendEngagementRates,
@@ -31,12 +30,16 @@ import { computeKeywordScores } from "./keyword-scores";
 import { detectPackFragility, resolveKeywordPositionAtRadius } from "./scoring";
 import { type SearchRadiusMiles } from "@/lib/google/places";
 import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
-import { primaryCategoryUpdateIsNoOp } from "./gbp-category";
+import {
+  primaryCategoryUpdateIsNoOp,
+  resolveRecommendedPrimaryCategory,
+} from "./gbp-category";
 import { isReviewResponseWorkSatisfied } from "@/audit/review-engagement";
 import {
   buildGbpDescriptionDraft,
   cityFromAddress,
 } from "@/lib/google/gbp-description-draft";
+import { buildOutcomePriorityServiceBlocks } from "@/lib/google/gbp-service-descriptions";
 
 const CONVERSION_PLAN_STEP_SET = new Set<number>(CONVERSION_PLAN_STEPS);
 
@@ -399,20 +402,14 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
 
   switch (stepNumber) {
     case 1: {
+      // Primary category only — secondaries belong to step 2.
       ensureLiveProfile(audit);
-      const lowFit = resolveKeywordRelevance(audit).filter((r) => r.categoryFit < 75);
-      const secondary = new Set(
-        (audit.gbp.liveProfile!.secondaryCategories ?? []).map((c) => c.toLowerCase())
-      );
-      for (const rel of lowFit) {
-        const token = rel.keyword.split(/\s+/).find((w) => w.length > 3);
-        if (token && !secondary.has(token)) {
-          audit.gbp.liveProfile!.secondaryCategories.push(
-            `${token.charAt(0).toUpperCase()}${token.slice(1)} service`
-          );
-          secondary.add(token);
-        }
+      const recommended = resolveRecommendedPrimaryCategory(audit);
+      if (recommended) {
+        audit.gbp.liveProfile!.primaryCategory = recommended;
+        audit.gbp.identity.primaryCategory = recommended;
       }
+      bumpCompleteness(audit);
       break;
     }
     case 2: {
@@ -454,8 +451,26 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
       bumpCompleteness(audit);
       break;
     }
-    case 5:
+    case 5: {
+      // Priority keyword services — mutate the same blocks the plan publishes.
+      ensureLiveProfile(audit);
+      const blocks = buildOutcomePriorityServiceBlocks(audit);
+      const existing = new Set(
+        audit.gbp.liveProfile!.services.map((service) => service.name.toLowerCase())
+      );
+      for (const block of blocks) {
+        if (existing.has(block.serviceName.toLowerCase())) continue;
+        audit.gbp.liveProfile!.services.push({
+          name: block.serviceName,
+          description: block.content,
+        });
+        existing.add(block.serviceName.toLowerCase());
+      }
+      audit.gbp.completeness.serviceCount = audit.gbp.liveProfile!.services.length;
+      audit.gbp.completeness.hasServices = true;
+      bumpCompleteness(audit);
       break;
+    }
     case 6: {
       audit.gbp.content.photoCount = Math.max(
         PHOTO_COVERAGE_FLOOR,
@@ -1063,15 +1078,24 @@ function rankDeltaForStep(
   calibration?: AttributionCalibration
 ): number {
   const cal = calibration?.[stepNumber];
-  if (cal?.medianRankDelta != null && cal.medianRankDelta > 0) {
-    return Math.min(5, Math.max(1, Math.round(cal.medianRankDelta)));
+  // Evidence-gated: only use observed median when we have a real sample.
+  if (
+    cal?.sampleSize != null &&
+    cal.sampleSize >= 2 &&
+    cal.medianRankDelta != null &&
+    cal.medianRankDelta > 0
+  ) {
+    const cap = cal.sampleSize >= 5 ? 5 : 3;
+    return Math.min(cap, Math.max(1, Math.round(cal.medianRankDelta)));
   }
 
+  // Uncalibrated heuristics stay conservative so $/mo claims are not overstated.
   switch (stepNumber) {
     case 3:
     case 4:
+    case 5:
     case 8:
-      return 2;
+      return 1;
     case 9:
     case 10:
     case 11:
@@ -1079,7 +1103,7 @@ function rankDeltaForStep(
     case 7:
       return 1;
     default:
-      return DEFAULT_RANK_IMPROVEMENT;
+      return 1;
   }
 }
 
@@ -1616,7 +1640,7 @@ export interface ActionPickTarget {
 
 export interface PickActionTargetOptions extends CounterfactualProjectionOptions {}
 
-function isActionTargetMet(
+export function isActionTargetMet(
   mode: PathOptimizationMode,
   health: ProjectedHealthScores,
   outcome: ProjectedOutcomeScores,

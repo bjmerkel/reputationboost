@@ -5,8 +5,14 @@ import {
   auditNeedsConversionBoost,
   auditPrefersConversionOverRank,
 } from "./conversion-boost";
-import { CONVERSION_PLAN_STEPS } from "./conversion-constants";
 import {
+  conversionLeversForChannel,
+  resolveConversionChannelBias,
+} from "./conversion-channel";
+import { CONVERSION_PLAN_STEPS } from "./conversion-constants";
+import type { AttributionCalibration } from "./attribution-calibration";
+import {
+  estimateStepEngagementImpact,
   estimateStepLeadsImpact,
   estimateStepOutcomeImpact,
   estimateStepRevenueImpact,
@@ -30,6 +36,8 @@ import { resolveReviewResponseRate } from "@/audit/review-engagement";
 
 export interface GbpPlanBuildOptions {
   avgCustomerValue?: number | null;
+  /** Closed-loop attribution blend for displayOrder / impact ranking. */
+  calibration?: AttributionCalibration;
 }
 
 export { auditNeedsConversionBoost } from "./conversion-boost";
@@ -37,18 +45,44 @@ export { CONVERSION_PLAN_STEPS } from "./conversion-constants";
 
 const CONVERSION_BOOST_STEPS = new Set<number>(CONVERSION_PLAN_STEPS);
 
+/** Relative effort (1 easy → 10 hard) — used so fast CTR wins beat slow busywork. */
+const PLAN_STEP_EFFORT: Record<number, number> = {
+  0: 1,
+  1: 3,
+  2: 3,
+  3: 4,
+  4: 4,
+  5: 4,
+  6: 6,
+  7: 5,
+  8: 3,
+  9: 5,
+  10: 7,
+  11: 3,
+  12: 3,
+  13: 2,
+  14: 2,
+  15: 2,
+  17: 4,
+};
+
 /** Rank plan steps by estimated revenue, then outcome, then driver impact. */
 export function planStepImpactScore(
   audit: Phase1AuditPayload,
   stepNumber: number,
-  avgCustomerValue?: number | null
+  avgCustomerValue?: number | null,
+  calibration?: AttributionCalibration
 ): number {
-  const revenue = estimateStepRevenueImpact(audit, stepNumber, avgCustomerValue) ?? 0;
+  const revenue =
+    estimateStepRevenueImpact(audit, stepNumber, avgCustomerValue, calibration) ?? 0;
   // When ACV is missing, rank/conversion lead estimates still differentiate impact order.
-  const leads = revenue > 0 ? 0 : (estimateStepLeadsImpact(audit, stepNumber) ?? 0);
-  const outcome = estimateStepOutcomeImpact(audit, stepNumber);
+  const leads =
+    revenue > 0 ? 0 : (estimateStepLeadsImpact(audit, stepNumber, calibration) ?? 0);
+  const engagement = estimateStepEngagementImpact(audit, stepNumber, calibration) ?? 0;
+  const outcome = estimateStepOutcomeImpact(audit, stepNumber, calibration);
   const driver = simulateStepDriverImpact(audit, stepNumber);
-  let score = revenue * 1000 + leads * 50 + outcome * 10 + driver;
+  let score =
+    revenue * 1000 + leads * 50 + engagement * 10 + outcome * 10 + driver;
   // When views don't convert, elevate CTA/place-action/trust work over pure completeness.
   if (auditNeedsConversionBoost(audit) && CONVERSION_BOOST_STEPS.has(stepNumber)) {
     score += 50;
@@ -56,6 +90,22 @@ export function planStepImpactScore(
     if (auditPrefersConversionOverRank(audit)) {
       score += 75;
     }
+    const preferred = conversionLeversForChannel(resolveConversionChannelBias(audit));
+    const channelRank = preferred.indexOf(stepNumber);
+    if (channelRank >= 0) {
+      score += (preferred.length - channelRank) * 5;
+    }
+  } else if (
+    // Soft nudge for low-traffic listings with zero actions (below the 100-view gap gate).
+    audit.gbp.performance.profileViews >= 40 &&
+    audit.gbp.performance.profileViews < 100 &&
+    audit.gbp.performance.calls +
+      audit.gbp.performance.directionRequests +
+      audit.gbp.performance.websiteClicks ===
+      0 &&
+    CONVERSION_BOOST_STEPS.has(stepNumber)
+  ) {
+    score += 20;
   }
   // Demote media busywork when the listing is visible but under-converting, or
   // when photo/video coverage is already adequate.
@@ -68,6 +118,8 @@ export function planStepImpactScore(
       score *= 0.4;
     }
   }
+  const effort = PLAN_STEP_EFFORT[stepNumber] ?? 4;
+  score *= (11 - effort) / 10;
   return score;
 }
 
@@ -75,13 +127,14 @@ export function planStepImpactScore(
 export function orderGbpPlanStepsByImpact(
   audit: Phase1AuditPayload,
   steps: GbpPlanStep[],
-  avgCustomerValue?: number | null
+  avgCustomerValue?: number | null,
+  calibration?: AttributionCalibration
 ): GbpPlanStep[] {
   return [...steps]
     .sort(
       (a, b) =>
-        planStepImpactScore(audit, b.stepNumber, avgCustomerValue) -
-        planStepImpactScore(audit, a.stepNumber, avgCustomerValue)
+        planStepImpactScore(audit, b.stepNumber, avgCustomerValue, calibration) -
+        planStepImpactScore(audit, a.stepNumber, avgCustomerValue, calibration)
     )
     .map((step, index) => ({ ...step, displayOrder: index }));
 }
@@ -124,7 +177,12 @@ export function selectGbpPlanSteps(
     (step) =>
       !isStepSatisfied(audit, step.stepNumber) || inventoryRequired.has(step.stepNumber)
   );
-  return orderGbpPlanStepsByImpact(audit, selected, options.avgCustomerValue);
+  return orderGbpPlanStepsByImpact(
+    audit,
+    selected,
+    options.avgCustomerValue,
+    options.calibration
+  );
 }
 
 export {

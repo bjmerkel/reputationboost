@@ -189,13 +189,6 @@ export default function PlanStepCard({
               Targets &ldquo;{step.context.primaryKeyword}&rdquo;
             </p>
           )}
-          {!isCompleted &&
-            step.status !== "skipped" &&
-            (step.context.healthScoreImpact ?? 0) > 0 && (
-              <p className={`mt-1 text-xs font-semibold ${isLight ? "text-[#188038]" : "text-emerald-400"}`}>
-                +{step.context.healthScoreImpact} Reputation Boost Score pts
-              </p>
-            )}
           {leadOrRevenueLabel && !customSignal && (
               <p className={`mt-1 text-xs font-semibold ${isLight ? "text-[#188038]" : "text-emerald-400"}`}>
                 {leadOrRevenueLabel}
@@ -215,6 +208,16 @@ export default function PlanStepCard({
             (step.context.outcomeScoreImpact ?? 0) > 0 && (
               <p className={`mt-1 text-xs ${isLight ? "text-[#1a73e8]" : "text-cyan-300"}`}>
                 +{step.context.outcomeScoreImpact} ranking outcome pts
+              </p>
+            )}
+          {!isCompleted &&
+            step.status !== "skipped" &&
+            !(step.context.revenueImpact ?? 0) &&
+            !(step.context.leadsImpact ?? 0) &&
+            !(step.context.engagementImpact ?? 0) &&
+            (step.context.healthScoreImpact ?? 0) > 0 && (
+              <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                +{step.context.healthScoreImpact} Reputation Boost Score pts
               </p>
             )}
           {!expanded && !isCompleted && (
@@ -442,9 +445,26 @@ export default function PlanStepCard({
           )}
 
           {step.tasks.length === 0 && (
-            <p className={`mt-4 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-              Manual step — complete this update in Google Business Profile, then refresh your plan.
-            </p>
+            <div className="mt-4 space-y-2">
+              <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                Manual step — complete this update in Google Business Profile, then refresh your plan.
+              </p>
+              {actions.reconcilePlanNow && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void actions.reconcilePlanNow?.();
+                  }}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    isLight
+                      ? "border-[#1a73e8] bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc]"
+                      : "border-sky-400/40 bg-sky-400/15 text-sky-300 hover:bg-sky-400/25"
+                  }`}
+                >
+                  Mark done & refresh plan
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

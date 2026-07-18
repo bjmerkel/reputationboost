@@ -158,8 +158,8 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
       return "Upload short videos to boost profile engagement and trust.";
     case 8:
       return outsidePack.length > 0
-        ? `Publish weekly posts targeting keywords outside the 3-Pack, starting with "${outsidePack[0]}".`
-        : "Maintain weekly Google Posts to signal an active profile.";
+        ? `Publish weekly CTA posts targeting keywords outside the 3-Pack (starting with "${outsidePack[0]}") to grow pack presence and click-to-call / directions.`
+        : "Publish weekly Google Posts with clear call/directions CTAs so profile views turn into actions.";
     case 10: {
       const gaps = rankings.filter((r) => r.reviewGap > 20);
       if (gaps.length > 0) {
@@ -173,19 +173,19 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
           ? countUnrespondedNegativeReviews(audit.reviews.reviews)
           : audit.reviews.unrespondedNegative;
       return unrespondedNegative > 0
-        ? `Respond to ${unrespondedNegative} unresponded negative review(s) within 24 hours.`
+        ? `Respond to ${unrespondedNegative} unresponded negative review(s) within 24 hours — trust replies lift click-to-call rates.`
         : isReviewResponseWorkSatisfied(audit)
-          ? "Review response coverage is healthy — keep replying within 24 hours."
-          : "Maintain 100% review response rate with keyword-aware replies.";
+          ? "Review response coverage is healthy — keep replying within 24 hours to protect call/direction conversion."
+          : "Maintain 100% review response rate with keyword-aware replies that build trust and calls.";
     }
     case 12:
-      return "Keep hours accurate — inconsistent hours hurt rankings and customer trust.";
+      return "Keep hours accurate — wrong hours suppress direction requests and hurt rankings.";
     case 13: {
       const coverage = audit.gbp.attributeCoverage;
       if (!coverage || coverage.availableCount === 0) {
         return audit.gbp.completeness.attributeCount < 5
-          ? `Only ${audit.gbp.completeness.attributeCount} attributes enabled — add at least 5 to strengthen profile completeness.`
-          : "Enable applicable attributes to strengthen relevance and trust signals.";
+          ? `Only ${audit.gbp.completeness.attributeCount} attributes enabled — add at least 5 to strengthen relevance and website/call CTAs.`
+          : "Enable applicable attributes to strengthen relevance and convert more profile views.";
       }
       if (coverage.missingCount === 0) {
         return `All ${coverage.availableCount} available attributes are enabled on your profile.`;
@@ -193,17 +193,17 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
       const autoCount = coverage.missing.filter((item) => item.autoApplicable).length;
       const manualCount = coverage.missing.length - autoCount;
       if (autoCount > 0 && manualCount > 0) {
-        return `Your profile is missing ${coverage.missingCount} of ${coverage.availableCount} available attributes — approve ${autoCount} now and set ${manualCount} manually in Google to improve your Reputation Boost Score.`;
+        return `Your profile is missing ${coverage.missingCount} of ${coverage.availableCount} available attributes — approve ${autoCount} now and set ${manualCount} manually in Google to improve conversion signals.`;
       }
       if (manualCount > 0) {
         return `Your profile is missing ${manualCount} attribute${manualCount === 1 ? "" : "s"} that must be set manually in Google Business Profile.`;
       }
-      return `Your profile is missing ${coverage.missingCount} of ${coverage.availableCount} available attributes — enabling them improves completeness and your Reputation Boost Score.`;
+      return `Your profile is missing ${coverage.missingCount} of ${coverage.availableCount} available attributes — enabling them improves relevance and action rates.`;
     }
     case 14:
       return "Subscribe to real-time GBP Pub/Sub alerts so you catch new reviews and Google edits quickly.";
     case 15:
-      return "Add appointment, ordering, or shop links customers can use directly from Google Maps.";
+      return "Add appointment, call, or directions links customers can tap directly from Google Maps to convert views into leads.";
     case 16:
       return "Execute the weekly cadence consistently to move keywords into the Top 3.";
     case 17:

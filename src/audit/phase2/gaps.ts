@@ -725,11 +725,19 @@ export function detectGaps(
         ? Math.round((totalActions / audit.gbp.performance.profileViews) * 1000) / 10
         : 0;
 
+    // When already mostly in-pack, conversion is the revenue bottleneck → P0.
+    // Otherwise still elevate above default P2 so views→actions isn't buried.
+    const totalKeywords =
+      audit.rankings.totalKeywords || audit.rankings.keywords.length;
+    const packShare =
+      totalKeywords > 0 ? audit.rankings.keywordsInPack / totalKeywords : 0;
+    const conversionPriority = packShare >= 0.5 ? "P0" : "P1";
+
     if (totalActions === 0) {
       gaps.push(
         gap(
           "low-profile-conversions",
-          "P2",
+          conversionPriority,
           "gbp_profile",
           "Views without actions",
           `${audit.gbp.performance.profileViews} profile views but no calls, directions, or website clicks in ${audit.gbp.performance.periodDays} days.`,
@@ -741,7 +749,7 @@ export function detectGaps(
       gaps.push(
         gap(
           "weak-profile-conversions",
-          "P2",
+          conversionPriority,
           "gbp_profile",
           "Views under-converting",
           `${audit.gbp.performance.profileViews} profile views with only a ${actionRate}% action rate (calls + directions + website clicks). Aim for ${WEAK_PROFILE_ACTION_RATE_PCT}%+ so visibility turns into leads.`,

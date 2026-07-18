@@ -4,6 +4,7 @@
 
 **Baseline (code review):** ~6.5/10  
 **Target:** ~9/10  
+**Status:** Phases 0–4 implemented on this branch (see `plan-path-to-nine.test.ts` golden fixtures).  
 **Not in scope for 9:** Perfect causal SEO science, multi-location franchise orchestration, or replacing Maps ranking with a black-box ML model.
 
 ---

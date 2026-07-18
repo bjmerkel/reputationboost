@@ -62,23 +62,11 @@ export default function PlanProgressHeader({
           >
             Your optimization plan
           </p>
-          <p
-            className={`mt-1 text-sm font-medium ${
-              isLight ? "text-[#202124]" : "text-white"
-            }`}
-          >
-            Reputation Boost Score {progress.currentHealthScore} →{" "}
-            {progress.projectedHealthScore}
-            <span className={isLight ? "text-[#5f6368]" : "text-slate-400"}>
-              {" "}
-              · {progress.completedSteps} of {progress.totalSteps} steps complete
-            </span>
-          </p>
           {estimatedMonthlyRevenue != null &&
             projectedMonthlyRevenue != null &&
             estimatedMonthlyRevenue > 0 && (
               <p
-                className={`mt-1 text-sm font-medium ${
+                className={`mt-1 text-base font-semibold ${
                   isLight ? "text-[#188038]" : "text-emerald-400"
                 }`}
               >
@@ -92,7 +80,7 @@ export default function PlanProgressHeader({
             projectedMonthlyLeads != null &&
             estimatedMonthlyLeads > 0 && (
               <p
-                className={`mt-1 text-sm font-medium ${
+                className={`mt-1 text-base font-semibold ${
                   isLight ? "text-[#188038]" : "text-emerald-400"
                 }`}
               >
@@ -101,6 +89,18 @@ export default function PlanProgressHeader({
                 {formatLeadsMo(projectedMonthlyLeads)}
               </p>
             )}
+          <p
+            className={`mt-1 text-sm font-medium ${
+              isLight ? "text-[#202124]" : "text-white"
+            }`}
+          >
+            Reputation Boost Score {progress.currentHealthScore} →{" "}
+            {progress.projectedHealthScore}
+            <span className={isLight ? "text-[#5f6368]" : "text-slate-400"}>
+              {" "}
+              · {progress.completedSteps} of {progress.totalSteps} steps complete
+            </span>
+          </p>
           {confidenceLabel ? (
             <p
               className={`mt-1 text-xs ${

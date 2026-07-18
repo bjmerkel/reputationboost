@@ -4,6 +4,10 @@ import { detectPackFragility } from "./scoring";
 import { computeKeywordScores } from "./keyword-scores";
 import { detectGaps } from "./gaps";
 import { CONVERSION_GAP_IDS } from "./conversion-constants";
+import {
+  conversionLeversForChannel,
+  resolveConversionChannelBias,
+} from "./conversion-channel";
 
 const CONVERSION_GAP_ID_SET = new Set<string>(CONVERSION_GAP_IDS);
 
@@ -16,7 +20,7 @@ function needsConversionBoost(audit: Phase1AuditPayload): boolean {
 const OUTSIDE_PACK_LEVERS = [5, 4, 3, 8, 10] as const;
 /** Defend / strengthen when pack presence is fragile at wider radii. */
 const PACK_FRAGILE_LEVERS = [8, 6, 10, 3] as const;
-/** Convert existing views when the listing is visible but under-acting. */
+/** Default convert levers when the listing is visible but under-acting. */
 const CONVERSION_LEVERS = [15, 8, 13, 11] as const;
 /** Default defend levers when already in pack and converting. */
 const DEFEND_LEVERS = [8, 10, 3] as const;
@@ -55,7 +59,12 @@ function leverPoolForKeyword(
 ): number[] {
   if (!inLocalPack) return [...OUTSIDE_PACK_LEVERS];
   if (packFragile) return [...PACK_FRAGILE_LEVERS];
-  if (needsConversionBoost(audit)) return [...CONVERSION_LEVERS];
+  if (needsConversionBoost(audit)) {
+    const channelLevers = conversionLeversForChannel(
+      resolveConversionChannelBias(audit)
+    );
+    return uniqueSteps([...channelLevers, ...CONVERSION_LEVERS]);
+  }
   return [...DEFEND_LEVERS];
 }
 
@@ -334,7 +343,7 @@ export function buildKeywordPlaybooks(
   plan: Plan,
   options: KeywordPlaybookOptions = {}
 ): KeywordPlaybook[] {
-  const limit = options.limit ?? 3;
+  const limit = options.limit ?? 5;
   const scores = computeKeywordScores(audit, {
     avgCustomerValue: options.avgCustomerValue,
   });
@@ -362,10 +371,30 @@ export function buildKeywordPlaybooks(
     bindings.map((binding) => [binding.keyword.toLowerCase(), binding])
   );
 
+  // Prefer money keywords by revenue gap, then strategist priority, then bindings.
+  const revenueOrdered = [...scores]
+    .map((card) => ({
+      keyword: card.keyword,
+      revenueGap:
+        card.potentialAtRank1 != null && card.estimatedMonthlyRevenue != null
+          ? Math.max(0, card.potentialAtRank1 - card.estimatedMonthlyRevenue)
+          : 0,
+      impressions: card.impressions ?? 0,
+      needsWork: !card.inLocalPack || Boolean(card.packFragile),
+    }))
+    .sort((a, b) => {
+      if (b.needsWork !== a.needsWork) return Number(b.needsWork) - Number(a.needsWork);
+      if (b.revenueGap !== a.revenueGap) return b.revenueGap - a.revenueGap;
+      return b.impressions - a.impressions;
+    })
+    .map((row) => row.keyword);
+
   const orderedKeywords =
-    priorities.length > 0
-      ? priorities.map((item) => item.keyword)
-      : bindings.map((binding) => binding.keyword);
+    revenueOrdered.length > 0
+      ? revenueOrdered
+      : priorities.length > 0
+        ? priorities.map((item) => item.keyword)
+        : bindings.map((binding) => binding.keyword);
 
   const seen = new Set<string>();
   const playbooks: KeywordPlaybook[] = [];
