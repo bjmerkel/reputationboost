@@ -7,7 +7,7 @@ export function formatLeadsMo(leads: number): string {
   return `${rounded} leads/mo`;
 }
 
-/** Prefer $/mo when ACV is set; otherwise show leads/mo, then score pts. */
+/** Prefer $/mo when ACV is set; otherwise leads, engagement actions, then score pts. */
 export function formatPlanStepImpactLabel(
   step: PlanStep,
   currency = "USD"
@@ -17,6 +17,9 @@ export function formatPlanStepImpactLabel(
   }
   if ((step.context.leadsImpact ?? 0) > 0) {
     return `+${formatLeadsMo(step.context.leadsImpact!)} est.`;
+  }
+  if ((step.context.engagementImpact ?? 0) > 0) {
+    return `+${step.context.engagementImpact} actions/mo est.`;
   }
   if ((step.context.outcomeScoreImpact ?? 0) > 0) {
     return `+${step.context.outcomeScoreImpact} ranking pts`;

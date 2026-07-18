@@ -126,7 +126,9 @@ export default function PlanStepCard({
   const showLeadOrRevenueImpact =
     !isCompleted &&
     step.status !== "skipped" &&
-    ((step.context.revenueImpact ?? 0) > 0 || (step.context.leadsImpact ?? 0) > 0);
+    ((step.context.revenueImpact ?? 0) > 0 ||
+      (step.context.leadsImpact ?? 0) > 0 ||
+      (step.context.engagementImpact ?? 0) > 0);
   const leadOrRevenueLabel = showLeadOrRevenueImpact
     ? formatPlanStepImpactLabel(step, currency)
     : null;
@@ -188,6 +190,7 @@ export default function PlanStepCard({
             step.status !== "skipped" &&
             !(step.context.revenueImpact ?? 0) &&
             !(step.context.leadsImpact ?? 0) &&
+            !(step.context.engagementImpact ?? 0) &&
             (step.context.outcomeScoreImpact ?? 0) > 0 && (
               <p className={`mt-1 text-xs ${isLight ? "text-[#1a73e8]" : "text-cyan-300"}`}>
                 +{step.context.outcomeScoreImpact} ranking outcome pts
@@ -272,6 +275,7 @@ export default function PlanStepCard({
             step.context.projectionConfidence === "default" &&
             ((step.context.revenueImpact ?? 0) > 0 ||
               (step.context.leadsImpact ?? 0) > 0 ||
+              (step.context.engagementImpact ?? 0) > 0 ||
               (step.context.healthScoreImpact ?? 0) > 0) && (
               <p className={`mt-2 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
                 Impact is a model estimate until we calibrate from your published results.

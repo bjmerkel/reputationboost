@@ -43,7 +43,14 @@ describe("formatPlanStepImpactLabel", () => {
     );
   });
 
-  it("falls back to ranking points when leads are missing", () => {
+  it("falls back to actions/mo before ranking points", () => {
+    assert.equal(
+      formatPlanStepImpactLabel(stubStep({ engagementImpact: 18 }), "USD"),
+      "+18 actions/mo est."
+    );
+  });
+
+  it("falls back to ranking points when leads and engagement are missing", () => {
     assert.equal(
       formatPlanStepImpactLabel(stubStep({ outcomeScoreImpact: 5 }), "USD"),
       "+5 ranking pts"

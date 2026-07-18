@@ -108,6 +108,11 @@ describe("stacked plan projections", () => {
         options
       );
       assert.ok((projected.revenueGain ?? 0) > 0);
+      assert.equal(projected.outcomeGain, 0, "conversion must not claim pack-rank outcome");
+      assert.ok(
+        (projected.engagementActionsGain ?? 0) > 0,
+        `step ${stepNumber} should expose engagement actions signal`
+      );
     }
   });
 

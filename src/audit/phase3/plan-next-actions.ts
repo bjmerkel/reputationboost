@@ -18,13 +18,17 @@ function leadsImpact(step: PlanStep): number {
   return step.context.leadsImpact ?? 0;
 }
 
+function engagementImpact(step: PlanStep): number {
+  return step.context.engagementImpact ?? 0;
+}
+
 function scoreImpactTieBreak(step: PlanStep): number {
   return (
     (step.context.outcomeScoreImpact ?? 0) * 10 + (step.context.healthScoreImpact ?? 0)
   );
 }
 
-/** Top unfinished plan steps ordered by revenue, then leads, then displayOrder. */
+/** Top unfinished plan steps ordered by revenue, then leads, then engagement, then displayOrder. */
 export function selectNextBestPlanSteps(plan: Plan, limit = 3): PlanStep[] {
   return plan.steps
     .filter(
@@ -36,6 +40,8 @@ export function selectNextBestPlanSteps(plan: Plan, limit = 3): PlanStep[] {
       if (revenueDiff !== 0) return revenueDiff;
       const leadsDiff = leadsImpact(b) - leadsImpact(a);
       if (leadsDiff !== 0) return leadsDiff;
+      const engagementDiff = engagementImpact(b) - engagementImpact(a);
+      if (engagementDiff !== 0) return engagementDiff;
       const rankDiff = stepRank(a) - stepRank(b);
       if (rankDiff !== 0) return rankDiff;
       return scoreImpactTieBreak(b) - scoreImpactTieBreak(a);

@@ -30,7 +30,7 @@ Every recommendation must be:
 - Actionable with ready-to-paste copy where appropriate
 - GBP-only — no website SEO, backlinks, citations, or paid ads
 - Honest about current audit data (review count, photos, pack positions)
-- Grounded in the candidate pool's driverScoreImpact, outcomeScoreImpact, and revenueImpact values (counterfactual deltas if that step is completed)
+- Grounded in the candidate pool's driverScoreImpact, outcomeScoreImpact, engagementImpact, and revenueImpact values (counterfactual deltas if that step is completed; engagementImpact is views→actions lift, not pack rank)
 - ${OUTCOMES_STRATEGY_INSTRUCTION}
 
 Return valid JSON only.`;

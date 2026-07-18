@@ -373,4 +373,29 @@ describe("buildPlan", () => {
       "attributes step should keep fractional leads without ACV"
     );
   });
+
+  it("populates engagementImpact for conversion steps without claiming ranking pts", () => {
+    const audit = createTestAudit();
+    audit.gbp.performance.profileViews = 500;
+    audit.gbp.performance.calls = 0;
+    audit.gbp.performance.directionRequests = 0;
+    audit.gbp.performance.websiteClicks = 0;
+
+    const plan = buildPlan(audit, audit.execution!.tasks);
+    assert.ok(plan);
+
+    for (const stepNumber of [8, 11, 13, 15]) {
+      const step = plan!.steps.find((s) => s.stepNumber === stepNumber);
+      if (!step) continue;
+      assert.ok(
+        (step.context.engagementImpact ?? 0) > 0,
+        `step ${stepNumber} should expose engagement actions`
+      );
+      assert.equal(
+        step.context.outcomeScoreImpact ?? 0,
+        0,
+        `step ${stepNumber} must not claim pack-rank outcome pts`
+      );
+    }
+  });
 });

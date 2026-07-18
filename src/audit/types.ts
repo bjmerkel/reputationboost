@@ -803,6 +803,8 @@ export interface ActionMarginalImpact {
   visibilityGain: number;
   revenueCaptureGain: number;
   revenueGain: number | null;
+  /** Incremental monthly profile actions (calls+directions+clicks) from conversion steps. */
+  engagementGain: number;
   overallGain: number;
 }
 
@@ -828,6 +830,8 @@ export interface PathToHealthyStep {
   outcomeImpact?: number;
   revenueImpact?: number | null;
   revenueImpactLabel?: string | null;
+  /** Incremental monthly profile actions (calls+directions+clicks). */
+  engagementImpact?: number | null;
   gapId?: string;
   keyword?: string;
 }
@@ -1133,6 +1137,8 @@ export interface PlanStepContext {
   revenueImpact?: number | null;
   /** Estimated monthly lead gain when ACV is unset (or as a secondary signal). */
   leadsImpact?: number | null;
+  /** Estimated monthly profile-action lift (calls+directions+clicks) for conversion steps. */
+  engagementImpact?: number | null;
   /** Whether revenue/score impacts are calibrated from this business's history. */
   projectionConfidence?: "high" | "medium" | "low" | "default";
 }

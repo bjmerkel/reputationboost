@@ -7,9 +7,9 @@ import { resolvePathOptimizationMode } from "./path-optimization";
 import { computeHealthScores } from "./scoring";
 
 describe("resolvePathOptimizationMode", () => {
-  it("defaults to driver when average customer value is unset", () => {
+  it("defaults to balanced when average customer value is unset", () => {
     const mode = resolvePathOptimizationMode({}, { driverScore: 55, outcomeIndex: 30 });
-    assert.equal(mode, "driver");
+    assert.equal(mode, "balanced");
   });
 
   it("prefers revenue when rankings lag profile strength", () => {

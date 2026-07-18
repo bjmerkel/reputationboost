@@ -48,6 +48,8 @@ export {
   BALANCED_WEIGHTS_WITH_ACV,
   BALANCED_WEIGHTS_WITHOUT_ACV,
   compositeMarginalScore,
+  effectiveOutcomeGain,
+  engagementOutcomePoints,
   marginalScoreForMode,
   normalizeMarginalGain,
   resolveBlendWeights,
@@ -94,6 +96,7 @@ export {
   RANK_OUTSIDE_PACK_PLAN_STEPS,
 } from "./conversion-boost";
 export {
+  estimateStepEngagementImpact,
   estimateStepHealthImpact,
   estimateStepLeadsImpact,
   estimateStepOutcomeImpact,

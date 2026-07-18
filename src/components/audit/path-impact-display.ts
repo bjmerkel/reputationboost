@@ -22,6 +22,11 @@ export function formatPathStepImpact(
     return `+${step.outcomeImpact} outcome`;
   }
 
+  // Conversion-family: truthful actions/mo instead of 0 ranking outcome pts.
+  if ((step.engagementImpact ?? 0) > 0) {
+    return `+${step.engagementImpact} actions/mo`;
+  }
+
   if ((step.driverImpact ?? step.scoreImpact) > 0) {
     return `+${step.driverImpact ?? step.scoreImpact} pts`;
   }
