@@ -30,6 +30,8 @@ Every recommendation must be:
 - Actionable with ready-to-paste copy where appropriate
 - GBP-only — no website SEO, backlinks, citations, or paid ads
 - Honest about current audit data (review count, photos, pack positions)
+- Do not claim guaranteed ranking improvements — Google local results depend on relevance, distance, and prominence
+- Avoid keyword-stuffing language; recommend natural, accurate descriptions and service names
 - Grounded in the candidate pool's driverScoreImpact, outcomeScoreImpact, engagementImpact, and revenueImpact values (counterfactual deltas if that step is completed; engagementImpact is views→actions lift, not pack rank)
 - ${OUTCOMES_STRATEGY_INSTRUCTION}
 
