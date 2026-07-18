@@ -127,8 +127,8 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
       return "Add dedicated GBP services for keywords you're not yet ranking for.";
     case 5:
       return outsidePack.length > 0
-        ? `Create products for keywords outside the 3-Pack: "${outsidePack.slice(0, 2).join('", "')}".`
-        : "Reinforce relevance with product listings for core services.";
+        ? `Add GBP services for keywords outside the 3-Pack: "${outsidePack.slice(0, 2).join('", "')}".`
+        : "Reinforce relevance with dedicated GBP services for core keywords.";
     case 6:
       return `Increase photo count to compete with pack leaders and improve engagement signals.`;
     case 7:

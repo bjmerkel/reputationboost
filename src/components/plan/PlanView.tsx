@@ -244,7 +244,12 @@ export default function PlanView({
       {error && <p className="text-sm text-[#d93025]">{error}</p>}
 
       {plan.phases.map((phase) => {
-        const phaseSteps = plan.steps.filter((s) => s.phaseId === phase.id);
+        const phaseSteps = plan.steps
+          .filter((s) => s.phaseId === phase.id)
+          .sort(
+            (a, b) =>
+              (a.displayOrder ?? a.stepNumber) - (b.displayOrder ?? b.stepNumber)
+          );
         return (
           <PlanPhaseSection
             key={phase.id}

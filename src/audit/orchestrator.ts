@@ -157,7 +157,9 @@ export async function runPhase1Audit(
   const keywordPortfolio = computeKeywordPortfolio(phase1);
   const phase1Enriched: Phase1AuditPayload = { ...phase1, keywordRelevance, keywordPortfolio };
 
-  const strategy = await generateStrategy(phase1Enriched, priorAudit, outcomes);
+  const strategy = await generateStrategy(phase1Enriched, priorAudit, outcomes, {
+    avgCustomerValue: client.avgCustomerValue,
+  });
   const auditWithStrategy = { ...phase1Enriched, strategy };
 
   let activeCampaignKeywords: string[] = [];

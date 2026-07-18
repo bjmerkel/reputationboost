@@ -88,6 +88,7 @@ function buildPlanStep(
     tasks,
     status,
     outcome,
+    displayOrder: step.displayOrder,
   };
 }
 
@@ -120,17 +121,28 @@ function computeProgress(
   };
 }
 
+function stepDisplayRank(step: PlanStep): number {
+  return step.displayOrder ?? step.stepNumber;
+}
+
 function filterPhasesWithSteps(phases: PlanPhase[], steps: PlanStep[]): PlanPhase[] {
+  const stepsByNumber = new Map(steps.map((s) => [s.stepNumber, s]));
   const stepNumbers = new Set(steps.map((s) => s.stepNumber));
   const customStepNumbers = steps
     .filter((s) => isCustomPlanStep(s.stepNumber))
-    .map((s) => s.stepNumber);
+    .map((s) => s.stepNumber)
+    .sort((a, b) => stepDisplayRank(stepsByNumber.get(a)!) - stepDisplayRank(stepsByNumber.get(b)!));
 
   return phases
     .map((phase) => ({
       ...phase,
       stepNumbers: [
-        ...phase.stepNumbers.filter((n) => stepNumbers.has(n)),
+        ...phase.stepNumbers
+          .filter((n) => stepNumbers.has(n))
+          .sort(
+            (a, b) =>
+              stepDisplayRank(stepsByNumber.get(a)!) - stepDisplayRank(stepsByNumber.get(b)!)
+          ),
         ...(phase.id === "ongoing" ? customStepNumbers : []),
       ],
     }))
@@ -278,6 +290,13 @@ export function buildPlan(
   const currentHealthScore = Number.isFinite(audit.strategy.scores?.overall)
     ? audit.strategy.scores.overall
     : 0;
+
+  // Preserve impact ranking from gbpPlan; pin Google-update conflicts first.
+  planSteps.sort((a, b) => {
+    if (a.stepNumber === GOOGLE_UPDATES_STEP_NUMBER) return -1;
+    if (b.stepNumber === GOOGLE_UPDATES_STEP_NUMBER) return 1;
+    return stepDisplayRank(a) - stepDisplayRank(b);
+  });
 
   return {
     title: gbpPlan.title,

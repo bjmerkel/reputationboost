@@ -1,8 +1,14 @@
 import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "@/audit/types";
 import type { PlanStepCandidate } from "@/audit/phase2/plan-candidates";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
+import { orderGbpPlanStepsByImpact, planStepImpactScore } from "@/audit/phase2/gbp-plan";
+import {
+  KEYWORD_PORTFOLIO_PLAN_STEP,
+  portfolioStepIsSatisfied,
+} from "@/audit/phase2/keyword-portfolio";
 import { planStepsRequiredByInventory } from "@/lib/google/gbp-field-plan-map";
 import { resolvePlanStepAction } from "@/audit/phase3/gbp-plan-actions";
+import { CUSTOM_PLAN_STEP_START } from "@/audit/phase3/plan-custom-steps";
 
 const VALID_GBP_ACTIONS = new Set([
   "update_primary_category",
@@ -17,8 +23,10 @@ const VALID_GBP_ACTIONS = new Set([
   "manual",
 ]);
 
-const CUSTOM_ACTION_START = 17;
+/** Custom LLM actions start at 18 — step 17 is reserved for keyword portfolio. */
+const CUSTOM_ACTION_START = CUSTOM_PLAN_STEP_START;
 const MAX_CUSTOM_ACTIONS = 3;
+const RETIRED_PLAN_STEP = 16;
 
 export interface LlmPlanStepSelection {
   stepNumber: number;
@@ -56,6 +64,10 @@ export interface LlmGbpPlanResponse {
   monthlyCadence?: string[];
 }
 
+export interface MergeLlmGbpPlanOptions {
+  avgCustomerValue?: number | null;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -78,10 +90,19 @@ function isCopyBlockArray(
   );
 }
 
+/** Standard selectable steps: 1–15 and keyword portfolio (17). Step 16 is retired. */
+export function isSelectableGbpPlanStepNumber(stepNumber: number): boolean {
+  if (stepNumber === RETIRED_PLAN_STEP) return false;
+  if (stepNumber === KEYWORD_PORTFOLIO_PLAN_STEP) return true;
+  return stepNumber >= 1 && stepNumber <= 15;
+}
+
 function validateStepSelection(value: unknown): LlmPlanStepSelection | null {
   if (!isRecord(value)) return null;
   const stepNumber = value.stepNumber;
-  if (typeof stepNumber !== "number" || stepNumber < 1 || stepNumber > 16) return null;
+  if (typeof stepNumber !== "number" || !isSelectableGbpPlanStepNumber(stepNumber)) {
+    return null;
+  }
 
   return {
     stepNumber,
@@ -220,15 +241,21 @@ function customActionToStep(
   };
 }
 
+function stampDisplayOrder(steps: GbpPlanStep[]): GbpPlanStep[] {
+  return steps.map((step, index) => ({ ...step, displayOrder: index }));
+}
+
 /** Merge validated LLM selections onto deterministic template steps. */
 export function mergeLlmGbpPlan(
   fallback: GbpOptimizationPlan,
   llm: LlmGbpPlanResponse,
   candidates: PlanStepCandidate[],
-  audit: Phase1AuditPayload
+  audit: Phase1AuditPayload,
+  options: MergeLlmGbpPlanOptions = {}
 ): GbpOptimizationPlan {
   const candidateByStep = new Map(candidates.map((c) => [c.stepNumber, c]));
-  const steps: GbpPlanStep[] = [];
+  const avgCustomerValue = options.avgCustomerValue;
+  const standardSteps: GbpPlanStep[] = [];
 
   for (const selection of llm.selectedSteps ?? []) {
     if (isStepSatisfied(audit, selection.stepNumber)) {
@@ -236,13 +263,17 @@ export function mergeLlmGbpPlan(
     }
     const candidate = candidateByStep.get(selection.stepNumber);
     if (!candidate) continue;
-    steps.push(mergeSelectedStep(selection, candidate.templateStep));
+    standardSteps.push(mergeSelectedStep(selection, candidate.templateStep));
   }
 
-  let customStepNumber = CUSTOM_ACTION_START;
-  for (const action of llm.customActions ?? []) {
-    steps.push(customActionToStep(action, customStepNumber));
-    customStepNumber += 1;
+  // Always keep keyword portfolio when unsatisfied — LLM validation historically omitted 17.
+  const portfolioCandidate = candidateByStep.get(KEYWORD_PORTFOLIO_PLAN_STEP);
+  if (
+    portfolioCandidate &&
+    !portfolioStepIsSatisfied(audit) &&
+    !standardSteps.some((step) => step.stepNumber === KEYWORD_PORTFOLIO_PLAN_STEP)
+  ) {
+    standardSteps.push(portfolioCandidate.templateStep);
   }
 
   const inventoryRequired = audit.gbp.locationInventory
@@ -250,13 +281,28 @@ export function mergeLlmGbpPlan(
     : new Set<number>();
 
   for (const stepNumber of inventoryRequired) {
-    if (steps.some((step) => step.stepNumber === stepNumber)) continue;
+    if (standardSteps.some((step) => step.stepNumber === stepNumber)) continue;
     const candidate = candidateByStep.get(stepNumber);
     if (!candidate) continue;
-    steps.push(candidate.templateStep);
+    standardSteps.push(candidate.templateStep);
   }
 
-  steps.sort((a, b) => a.stepNumber - b.stepNumber);
+  // Deterministic impact order is source of truth; LLM provides copy, not final ranking.
+  const orderedStandard = orderGbpPlanStepsByImpact(
+    audit,
+    standardSteps,
+    avgCustomerValue
+  );
+
+  const customSteps: GbpPlanStep[] = [];
+  let customStepNumber = CUSTOM_ACTION_START;
+  for (const action of llm.customActions ?? []) {
+    customSteps.push(customActionToStep(action, customStepNumber));
+    customStepNumber += 1;
+  }
+
+  // Customs append after impact-ranked standard steps (no simulated impacts yet).
+  const steps = stampDisplayOrder([...orderedStandard, ...customSteps]);
 
   if (steps.length < 3) {
     return fallback;
@@ -281,4 +327,13 @@ export function mergeLlmGbpPlan(
         : fallback.monthlyCadence,
     contentSource: "llm",
   };
+}
+
+/** Exported for tests — composite score used when ranking merged steps. */
+export function mergeStepImpactScore(
+  audit: Phase1AuditPayload,
+  stepNumber: number,
+  avgCustomerValue?: number | null
+): number {
+  return planStepImpactScore(audit, stepNumber, avgCustomerValue);
 }

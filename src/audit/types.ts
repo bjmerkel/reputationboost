@@ -1041,6 +1041,8 @@ export interface GbpPlanStep {
   copyBlocks?: GbpPlanCopyBlock[];
   gbpAction?: GbpPlanActionType;
   actionData?: GbpPlanActionData;
+  /** Impact-ranked position in the plan (0-based). Preserved across LLM merge; not stepNumber. */
+  displayOrder?: number;
 }
 
 export interface GbpKeywordPriority {
@@ -1147,6 +1149,8 @@ export interface PlanStep {
   tasks: ExecutionTask[];
   status: PlanStepStatus;
   outcome?: PlanStepOutcome;
+  /** Impact-ranked position from gbpPlan (0-based). */
+  displayOrder?: number;
 }
 
 export interface PlanProgress {

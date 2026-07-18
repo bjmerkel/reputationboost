@@ -27,9 +27,10 @@ describe("plan-phases", () => {
     assert.equal(getPhaseForStep(15), "foundation");
   });
 
-  it("maps custom plan steps to ongoing phase", () => {
+  it("maps portfolio and custom plan steps to ongoing phase", () => {
     assert.equal(getPhaseForStep(17), "ongoing");
     assert.equal(getPhaseForStep(18), "ongoing");
+    assert.equal(getPhaseForStep(19), "ongoing");
   });
 });
 

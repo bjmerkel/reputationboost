@@ -39,13 +39,20 @@ function summarizeGapsForStrategy(
   }));
 }
 
+export interface GenerateStrategyOptions {
+  avgCustomerValue?: number | null;
+}
+
 export async function generateStrategy(
   audit: Phase1AuditPayload,
   priorAudit: Phase1AuditPayload | null = null,
-  outcomes: OutcomesContext | null = null
+  outcomes: OutcomesContext | null = null,
+  options: GenerateStrategyOptions = {}
 ): Promise<StrategyReport> {
   const base = buildStrategyBase(audit, priorAudit, outcomes);
-  const gbpPlan = await generateGbpOptimizationPlan(audit, outcomes);
+  const gbpPlan = await generateGbpOptimizationPlan(audit, outcomes, {
+    avgCustomerValue: options.avgCustomerValue,
+  });
 
   if (!isLlmConfigured()) {
     return { ...base, gbpPlan, contentSource: "template" };

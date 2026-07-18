@@ -1,6 +1,10 @@
 import type { GbpOptimizationPlan, GbpPlanStep, KeywordRankAnalysis, Phase1AuditPayload } from "../types";
 import { formatStarRating } from "@/lib/format-star-rating";
-import { isStepSatisfied } from "./counterfactual";
+import { isStepSatisfied, simulateStepDriverImpact } from "./counterfactual";
+import {
+  estimateStepOutcomeImpact,
+  estimateStepRevenueImpact,
+} from "./score-impact";
 import { planStepsRequiredByInventory } from "@/lib/google/gbp-field-plan-map";
 import { buildServicePlanBlocks, buildOutcomePriorityServiceBlocks } from "@/lib/google/gbp-service-descriptions";
 import {
@@ -17,6 +21,37 @@ import {
 } from "./keyword-portfolio";
 import { buildGbpDescriptionDraft, cityFromAddress } from "@/lib/google/gbp-description-draft";
 import { resolveReviewResponseRate } from "@/audit/review-engagement";
+
+export interface GbpPlanBuildOptions {
+  avgCustomerValue?: number | null;
+}
+
+/** Rank plan steps by estimated revenue, then outcome, then driver impact. */
+export function planStepImpactScore(
+  audit: Phase1AuditPayload,
+  stepNumber: number,
+  avgCustomerValue?: number | null
+): number {
+  const revenue = estimateStepRevenueImpact(audit, stepNumber, avgCustomerValue) ?? 0;
+  const outcome = estimateStepOutcomeImpact(audit, stepNumber);
+  const driver = simulateStepDriverImpact(audit, stepNumber);
+  return revenue * 1000 + outcome * 10 + driver;
+}
+
+/** Sort steps by impact and stamp displayOrder (0-based). */
+export function orderGbpPlanStepsByImpact(
+  audit: Phase1AuditPayload,
+  steps: GbpPlanStep[],
+  avgCustomerValue?: number | null
+): GbpPlanStep[] {
+  return [...steps]
+    .sort(
+      (a, b) =>
+        planStepImpactScore(audit, b.stepNumber, avgCustomerValue) -
+        planStepImpactScore(audit, a.stepNumber, avgCustomerValue)
+    )
+    .map((step, index) => ({ ...step, displayOrder: index }));
+}
 
 /** Continuous Activity (16) was a cadence summary, not an actionable step. */
 const RETIRED_GBP_PLAN_STEP_NUMBERS = new Set([16]);
@@ -45,16 +80,18 @@ function outcomePriorityRankings(keywordRankings: KeywordRankAnalysis[]): Keywor
 
 export function selectGbpPlanSteps(
   audit: Phase1AuditPayload,
-  allSteps: GbpPlanStep[]
+  allSteps: GbpPlanStep[],
+  options: GbpPlanBuildOptions = {}
 ): GbpPlanStep[] {
   const inventoryRequired = audit.gbp.locationInventory
     ? planStepsRequiredByInventory(audit.gbp.locationInventory)
     : new Set<number>();
 
-  return allSteps.filter(
+  const selected = allSteps.filter(
     (step) =>
       !isStepSatisfied(audit, step.stepNumber) || inventoryRequired.has(step.stepNumber)
   );
+  return orderGbpPlanStepsByImpact(audit, selected, options.avgCustomerValue);
 }
 
 export {
@@ -368,12 +405,15 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
   return steps;
 }
 
-export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimizationPlan {
+export function buildTemplateGbpPlan(
+  audit: Phase1AuditPayload,
+  options: GbpPlanBuildOptions = {}
+): GbpOptimizationPlan {
   const targetKeywords = keywords(audit);
   const currentState = buildGbpCurrentState(audit);
   const keywordRankings = buildKeywordRankAnalysis(audit);
   const allSteps = buildAllGbpPlanSteps(audit);
-  const steps = selectGbpPlanSteps(audit, allSteps);
+  const steps = selectGbpPlanSteps(audit, allSteps, options);
 
   const outsidePack = keywordRankings.filter((k) => !k.inLocalPack).length;
   const fragilePack = keywordRankings.filter((k) => k.packFragile).length;
@@ -420,7 +460,7 @@ export function buildTemplateGbpPlan(audit: Phase1AuditPayload): GbpOptimization
     ],
     monthlyCadence: [
       "Add 3-5 new GBP services for uncovered keywords",
-      "Add or update products",
+      "Refresh priority-keyword service descriptions",
       "Upload service-specific photo batches",
       "Refresh business description if offerings changed",
     ],

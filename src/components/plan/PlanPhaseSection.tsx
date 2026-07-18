@@ -49,7 +49,11 @@ export default function PlanPhaseSection({
   onReviewRequestSent?: () => void;
 }) {
   const isLight = variant === "light";
-  const visibleSteps = steps.filter((s) => s.status !== "completed");
+  const visibleSteps = steps
+    .filter((s) => s.status !== "completed")
+    .sort(
+      (a, b) => (a.displayOrder ?? a.stepNumber) - (b.displayOrder ?? b.stepNumber)
+    );
   const phaseNeedsApproval = visibleSteps.some((s) => s.status === "needs_approval");
 
   if (visibleSteps.length === 0) {

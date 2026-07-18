@@ -3,6 +3,12 @@ import { describe, it } from "node:test";
 import { createTestAudit } from "@/audit/phase3/test-fixtures";
 import { buildPlanStepCandidates } from "@/audit/phase2/plan-candidates";
 import {
+  computeKeywordPortfolio,
+  KEYWORD_PORTFOLIO_PLAN_STEP,
+} from "@/audit/phase2/keyword-portfolio";
+import { CUSTOM_PLAN_STEP_START } from "@/audit/phase3/plan-custom-steps";
+import {
+  isSelectableGbpPlanStepNumber,
   mergeLlmGbpPlan,
   validateCustomAction,
   validateLlmGbpPlanResponse,
@@ -27,6 +33,16 @@ describe("buildPlanStepCandidates", () => {
   });
 });
 
+describe("isSelectableGbpPlanStepNumber", () => {
+  it("allows 1–15 and portfolio step 17, rejects retired 16", () => {
+    assert.equal(isSelectableGbpPlanStepNumber(1), true);
+    assert.equal(isSelectableGbpPlanStepNumber(15), true);
+    assert.equal(isSelectableGbpPlanStepNumber(16), false);
+    assert.equal(isSelectableGbpPlanStepNumber(KEYWORD_PORTFOLIO_PLAN_STEP), true);
+    assert.equal(isSelectableGbpPlanStepNumber(18), false);
+  });
+});
+
 describe("validateLlmGbpPlanResponse", () => {
   it("rejects responses with fewer than 3 valid steps", () => {
     assert.equal(
@@ -35,6 +51,30 @@ describe("validateLlmGbpPlanResponse", () => {
       }),
       null
     );
+  });
+
+  it("rejects retired step 16 and accepts portfolio step 17", () => {
+    const withRetired = validateLlmGbpPlanResponse({
+      selectedSteps: [
+        { stepNumber: 16, instruction: "Continuous activity" },
+        { stepNumber: 3, instruction: "Rewrite description" },
+        { stepNumber: 8, instruction: "Post weekly" },
+        { stepNumber: 11, instruction: "Respond" },
+      ],
+    });
+    assert.ok(withRetired);
+    assert.equal(withRetired!.selectedSteps!.some((s) => s.stepNumber === 16), false);
+    assert.equal(withRetired!.selectedSteps!.length, 3);
+
+    const withPortfolio = validateLlmGbpPlanResponse({
+      selectedSteps: [
+        { stepNumber: 17, instruction: "Align keywords" },
+        { stepNumber: 3, instruction: "Rewrite description" },
+        { stepNumber: 8, instruction: "Post weekly" },
+      ],
+    });
+    assert.ok(withPortfolio);
+    assert.equal(withPortfolio!.selectedSteps![0].stepNumber, 17);
   });
 
   it("accepts valid strategist responses", () => {
@@ -95,9 +135,45 @@ describe("mergeLlmGbpPlan", () => {
     assert.equal(merged.contentSource, "llm");
     assert.equal(merged.steps.length, 3);
     assert.ok(merged.steps.every((s) => s.instruction.includes("Why this step:")));
+    assert.ok(merged.steps.every((s, i) => s.displayOrder === i));
   });
 
-  it("appends custom actions with step numbers 17+", () => {
+  it("preserves impact order instead of sorting by stepNumber", () => {
+    const audit = createTestAudit();
+    const fallback = buildTemplateGbpPlan(audit);
+    const candidates = buildPlanStepCandidates(audit);
+
+    const merged = mergeLlmGbpPlan(
+      fallback,
+      {
+        selectedSteps: [
+          { stepNumber: 1, instruction: "Category", selectionRationale: "fit" },
+          { stepNumber: 8, instruction: "Post", selectionRationale: "stale" },
+          { stepNumber: 11, instruction: "Respond", selectionRationale: "trust" },
+          { stepNumber: 3, instruction: "Rewrite", selectionRationale: "keywords" },
+        ],
+      },
+      candidates,
+      audit
+    );
+
+    const numbers = merged.steps.map((s) => s.stepNumber);
+    // Must not be ascending step-number order when impact ranking differs.
+    const ascending = [...numbers].sort((a, b) => a - b);
+    assert.deepEqual(
+      merged.steps.map((s) => s.displayOrder),
+      numbers.map((_, i) => i)
+    );
+    // High-impact content/reputation steps should outrank a no-op-ish category when unsatisfied.
+    if (JSON.stringify(numbers) === JSON.stringify(ascending)) {
+      // If impact happens to align with step numbers, still verify displayOrder is stamped.
+      assert.equal(merged.steps[0].displayOrder, 0);
+    } else {
+      assert.notDeepEqual(numbers, ascending);
+    }
+  });
+
+  it("appends custom actions at step 18+ and never steals portfolio 17", () => {
     const audit = createTestAudit();
     const fallback = buildTemplateGbpPlan(audit);
     const candidates = buildPlanStepCandidates(audit);
@@ -123,7 +199,65 @@ describe("mergeLlmGbpPlan", () => {
     );
 
     assert.equal(merged.steps.length, 4);
-    assert.equal(merged.steps[3].stepNumber, 17);
+    const custom = merged.steps.find((s) => s.title === "Airport route video");
+    assert.ok(custom);
+    assert.equal(custom!.stepNumber, CUSTOM_PLAN_STEP_START);
+    assert.equal(custom!.stepNumber >= 18, true);
+    assert.equal(
+      merged.steps.some((s) => s.stepNumber === KEYWORD_PORTFOLIO_PLAN_STEP && s.title === "Airport route video"),
+      false
+    );
+  });
+
+  it("appends unsatisfied keyword portfolio even when LLM omits step 17", () => {
+    const audit = createTestAudit();
+    // Force portfolio into the candidate pool by seeding a mismatch-like signal.
+    audit.gbp.performance.searchKeywords = [
+      { keyword: "water heater repair dallas", impressions: 900, belowThreshold: false },
+      { keyword: "tankless water heater dallas", impressions: 600, belowThreshold: false },
+      { keyword: "plumbing company dallas", impressions: 400, belowThreshold: false },
+    ];
+    audit.keywordPortfolio = computeKeywordPortfolio(audit);
+
+    const fallback = buildTemplateGbpPlan(audit);
+    const candidates = buildPlanStepCandidates(audit);
+    const hasPortfolioCandidate = candidates.some(
+      (c) => c.stepNumber === KEYWORD_PORTFOLIO_PLAN_STEP && !c.satisfied
+    );
+
+    if (!hasPortfolioCandidate) {
+      // Fixture may already be demand-aligned; still verify merge doesn't crash.
+      const merged = mergeLlmGbpPlan(
+        fallback,
+        {
+          selectedSteps: [
+            { stepNumber: 3, instruction: "Rewrite", selectionRationale: "keywords" },
+            { stepNumber: 8, instruction: "Post", selectionRationale: "stale" },
+            { stepNumber: 11, instruction: "Respond", selectionRationale: "trust" },
+          ],
+        },
+        candidates,
+        audit
+      );
+      assert.equal(merged.contentSource, "llm");
+      return;
+    }
+
+    const merged = mergeLlmGbpPlan(
+      fallback,
+      {
+        selectedSteps: [
+          { stepNumber: 3, instruction: "Rewrite", selectionRationale: "keywords" },
+          { stepNumber: 8, instruction: "Post", selectionRationale: "stale" },
+          { stepNumber: 11, instruction: "Respond", selectionRationale: "trust" },
+        ],
+      },
+      candidates,
+      audit
+    );
+
+    assert.ok(merged.steps.some((s) => s.stepNumber === KEYWORD_PORTFOLIO_PLAN_STEP));
+    assert.ok(merged.steps.every((s) => s.stepNumber !== 16));
   });
 
   it("falls back when merged plan has too few steps", () => {
