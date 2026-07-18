@@ -351,13 +351,13 @@ export function rankDeltaForGap(
 ): number {
   const keyword = gapId.replace("rank-outside-pack-", "").toLowerCase();
   const gapCal = gapCalibration?.[gapId] ?? gapCalibration?.[keyword];
-  if (gapCal?.sampleSize >= 2 && gapCal.medianRankDelta != null) {
+  if (gapCal && gapCal.sampleSize >= 2 && gapCal.medianRankDelta != null) {
     const calibrated = calibratedRankDeltaFromMedian(
       gapCal.medianRankDelta,
       gapCal.sampleSize
     );
     if (calibrated != null) return calibrated;
-  } else if (gapCal?.medianRankDelta != null && gapCal.medianRankDelta > 0) {
+  } else if (gapCal && gapCal.medianRankDelta != null && gapCal.medianRankDelta > 0) {
     return Math.min(5, Math.max(1, Math.round(gapCal.medianRankDelta)));
   }
   return Math.max(3, currentRank - 3);
