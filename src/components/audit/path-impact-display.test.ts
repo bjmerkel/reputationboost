@@ -30,6 +30,23 @@ describe("formatPathStepImpact", () => {
   it("falls back to driver points in driver mode", () => {
     assert.equal(formatPathStepImpact(baseStep, "driver"), "+5 pts");
   });
+
+  it("shows engagement actions when ranking outcome is flat", () => {
+    assert.equal(
+      formatPathStepImpact(
+        {
+          ...baseStep,
+          id: "gbp-step-8",
+          outcomeImpact: 0,
+          revenueImpact: null,
+          revenueImpactLabel: null,
+          engagementImpact: 23,
+        },
+        "outcome"
+      ),
+      "+23 actions/mo"
+    );
+  });
 });
 
 describe("optimizationModeHint", () => {

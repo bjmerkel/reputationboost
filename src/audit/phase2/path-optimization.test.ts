@@ -4,6 +4,8 @@ import {
   BALANCED_WEIGHTS_WITH_ACV,
   BALANCED_WEIGHTS_WITHOUT_ACV,
   compositeMarginalScore,
+  effectiveOutcomeGain,
+  engagementOutcomePoints,
   normalizeMarginalGain,
   resolveBlendWeights,
 } from "./path-optimization";
@@ -30,6 +32,18 @@ describe("normalizeMarginalGain", () => {
   });
 });
 
+describe("engagementOutcomePoints", () => {
+  it("maps action lift onto conversion pts without inventing pack rank", () => {
+    assert.equal(engagementOutcomePoints(0), 0);
+    assert.equal(engagementOutcomePoints(20), 10);
+    assert.equal(engagementOutcomePoints(100), 15);
+    assert.equal(
+      effectiveOutcomeGain({ outcomeGain: 4, engagementGain: 20 }),
+      14
+    );
+  });
+});
+
 describe("compositeMarginalScore", () => {
   it("blends normalized driver, outcome, and revenue marginals", () => {
     const impact = {
@@ -38,6 +52,7 @@ describe("compositeMarginalScore", () => {
       visibilityGain: 0,
       revenueCaptureGain: 0,
       revenueGain: 250,
+      engagementGain: 0,
       overallGain: 10,
     };
 
@@ -57,6 +72,7 @@ describe("compositeMarginalScore", () => {
         visibilityGain: 10,
         revenueCaptureGain: 5,
         revenueGain: 1000,
+        engagementGain: 0,
         overallGain: 5,
       },
       BALANCED_WEIGHTS_WITHOUT_ACV
@@ -68,11 +84,43 @@ describe("compositeMarginalScore", () => {
         visibilityGain: 10,
         revenueCaptureGain: 5,
         revenueGain: null,
+        engagementGain: 0,
         overallGain: 5,
       },
       BALANCED_WEIGHTS_WITHOUT_ACV
     );
 
     assert.equal(withRevenue, withoutRevenue);
+  });
+
+  it("scores conversion engagement when pack-rank outcomeGain is 0", () => {
+    const conversionOnly = compositeMarginalScore(
+      {
+        driverGain: 0,
+        outcomeGain: 0,
+        visibilityGain: 0,
+        revenueCaptureGain: 0,
+        revenueGain: null,
+        engagementGain: 20,
+        overallGain: 0,
+      },
+      BALANCED_WEIGHTS_WITHOUT_ACV
+    );
+    const zeroed = compositeMarginalScore(
+      {
+        driverGain: 0,
+        outcomeGain: 0,
+        visibilityGain: 0,
+        revenueCaptureGain: 0,
+        revenueGain: null,
+        engagementGain: 0,
+        overallGain: 0,
+      },
+      BALANCED_WEIGHTS_WITHOUT_ACV
+    );
+
+    assert.ok(conversionOnly > 0);
+    assert.equal(zeroed, 0);
+    assert.ok(conversionOnly > zeroed);
   });
 });

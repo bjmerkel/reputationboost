@@ -14,6 +14,7 @@ import {
   portfolioStepIsSatisfied,
 } from "./keyword-portfolio";
 import {
+  estimateStepEngagementImpact,
   estimateStepOutcomeImpact,
   estimateStepRevenueImpact,
 } from "./score-impact";
@@ -34,6 +35,8 @@ export interface PlanStepCandidate {
   driverScoreImpact: number;
   outcomeScoreImpact: number;
   revenueImpact: number | null;
+  /** Monthly profile-action lift for conversion-family steps (not pack rank). */
+  engagementImpact: number | null;
   linkedGapIds: string[];
   linkedKeywords: string[];
   defaultInstruction: string;
@@ -134,6 +137,9 @@ export function buildPlanStepCandidates(
       revenueImpact: satisfied
         ? null
         : estimateStepRevenueImpact(audit, templateStep.stepNumber, options.avgCustomerValue),
+      engagementImpact: satisfied
+        ? null
+        : estimateStepEngagementImpact(audit, templateStep.stepNumber),
       linkedGapIds,
       linkedKeywords,
       defaultInstruction: templateStep.instruction,
@@ -197,6 +203,7 @@ export function summarizePlanCandidates(candidates: PlanStepCandidate[]) {
     satisfied: c.satisfied,
     driverScoreImpact: c.driverScoreImpact,
     outcomeScoreImpact: c.outcomeScoreImpact,
+    engagementImpact: c.engagementImpact,
     revenueImpact: c.revenueImpact,
     linkedGapIds: c.linkedGapIds,
     linkedKeywords: c.linkedKeywords,

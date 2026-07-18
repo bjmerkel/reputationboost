@@ -13,6 +13,7 @@ import {
 } from "./attribution-calibration";
 import {
   compositeMarginalScore,
+  engagementOutcomePoints,
   marginalScoreForMode,
   resolveBlendWeights,
 } from "./path-optimization";
@@ -865,6 +866,8 @@ export interface ProjectedOutcomeScores {
   estimatedMonthlyLeads: number | null;
   /** Incremental monthly leads from the action set. */
   leadsGain: number | null;
+  /** Incremental monthly profile actions from conversion-family steps. */
+  engagementActionsGain: number | null;
 }
 
 export interface CounterfactualProjectionOptions {
@@ -1285,29 +1288,29 @@ export function stackDampeningFactor(stackIndex: number): number {
   return 0.35;
 }
 
-/**
- * Raw monthly leads from conversion-step engagement uplifts.
- * Uses the same plan stack index as mutations so a conversion step after a rank
- * step is dampened (not full value just because it's the first conversion).
- */
-function conversionEngagementRawLeads(
+/** Raw monthly action lifts (calls/directions/clicks) from conversion-family plan steps. */
+function conversionEngagementRawActions(
   audit: Phase1AuditPayload,
   actions: ActionRef[]
-): number | null {
+): { calls: number; directions: number; websiteClicks: number } | null {
   const views = Math.max(audit.gbp.performance.profileViews, 100);
   let calls = 0;
   let directions = 0;
   let websiteClicks = 0;
   let planStackIndex = 0;
+  let sawConversion = false;
 
   for (const action of actions) {
-    if (action.source !== "plan") continue;
+    if (action.source !== "plan") {
+      continue;
+    }
     const match = action.id.match(/^gbp-step-(\d+)$/);
     const stepNumber = match ? Number(match[1]) : NaN;
     const rates = Number.isFinite(stepNumber)
       ? conversionEngagementRates(stepNumber)
       : null;
     if (rates) {
+      sawConversion = true;
       const gains = scaleConversionEngagementGains(
         views,
         rates,
@@ -1320,10 +1323,33 @@ function conversionEngagementRawLeads(
     planStackIndex += 1;
   }
 
-  if (calls + directions + websiteClicks <= 0) return null;
+  if (!sawConversion || calls + directions + websiteClicks <= 0) return null;
+  return { calls, directions, websiteClicks };
+}
+
+/**
+ * Raw monthly leads from conversion-step engagement uplifts.
+ * Uses the same plan stack index as mutations so a conversion step after a rank
+ * step is dampened (not full value just because it's the first conversion).
+ */
+function conversionEngagementRawLeads(
+  audit: Phase1AuditPayload,
+  actions: ActionRef[]
+): number | null {
+  const gains = conversionEngagementRawActions(audit, actions);
+  if (!gains) return null;
 
   // Mirror DEFAULT_ROI_CONFIG lead rates without importing a circular path.
-  return calls * 0.25 + directions * 0.3 + websiteClicks * 0.05;
+  return gains.calls * 0.25 + gains.directions * 0.3 + gains.websiteClicks * 0.05;
+}
+
+function conversionEngagementActionsGain(
+  audit: Phase1AuditPayload,
+  actions: ActionRef[]
+): number | null {
+  const gains = conversionEngagementRawActions(audit, actions);
+  if (!gains) return null;
+  return gains.calls + gains.directions + gains.websiteClicks;
 }
 
 function conversionEngagementLeadsGain(
@@ -1379,6 +1405,7 @@ export function projectOutcomeScoresFromActions(
   const beforeLeads = totalEstimatedLeads(audit);
   const afterLeads = totalEstimatedLeads(mutated);
   const conversionLeads = conversionEngagementLeadsGain(audit, actions);
+  const engagementActionsGain = conversionEngagementActionsGain(audit, actions);
 
   const rankRevenueGain =
     beforeRevenue != null && afterRevenue != null
@@ -1426,6 +1453,7 @@ export function projectOutcomeScoresFromActions(
     revenueGain,
     estimatedMonthlyLeads: projectedMonthlyLeads,
     leadsGain,
+    engagementActionsGain,
   };
 }
 
@@ -1468,12 +1496,18 @@ export function simulateActionMarginalImpact(
     revenueGain = Math.max(0, afterOutcome.revenueGain - beforeOutcome.revenueGain);
   }
 
+  const engagementGain = Math.max(
+    0,
+    (afterOutcome.engagementActionsGain ?? 0) - (beforeOutcome.engagementActionsGain ?? 0)
+  );
+
   return {
     driverGain,
     outcomeGain,
     visibilityGain,
     revenueCaptureGain,
     revenueGain,
+    engagementGain,
     overallGain,
   };
 }
@@ -1495,6 +1529,7 @@ export interface SelectedAction extends ActionRef {
   marginalDriverGain: number;
   marginalOutcomeGain: number;
   marginalRevenueGain: number | null;
+  marginalEngagementGain: number;
   marginalCompositeScore: number;
 }
 
@@ -1514,11 +1549,21 @@ function isActionTargetMet(
   target: ActionPickTarget
 ): boolean {
   switch (mode) {
-    case "outcome":
-      return outcome.outcomeGain >= (target.outcomePointsNeeded ?? target.driverPointsNeeded);
+    case "outcome": {
+      const effective =
+        outcome.outcomeGain + engagementOutcomePoints(outcome.engagementActionsGain ?? 0);
+      return effective >= (target.outcomePointsNeeded ?? target.driverPointsNeeded);
+    }
     case "revenue":
       if (outcome.revenueGain != null && target.revenueGainNeeded != null) {
         return outcome.revenueGain >= target.revenueGainNeeded;
+      }
+      // Without ACV, engagement actions count toward a revenue-mode progress proxy.
+      if ((outcome.engagementActionsGain ?? 0) > 0 && target.revenueGainNeeded == null) {
+        return (
+          outcome.engagementActionsGain! >= target.driverPointsNeeded ||
+          health.driverGain >= target.driverPointsNeeded
+        );
       }
       return health.driverGain >= target.driverPointsNeeded;
     case "driver":
@@ -1572,6 +1617,7 @@ export function pickActionsForTarget(
       marginalDriverGain: bestImpact.driverGain,
       marginalOutcomeGain: bestImpact.outcomeGain,
       marginalRevenueGain: bestImpact.revenueGain,
+      marginalEngagementGain: bestImpact.engagementGain,
       marginalCompositeScore: compositeMarginalScore(bestImpact, weights),
     });
     projection = projectHealthScoresFromActions(audit, selected, options);

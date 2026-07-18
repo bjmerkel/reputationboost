@@ -134,6 +134,17 @@ export function estimateStepLeadsImpact(
   return projection.leadsGain;
 }
 
+/** Plan step estimated monthly profile-action lift (calls+directions+clicks). */
+export function estimateStepEngagementImpact(
+  audit: Phase1AuditPayload,
+  stepNumber: number
+): number | null {
+  const projection = projectOutcomeScoresFromActions(audit, [
+    { source: "plan", id: `gbp-step-${stepNumber}` },
+  ]);
+  return projection.engagementActionsGain;
+}
+
 const CATEGORY_COMPONENT: Partial<Record<GapFlag["category"], ScoreComponent>> = {
   rankings: "visibility",
   content: "visibility",

@@ -121,6 +121,7 @@ function planToPoolCandidate(
     driverImpact: impact.driverGain,
     outcomeImpact: impact.outcomeGain,
     revenueImpact: impact.revenueGain,
+    engagementImpact: impact.engagementGain > 0 ? impact.engagementGain : null,
     sortScore: compositeMarginalScore(impact, weights),
     impressionWeight: step.scoreImpact,
   };
@@ -168,7 +169,8 @@ function buildCandidatePool(
             s.sortScore > 0 ||
             (s.driverImpact ?? 0) > 0 ||
             (s.outcomeImpact ?? 0) > 0 ||
-            (s.revenueImpact ?? 0) > 0
+            (s.revenueImpact ?? 0) > 0 ||
+            (s.engagementImpact ?? 0) > 0
         )
     : (audit.strategy?.gbpPlan?.steps ?? [])
         .map((step, index) =>
@@ -188,7 +190,8 @@ function buildCandidatePool(
             s.sortScore > 0 ||
             (s.driverImpact ?? 0) > 0 ||
             (s.outcomeImpact ?? 0) > 0 ||
-            (s.revenueImpact ?? 0) > 0
+            (s.revenueImpact ?? 0) > 0 ||
+            (s.engagementImpact ?? 0) > 0
         );
 
   const merged: PoolCandidate[] = [...gapSteps];
@@ -236,6 +239,7 @@ function enrichPathStep(
     marginalDriverGain: number;
     marginalOutcomeGain: number;
     marginalRevenueGain: number | null;
+    marginalEngagementGain: number;
   },
   index: number,
   currency: string
@@ -247,6 +251,8 @@ function enrichPathStep(
     outcomeImpact: action.marginalOutcomeGain,
     revenueImpact: action.marginalRevenueGain,
     revenueImpactLabel: formatRevenueLabel(action.marginalRevenueGain, currency),
+    engagementImpact:
+      action.marginalEngagementGain > 0 ? action.marginalEngagementGain : null,
     order: index,
   };
 }

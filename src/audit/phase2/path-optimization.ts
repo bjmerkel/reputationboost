@@ -18,6 +18,20 @@ const DEFAULT_DRIVER_CEILING = 15;
 const DEFAULT_OUTCOME_CEILING = 15;
 const DEFAULT_REVENUE_CEILING = 500;
 
+/**
+ * Map monthly profile-action lift onto outcome-like points for path blending.
+ * Truthful engagement signal for conversion-family steps — not pack position.
+ */
+export function engagementOutcomePoints(actionsGain: number): number {
+  if (actionsGain <= 0) return 0;
+  return Math.min(DEFAULT_OUTCOME_CEILING, Math.round(actionsGain / 2));
+}
+
+/** Rank outcome pts plus engagement-derived conversion pts (no double pack-rank claim). */
+export function effectiveOutcomeGain(impact: Pick<ActionMarginalImpact, "outcomeGain" | "engagementGain">): number {
+  return Math.max(0, impact.outcomeGain) + engagementOutcomePoints(impact.engagementGain ?? 0);
+}
+
 function clamp(n: number, min = 0, max = 100): number {
   return Math.max(min, Math.min(max, Math.round(n)));
 }
@@ -52,8 +66,9 @@ export function compositeMarginalScore(
     impact.driverGain,
     ceilings.driver ?? DEFAULT_DRIVER_CEILING
   );
+  // Conversion-family steps keep pack-rank outcomeGain at 0; blend engagement pts instead.
   const outcomeNorm = normalizeMarginalGain(
-    impact.outcomeGain,
+    effectiveOutcomeGain(impact),
     ceilings.outcome ?? DEFAULT_OUTCOME_CEILING
   );
   const revenueNorm =
@@ -80,9 +95,12 @@ export function marginalScoreForMode(
     case "driver":
       return impact.driverGain;
     case "outcome":
-      return impact.outcomeGain;
+      return effectiveOutcomeGain(impact);
     case "revenue":
-      return impact.revenueGain ?? 0;
+      // Prefer $ when present; otherwise engagement actions so conversion isn't zeroed.
+      return impact.revenueGain != null && impact.revenueGain > 0
+        ? impact.revenueGain
+        : impact.engagementGain ?? 0;
     case "balanced":
       return compositeMarginalScore(impact, weights);
     default:
@@ -101,8 +119,6 @@ export function resolvePathOptimizationMode(
   if (hasAcv && scores.outcomeIndex < scores.driverScore) {
     return "revenue";
   }
-  if (hasAcv) {
-    return "balanced";
-  }
-  return "driver";
+  // Balanced (not driver-only) so engagement/outcome weight applies without ACV.
+  return "balanced";
 }

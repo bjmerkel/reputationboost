@@ -5,6 +5,7 @@ import { keywordsMissingFromText } from "@/audit/attribution/keywords";
 import {
   estimateStepHealthImpact,
   estimateStepLeadsImpact,
+  estimateStepEngagementImpact,
   estimateStepOutcomeImpact,
   estimateStepRevenueImpact,
 } from "../phase2/score-impact";
@@ -249,6 +250,9 @@ export function buildStepContext(
       ? null
       : estimateStepRevenueImpact(audit, step.stepNumber, avgCustomerValue),
     leadsImpact: isCustom ? null : estimateStepLeadsImpact(audit, step.stepNumber),
+    engagementImpact: isCustom
+      ? null
+      : estimateStepEngagementImpact(audit, step.stepNumber),
     projectionConfidence: isCustom
       ? undefined
       : resolveCalibrationConfidence(sampleSize),
@@ -277,6 +281,12 @@ export function buildTaskPayloadContext(
       : {}),
     ...(context.leadsImpact != null && context.leadsImpact > 0
       ? { projectedLeadsGain: context.leadsImpact, leadsImpact: context.leadsImpact }
+      : {}),
+    ...(context.engagementImpact != null && context.engagementImpact > 0
+      ? {
+          projectedEngagementGain: context.engagementImpact,
+          engagementImpact: context.engagementImpact,
+        }
       : {}),
     ...(isCustomPlanStep(step.stepNumber) ? { isCustomPlanStep: true } : {}),
   };
