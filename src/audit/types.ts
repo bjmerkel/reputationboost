@@ -1114,6 +1114,8 @@ export interface PlanStepContext {
   targetKeywords: string[];
   primaryKeyword?: string;
   expectedEffect: string;
+  /** LLM/strategist rationale for including this step (when available). */
+  selectionRationale?: string;
   currentValue?: string;
   recommendedValue?: string;
   /** ISO timestamp for when this step's recommendation was produced. */
@@ -1121,6 +1123,8 @@ export interface PlanStepContext {
   healthScoreImpact?: number;
   outcomeScoreImpact?: number;
   revenueImpact?: number | null;
+  /** Whether revenue/score impacts are calibrated from this business's history. */
+  projectionConfidence?: "high" | "medium" | "low" | "default";
 }
 
 export interface PlanStepOutcome {

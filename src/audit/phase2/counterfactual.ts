@@ -1090,7 +1090,8 @@ export function applyConversionEngagementMutation(
 export function applyOutcomeMutation(
   audit: Phase1AuditPayload,
   stepNumber: number,
-  calibration?: AttributionCalibration
+  calibration?: AttributionCalibration,
+  stackIndex = 0
 ): void {
   if (stepNumber === KEYWORD_PORTFOLIO_PLAN_STEP) {
     if (portfolioStepIsSatisfied(audit)) return;
@@ -1098,8 +1099,9 @@ export function applyOutcomeMutation(
     const swapIns = new Set(
       portfolio.recommendedSwaps.map((swap) => swap.swapIn.toLowerCase())
     );
+    const dampened = Math.max(1, Math.round(2 * stackDampeningFactor(stackIndex)));
     audit.rankings.keywords = audit.rankings.keywords.map((kw) =>
-      swapIns.has(kw.keyword.toLowerCase()) ? improveKeywordRank(kw, 2) : kw
+      swapIns.has(kw.keyword.toLowerCase()) ? improveKeywordRank(kw, dampened) : kw
     );
     refreshRankingAggregates(audit);
     return;
@@ -1113,7 +1115,8 @@ export function applyOutcomeMutation(
   // Place actions / alerts primarily move engagement, not pack rank.
   if (stepNumber === 14 || stepNumber === 15) return;
 
-  const rankDelta = rankDeltaForStep(stepNumber, calibration);
+  const baseDelta = rankDeltaForStep(stepNumber, calibration);
+  const rankDelta = Math.max(1, Math.round(baseDelta * stackDampeningFactor(stackIndex)));
   const targets = new Set(
     keywordsTargetedByStep(audit, stepNumber).map((keyword) => keyword.toLowerCase())
   );
@@ -1175,14 +1178,15 @@ export function applyOutcomeGapMutation(
 function applyActionMutations(
   audit: Phase1AuditPayload,
   action: ActionRef,
-  options?: CounterfactualProjectionOptions
+  options?: CounterfactualProjectionOptions,
+  stackIndex = 0
 ): void {
   if (action.source === "plan") {
     const match = action.id.match(/^gbp-step-(\d+)$/);
     if (!match) return;
     const stepNumber = Number(match[1]);
     applyStepMutation(audit, stepNumber);
-    applyOutcomeMutation(audit, stepNumber, options?.calibration);
+    applyOutcomeMutation(audit, stepNumber, options?.calibration, stackIndex);
     return;
   }
 
@@ -1200,8 +1204,11 @@ export function projectHealthScoresFromActions(
   const before = computeHealthScores(audit);
   const mutated = cloneAudit(audit);
 
+  let planStackIndex = 0;
   for (const action of actions) {
-    applyActionMutations(mutated, action, options);
+    const stackIndex = action.source === "plan" ? planStackIndex : 0;
+    applyActionMutations(mutated, action, options, stackIndex);
+    if (action.source === "plan") planStackIndex += 1;
   }
 
   const after = computeHealthScores(mutated);
@@ -1211,6 +1218,17 @@ export function projectHealthScoresFromActions(
     driverGain: after.driverScore - before.driverScore,
     overallGain: after.overall - before.overall,
   };
+}
+
+/**
+ * Stack dampening for multi-step projections — later actions claim less of the
+ * remaining upside so stacked estimates stay below the sum of isolated impacts.
+ */
+export function stackDampeningFactor(stackIndex: number): number {
+  if (stackIndex <= 0) return 1;
+  if (stackIndex === 1) return 0.7;
+  if (stackIndex === 2) return 0.5;
+  return 0.35;
 }
 
 /** Estimated monthly revenue from conversion-step engagement uplifts (calls/directions). */
@@ -1225,31 +1243,39 @@ function conversionEngagementRevenueGain(
   let calls = 0;
   let directions = 0;
   let websiteClicks = 0;
+  let conversionIndex = 0;
 
   for (const action of actions) {
     if (action.source !== "plan") continue;
     const match = action.id.match(/^gbp-step-(\d+)$/);
     if (!match) continue;
     const stepNumber = Number(match[1]);
+    const scale = stackDampeningFactor(conversionIndex);
+    let matched = false;
     switch (stepNumber) {
       case 8:
-        calls += Math.ceil(views * 0.02);
-        directions += Math.ceil(views * 0.025);
+        calls += Math.ceil(views * 0.02 * scale);
+        directions += Math.ceil(views * 0.025 * scale);
+        matched = true;
         break;
       case 11:
-        calls += Math.ceil(views * 0.01);
+        calls += Math.ceil(views * 0.01 * scale);
+        matched = true;
         break;
       case 13:
-        websiteClicks += Math.ceil(views * 0.015);
+        websiteClicks += Math.ceil(views * 0.015 * scale);
+        matched = true;
         break;
       case 15:
-        calls += Math.ceil(views * 0.025);
-        directions += Math.ceil(views * 0.04);
-        websiteClicks += Math.ceil(views * 0.03);
+        calls += Math.ceil(views * 0.025 * scale);
+        directions += Math.ceil(views * 0.04 * scale);
+        websiteClicks += Math.ceil(views * 0.03 * scale);
+        matched = true;
         break;
       default:
         break;
     }
+    if (matched) conversionIndex += 1;
   }
 
   if (calls + directions + websiteClicks <= 0) return null;
@@ -1269,8 +1295,11 @@ export function projectOutcomeScoresFromActions(
   const beforeRevenue = totalEstimatedRevenue(audit, options.avgCustomerValue);
   const mutated = cloneAudit(audit);
 
+  let planStackIndex = 0;
   for (const action of actions) {
-    applyActionMutations(mutated, action, options);
+    const stackIndex = action.source === "plan" ? planStackIndex : 0;
+    applyActionMutations(mutated, action, options, stackIndex);
+    if (action.source === "plan") planStackIndex += 1;
   }
 
   const after = computeHealthScores(mutated);

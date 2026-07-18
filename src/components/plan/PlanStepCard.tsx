@@ -45,6 +45,7 @@ export default function PlanStepCard({
   reviewUrl,
   initialFocusKeyword,
   onReviewRequestSent,
+  onSeeResults,
 }: {
   step: PlanStep;
   totalSteps: number;
@@ -66,6 +67,7 @@ export default function PlanStepCard({
   reviewUrl?: string | null;
   initialFocusKeyword?: string | null;
   onReviewRequestSent?: () => void;
+  onSeeResults?: (stepNumber: number) => void;
 }) {
   const isLight = variant === "light";
   const reviewRequestTask = step.tasks.find(
@@ -179,6 +181,20 @@ export default function PlanStepCard({
               className="mt-1"
             />
           )}
+          {step.status === "completed" && onSeeResults && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSeeResults(step.stepNumber);
+              }}
+              className={`mt-2 text-xs font-semibold ${
+                isLight ? "text-[#1a73e8] hover:underline" : "text-sky-300 hover:underline"
+              }`}
+            >
+              See results →
+            </button>
+          )}
         </div>
         <span className={`shrink-0 text-lg ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
           {expanded ? "−" : "+"}
@@ -187,10 +203,36 @@ export default function PlanStepCard({
 
       {expanded && (
         <div className={`border-t px-4 pb-4 pt-3 ${isLight ? "border-[#e8eaed]" : "border-white/8"}`}>
+          {step.context.selectionRationale && (
+            <div
+              className={`mb-3 rounded-lg border px-3 py-2 text-sm ${
+                isLight
+                  ? "border-[#e8f0fe] bg-[#f8fbff] text-[#3c4043]"
+                  : "border-sky-400/20 bg-sky-400/10 text-slate-200"
+              }`}
+            >
+              <span className={`font-medium ${isLight ? "text-[#1a73e8]" : "text-sky-300"}`}>
+                Why this step:{" "}
+              </span>
+              {step.context.selectionRationale}
+            </div>
+          )}
+
           <p className={`text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
-            <span className={`font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>Why: </span>
+            <span className={`font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
+              Expected effect:{" "}
+            </span>
             {step.context.expectedEffect}
           </p>
+
+          {step.status !== "completed" &&
+            step.context.projectionConfidence === "default" &&
+            ((step.context.revenueImpact ?? 0) > 0 ||
+              (step.context.healthScoreImpact ?? 0) > 0) && (
+              <p className={`mt-2 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                Impact is a model estimate until we calibrate from your published results.
+              </p>
+            )}
 
           {step.context.targetKeywords.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -332,7 +374,7 @@ export default function PlanStepCard({
 
           {step.tasks.length === 0 && (
             <p className={`mt-4 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-              Manual step — follow the checklist above in Google Business Profile.
+              Manual step — complete this update in Google Business Profile, then refresh your plan.
             </p>
           )}
         </div>

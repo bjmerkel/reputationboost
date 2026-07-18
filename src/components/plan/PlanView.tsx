@@ -9,6 +9,7 @@ import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { usePlanTasks, type PlanTasksState } from "@/hooks/usePlanTasks";
 import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 import GoogleUpdatesPanel from "./GoogleUpdatesPanel";
+import PlanAcvNudge from "./PlanAcvNudge";
 import PlanKeywordPriority from "./PlanKeywordPriority";
 import PlanNextBestActions from "./PlanNextBestActions";
 import PlanPhaseSection from "./PlanPhaseSection";
@@ -30,6 +31,7 @@ export default function PlanView({
   focusKeyword = null,
   onFocusHandled,
   sharedPlanTasks,
+  onSeeResults,
 }: {
   audit: FullAuditPayload;
   clientId: string;
@@ -46,6 +48,7 @@ export default function PlanView({
   focusKeyword?: string | null;
   onFocusHandled?: () => void;
   sharedPlanTasks?: PlanTasksState;
+  onSeeResults?: (stepNumber?: number) => void;
 }) {
   const isLight = variant === "light";
   const [syncingGoogleUpdates, setSyncingGoogleUpdates] = useState(false);
@@ -229,6 +232,7 @@ export default function PlanView({
         projectedMonthlyRevenue={path?.projectedMonthlyRevenue}
         currency={currency}
         planReconciledAt={planReconciledAt ?? audit.strategy?.planReconciledAt ?? null}
+        calibrationConfidence={path?.calibrationConfidence}
         onRefreshPlan={() => {
           void reconcilePlanNow()
             .then((result) => {
@@ -238,6 +242,8 @@ export default function PlanView({
         }}
         refreshingPlan={reconciling}
       />
+
+      {!avgCustomerValue && <PlanAcvNudge variant={variant} />}
 
       <PlanNextBestActions
         plan={plan}
@@ -298,6 +304,7 @@ export default function PlanView({
             businessWebsite={audit.gbp.identity.website}
             reviewUrl={reviewUrl}
             onReviewRequestSent={handleReviewRequestSent}
+            onSeeResults={onSeeResults}
           />
         );
       })}

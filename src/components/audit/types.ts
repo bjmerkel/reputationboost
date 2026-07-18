@@ -31,7 +31,7 @@ export const AUDIT_STORY_STEPS: AuditStoryStep[] = [
     id: "strategy",
     step: 2,
     title: "Plan",
-    subtitle: "15-step checklist — approve and publish in one place",
+    subtitle: "Impact-ranked GBP actions — approve and publish in one place",
   },
   {
     id: "data",

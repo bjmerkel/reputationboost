@@ -1,5 +1,6 @@
 import type { FullAuditPayload, GbpPlanStep, PlanStepContext } from "../types";
 import type { AttributionCalibration } from "../phase2/attribution-calibration";
+import { resolveCalibrationConfidence } from "../phase2/attribution-calibration";
 import { keywordsMissingFromText } from "@/audit/attribution/keywords";
 import { estimateStepHealthImpact, estimateStepOutcomeImpact, estimateStepRevenueImpact } from "../phase2/score-impact";
 import { isCustomPlanStep } from "./plan-custom-steps";
@@ -7,6 +8,16 @@ import {
   countUnrespondedNegativeReviews,
   isReviewResponseWorkSatisfied,
 } from "@/audit/review-engagement";
+
+const SELECTION_RATIONALE_MARKER = "\n\nWhy this step: ";
+
+/** Extract strategist rationale appended by LLM plan merge. */
+export function extractSelectionRationale(instruction: string): string | undefined {
+  const idx = instruction.indexOf(SELECTION_RATIONALE_MARKER);
+  if (idx < 0) return undefined;
+  const rationale = instruction.slice(idx + SELECTION_RATIONALE_MARKER.length).trim();
+  return rationale.length > 0 ? rationale : undefined;
+}
 
 /** Mirrors counterfactual step-3 satisfaction threshold. */
 const DESCRIPTION_MIN_LENGTH = 400;
@@ -207,11 +218,14 @@ export function buildStepContext(
     outsidePack[0] ?? keywords[0] ?? audit.strategy.gbpPlan?.keywordPriority?.[0]?.keyword;
 
   const isCustom = isCustomPlanStep(step.stepNumber);
+  const selectionRationale = extractSelectionRationale(step.instruction);
+  const sampleSize = calibration?.[step.stepNumber]?.sampleSize ?? 0;
 
   return {
     targetKeywords: keywords,
     primaryKeyword,
     expectedEffect: buildExpectedEffect(audit, step),
+    selectionRationale,
     currentValue:
       step.stepNumber === 3
         ? resolveCurrentDescriptionValue(audit, step)
@@ -229,6 +243,9 @@ export function buildStepContext(
     revenueImpact: isCustom
       ? null
       : estimateStepRevenueImpact(audit, step.stepNumber, avgCustomerValue),
+    projectionConfidence: isCustom
+      ? undefined
+      : resolveCalibrationConfidence(sampleSize),
   };
 }
 
