@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { PlanTimelineEntry } from "@/audit/phase3/build-timeline";
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import { resultsScrollElementId } from "@/lib/google/gbp-field-plan-links";
+import {
+  PLAN_CHANGELOG_SECTION_ID,
+  resolveResultsFocus,
+  resultsFocusMissMessage,
+} from "./results-focus";
 
 function formatRank(rank: number | null | undefined): string {
   if (rank == null) return "—";
@@ -56,6 +61,8 @@ export default function PlanResultsTimeline({
   onFocusHandled?: () => void;
   onNavigateToPlan?: (stepNumber: number) => void;
 }) {
+  const [missNotice, setMissNotice] = useState<string | null>(null);
+
   const anchorEntryIds = useMemo(() => {
     const ids = new Set<string>();
     const seenSteps = new Set<number>();
@@ -70,17 +77,29 @@ export default function PlanResultsTimeline({
   useEffect(() => {
     if (focusStep == null || loading) return;
 
-    const elementId = resultsScrollElementId(focusStep);
     const timer = window.setTimeout(() => {
-      const element = document.getElementById(elementId);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "start" });
-        element.classList.add("ring-2", "ring-[#1a73e8]", "ring-offset-2");
-        window.setTimeout(() => {
-          element.classList.remove("ring-2", "ring-[#1a73e8]", "ring-offset-2");
-        }, 1600);
-        onFocusHandled?.();
+      const resolution = resolveResultsFocus(focusStep, (id) =>
+        Boolean(document.getElementById(id))
+      );
+
+      if (resolution.kind === "hit") {
+        const element = document.getElementById(resolution.elementId);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+          element.classList.add("ring-2", "ring-[#1a73e8]", "ring-offset-2");
+          window.setTimeout(() => {
+            element.classList.remove("ring-2", "ring-[#1a73e8]", "ring-offset-2");
+          }, 1600);
+        }
+        setMissNotice(null);
+      } else {
+        const section = document.getElementById(resolution.sectionId);
+        section?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setMissNotice(resultsFocusMissMessage(resolution.stepNumber));
       }
+
+      // Always clear focus so "See results" never hangs on a missing row.
+      onFocusHandled?.();
     }, 150);
 
     return () => window.clearTimeout(timer);
@@ -88,7 +107,7 @@ export default function PlanResultsTimeline({
 
   if (loading) {
     return (
-      <section className="space-y-3">
+      <section id={PLAN_CHANGELOG_SECTION_ID} className="scroll-mt-4 space-y-3">
         <h4 className="text-sm font-semibold text-[#202124]">Plan changelog</h4>
         <p className="text-sm text-[#5f6368]">Loading results…</p>
       </section>
@@ -97,23 +116,34 @@ export default function PlanResultsTimeline({
 
   if (entries.length === 0) {
     return (
-      <section className="space-y-3">
+      <section id={PLAN_CHANGELOG_SECTION_ID} className="scroll-mt-4 space-y-3">
         <h4 className="text-sm font-semibold text-[#202124]">Plan changelog</h4>
         <p className="text-sm text-[#5f6368]">
           Published plan steps will appear here with measured outcomes.
         </p>
+        {missNotice && (
+          <p className="rounded-lg border border-[#fef7e0] bg-[#fef7e0] px-3 py-2 text-sm text-[#e37400]">
+            {missNotice}
+          </p>
+        )}
       </section>
     );
   }
 
   return (
-    <section className="space-y-4">
+    <section id={PLAN_CHANGELOG_SECTION_ID} className="scroll-mt-4 space-y-4">
       <div>
         <h4 className="text-sm font-semibold text-[#202124]">Plan changelog</h4>
         <p className="mt-1 text-xs text-[#80868b]">
           What we published and what changed — newest first.
         </p>
       </div>
+
+      {missNotice && (
+        <p className="rounded-lg border border-[#fef7e0] bg-[#fef7e0] px-3 py-2 text-sm text-[#e37400]">
+          {missNotice}
+        </p>
+      )}
 
       <ol className="relative space-y-0 border-l border-[#dadce0] pl-5">
         {entries.map((entry, index) => {
