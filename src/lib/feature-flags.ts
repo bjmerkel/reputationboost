@@ -20,8 +20,8 @@ export const MARKET_DATA_FLAGS = {
 
 export const MARKET_REFRESH_FLAGS = {
   manualCooldownDays: 7,
-  eventDelayDays: 10,
-  taskTriggeredGridEnabled: false,
+  eventDelayDays: 5,
+  taskTriggeredGridEnabled: process.env.TASK_TRIGGERED_GRID === "1",
 } as const;
 
 export const HEATMAP_FLAGS = {
