@@ -91,6 +91,7 @@ export {
 } from "./conversion-boost";
 export {
   estimateStepHealthImpact,
+  estimateStepLeadsImpact,
   estimateStepOutcomeImpact,
   estimateStepRevenueImpact,
   gapCandidateSortScore,

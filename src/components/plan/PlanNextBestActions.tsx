@@ -1,22 +1,9 @@
 "use client";
 
-import type { Plan, PlanStep } from "@/audit/types";
-import { formatCurrency } from "@/audit/attribution/roi";
+import type { Plan } from "@/audit/types";
+import { formatPlanStepImpactLabel } from "@/audit/phase3/plan-impact-label";
 import { selectNextBestPlanSteps } from "@/audit/phase3/plan-next-actions";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
-
-function impactLabel(step: PlanStep, currency: string): string | null {
-  if ((step.context.revenueImpact ?? 0) > 0) {
-    return `+${formatCurrency(step.context.revenueImpact!, currency)}/mo est.`;
-  }
-  if ((step.context.outcomeScoreImpact ?? 0) > 0) {
-    return `+${step.context.outcomeScoreImpact} ranking pts`;
-  }
-  if ((step.context.healthScoreImpact ?? 0) > 0) {
-    return `+${step.context.healthScoreImpact} score pts`;
-  }
-  return null;
-}
 
 export default function PlanNextBestActions({
   plan,
@@ -33,6 +20,9 @@ export default function PlanNextBestActions({
   const nextSteps = selectNextBestPlanSteps(plan, 3);
   if (nextSteps.length === 0) return null;
 
+  const hasRevenue = nextSteps.some((step) => (step.context.revenueImpact ?? 0) > 0);
+  const hasLeads = nextSteps.some((step) => (step.context.leadsImpact ?? 0) > 0);
+
   return (
     <section
       className={`rounded-xl border p-4 ${
@@ -47,11 +37,15 @@ export default function PlanNextBestActions({
         Next best actions
       </p>
       <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-        Ordered by estimated revenue impact — do these first.
+        {hasRevenue
+          ? "Ordered by estimated revenue impact — do these first."
+          : hasLeads
+            ? "Ordered by estimated lead impact — do these first."
+            : "Ordered by estimated impact — do these first."}
       </p>
       <ol className="mt-3 space-y-2">
         {nextSteps.map((step, index) => {
-          const impact = impactLabel(step, currency);
+          const impact = formatPlanStepImpactLabel(step, currency);
           return (
             <li key={step.stepNumber}>
               <button

@@ -80,6 +80,59 @@ describe("selectNextBestPlanSteps", () => {
     );
   });
 
+  it("prefers higher leadsImpact when revenue is missing", () => {
+    const plan: Plan = {
+      title: "Plan",
+      businessName: "Test",
+      objective: "Win pack",
+      targetKeywords: [],
+      phases: [],
+      progress: {
+        totalSteps: 2,
+        completedSteps: 0,
+        needsApproval: 2,
+        currentHealthScore: 50,
+        projectedHealthScore: 70,
+      },
+      steps: [
+        stubStep({
+          stepNumber: 1,
+          title: "Category",
+          displayOrder: 0,
+          status: "pending",
+          context: {
+            targetKeywords: ["emergency plumber dallas"],
+            expectedEffect: "Fix category",
+            revenueImpact: null,
+            leadsImpact: 2,
+            outcomeScoreImpact: 2,
+            healthScoreImpact: 2,
+          },
+        }),
+        stubStep({
+          stepNumber: 8,
+          title: "Posts",
+          displayOrder: 5,
+          status: "needs_approval",
+          context: {
+            targetKeywords: ["emergency plumber dallas"],
+            expectedEffect: "Post weekly",
+            revenueImpact: null,
+            leadsImpact: 20,
+            outcomeScoreImpact: 4,
+            healthScoreImpact: 3,
+          },
+        }),
+      ],
+    };
+
+    const next = selectNextBestPlanSteps(plan, 2);
+    assert.deepEqual(
+      next.map((s) => s.stepNumber),
+      [8, 1]
+    );
+  });
+
   it("prefers higher revenueImpact over better displayOrder", () => {
     const plan: Plan = {
       title: "Plan",
