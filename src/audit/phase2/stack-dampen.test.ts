@@ -157,10 +157,49 @@ describe("stacked plan projections", () => {
       (conversionStep.revenueGain ?? 0) > 0,
       "conversion-family step should have engagement revenue"
     );
-    // Mixed gain should stay at/below the sum of isolated family channels.
+    const isolatedSum =
+      (rankStep.revenueGain ?? 0) + (conversionStep.revenueGain ?? 0);
+    // Conversion is second in the stack → engagement $ uses stackDampeningFactor(1)=0.7
     assert.ok(
-      (mixed.revenueGain ?? 0) <=
-        (rankStep.revenueGain ?? 0) + (conversionStep.revenueGain ?? 0) + 1
+      (mixed.revenueGain ?? 0) < isolatedSum,
+      `mixed ${mixed.revenueGain} should be strictly below isolated sum ${isolatedSum}`
     );
+    const dampenedCeiling =
+      (rankStep.revenueGain ?? 0) +
+      Math.round((conversionStep.revenueGain ?? 0) * stackDampeningFactor(1)) +
+      1;
+    assert.ok(
+      (mixed.revenueGain ?? 0) <= dampenedCeiling,
+      `mixed ${mixed.revenueGain} should respect plan-stack dampening (≤ ${dampenedCeiling})`
+    );
+  });
+
+  it("dampens a trailing conversion step after a rank step vs conversion-first order", () => {
+    const audit = conversionFixture();
+    audit.gbp.performance.searchKeywords = [
+      { keyword: "emergency plumber dallas", impressions: 1200, belowThreshold: false },
+      { keyword: "drain cleaning dallas", impressions: 800, belowThreshold: false },
+    ];
+    const options = { avgCustomerValue: 350 };
+
+    const conversionSecond = projectOutcomeScoresFromActions(
+      audit,
+      [
+        { source: "plan", id: "gbp-step-3" },
+        { source: "plan", id: "gbp-step-8" },
+      ],
+      options
+    );
+    const conversionFirst = projectOutcomeScoresFromActions(
+      audit,
+      [
+        { source: "plan", id: "gbp-step-8" },
+        { source: "plan", id: "gbp-step-3" },
+      ],
+      options
+    );
+
+    // Same two steps: conversion claims more when it leads the stack.
+    assert.ok((conversionFirst.revenueGain ?? 0) > (conversionSecond.revenueGain ?? 0));
   });
 });

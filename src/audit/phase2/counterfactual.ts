@@ -1255,7 +1255,11 @@ export function stackDampeningFactor(stackIndex: number): number {
   return 0.35;
 }
 
-/** Estimated monthly revenue from conversion-step engagement uplifts (calls/directions). */
+/**
+ * Estimated monthly revenue from conversion-step engagement uplifts.
+ * Uses the same plan stack index as mutations so a conversion step after a rank
+ * step is dampened (not full value just because it's the first conversion).
+ */
 function conversionEngagementRevenueGain(
   audit: Phase1AuditPayload,
   actions: ActionRef[],
@@ -1267,24 +1271,26 @@ function conversionEngagementRevenueGain(
   let calls = 0;
   let directions = 0;
   let websiteClicks = 0;
-  let conversionIndex = 0;
+  let planStackIndex = 0;
 
   for (const action of actions) {
     if (action.source !== "plan") continue;
     const match = action.id.match(/^gbp-step-(\d+)$/);
-    if (!match) continue;
-    const stepNumber = Number(match[1]);
-    const rates = conversionEngagementRates(stepNumber);
-    if (!rates) continue;
-    const gains = scaleConversionEngagementGains(
-      views,
-      rates,
-      stackDampeningFactor(conversionIndex)
-    );
-    calls += gains.calls;
-    directions += gains.directions;
-    websiteClicks += gains.websiteClicks;
-    conversionIndex += 1;
+    const stepNumber = match ? Number(match[1]) : NaN;
+    const rates = Number.isFinite(stepNumber)
+      ? conversionEngagementRates(stepNumber)
+      : null;
+    if (rates) {
+      const gains = scaleConversionEngagementGains(
+        views,
+        rates,
+        stackDampeningFactor(planStackIndex)
+      );
+      calls += gains.calls;
+      directions += gains.directions;
+      websiteClicks += gains.websiteClicks;
+    }
+    planStackIndex += 1;
   }
 
   if (calls + directions + websiteClicks <= 0) return null;
@@ -1294,7 +1300,14 @@ function conversionEngagementRevenueGain(
   return Math.round(leads * avgCustomerValue);
 }
 
-/** Project ranking outcome and revenue after applying profile + rank counterfactuals. */
+/**
+ * Project ranking outcome and revenue after applying profile + rank counterfactuals.
+ *
+ * Revenue channel policy:
+ * - Rank-family steps → keyword CTR revenue (via rank mutations)
+ * - Conversion-family steps (8/11/13/15) → engagement revenue only (no pack-rank claim)
+ * - Stacked estimates dampen later plan actions with stackDampeningFactor(planStackIndex)
+ */
 export function projectOutcomeScoresFromActions(
   audit: Phase1AuditPayload,
   actions: ActionRef[],
