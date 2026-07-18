@@ -324,11 +324,14 @@ function dedupeExecutionTasks(tasks: ExecutionTask[]): ExecutionTask[] {
 
 export function generateExecutionQueue(
   audit: FullAuditPayload,
-  content?: AuditGeneratedContent
+  content?: AuditGeneratedContent,
+  options: { avgCustomerValue?: number | null } = {}
 ): Phase3ExecutionReport {
   const resolvedContent = content ?? buildTemplateContent(audit);
   const tasks = dedupeExecutionTasks([
-    ...tasksFromGbpPlan(audit, resolvedContent),
+    ...tasksFromGbpPlan(audit, resolvedContent, {
+      avgCustomerValue: options.avgCustomerValue,
+    }),
     ...tasksFromGoogleSuggestions(audit),
     ...tasksFromMediaMaintenance(audit),
     ...tasksFromVideoGaps(audit),

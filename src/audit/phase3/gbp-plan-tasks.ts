@@ -29,7 +29,12 @@ import {
   isUriAttributeType,
   resolveProfileLinkMissing,
 } from "@/lib/google/gbp-attribute-recommendations";
-import { buildTemplateGbpPlan, NOTIFICATIONS_PLAN_STEP, PLACE_ACTIONS_PLAN_STEP } from "@/audit/phase2/gbp-plan";
+import {
+  buildTemplateGbpPlan,
+  NOTIFICATIONS_PLAN_STEP,
+  PLACE_ACTIONS_PLAN_STEP,
+  planStepImpactScore,
+} from "@/audit/phase2/gbp-plan";
 import {
   categoryLabelsMatch,
   filterActionableSecondaryCategories,
@@ -53,6 +58,12 @@ import {
   isReviewRequestPlanStep,
   isReviewResponsePlanStep,
 } from "./gbp-plan-step-intent";
+import { countUnrespondedNegativeReviews } from "@/audit/review-engagement";
+import { GOOGLE_UPDATES_STEP_NUMBER } from "@/lib/google/gbp-update-helpers";
+
+export interface GbpPlanTaskOptions {
+  avgCustomerValue?: number | null;
+}
 
 function mediaUploadDraft(hint: string, category: GbpMediaCategory): string {
   return [
@@ -63,9 +74,44 @@ function mediaUploadDraft(hint: string, category: GbpMediaCategory): string {
   ].join("\n");
 }
 
-function stepPriority(stepNumber: number): ActionPriority {
-  if (stepNumber <= 3) return "P0";
-  if (stepNumber <= 11) return "P1";
+/**
+ * Priority from estimated revenue/outcome impact — not checklist step number.
+ * Blockers (Google conflicts, unresponded negatives) stay P0.
+ */
+export function resolveStepActionPriority(
+  audit: FullAuditPayload,
+  step: GbpPlanStep,
+  options: GbpPlanTaskOptions = {}
+): ActionPriority {
+  if (step.stepNumber === GOOGLE_UPDATES_STEP_NUMBER || step.stepNumber === 0) {
+    return "P0";
+  }
+
+  const unrespondedNegative =
+    audit.reviews.reviews.length > 0
+      ? countUnrespondedNegativeReviews(audit.reviews.reviews)
+      : audit.reviews.unrespondedNegative;
+  if (
+    (step.stepNumber === 11 || isReviewResponsePlanStep(step)) &&
+    unrespondedNegative > 0
+  ) {
+    return "P0";
+  }
+
+  // displayOrder is already impact-ranked (0 = highest).
+  if (step.displayOrder != null) {
+    if (step.displayOrder <= 2) return "P0";
+    if (step.displayOrder <= 6) return "P1";
+    return "P2";
+  }
+
+  const score = planStepImpactScore(
+    audit,
+    step.stepNumber,
+    options.avgCustomerValue
+  );
+  if (score >= 20) return "P0";
+  if (score >= 5) return "P1";
   return "P2";
 }
 
@@ -102,7 +148,8 @@ function buildGbpTask(
   type: ExecutionTask["type"],
   title: string,
   draftContent: string,
-  payload: Record<string, unknown> = {}
+  payload: Record<string, unknown> = {},
+  options: GbpPlanTaskOptions = {}
 ): ExecutionTask {
   const content = normalizeTextContent(draftContent);
   const needsApproval = requiresApproval(type);
@@ -115,7 +162,7 @@ function buildGbpTask(
     type,
     title: `Step ${step.stepNumber}: ${title}`,
     description: step.instruction,
-    priority: stepPriority(step.stepNumber),
+    priority: resolveStepActionPriority(audit, step, options),
     status: needsApproval ? "pending_approval" : "approved",
     draftContent: content,
     payload: {
@@ -778,14 +825,19 @@ export function tasksFromGbpPlanStep(
 
 export function tasksFromGbpPlan(
   audit: FullAuditPayload,
-  content: AuditGeneratedContent
+  content: AuditGeneratedContent,
+  options: GbpPlanTaskOptions = {}
 ): ExecutionTask[] {
   const plan = audit.strategy.gbpPlan;
   if (!plan) return [];
 
   const tasks: ExecutionTask[] = [];
   for (const step of plan.steps) {
-    tasks.push(...tasksFromGbpPlanStep(audit, step, content));
+    const stepTasks = tasksFromGbpPlanStep(audit, step, content);
+    const priority = resolveStepActionPriority(audit, step, options);
+    for (const task of stepTasks) {
+      tasks.push({ ...task, priority });
+    }
   }
   return tasks;
 }

@@ -184,7 +184,9 @@ export async function runPhase1Audit(
   // Plan step copyBlocks/actionData default to a deterministic template; overwrite
   // with the content-writer LLM description so Plan UI and tasks stay aligned.
   const auditWithDescription = applyGeneratedDescriptionToAudit(auditWithStrategy, content);
-  const execution = generateExecutionQueue(auditWithDescription, content);
+  const execution = generateExecutionQueue(auditWithDescription, content, {
+    avgCustomerValue: client.avgCustomerValue,
+  });
 
   const audit: FullAuditPayload = {
     ...auditWithDescription,

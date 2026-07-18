@@ -9,6 +9,8 @@ import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { usePlanTasks, type PlanTasksState } from "@/hooks/usePlanTasks";
 import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 import GoogleUpdatesPanel from "./GoogleUpdatesPanel";
+import PlanKeywordPriority from "./PlanKeywordPriority";
+import PlanNextBestActions from "./PlanNextBestActions";
 import PlanPhaseSection from "./PlanPhaseSection";
 import PlanProgressHeader from "./PlanProgressHeader";
 
@@ -47,6 +49,7 @@ export default function PlanView({
 }) {
   const isLight = variant === "light";
   const [syncingGoogleUpdates, setSyncingGoogleUpdates] = useState(false);
+  const [localFocusStep, setLocalFocusStep] = useState<number | null>(null);
   const internalPlanTasks = usePlanTasks({
     clientId,
     auditId: audit.auditId,
@@ -133,11 +136,12 @@ export default function PlanView({
   const pendingApprovalCount = planApprovalBadgeCount(tasks);
 
   const defaultExpandedStep = useMemo(() => {
+    if (localFocusStep != null) return localFocusStep;
     if (focusStep != null) return focusStep;
     if (!plan) return undefined;
     const needs = plan.steps.find((s) => s.status === "needs_approval");
     return needs?.stepNumber ?? plan.steps.find((s) => s.status === "pending")?.stepNumber;
-  }, [focusStep, plan]);
+  }, [focusStep, localFocusStep, plan]);
 
   useEffect(() => {
     if (focusStep == null || loading) return;
@@ -233,6 +237,27 @@ export default function PlanView({
             .catch(() => undefined);
         }}
         refreshingPlan={reconciling}
+      />
+
+      <PlanNextBestActions
+        plan={plan}
+        currency={currency}
+        variant={variant}
+        onFocusStep={(stepNumber) => setLocalFocusStep(stepNumber)}
+      />
+
+      <PlanKeywordPriority
+        audit={audit}
+        plan={plan}
+        avgCustomerValue={avgCustomerValue}
+        currency={currency}
+        variant={variant}
+        onFocusKeyword={(_keyword, stepNumber) => {
+          if (stepNumber == null) return;
+          setLocalFocusStep(stepNumber);
+          const el = document.getElementById(`plan-step-${stepNumber}`);
+          el?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
       />
 
       {audit.strategy?.executiveSummary && (
