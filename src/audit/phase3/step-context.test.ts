@@ -161,3 +161,18 @@ describe("buildStepContext description step", () => {
     assert.match(context.expectedEffect, /expand/i);
   });
 });
+
+describe("buildStepContext priority services step", () => {
+  it("recommends GBP services (not products) for outside-pack keywords", () => {
+    const audit = carSpaAudit();
+    const context = buildStepContext(audit, {
+      stepNumber: 5,
+      title: "Priority Keyword Services",
+      instruction: "Add services for priority keywords.",
+      gbpAction: "add_service_items",
+    });
+
+    assert.match(context.expectedEffect, /GBP services/i);
+    assert.doesNotMatch(context.expectedEffect, /products?/i);
+  });
+});

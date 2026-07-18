@@ -157,7 +157,9 @@ export async function runPhase1Audit(
   const keywordPortfolio = computeKeywordPortfolio(phase1);
   const phase1Enriched: Phase1AuditPayload = { ...phase1, keywordRelevance, keywordPortfolio };
 
-  const strategy = await generateStrategy(phase1Enriched, priorAudit, outcomes);
+  const strategy = await generateStrategy(phase1Enriched, priorAudit, outcomes, {
+    avgCustomerValue: client.avgCustomerValue,
+  });
   const auditWithStrategy = { ...phase1Enriched, strategy };
 
   let activeCampaignKeywords: string[] = [];
@@ -182,7 +184,9 @@ export async function runPhase1Audit(
   // Plan step copyBlocks/actionData default to a deterministic template; overwrite
   // with the content-writer LLM description so Plan UI and tasks stay aligned.
   const auditWithDescription = applyGeneratedDescriptionToAudit(auditWithStrategy, content);
-  const execution = generateExecutionQueue(auditWithDescription, content);
+  const execution = generateExecutionQueue(auditWithDescription, content, {
+    avgCustomerValue: client.avgCustomerValue,
+  });
 
   const audit: FullAuditPayload = {
     ...auditWithDescription,
