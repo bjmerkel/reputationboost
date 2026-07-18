@@ -49,7 +49,7 @@ import { resolvePlanStepNumber } from "./plan-task-utils";
 import { isMutableByReconcile } from "./task-identity";
 import { PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
 import { buildAttributionCalibration } from "@/audit/phase2/attribution-calibration";
-import { listActionAttributionsForUser } from "@/audit/storage-attribution";
+import { listActionAttributionsForBusinessAdmin, listActionAttributionsForUser } from "@/audit/storage-attribution";
 import {
   categoryLabelsMatch,
   filterActionableSecondaryCategories,
@@ -678,11 +678,18 @@ export async function reconcilePlanForBusiness(
   );
 
   const content = await resolveReconcileContent(audit, existing, options.content);
-  // Daily/admin reconcile uses model ordering; session reconcile loads attributions.
+  let calibration: ReturnType<typeof buildAttributionCalibration> | undefined;
+  try {
+    const attributions = await listActionAttributionsForBusinessAdmin(row.id, 50);
+    calibration = buildAttributionCalibration(attributions);
+  } catch {
+    // Attribution load is best-effort — plan still reconciles with model estimates.
+  }
   const computation = computePlanReconcile(audit, existing, {
     content,
     avgCustomerValue:
       row.avg_customer_value != null ? Number(row.avg_customer_value) : null,
+    calibration,
   });
 
   if (!options.dryRun) {

@@ -6,6 +6,7 @@ import {
   resolveProjectionsFromTask,
   snapshotTaskProjections,
 } from "@/audit/attribution/projection-snapshot";
+import { buildAttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import type { ExecutionTask } from "@/audit/types";
 
 function task(overrides: Partial<ExecutionTask> = {}): ExecutionTask {
@@ -51,6 +52,74 @@ describe("snapshotTaskProjections", () => {
       task({ actionItemId: "review-1", planStepNumber: null, payload: {} })
     );
     assert.equal(snapshot, null);
+  });
+
+  it("merges business calibration into projection snapshots", () => {
+    const audit = createTestAudit();
+    const businessCalibration = buildAttributionCalibration([
+      {
+        id: "a1",
+        executionTaskId: "t1",
+        businessId: "b1",
+        taskType: "gbp_description",
+        actionItemId: "gbp-step-3",
+        title: "Description",
+        publishedAt: "2026-06-01T00:00:00.000Z",
+        windowDays: 14,
+        primaryKeyword: "plumber dallas",
+        rankBefore: 8,
+        rankAfter: 10,
+        rankDelta: 2,
+        keywordsImproved: 0,
+        callsDelta: 0,
+        directionsDelta: 0,
+        websiteClicksDelta: 0,
+        impressionsDelta: 0,
+        estimatedRevenue: null,
+        projectedDriverImpact: 8,
+        observedDriverImpact: 2,
+        narrative: "",
+        preliminary: false,
+        computedAt: "2026-06-15T00:00:00.000Z",
+      },
+      {
+        id: "a2",
+        executionTaskId: "t2",
+        businessId: "b1",
+        taskType: "gbp_description",
+        actionItemId: "gbp-step-3",
+        title: "Description",
+        publishedAt: "2026-06-02T00:00:00.000Z",
+        windowDays: 14,
+        primaryKeyword: "plumber dallas",
+        rankBefore: 7,
+        rankAfter: 9,
+        rankDelta: 2,
+        keywordsImproved: 0,
+        callsDelta: 0,
+        directionsDelta: 0,
+        websiteClicksDelta: 0,
+        impressionsDelta: 0,
+        estimatedRevenue: null,
+        projectedDriverImpact: 7,
+        observedDriverImpact: 1,
+        narrative: "",
+        preliminary: false,
+        computedAt: "2026-06-16T00:00:00.000Z",
+      },
+    ]);
+
+    const uncalibrated = snapshotTaskProjections(audit, task(), {
+      avgCustomerValue: 350,
+    });
+    const withBusiness = snapshotTaskProjections(audit, task(), {
+      avgCustomerValue: 350,
+      calibration: businessCalibration,
+    });
+
+    assert.ok(uncalibrated);
+    assert.ok(withBusiness);
+    assert.ok((withBusiness!.projectedDriverImpact ?? 0) < (uncalibrated!.projectedDriverImpact ?? 0));
   });
 });
 
