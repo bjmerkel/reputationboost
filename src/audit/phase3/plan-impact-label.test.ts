@@ -22,10 +22,21 @@ function stubStep(overrides: Partial<PlanStep["context"]>): PlanStep {
 }
 
 describe("formatPlanStepImpactLabel", () => {
-  it("prefers revenue over leads", () => {
+  it("prefers revenue over leads and marks uncalibrated estimates as model", () => {
     assert.equal(
       formatPlanStepImpactLabel(
         stubStep({ revenueImpact: 400, leadsImpact: 12 }),
+        "USD"
+      ),
+      "+$400/mo model est."
+    );
+    assert.equal(
+      formatPlanStepImpactLabel(
+        stubStep({
+          revenueImpact: 400,
+          leadsImpact: 12,
+          projectionConfidence: "high",
+        }),
         "USD"
       ),
       "+$400/mo est."
@@ -35,18 +46,18 @@ describe("formatPlanStepImpactLabel", () => {
   it("falls back to leads/mo when revenue is missing", () => {
     assert.equal(
       formatPlanStepImpactLabel(stubStep({ leadsImpact: 12.4 }), "USD"),
-      "+12 leads/mo est."
+      "+12 leads/mo model est."
     );
     assert.equal(
       formatPlanStepImpactLabel(stubStep({ leadsImpact: 0.4 }), "USD"),
-      "+0.4 leads/mo est."
+      "+0.4 leads/mo model est."
     );
   });
 
   it("falls back to actions/mo before ranking points", () => {
     assert.equal(
       formatPlanStepImpactLabel(stubStep({ engagementImpact: 18 }), "USD"),
-      "+18 actions/mo est."
+      "+18 actions/mo model est."
     );
   });
 

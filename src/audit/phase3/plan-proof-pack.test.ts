@@ -18,7 +18,16 @@ import {
   resolveBestPlanStepForKeyword,
   resolveStepPrimaryKeyword,
 } from "../phase2/keyword-action-binding";
-import { keywordsTargetedByStep } from "../phase2/counterfactual";
+import {
+  isStepSatisfied,
+  keywordsTargetedByStep,
+  photoCoverageIsHealthy,
+} from "../phase2/counterfactual";
+import { planStepImpactScore } from "../phase2/gbp-plan";
+import {
+  blendEngagementRates,
+  buildAttributionCalibration,
+} from "../phase2/attribution-calibration";
 import {
   estimateStepEngagementImpact,
   estimateStepLeadsImpact,
@@ -38,6 +47,9 @@ import {
   PLAN_CHANGELOG_SECTION_ID,
   resolveResultsFocus,
 } from "@/components/results/results-focus";
+import { sortPendingTasks } from "@/lib/execution/pending-tasks";
+import type { ExecutionTask } from "../types";
+import type { ActionAttribution } from "../types/timeseries";
 
 function conversionAudit() {
   const audit = createTestAudit();
@@ -74,11 +86,11 @@ function conversionAudit() {
 
 describe("Plan proof pack (Definition of 9)", () => {
   it("documents polish + revenue acceptance criteria and a live soak checklist", () => {
-    assert.equal(PLAN_DEFINITION_OF_NINE.length, 8);
-    assert.ok(PLAN_SOAK_CHECKLIST.length >= 7);
+    assert.equal(PLAN_DEFINITION_OF_NINE.length, 11);
+    assert.ok(PLAN_SOAK_CHECKLIST.length >= 10);
     assert.deepEqual(
       PLAN_DEFINITION_OF_NINE.map((item) => item.id),
-      ["J1", "J2", "J3", "J4", "J5", "J6", "R1", "R2"]
+      ["J1", "J2", "J3", "J4", "J5", "J6", "R1", "R2", "R3", "R4", "R5"]
     );
   });
 
@@ -351,6 +363,219 @@ describe("Plan proof pack (Definition of 9)", () => {
         `NBA should lead with a conversion step, got ${nba[0]?.stepNumber}`
       );
       assert.notEqual(nba[0]?.stepNumber, 6);
+    });
+  });
+
+  describe("R3 — calibrated engagement estimates", () => {
+    it("blends observed attribution into conversion rates and labels model vs calibrated", () => {
+      const audit = conversionAudit();
+      const heuristic = { calls: 0.025, directions: 0.04, websiteClicks: 0.03 };
+      const attributions: ActionAttribution[] = [1, 2, 3, 4, 5].map((i) => ({
+        id: `a${i}`,
+        executionTaskId: `t${i}`,
+        businessId: "b1",
+        taskType: "gbp_place_action",
+        actionItemId: "gbp-step-15",
+        title: "Place actions",
+        publishedAt: "2026-06-01T00:00:00.000Z",
+        windowDays: 14,
+        primaryKeyword: "plumber near me",
+        rankBefore: null,
+        rankAfter: null,
+        rankDelta: null,
+        keywordsImproved: 0,
+        callsDelta: 2,
+        directionsDelta: 3,
+        websiteClicksDelta: 1,
+        impressionsDelta: null,
+        estimatedRevenue: 200,
+        narrative: "",
+        preliminary: false,
+        computedAt: "2026-06-15T00:00:00.000Z",
+        projectedRevenueGain: 400,
+      }));
+      const calibration = buildAttributionCalibration(attributions);
+      assert.ok(calibration[15].sampleSize >= 5);
+
+      const blended = blendEngagementRates(
+        heuristic,
+        15,
+        500,
+        calibration
+      );
+      // Observed monthlyized rates are lower than heuristics → blend should pull down.
+      assert.ok(blended.calls < heuristic.calls);
+      assert.ok(blended.calls >= heuristic.calls * 0.5);
+
+      const uncalibrated = formatPlanStepImpactLabel({
+        stepNumber: 15,
+        phaseId: "conversion",
+        title: "Place actions",
+        instruction: "Add links",
+        context: {
+          targetKeywords: [],
+          expectedEffect: "More calls",
+          revenueImpact: 100,
+          projectionConfidence: "default",
+        },
+        tasks: [],
+        status: "pending",
+      });
+      assert.match(uncalibrated ?? "", /model est/);
+
+      const calibratedLabel = formatPlanStepImpactLabel({
+        stepNumber: 15,
+        phaseId: "conversion",
+        title: "Place actions",
+        instruction: "Add links",
+        context: {
+          targetKeywords: [],
+          expectedEffect: "More calls",
+          revenueImpact: 100,
+          projectionConfidence: "high",
+        },
+        tasks: [],
+        status: "pending",
+      });
+      assert.equal(calibratedLabel, "+$100/mo est.");
+
+      const engagement = estimateStepEngagementImpact(audit, 15, calibration);
+      assert.ok((engagement ?? 0) > 0);
+    });
+  });
+
+  describe("R4 — media coverage over volume", () => {
+    it("treats coverage-complete photos as satisfied and demotes media under conversion mode", () => {
+      const audit = createTestAudit();
+      audit.gbp.content.photoCount = 30;
+      audit.gbp.content.mediaCoverage = {
+        totalCount: 30,
+        ownerPhotoCount: 25,
+        customerPhotoCount: 5,
+        hasCover: true,
+        hasLogo: true,
+        hasExterior: true,
+        hasInterior: true,
+        hasTeam: true,
+        hasAtWork: true,
+        hasVideo: false,
+        categoryCount: 5,
+        missingCategories: [],
+        coverageScore: 80,
+        totalViews: 1000,
+        ownerTotalViews: 800,
+        ownerAvgViews: 32,
+        ownerZeroViewCount: 0,
+        customerPhotoShare: 0.2,
+        engagementScore: 70,
+        daysSinceLastUpload: 3,
+        photoViewsAvailable: true,
+      };
+      assert.equal(photoCoverageIsHealthy(audit), true);
+      assert.equal(isStepSatisfied(audit, 6), true);
+
+      const converting = createTestAudit();
+      converting.rankings.keywordsInPack = 3;
+      converting.rankings.totalKeywords = 3;
+      converting.rankings.keywords = converting.rankings.keywords.map((kw) => ({
+        ...kw,
+        inLocalPack: true,
+        localPackPosition: 2 as const,
+        geoRanks: kw.geoRanks.map((g) => ({ ...g, rank: 2, inLocalPack: true })),
+      }));
+      converting.gbp.content.photoCount = 80;
+      converting.gbp.performance.profileViews = 500;
+      converting.gbp.performance.calls = 3;
+      converting.gbp.performance.directionRequests = 2;
+      converting.gbp.performance.websiteClicks = 0;
+      converting.gbp.performance.coverage = {
+        apiAvailable: true,
+        partialApi: false,
+        coverageScore: 70,
+        hasCoreMetrics: true,
+        hasImpressionMetrics: true,
+        hasSearchKeywords: true,
+        hasConversations: false,
+        hasBookings: false,
+        keywordCount: 3,
+        trackedKeywordCount: 3,
+        totalActions: 5,
+        actionRate: 1,
+        endpoints: { coreMetrics: "ok", impressions: "ok", searchKeywords: "ok" },
+        recommendations: [],
+      };
+      converting.gbp.placeActions = {
+        apiAvailable: true,
+        partialApi: false,
+        coverageScore: 0,
+        linkCount: 0,
+        merchantLinkCount: 0,
+        configuredTypes: [],
+        availableTypes: ["APPOINTMENT"],
+        missingRecommendedTypes: ["APPOINTMENT"],
+        missingAvailableTypes: ["APPOINTMENT"],
+        typeCatalog: [{ placeActionType: "APPOINTMENT", displayName: "Book" }],
+        hasAppointmentLink: false,
+        hasOnlineAppointmentLink: false,
+        hasDiningReservationLink: false,
+        hasFoodOrderingLink: false,
+        hasShopOnlineLink: false,
+        endpoints: { links: "ok", typeMetadata: "ok" },
+        recommendations: [],
+      };
+
+      assert.equal(auditPrefersConversionOverRank(converting), true);
+      assert.ok(
+        planStepImpactScore(converting, 15, 350) >
+          planStepImpactScore(converting, 6, 350)
+      );
+    });
+  });
+
+  describe("R5 — batch approve impact order", () => {
+    it("orders pending approvals by revenue/leads/engagement impact", () => {
+      const tasks: ExecutionTask[] = [
+        {
+          id: "early",
+          auditId: "a",
+          actionItemId: "gbp-step-3",
+          type: "gbp_description",
+          title: "Description",
+          description: "",
+          priority: "P0",
+          status: "pending_approval",
+          draftContent: "x",
+          payload: { gbpStepNumber: 3, projectedRevenueGain: 40 },
+          requiresApproval: true,
+          scheduledFor: null,
+          completedAt: null,
+          result: null,
+          createdAt: "2026-07-03T00:00:00.000Z",
+          planStepNumber: 3,
+        },
+        {
+          id: "later-higher",
+          auditId: "a",
+          actionItemId: "gbp-step-15",
+          type: "gbp_place_action",
+          title: "Place actions",
+          description: "",
+          priority: "P2",
+          status: "pending_approval",
+          draftContent: null,
+          payload: { gbpStepNumber: 15, projectedRevenueGain: 400 },
+          requiresApproval: true,
+          scheduledFor: null,
+          completedAt: null,
+          result: null,
+          createdAt: "2026-07-03T00:00:00.000Z",
+          planStepNumber: 15,
+        },
+      ];
+
+      const sorted = sortPendingTasks(tasks);
+      assert.equal(sorted[0]?.id, "later-higher");
+      assert.equal(sorted[1]?.id, "early");
     });
   });
 });

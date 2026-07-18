@@ -252,16 +252,19 @@ export function buildStepContext(
       : estimateStepHealthImpact(audit, step.stepNumber, calibration),
     outcomeScoreImpact: isCustom
       ? undefined
-      : estimateStepOutcomeImpact(audit, step.stepNumber),
+      : estimateStepOutcomeImpact(audit, step.stepNumber, calibration),
+    // Custom LLM steps: no fabricated $/leads — rationale/expectedEffect carries the signal.
     revenueImpact: isCustom
       ? null
-      : estimateStepRevenueImpact(audit, step.stepNumber, avgCustomerValue),
-    leadsImpact: isCustom ? null : estimateStepLeadsImpact(audit, step.stepNumber),
+      : estimateStepRevenueImpact(audit, step.stepNumber, avgCustomerValue, calibration),
+    leadsImpact: isCustom
+      ? null
+      : estimateStepLeadsImpact(audit, step.stepNumber, calibration),
     engagementImpact: isCustom
       ? null
-      : estimateStepEngagementImpact(audit, step.stepNumber),
+      : estimateStepEngagementImpact(audit, step.stepNumber, calibration),
     projectionConfidence: isCustom
-      ? undefined
+      ? "default"
       : resolveCalibrationConfidence(sampleSize),
   };
 }

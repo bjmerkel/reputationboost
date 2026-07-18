@@ -57,6 +57,17 @@ export function planStepImpactScore(
       score += 75;
     }
   }
+  // Demote media busywork when the listing is visible but under-converting, or
+  // when photo/video coverage is already adequate.
+  if (stepNumber === 6 || stepNumber === 7) {
+    if (auditPrefersConversionOverRank(audit)) {
+      score *= 0.25;
+    } else if (stepNumber === 6 && audit.gbp.content.photoCount >= 40) {
+      score *= 0.5;
+    } else if (stepNumber === 7 && audit.gbp.content.videoCount >= 1) {
+      score *= 0.4;
+    }
+  }
   return score;
 }
 
@@ -210,7 +221,10 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
   const city = cityFromAddress(audit.gbp.identity.address);
   const category = audit.gbp.identity.primaryCategory;
   const reviewTarget = Math.max(200, audit.gbp.engagement.reviewCount + 50);
-  const photoTarget = Math.max(200, audit.gbp.content.photoCount + 80);
+  const mediaCoverage = audit.gbp.content.mediaCoverage;
+  const missingPhotoCategories = mediaCoverage?.missingCategories?.length
+    ? mediaCoverage.missingCategories
+    : ["Exterior", "At work", "Team"];
   const keywordRankings = buildKeywordRankAnalysis(audit);
   const recommendedSecondary = inferRecommendedSecondaryCategories(audit);
   const liveSecondary =
@@ -294,29 +308,35 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
     {
       stepNumber: 6,
       title: "Photo Optimization",
-      instruction: `Google rewards active profiles. You currently have ${audit.gbp.content.photoCount} photos — target ${photoTarget}+ to compete with pack leaders.`,
-      current: `${audit.gbp.content.photoCount} photos on profile`,
-      recommended: `${photoTarget}+ photos with service-specific shots for each keyword`,
+      instruction: `Fill photo coverage gaps (not an arbitrary total). You have ${audit.gbp.content.photoCount} photos${
+        mediaCoverage ? ` · coverage score ${mediaCoverage.coverageScore}` : ""
+      }. Prioritize missing categories and service shots for keywords outside the 3-Pack.`,
+      current: mediaCoverage
+        ? `${audit.gbp.content.photoCount} photos · coverage ${mediaCoverage.coverageScore} · missing: ${
+            mediaCoverage.missingCategories.join(", ") || "none"
+          }`
+        : `${audit.gbp.content.photoCount} photos on profile`,
+      recommended: `Cover ${missingPhotoCategories.slice(0, 4).join(", ")} plus service shots for priority keywords`,
       bullets: [
-        "Exterior & storefront: 10 photos",
-        "Interior / team / fleet shots: 20+ photos",
+        ...missingPhotoCategories.slice(0, 4).map((label) => `Add: ${label}`),
         ...outcomePriorityRankings(keywordRankings)
-          .slice(0, 4)
-          .map((k) => `Add photos for "${k.keyword}" service (${k.position})`),
-        "Upload 5+ new photos every week",
+          .slice(0, 3)
+          .map((k) => `Service photos for "${k.keyword}" (${k.position})`),
+        "Skip bulk uploads once coverage and trust categories are filled",
       ],
       gbpAction: "upload_photo",
     },
     {
       stepNumber: 7,
       title: "Videos",
-      instruction: "Upload 2-4 short videos weekly (30-60 seconds each) to boost engagement signals.",
+      instruction:
+        "Add at least one short service video for a top keyword. Extra weekly videos help cadence, but one strong clip unblocks this step.",
       current:
         audit.gbp.content.videoCount > 0
           ? `${audit.gbp.content.videoCount} videos on profile`
           : "No videos on profile yet",
-      recommended: "2-4 videos per week showcasing your top services",
-      bullets: targetKeywords.slice(0, 4).map((kw) => `Short video featuring ${kw}`),
+      recommended: "1+ short video featuring a priority service/keyword",
+      bullets: targetKeywords.slice(0, 3).map((kw) => `Short video featuring ${kw}`),
       gbpAction: "upload_video",
     },
     {

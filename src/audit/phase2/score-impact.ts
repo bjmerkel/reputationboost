@@ -1,6 +1,7 @@
 import type { FullAuditPayload, GapFlag, Phase1AuditPayload, ScoreComponent } from "../types";
 import type { AttributionCalibration } from "./attribution-calibration";
 import { calibratedStepImpact, mergeCalibrations } from "./attribution-calibration";
+import type { CounterfactualProjectionOptions } from "./counterfactual";
 import {
   projectOutcomeScoresFromActions,
   simulateActionMarginalImpact,
@@ -100,11 +101,27 @@ export function gapCandidateSortScore(
   );
 }
 
+function stepProjectionOptions(
+  avgCustomerValue?: number | null,
+  calibration?: AttributionCalibration
+): CounterfactualProjectionOptions {
+  return {
+    ...(avgCustomerValue != null && avgCustomerValue > 0 ? { avgCustomerValue } : {}),
+    ...(calibration ? { calibration } : {}),
+  };
+}
+
 /** Plan step outcome-index gain if completed in isolation. */
-export function estimateStepOutcomeImpact(audit: Phase1AuditPayload, stepNumber: number): number {
-  const projection = projectOutcomeScoresFromActions(audit, [
-    { source: "plan", id: `gbp-step-${stepNumber}` },
-  ]);
+export function estimateStepOutcomeImpact(
+  audit: Phase1AuditPayload,
+  stepNumber: number,
+  calibration?: AttributionCalibration
+): number {
+  const projection = projectOutcomeScoresFromActions(
+    audit,
+    [{ source: "plan", id: `gbp-step-${stepNumber}` }],
+    stepProjectionOptions(null, calibration)
+  );
   return Math.max(0, projection.outcomeGain);
 }
 
@@ -112,13 +129,14 @@ export function estimateStepOutcomeImpact(audit: Phase1AuditPayload, stepNumber:
 export function estimateStepRevenueImpact(
   audit: Phase1AuditPayload,
   stepNumber: number,
-  avgCustomerValue?: number | null
+  avgCustomerValue?: number | null,
+  calibration?: AttributionCalibration
 ): number | null {
   if (avgCustomerValue == null || avgCustomerValue <= 0) return null;
   const projection = projectOutcomeScoresFromActions(
     audit,
     [{ source: "plan", id: `gbp-step-${stepNumber}` }],
-    { avgCustomerValue }
+    stepProjectionOptions(avgCustomerValue, calibration)
   );
   return projection.revenueGain;
 }
@@ -126,22 +144,28 @@ export function estimateStepRevenueImpact(
 /** Plan step estimated monthly lead gain if completed in isolation (no ACV). */
 export function estimateStepLeadsImpact(
   audit: Phase1AuditPayload,
-  stepNumber: number
+  stepNumber: number,
+  calibration?: AttributionCalibration
 ): number | null {
-  const projection = projectOutcomeScoresFromActions(audit, [
-    { source: "plan", id: `gbp-step-${stepNumber}` },
-  ]);
+  const projection = projectOutcomeScoresFromActions(
+    audit,
+    [{ source: "plan", id: `gbp-step-${stepNumber}` }],
+    stepProjectionOptions(null, calibration)
+  );
   return projection.leadsGain;
 }
 
 /** Plan step estimated monthly profile-action lift (calls+directions+clicks). */
 export function estimateStepEngagementImpact(
   audit: Phase1AuditPayload,
-  stepNumber: number
+  stepNumber: number,
+  calibration?: AttributionCalibration
 ): number | null {
-  const projection = projectOutcomeScoresFromActions(audit, [
-    { source: "plan", id: `gbp-step-${stepNumber}` },
-  ]);
+  const projection = projectOutcomeScoresFromActions(
+    audit,
+    [{ source: "plan", id: `gbp-step-${stepNumber}` }],
+    stepProjectionOptions(null, calibration)
+  );
   return projection.engagementActionsGain;
 }
 

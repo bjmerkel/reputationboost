@@ -67,6 +67,7 @@ export {
   weakestRadiusImproved,
 } from "./service-area-attribution";
 export {
+  blendEngagementRates,
   buildAttributionCalibration,
   buildGapAttributionCalibration,
   calibratedRevenueGain,
@@ -77,6 +78,7 @@ export {
   rankDeltaForGap,
   resolveCalibrationConfidence,
 } from "./attribution-calibration";
+export type { EngagementGainRates } from "./attribution-calibration";
 export { applyRankSnapshotsToAudit, applyGridSnapshotsToAudit, computeScoreDailySnapshot } from "./score-snapshot";
 export { buildScoreChangelogFromSnapshots, buildScoreChangelogFromHealthScores, buildRankMovementsFromSnapshots, buildRankMovementsForChangelog } from "./score-changelog";
 export { backfillScoreDailyForBusiness, ingestScoreDailyForBusiness } from "./score-ingest";
@@ -130,6 +132,10 @@ export {
   isStepSatisfied,
   keywordNeedsOutcomeWork,
   keywordsTargetedByStep,
+  photoCoverageIsHealthy,
+  videoCoverageIsHealthy,
+  conversionEngagementRates,
+  heuristicConversionEngagementRates,
   pickActionsForDriverTarget,
   pickActionsForTarget,
   estimateTotalMonthlyLeads,

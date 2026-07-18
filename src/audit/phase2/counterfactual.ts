@@ -6,10 +6,13 @@ import {
 } from "./gbp-current-state";
 import { resolveKeywordRelevance } from "./relevance-heuristic";
 import { computeHealthScores } from "./scoring";
-import type { AttributionCalibration, GapAttributionCalibration } from "./attribution-calibration";
 import {
+  blendEngagementRates,
   calibratedRevenueGain,
   rankDeltaForGap,
+  type AttributionCalibration,
+  type EngagementGainRates,
+  type GapAttributionCalibration,
 } from "./attribution-calibration";
 import {
   compositeMarginalScore,
@@ -37,14 +40,10 @@ import {
 
 const CONVERSION_PLAN_STEP_SET = new Set<number>(CONVERSION_PLAN_STEPS);
 
-interface EngagementGainRates {
-  calls: number;
-  directions: number;
-  websiteClicks: number;
-}
-
 /** Fractional view→action rates for conversion-family plan steps. */
-function conversionEngagementRates(stepNumber: number): EngagementGainRates | null {
+export function heuristicConversionEngagementRates(
+  stepNumber: number
+): EngagementGainRates | null {
   switch (stepNumber) {
     case 8:
       return { calls: 0.02, directions: 0.025, websiteClicks: 0 };
@@ -59,6 +58,17 @@ function conversionEngagementRates(stepNumber: number): EngagementGainRates | nu
   }
 }
 
+/** Heuristic rates blended with attribution when sample size ≥ 2. */
+export function conversionEngagementRates(
+  stepNumber: number,
+  views: number,
+  calibration?: AttributionCalibration
+): EngagementGainRates | null {
+  const heuristic = heuristicConversionEngagementRates(stepNumber);
+  if (!heuristic) return null;
+  return blendEngagementRates(heuristic, stepNumber, views, calibration);
+}
+
 function scaleConversionEngagementGains(
   views: number,
   rates: EngagementGainRates,
@@ -71,7 +81,8 @@ function scaleConversionEngagementGains(
   };
 }
 
-const PHOTO_TARGET = 60;
+/** Soft floor for photo mutations — satisfaction uses coverage, not this count. */
+const PHOTO_COVERAGE_FLOOR = 25;
 const POST_FRESH_DAYS = 14;
 const RESPONSE_RATE_TARGET = 0.85;
 const DESCRIPTION_MIN_LENGTH = 400;
@@ -275,6 +286,28 @@ export function cloneAudit<T extends Phase1AuditPayload>(audit: T): T {
   return structuredClone(audit);
 }
 
+/** Photos are healthy when category coverage is strong — not an arbitrary count. */
+export function photoCoverageIsHealthy(audit: Phase1AuditPayload): boolean {
+  const coverage = audit.gbp.content.mediaCoverage;
+  if (coverage) {
+    const hasCoreTrust =
+      coverage.hasExterior &&
+      (coverage.hasAtWork || coverage.hasTeam || coverage.hasInterior);
+    return (
+      coverage.coverageScore >= 65 &&
+      hasCoreTrust &&
+      coverage.missingCategories.length <= 1
+    );
+  }
+  return audit.gbp.content.photoCount >= PHOTO_COVERAGE_FLOOR;
+}
+
+/** One recent service video is enough; weekly volume is cadence, not a gate. */
+export function videoCoverageIsHealthy(audit: Phase1AuditPayload): boolean {
+  if (audit.gbp.content.mediaCoverage?.hasVideo) return true;
+  return audit.gbp.content.videoCount >= 1;
+}
+
 /** Whether a GBP plan step area is already in good shape for this business. */
 export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): boolean {
   const { gbp, reviews } = audit;
@@ -308,9 +341,9 @@ export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): 
     case 5:
       return audit.rankings.keywords.every((k) => k.inLocalPack);
     case 6:
-      return gbp.content.photoCount >= PHOTO_TARGET;
+      return photoCoverageIsHealthy(audit);
     case 7:
-      return gbp.content.videoCount >= 2;
+      return videoCoverageIsHealthy(audit);
     case 8:
       return daysSince(gbp.content.lastPostDate) <= POST_FRESH_DAYS;
     case 9:
@@ -423,16 +456,28 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
     }
     case 5:
       break;
-    case 6:
+    case 6: {
       audit.gbp.content.photoCount = Math.max(
-        PHOTO_TARGET,
-        audit.gbp.content.photoCount,
-        Math.max(200, audit.gbp.content.photoCount + 80)
+        PHOTO_COVERAGE_FLOOR,
+        audit.gbp.content.photoCount
       );
+      const media = audit.gbp.content.mediaCoverage;
+      if (media) {
+        media.hasExterior = true;
+        media.hasInterior = true;
+        media.hasAtWork = true;
+        media.hasTeam = true;
+        media.missingCategories = [];
+        media.coverageScore = Math.max(media.coverageScore, 80);
+      }
       bumpCompleteness(audit);
       break;
+    }
     case 7:
-      audit.gbp.content.videoCount = Math.max(2, audit.gbp.content.videoCount);
+      audit.gbp.content.videoCount = Math.max(1, audit.gbp.content.videoCount);
+      if (audit.gbp.content.mediaCoverage) {
+        audit.gbp.content.mediaCoverage.hasVideo = true;
+      }
       break;
     case 8: {
       audit.gbp.content.lastPostDate = new Date().toISOString();
@@ -597,7 +642,19 @@ export function applyGapMutation(audit: Phase1AuditPayload, gap: GapFlag): void 
       audit.gbp.content.lastPostDate = new Date().toISOString();
       break;
     case "low-photos":
-      audit.gbp.content.photoCount = Math.max(PHOTO_TARGET, audit.gbp.content.photoCount);
+      audit.gbp.content.photoCount = Math.max(
+        PHOTO_COVERAGE_FLOOR,
+        audit.gbp.content.photoCount
+      );
+      if (audit.gbp.content.mediaCoverage) {
+        audit.gbp.content.mediaCoverage.coverageScore = Math.max(
+          audit.gbp.content.mediaCoverage.coverageScore,
+          70
+        );
+        audit.gbp.content.mediaCoverage.hasExterior = true;
+        audit.gbp.content.mediaCoverage.hasAtWork = true;
+        audit.gbp.content.mediaCoverage.missingCategories = [];
+      }
       break;
     case "missing-holiday-hours":
       audit.gbp.completeness.hasHolidayHours = true;
@@ -1119,13 +1176,14 @@ export function estimateTotalMonthlyLeads(audit: Phase1AuditPayload): number | n
 export function applyConversionEngagementMutation(
   audit: Phase1AuditPayload,
   stepNumber: number,
-  stackIndex = 0
+  stackIndex = 0,
+  calibration?: AttributionCalibration
 ): void {
-  const rates = conversionEngagementRates(stepNumber);
-  if (!rates) return;
-
   const perf = audit.gbp.performance;
   const views = Math.max(perf.profileViews, 100);
+  const rates = conversionEngagementRates(stepNumber, views, calibration);
+  if (!rates) return;
+
   const gains = scaleConversionEngagementGains(
     views,
     rates,
@@ -1169,7 +1227,7 @@ export function applyOutcomeMutation(
   if (stepNumber >= CUSTOM_PLAN_STEP_START) return;
   if (isStepSatisfied(audit, stepNumber)) return;
 
-  applyConversionEngagementMutation(audit, stepNumber, stackIndex);
+  applyConversionEngagementMutation(audit, stepNumber, stackIndex, calibration);
 
   // Conversion-family + alerts: engagement channel only — no pack-rank revenue claim.
   if (CONVERSION_PLAN_STEP_SET.has(stepNumber) || stepNumber === 14) return;
@@ -1293,7 +1351,8 @@ export function stackDampeningFactor(stackIndex: number): number {
 /** Raw monthly action lifts (calls/directions/clicks) from conversion-family plan steps. */
 function conversionEngagementRawActions(
   audit: Phase1AuditPayload,
-  actions: ActionRef[]
+  actions: ActionRef[],
+  calibration?: AttributionCalibration
 ): { calls: number; directions: number; websiteClicks: number } | null {
   const views = Math.max(audit.gbp.performance.profileViews, 100);
   let calls = 0;
@@ -1309,7 +1368,7 @@ function conversionEngagementRawActions(
     const match = action.id.match(/^gbp-step-(\d+)$/);
     const stepNumber = match ? Number(match[1]) : NaN;
     const rates = Number.isFinite(stepNumber)
-      ? conversionEngagementRates(stepNumber)
+      ? conversionEngagementRates(stepNumber, views, calibration)
       : null;
     if (rates) {
       sawConversion = true;
@@ -1336,9 +1395,10 @@ function conversionEngagementRawActions(
  */
 function conversionEngagementRawLeads(
   audit: Phase1AuditPayload,
-  actions: ActionRef[]
+  actions: ActionRef[],
+  calibration?: AttributionCalibration
 ): number | null {
-  const gains = conversionEngagementRawActions(audit, actions);
+  const gains = conversionEngagementRawActions(audit, actions, calibration);
   if (!gains) return null;
 
   // Mirror DEFAULT_ROI_CONFIG lead rates without importing a circular path.
@@ -1347,28 +1407,31 @@ function conversionEngagementRawLeads(
 
 function conversionEngagementActionsGain(
   audit: Phase1AuditPayload,
-  actions: ActionRef[]
+  actions: ActionRef[],
+  calibration?: AttributionCalibration
 ): number | null {
-  const gains = conversionEngagementRawActions(audit, actions);
+  const gains = conversionEngagementRawActions(audit, actions, calibration);
   if (!gains) return null;
   return gains.calls + gains.directions + gains.websiteClicks;
 }
 
 function conversionEngagementLeadsGain(
   audit: Phase1AuditPayload,
-  actions: ActionRef[]
+  actions: ActionRef[],
+  calibration?: AttributionCalibration
 ): number | null {
-  const raw = conversionEngagementRawLeads(audit, actions);
+  const raw = conversionEngagementRawLeads(audit, actions, calibration);
   return raw == null ? null : roundLeadCount(raw);
 }
 
 function conversionEngagementRevenueGain(
   audit: Phase1AuditPayload,
   actions: ActionRef[],
-  avgCustomerValue?: number | null
+  avgCustomerValue?: number | null,
+  calibration?: AttributionCalibration
 ): number | null {
   if (avgCustomerValue == null || avgCustomerValue <= 0) return null;
-  const raw = conversionEngagementRawLeads(audit, actions);
+  const raw = conversionEngagementRawLeads(audit, actions, calibration);
   if (raw == null) return null;
   return Math.round(raw * avgCustomerValue);
 }
@@ -1402,12 +1465,21 @@ export function projectOutcomeScoresFromActions(
   const conversionRevenue = conversionEngagementRevenueGain(
     audit,
     actions,
-    options.avgCustomerValue
+    options.avgCustomerValue,
+    options.calibration
   );
   const beforeLeads = totalEstimatedLeads(audit);
   const afterLeads = totalEstimatedLeads(mutated);
-  const conversionLeads = conversionEngagementLeadsGain(audit, actions);
-  const engagementActionsGain = conversionEngagementActionsGain(audit, actions);
+  const conversionLeads = conversionEngagementLeadsGain(
+    audit,
+    actions,
+    options.calibration
+  );
+  const engagementActionsGain = conversionEngagementActionsGain(
+    audit,
+    actions,
+    options.calibration
+  );
 
   const rankRevenueGain =
     beforeRevenue != null && afterRevenue != null

@@ -6,6 +6,7 @@ import {
   pendingBatchTasks,
   pendingRoutineTasks,
   sortPendingTasks,
+  taskImpactScore,
 } from "./pending-tasks";
 
 function task(overrides: Partial<ExecutionTask> & { id: string }): ExecutionTask {
@@ -30,7 +31,28 @@ function task(overrides: Partial<ExecutionTask> & { id: string }): ExecutionTask
 }
 
 describe("pending-tasks", () => {
-  it("sorts by plan step then priority", () => {
+  it("sorts by impact (NBA order) before step number", () => {
+    const sorted = sortPendingTasks([
+      task({
+        id: "low-step-high-impact",
+        planStepNumber: 8,
+        priority: "P2",
+        actionItemId: "gbp-step-8",
+        payload: { gbpStepNumber: 8, projectedRevenueGain: 500 },
+      }),
+      task({
+        id: "early-step-low-impact",
+        planStepNumber: 3,
+        priority: "P0",
+        payload: { gbpStepNumber: 3, projectedRevenueGain: 50 },
+      }),
+    ]);
+    assert.equal(sorted[0].id, "low-step-high-impact");
+    assert.equal(sorted[1].id, "early-step-low-impact");
+    assert.ok(taskImpactScore(sorted[0]) > taskImpactScore(sorted[1]));
+  });
+
+  it("falls back to priority then step when impact ties", () => {
     const sorted = sortPendingTasks([
       task({ id: "b", planStepNumber: 8, priority: "P1", actionItemId: "gbp-step-8" }),
       task({ id: "a", planStepNumber: 3, priority: "P0" }),
