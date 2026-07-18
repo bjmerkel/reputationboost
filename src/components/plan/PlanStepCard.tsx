@@ -294,6 +294,11 @@ export default function PlanStepCard({
               {step.outcome.narrative}
             </p>
           )}
+          {isCompleted && stepTrackingLabel && (
+            <p className={`mb-3 text-xs ${isLight ? "text-[#e37400]" : "text-amber-400"}`}>
+              {stepTrackingLabel}
+            </p>
+          )}
           {isCompleted && (
             <DriverImpactComparison
               attribution={stepAttribution}
