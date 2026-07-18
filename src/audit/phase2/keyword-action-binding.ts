@@ -1,4 +1,4 @@
-import type { Phase1AuditPayload, Plan, PlanStep } from "../types";
+import type { FullAuditPayload, Phase1AuditPayload, Plan, PlanStep } from "../types";
 import { keywordsTargetedByStep, keywordNeedsOutcomeWork } from "./counterfactual";
 import { detectPackFragility } from "./scoring";
 import { computeKeywordScores } from "./keyword-scores";
@@ -271,4 +271,160 @@ export function resolveBestPlanStepForKeyword(
 
   return [...unfinished].sort((a, b) => stepImpactScore(b) - stepImpactScore(a))[0]
     ?.stepNumber;
+}
+
+export interface KeywordPlaybookSupportingStep {
+  stepNumber: number;
+  title: string;
+}
+
+/** UI model for “win this keyword” playbooks on the Plan tab. */
+export interface KeywordPlaybook {
+  keyword: string;
+  rank: number;
+  inLocalPack: boolean;
+  packFragile: boolean;
+  positionLabel: string;
+  impressions: number | null;
+  revenueGap: number | null;
+  primaryStep: number | null;
+  primaryStepTitle: string | null;
+  ctaLabel: string;
+  rationale: string;
+  supportingSteps: KeywordPlaybookSupportingStep[];
+}
+
+export function ctaLabelForPlanStep(stepNumber: number, title?: string | null): string {
+  switch (stepNumber) {
+    case 3:
+      return "Rewrite description";
+    case 4:
+    case 5:
+      return "Add GBP services";
+    case 6:
+      return "Add coverage photos";
+    case 7:
+      return "Add a service video";
+    case 8:
+      return "Publish CTA post";
+    case 10:
+      return "Request reviews";
+    case 11:
+      return "Respond to reviews";
+    case 13:
+      return "Enable attributes";
+    case 15:
+      return "Add booking links";
+    default:
+      return title ? `Open: ${title}` : "Open step";
+  }
+}
+
+export interface KeywordPlaybookOptions extends KeywordBindingOptions {
+  /** Max playbooks to return (default 3). */
+  limit?: number;
+}
+
+/**
+ * Top keyword playbooks for Plan first viewport: position, gap, one primary CTA,
+ * and supporting unfinished steps for “More for this keyword”.
+ */
+export function buildKeywordPlaybooks(
+  audit: Phase1AuditPayload | FullAuditPayload,
+  plan: Plan,
+  options: KeywordPlaybookOptions = {}
+): KeywordPlaybook[] {
+  const limit = options.limit ?? 3;
+  const scores = computeKeywordScores(audit, {
+    avgCustomerValue: options.avgCustomerValue,
+  });
+  const scoreByKeyword = new Map(
+    scores.map((card) => [card.keyword.toLowerCase(), card])
+  );
+  const strategy = "strategy" in audit ? audit.strategy : undefined;
+  const rankings = strategy?.gbpPlan?.keywordRankings ?? [];
+  const rankingByKeyword = new Map(
+    rankings.map((row) => [row.keyword.toLowerCase(), row])
+  );
+  const priorities = strategy?.gbpPlan?.keywordPriority ?? [];
+
+  const unfinishedSteps = plan.steps.filter(
+    (step) => ACTIONABLE.has(step.status) && step.stepNumber !== 0
+  );
+  const unfinishedByNumber = new Map(
+    unfinishedSteps.map((step) => [step.stepNumber, step])
+  );
+  const bindings = buildKeywordActionBindings(audit, {
+    ...options,
+    unfinishedStepNumbers: new Set(unfinishedByNumber.keys()),
+  });
+  const bindingByKeyword = new Map(
+    bindings.map((binding) => [binding.keyword.toLowerCase(), binding])
+  );
+
+  const orderedKeywords =
+    priorities.length > 0
+      ? priorities.map((item) => item.keyword)
+      : bindings.map((binding) => binding.keyword);
+
+  const seen = new Set<string>();
+  const playbooks: KeywordPlaybook[] = [];
+
+  for (const keyword of orderedKeywords) {
+    const key = keyword.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const ranking = rankingByKeyword.get(key);
+    const score = scoreByKeyword.get(key);
+    const binding = bindingByKeyword.get(key);
+    const primaryStep =
+      resolveBestPlanStepForKeyword(audit, plan, keyword, options) ?? null;
+    const primaryCard = primaryStep != null ? unfinishedByNumber.get(primaryStep) : undefined;
+    const supportingSteps: KeywordPlaybookSupportingStep[] = [];
+    if (binding) {
+      for (const stepNumber of binding.supportingSteps) {
+        if (stepNumber === primaryStep) continue;
+        const card = unfinishedByNumber.get(stepNumber);
+        if (!card) continue;
+        supportingSteps.push({ stepNumber, title: card.title });
+        if (supportingSteps.length >= 3) break;
+      }
+    }
+
+    const inLocalPack = ranking?.inLocalPack ?? score?.inLocalPack ?? false;
+    const packFragile = ranking?.packFragile ?? binding?.packFragile ?? false;
+    const positionLabel =
+      ranking?.position ??
+      score?.positionLabel ??
+      (inLocalPack ? "In 3-Pack" : "Outside 3-Pack");
+
+    playbooks.push({
+      keyword,
+      rank: playbooks.length + 1,
+      inLocalPack,
+      packFragile,
+      positionLabel,
+      impressions: score?.impressions ?? null,
+      revenueGap:
+        score?.potentialAtRank1 != null && score?.estimatedMonthlyRevenue != null
+          ? Math.max(0, score.potentialAtRank1 - score.estimatedMonthlyRevenue)
+          : null,
+      primaryStep,
+      primaryStepTitle: primaryCard?.title ?? null,
+      ctaLabel:
+        primaryStep != null
+          ? ctaLabelForPlanStep(primaryStep, primaryCard?.title)
+          : "View plan",
+      rationale:
+        binding?.rationale ??
+        priorities.find((item) => item.keyword.toLowerCase() === key)?.reason ??
+        `Win “${keyword}” for more profile views, calls, and directions.`,
+      supportingSteps,
+    });
+
+    if (playbooks.length >= limit) break;
+  }
+
+  return playbooks;
 }

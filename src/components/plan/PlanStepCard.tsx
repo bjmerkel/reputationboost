@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import type { PlanStep, GbpAttributeCoverage, GbpMediaCoverage, GbpPlaceActionCoverage, GbpPlaceActionLinkSummary } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
-import { formatPlanStepImpactLabel } from "@/audit/phase3/plan-impact-label";
+import {
+  formatCustomPlanStepSignal,
+  formatPlanStepImpactLabel,
+} from "@/audit/phase3/plan-impact-label";
+import { isCustomPlanStep } from "@/audit/phase3/plan-custom-steps";
 import PlanStepDiff from "./PlanStepDiff";
 import PlanStepPhotos from "./PlanStepPhotos";
 import PlanStepVideos from "./PlanStepVideos";
@@ -123,15 +127,26 @@ export default function PlanStepCard({
   const stepAttribution = step.tasks
     .map((task) => attributionByTaskId[task.id])
     .find((attr) => attr != null);
+  const isCustom = isCustomPlanStep(step.stepNumber);
   const showLeadOrRevenueImpact =
     !isCompleted &&
     step.status !== "skipped" &&
     ((step.context.revenueImpact ?? 0) > 0 ||
       (step.context.leadsImpact ?? 0) > 0 ||
-      (step.context.engagementImpact ?? 0) > 0);
+      (step.context.engagementImpact ?? 0) > 0 ||
+      isCustom);
   const leadOrRevenueLabel = showLeadOrRevenueImpact
     ? formatPlanStepImpactLabel(step, currency)
     : null;
+  const customSignal =
+    !isCompleted &&
+    step.status !== "skipped" &&
+    isCustom &&
+    !((step.context.revenueImpact ?? 0) > 0) &&
+    !((step.context.leadsImpact ?? 0) > 0) &&
+    !((step.context.engagementImpact ?? 0) > 0)
+      ? formatCustomPlanStepSignal(step)
+      : null;
 
   return (
     <article
@@ -181,13 +196,19 @@ export default function PlanStepCard({
                 +{step.context.healthScoreImpact} Reputation Boost Score pts
               </p>
             )}
-          {leadOrRevenueLabel && (
+          {leadOrRevenueLabel && !customSignal && (
               <p className={`mt-1 text-xs font-semibold ${isLight ? "text-[#188038]" : "text-emerald-400"}`}>
                 {leadOrRevenueLabel}
               </p>
             )}
+          {customSignal && (
+            <p className={`mt-1 text-xs font-medium ${isLight ? "text-[#1a73e8]" : "text-sky-300"}`}>
+              Strategist pick · {customSignal}
+            </p>
+          )}
           {!isCompleted &&
             step.status !== "skipped" &&
+            !isCustom &&
             !(step.context.revenueImpact ?? 0) &&
             !(step.context.leadsImpact ?? 0) &&
             !(step.context.engagementImpact ?? 0) &&

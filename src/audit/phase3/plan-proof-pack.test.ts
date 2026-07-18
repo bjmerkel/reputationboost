@@ -15,6 +15,7 @@ import {
 } from "../phase2/conversion-boost";
 import {
   buildKeywordActionBindings,
+  buildKeywordPlaybooks,
   resolveBestPlanStepForKeyword,
   resolveStepPrimaryKeyword,
 } from "../phase2/keyword-action-binding";
@@ -35,7 +36,10 @@ import {
   estimateStepRevenueImpact,
 } from "../phase2/score-impact";
 import { buildPlan } from "./build-plan";
-import { formatPlanStepImpactLabel } from "./plan-impact-label";
+import {
+  formatCustomPlanStepSignal,
+  formatPlanStepImpactLabel,
+} from "./plan-impact-label";
 import { selectNextBestPlanSteps } from "./plan-next-actions";
 import {
   PLAN_DEFINITION_OF_NINE,
@@ -86,11 +90,11 @@ function conversionAudit() {
 
 describe("Plan proof pack (Definition of 9)", () => {
   it("documents polish + revenue acceptance criteria and a live soak checklist", () => {
-    assert.equal(PLAN_DEFINITION_OF_NINE.length, 11);
-    assert.ok(PLAN_SOAK_CHECKLIST.length >= 10);
+    assert.equal(PLAN_DEFINITION_OF_NINE.length, 12);
+    assert.ok(PLAN_SOAK_CHECKLIST.length >= 12);
     assert.deepEqual(
       PLAN_DEFINITION_OF_NINE.map((item) => item.id),
-      ["J1", "J2", "J3", "J4", "J5", "J6", "R1", "R2", "R3", "R4", "R5"]
+      ["J1", "J2", "J3", "J4", "J5", "J6", "R1", "R2", "R3", "R4", "R5", "R6"]
     );
   });
 
@@ -576,6 +580,62 @@ describe("Plan proof pack (Definition of 9)", () => {
       const sorted = sortPendingTasks(tasks);
       assert.equal(sorted[0]?.id, "later-higher");
       assert.equal(sorted[1]?.id, "early");
+    });
+  });
+
+  describe("R6 — keyword playbooks + custom signal", () => {
+    it("builds playbooks with primary CTAs and keeps custom steps from blank impact", () => {
+      const audit = createTestAudit();
+      const plan = buildPlan(audit, audit.execution!.tasks);
+      assert.ok(plan);
+
+      const playbooks = buildKeywordPlaybooks(audit, plan, { limit: 3 });
+      assert.ok(playbooks.length >= 1 && playbooks.length <= 3);
+      for (const playbook of playbooks) {
+        assert.ok(playbook.ctaLabel.length > 0);
+        assert.ok(playbook.rationale.length > 0);
+        if (playbook.primaryStep != null) {
+          const linked = resolveBestPlanStepForKeyword(audit, plan, playbook.keyword);
+          assert.equal(linked, playbook.primaryStep);
+        }
+      }
+
+      const customSignal = formatCustomPlanStepSignal({
+        stepNumber: 19,
+        phaseId: "ongoing",
+        title: "Custom",
+        instruction: "Do it",
+        context: {
+          targetKeywords: ["emergency plumber dallas"],
+          expectedEffect: "Mention emergency response in the next post.",
+          selectionRationale: "Pack leaders already use urgency language.",
+          revenueImpact: null,
+          leadsImpact: null,
+        },
+        tasks: [],
+        status: "needs_approval",
+      });
+      assert.equal(customSignal, "Pack leaders already use urgency language.");
+      assert.match(
+        formatPlanStepImpactLabel(
+          {
+            stepNumber: 19,
+            phaseId: "ongoing",
+            title: "Custom",
+            instruction: "Do it",
+            context: {
+              targetKeywords: [],
+              expectedEffect: "Mention emergency response in the next post.",
+              selectionRationale: "Pack leaders already use urgency language.",
+              revenueImpact: null,
+            },
+            tasks: [],
+            status: "pending",
+          },
+          "USD"
+        ) ?? "",
+        /urgency language/
+      );
     });
   });
 });

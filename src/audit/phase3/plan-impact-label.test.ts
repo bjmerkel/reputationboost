@@ -67,4 +67,28 @@ describe("formatPlanStepImpactLabel", () => {
       "+5 ranking pts"
     );
   });
+
+  it("shows a qualitative signal for custom strategist steps", () => {
+    const custom: PlanStep = {
+      stepNumber: 18,
+      phaseId: "ongoing",
+      title: "Custom GBP tweak",
+      instruction: "Do the thing.\n\nWhy this step: Competitors mention emergency response in posts.",
+      context: {
+        targetKeywords: ["emergency plumber dallas"],
+        expectedEffect: "Reinforce urgency messaging on the profile.",
+        selectionRationale: "Competitors mention emergency response in posts.",
+        revenueImpact: null,
+        leadsImpact: null,
+        engagementImpact: null,
+        projectionConfidence: "default",
+      },
+      tasks: [],
+      status: "pending",
+    };
+    assert.equal(
+      formatPlanStepImpactLabel(custom, "USD"),
+      "Competitors mention emergency response in posts."
+    );
+  });
 });

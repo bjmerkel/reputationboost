@@ -68,6 +68,12 @@ export const PLAN_DEFINITION_OF_NINE = [
     criterion:
       "Pending batch/routine approve order follows revenue→leads→engagement impact, not raw step number.",
   },
+  {
+    id: "R6",
+    title: "Keyword playbooks + soak gate",
+    criterion:
+      "Top keywords expose one primary CTA playbook; custom steps show qualitative signal; live soak checklist passes.",
+  },
 ] as const;
 
 /** Manual soak on one live business after polish + revenue criteria land on main. */
@@ -77,9 +83,11 @@ export const PLAN_SOAK_CHECKLIST = [
   "Curated plan → Refresh Plan → step count does not explode into the full checklist",
   "Publish a conversion step → See results deep-link works (or miss notice + focus clears)",
   "Stack two high-impact steps → stacked estimate is below the sum of isolated card impacts",
-  "Keyword Priority → Work steps opens the bound step for that keyword (not a random early card)",
+  "Win these searches CTA opens the bound step for that keyword (not a random early card)",
   "In-pack business with low action rate → NBA leads with place actions / CTA posts / replies",
   "After several attributed publishes → step impact drops 'model' wording when confidence rises",
   "Business with 40+ photos + weak CTR → Photos is not the top NBA item",
   "Batch approve modal opens highest-impact pending task first",
+  "Custom strategist step shows qualitative signal (not a blank impact row)",
+  "First Plan viewport reads: progress → NBA → keyword playbooks (checklist below)",
 ] as const;
