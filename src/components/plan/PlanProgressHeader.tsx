@@ -9,6 +9,12 @@ import {
   revenueProjectionFormulaHint,
 } from "@/components/audit/path-impact-display";
 import { formatPlanTimestamp } from "./plan-timestamps";
+import {
+  planApprovalBadgeCopy,
+  planProgressPercent,
+  planRefreshButtonLabel,
+  resolvePlanProjectionDisplay,
+} from "./plan-display";
 
 export default function PlanProgressHeader({
   plan,
@@ -54,36 +60,26 @@ export default function PlanProgressHeader({
   const isLight = variant === "light";
   const { progress } = plan;
   const approvalCount = pendingApprovalCount ?? progress.needsApproval;
-  const pct =
-    progress.totalSteps > 0
-      ? Math.round((progress.completedSteps / progress.totalSteps) * 100)
-      : 0;
+  const pct = planProgressPercent(progress.completedSteps, progress.totalSteps);
   const reconciledLabel = formatPlanTimestamp(planReconciledAt);
   const confidenceLabel = calibrationConfidenceLabel(calibrationConfidence);
   const estimatePrefix = projectionEstimatePrefix(calibrationConfidence);
   const mutedText = isLight ? "text-[#5f6368]" : "text-slate-400";
   const subtleText = isLight ? "text-[#80868b]" : "text-slate-500";
 
-  const showRevenue =
-    estimatedMonthlyRevenue != null &&
-    projectedMonthlyRevenue != null &&
-    estimatedMonthlyRevenue > 0;
-  const showLeads =
-    !showRevenue &&
-    estimatedMonthlyLeads != null &&
-    projectedMonthlyLeads != null &&
-    estimatedMonthlyLeads > 0;
-  const showNextThreeRevenue =
-    nextThreeEstimatedMonthlyRevenue != null &&
-    nextThreeProjectedMonthlyRevenue != null &&
-    nextThreeEstimatedMonthlyRevenue > 0 &&
-    (nextThreeProjectedMonthlyRevenue !== projectedMonthlyRevenue ||
-      (nextThreeStepCount ?? 0) < (pathStepCount ?? 0));
-  const showNextThreeLeads =
-    !showNextThreeRevenue &&
-    nextThreeEstimatedMonthlyLeads != null &&
-    nextThreeProjectedMonthlyLeads != null &&
-    nextThreeEstimatedMonthlyLeads > 0;
+  const { showRevenue, showLeads, showNextThreeRevenue, showNextThreeLeads } =
+    resolvePlanProjectionDisplay({
+      estimatedMonthlyRevenue,
+      projectedMonthlyRevenue,
+      estimatedMonthlyLeads,
+      projectedMonthlyLeads,
+      nextThreeEstimatedMonthlyRevenue,
+      nextThreeProjectedMonthlyRevenue,
+      nextThreeEstimatedMonthlyLeads,
+      nextThreeProjectedMonthlyLeads,
+      pathStepCount,
+      nextThreeStepCount,
+    });
 
   return (
     <div
@@ -202,7 +198,7 @@ export default function PlanProgressHeader({
                       : "border-white/15 text-sky-300 hover:bg-white/5"
                   }`}
                 >
-                  {refreshingPlan ? "Refreshing…" : "Refresh plan"}
+                  {planRefreshButtonLabel(refreshingPlan)}
                 </button>
               )}
             </div>
@@ -215,11 +211,11 @@ export default function PlanProgressHeader({
               onClick={onReviewPending}
               className="rounded-full bg-[#fef7e0] px-3 py-1 text-xs font-semibold text-[#e37400] hover:bg-[#feefc3]"
             >
-              {approvalCount} need approval → Review
+              {planApprovalBadgeCopy(approvalCount, true)}
             </button>
           ) : (
             <span className="rounded-full bg-[#fef7e0] px-3 py-1 text-xs font-semibold text-[#e37400]">
-              {approvalCount} need{approvalCount === 1 ? "s" : ""} your approval
+              {planApprovalBadgeCopy(approvalCount, false)}
             </span>
           ))}
       </div>
