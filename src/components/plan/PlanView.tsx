@@ -21,7 +21,7 @@ import {
 } from "@/components/results/results-focus";
 import GoogleUpdatesPanel from "./GoogleUpdatesPanel";
 import PlanAcvNudge from "./PlanAcvNudge";
-import PlanKeywordPriority from "./PlanKeywordPriority";
+import PlanKeywordPlaybooks from "./PlanKeywordPlaybooks";
 import PlanNextBestActions from "./PlanNextBestActions";
 import PlanPhaseSection from "./PlanPhaseSection";
 import PlanProgressHeader from "./PlanProgressHeader";
@@ -315,6 +315,18 @@ export default function PlanView({
         onFocusStep={(stepNumber) => setLocalFocusStep(stepNumber)}
       />
 
+      <PlanKeywordPlaybooks
+        audit={audit}
+        plan={plan}
+        avgCustomerValue={avgCustomerValue}
+        currency={currency}
+        variant={variant}
+        onFocusKeyword={(_keyword, stepNumber) => {
+          if (stepNumber == null) return;
+          setLocalFocusStep(stepNumber);
+        }}
+      />
+
       {(plan.planRationale || plan.objective) && (
         <aside
           className={`rounded-xl border px-4 py-3 ${
@@ -336,26 +348,6 @@ export default function PlanView({
             {plan.planRationale || plan.objective}
           </p>
         </aside>
-      )}
-
-      <PlanKeywordPriority
-        audit={audit}
-        plan={plan}
-        avgCustomerValue={avgCustomerValue}
-        currency={currency}
-        variant={variant}
-        onFocusKeyword={(_keyword, stepNumber) => {
-          if (stepNumber == null) return;
-          setLocalFocusStep(stepNumber);
-          const el = document.getElementById(`plan-step-${stepNumber}`);
-          el?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }}
-      />
-
-      {audit.strategy?.executiveSummary && (
-        <p className={`text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
-          {audit.strategy.executiveSummary}
-        </p>
       )}
 
       {error && <p className="text-sm text-[#d93025]">{error}</p>}

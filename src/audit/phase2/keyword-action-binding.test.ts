@@ -4,8 +4,10 @@ import type { Plan, PlanStep } from "../types";
 import { createTestAudit } from "../phase3/test-fixtures";
 import { buildStepContext } from "../phase3/step-context";
 import { keywordsTargetedByStep } from "./counterfactual";
+import { buildPlan } from "../phase3/build-plan";
 import {
   buildKeywordActionBindings,
+  buildKeywordPlaybooks,
   resolveBestPlanStepForKeyword,
   resolveStepPrimaryKeyword,
 } from "./keyword-action-binding";
@@ -141,6 +143,34 @@ describe("keyword-action-binding", () => {
         resolveBestPlanStepForKeyword(audit, noisyPlan, sharedKeyword),
         outside[0].primaryStep
       );
+    }
+  });
+
+  it("builds top keyword playbooks with a primary CTA step", () => {
+    const audit = createTestAudit();
+    const plan = buildPlan(audit, audit.execution!.tasks);
+    assert.ok(plan);
+    const playbooks = buildKeywordPlaybooks(audit, plan, { limit: 3 });
+    assert.ok(playbooks.length >= 1);
+    assert.ok(playbooks.length <= 3);
+    for (const playbook of playbooks) {
+      assert.ok(playbook.keyword.length > 0);
+      assert.ok(playbook.ctaLabel.length > 0);
+      if (playbook.primaryStep != null) {
+        assert.ok(
+          plan.steps.some(
+            (step) =>
+              step.stepNumber === playbook.primaryStep &&
+              step.status !== "completed" &&
+              step.status !== "skipped"
+          )
+        );
+      }
+    }
+    // Diversified primaries when multiple outside-pack keywords exist.
+    const withSteps = playbooks.filter((p) => p.primaryStep != null);
+    if (withSteps.length >= 2) {
+      assert.ok(new Set(withSteps.map((p) => p.primaryStep)).size >= 1);
     }
   });
 

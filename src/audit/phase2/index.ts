@@ -104,11 +104,17 @@ export {
 } from "./conversion-constants";
 export {
   buildKeywordActionBindings,
+  buildKeywordPlaybooks,
+  ctaLabelForPlanStep,
   resolveBestPlanStepForKeyword,
   resolveStepPrimaryKeyword,
   resolveStepTargetKeywords,
 } from "./keyword-action-binding";
-export type { KeywordActionBinding } from "./keyword-action-binding";
+export type {
+  KeywordActionBinding,
+  KeywordPlaybook,
+  KeywordPlaybookSupportingStep,
+} from "./keyword-action-binding";
 export {
   estimateStepEngagementImpact,
   estimateStepHealthImpact,
