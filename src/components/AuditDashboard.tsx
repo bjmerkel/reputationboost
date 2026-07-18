@@ -563,6 +563,7 @@ export default function AuditDashboard({
                 setFocusPlanScrollTarget(null);
                 setFocusPlanKeyword(null);
               }}
+              onSeeResults={() => setView("data")}
             />
           )}
 
@@ -576,6 +577,7 @@ export default function AuditDashboard({
               engagement={attributionData.engagement}
               attributionLoading={attributionLoading}
               engagementLoading={attributionLoading}
+              onNavigateToPlan={openPlanStep}
             />
           )}
 

@@ -4,7 +4,7 @@ import {
   keywordsMissingFromText,
   textContainsKeyword,
 } from "@/audit/attribution/keywords";
-import { buildStepContext } from "./step-context";
+import { buildStepContext, extractSelectionRationale } from "./step-context";
 import type { FullAuditPayload, GbpPlanStep } from "../types";
 import { createTestAudit } from "./test-fixtures";
 
@@ -174,5 +174,29 @@ describe("buildStepContext priority services step", () => {
 
     assert.match(context.expectedEffect, /GBP services/i);
     assert.doesNotMatch(context.expectedEffect, /products?/i);
+  });
+});
+
+describe("extractSelectionRationale", () => {
+  it("parses strategist rationale from plan instruction text", () => {
+    assert.equal(
+      extractSelectionRationale(
+        "Rewrite your description.\n\nWhy this step: Keywords outside the pack need coverage."
+      ),
+      "Keywords outside the pack need coverage."
+    );
+    assert.equal(extractSelectionRationale("No rationale here."), undefined);
+
+    const context = buildStepContext(carSpaAudit(), {
+      stepNumber: 3,
+      title: "Rewrite the Business Description",
+      instruction:
+        "Rewrite your description.\n\nWhy this step: Missing priority keywords in the live blurb.",
+      gbpAction: "update_description",
+    });
+    assert.equal(
+      context.selectionRationale,
+      "Missing priority keywords in the live blurb."
+    );
   });
 });

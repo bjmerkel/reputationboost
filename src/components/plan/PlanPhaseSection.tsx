@@ -26,6 +26,7 @@ export default function PlanPhaseSection({
   businessWebsite,
   reviewUrl,
   onReviewRequestSent,
+  onSeeResults,
 }: {
   phase: PlanPhase;
   steps: PlanStep[];
@@ -47,14 +48,19 @@ export default function PlanPhaseSection({
   businessWebsite?: string;
   reviewUrl?: string | null;
   onReviewRequestSent?: () => void;
+  onSeeResults?: (stepNumber: number) => void;
 }) {
   const isLight = variant === "light";
   const visibleSteps = steps
-    .filter((s) => s.status !== "completed")
-    .sort(
-      (a, b) => (a.displayOrder ?? a.stepNumber) - (b.displayOrder ?? b.stepNumber)
-    );
-  const phaseNeedsApproval = visibleSteps.some((s) => s.status === "needs_approval");
+    .filter((s) => s.status !== "skipped")
+    .sort((a, b) => {
+      const aDone = a.status === "completed" ? 1 : 0;
+      const bDone = b.status === "completed" ? 1 : 0;
+      if (aDone !== bDone) return aDone - bDone;
+      return (a.displayOrder ?? a.stepNumber) - (b.displayOrder ?? b.stepNumber);
+    });
+  const openSteps = visibleSteps.filter((s) => s.status !== "completed");
+  const phaseNeedsApproval = openSteps.some((s) => s.status === "needs_approval");
 
   if (visibleSteps.length === 0) {
     return null;
@@ -80,7 +86,7 @@ export default function PlanPhaseSection({
             step={step}
             totalSteps={totalSteps}
             displayIndex={index + 1}
-            displayTotal={visibleSteps.length}
+            displayTotal={openSteps.length > 0 ? openSteps.length : visibleSteps.length}
             gbpConnected={gbpConnected}
             actions={actions}
             attributionByTaskId={attributionByTaskId}
@@ -101,6 +107,7 @@ export default function PlanPhaseSection({
               step.stepNumber === 10 ? focusKeyword ?? step.context.primaryKeyword ?? null : null
             }
             onReviewRequestSent={onReviewRequestSent}
+            onSeeResults={onSeeResults}
           />
         ))}
       </div>

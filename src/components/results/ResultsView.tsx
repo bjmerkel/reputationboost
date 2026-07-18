@@ -21,6 +21,7 @@ export default function ResultsView({
   engagement,
   attributionLoading = false,
   engagementLoading = false,
+  onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
   clientId: string;
@@ -30,6 +31,7 @@ export default function ResultsView({
   engagement: EngagementPeriodSummary | null;
   attributionLoading?: boolean;
   engagementLoading?: boolean;
+  onNavigateToPlan?: (stepNumber: number) => void;
 }) {
   const timelineEntries = useMemo(() => {
     const plan = buildPlan(audit, tasks, attributions);
@@ -66,6 +68,7 @@ export default function ResultsView({
         entries={timelineEntries}
         attributionsById={attributionsById}
         loading={attributionLoading}
+        onNavigateToPlan={onNavigateToPlan}
       />
     </div>
   );

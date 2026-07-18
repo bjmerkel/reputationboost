@@ -43,10 +43,12 @@ export default function PlanResultsTimeline({
   entries,
   attributionsById = {},
   loading = false,
+  onNavigateToPlan,
 }: {
   entries: PlanTimelineEntry[];
   attributionsById?: Record<string, ActionAttribution>;
   loading?: boolean;
+  onNavigateToPlan?: (stepNumber: number) => void;
 }) {
   if (loading) {
     return (
@@ -101,11 +103,20 @@ export default function PlanResultsTimeline({
                       >
                         {style.label}
                       </span>
-                      {entry.stepNumber != null && (
-                        <span className="text-[10px] font-medium text-[#80868b]">
-                          Step {entry.stepNumber}
-                        </span>
-                      )}
+                      {entry.stepNumber != null &&
+                        (onNavigateToPlan ? (
+                          <button
+                            type="button"
+                            onClick={() => onNavigateToPlan(entry.stepNumber!)}
+                            className="text-[10px] font-semibold text-[#1a73e8] hover:underline"
+                          >
+                            Step {entry.stepNumber} · Open in Plan
+                          </button>
+                        ) : (
+                          <span className="text-[10px] font-medium text-[#80868b]">
+                            Step {entry.stepNumber}
+                          </span>
+                        ))}
                       {entry.preliminary && (
                         <span className="rounded-full bg-[#fef7e0] px-2 py-0.5 text-[10px] font-medium text-[#e37400]">
                           Tracking
