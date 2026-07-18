@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ExecutionTask, GbpMediaCoverage } from "@/audit/types";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 
@@ -30,7 +30,8 @@ export default function PlanStepPhotos({
   const photoTasks = tasks.filter((t) => t.type === "gbp_photo");
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState("");
-  const autoGenStarted = useRef(false);
+  const [loadingPhotoPlan, setLoadingPhotoPlan] = useState(false);
+  const [photoPlanError, setPhotoPlanError] = useState<string | null>(null);
 
   const pendingAi = useMemo(
     () =>
@@ -91,15 +92,17 @@ export default function PlanStepPhotos({
     setGenerating(false);
   }, [actions, gbpConnected, pendingAi]);
 
-  useEffect(() => {
-    autoGenStarted.current = false;
-  }, [photoTasks.map((t) => t.id).join(",")]);
-
-  useEffect(() => {
-    if (!gbpConnected || pendingAi.length === 0 || generating || autoGenStarted.current) return;
-    autoGenStarted.current = true;
-    void generatePending();
-  }, [gbpConnected, pendingAi.length, generating, generatePending]);
+  const loadPhotoPlan = useCallback(async () => {
+    setLoadingPhotoPlan(true);
+    setPhotoPlanError(null);
+    try {
+      await actions.ensurePhotoTasks();
+    } catch (error) {
+      setPhotoPlanError(error instanceof Error ? error.message : "Failed to load photo tasks");
+    } finally {
+      setLoadingPhotoPlan(false);
+    }
+  }, [actions]);
 
   if (!gbpConnected) {
     return (
@@ -111,9 +114,26 @@ export default function PlanStepPhotos({
 
   if (photoTasks.length === 0) {
     return (
-      <p className={`mt-4 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-        Building your photo plan…
-      </p>
+      <div className="mt-4 space-y-2">
+        <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+          Load your photo checklist when you&apos;re ready — we won&apos;t generate previews until you ask.
+        </p>
+        <button
+          type="button"
+          disabled={loadingPhotoPlan}
+          onClick={() => void loadPhotoPlan()}
+          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${
+            isLight
+              ? "border-[#1a73e8] bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc]"
+              : "border-sky-400/40 bg-sky-400/15 text-sky-300 hover:bg-sky-400/25"
+          }`}
+        >
+          {loadingPhotoPlan ? "Loading…" : "Load photo tasks"}
+        </button>
+        {photoPlanError && (
+          <p className={`text-xs ${isLight ? "text-[#c5221f]" : "text-red-400"}`}>{photoPlanError}</p>
+        )}
+      </div>
     );
   }
 
@@ -150,6 +170,20 @@ export default function PlanStepPhotos({
         <p className={`text-sm ${isLight ? "text-[#9334e6]" : "text-violet-300"}`}>
           {genProgress || "Creating AI photos…"}
         </p>
+      )}
+
+      {pendingAi.length > 0 && !generating && (
+        <button
+          type="button"
+          onClick={() => void generatePending()}
+          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+            isLight
+              ? "border-[#9334e6] bg-[#f3e8fd] text-[#9334e6] hover:bg-[#e9d5ff]"
+              : "border-violet-400/40 bg-violet-400/15 text-violet-300 hover:bg-violet-400/25"
+          }`}
+        >
+          Generate {pendingAi.length} AI preview{pendingAi.length === 1 ? "" : "s"}
+        </button>
       )}
 
       {readyAi.length > 0 && (

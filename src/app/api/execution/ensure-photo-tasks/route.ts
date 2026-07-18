@@ -7,7 +7,7 @@ import {
   listExecutionTasks,
 } from "@/audit/storage-execution";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
-import { generateAuditContent } from "@/lib/llm/content";
+import { buildTemplateContent } from "@/lib/llm/content";
 import { getUser } from "@/lib/supabase/server";
 
 /** Create photo tasks when missing (e.g. LLM plan used gbpAction: manual on step 6). */
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     const audit = ensureStrategy(raw);
-    const content = await generateAuditContent(audit);
+    const content = buildTemplateContent(audit);
     const photoTasks = buildPhotoExecutionTasks(audit, content);
 
     if (photoTasks.length === 0) {
