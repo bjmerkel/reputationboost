@@ -1,17 +1,11 @@
 import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "@/audit/types";
-import type { PlanStepCandidate } from "@/audit/phase2/plan-candidates";
+import {
+  resolveForcedPlanStepNumbers,
+  type PlanStepCandidate,
+} from "@/audit/phase2/plan-candidates";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
-import {
-  auditNeedsConversionBoost,
-  CONVERSION_PLAN_STEPS,
-  isRankOutsidePackGapId,
-} from "@/audit/phase2/conversion-boost";
 import { orderGbpPlanStepsByImpact, planStepImpactScore } from "@/audit/phase2/gbp-plan";
-import {
-  KEYWORD_PORTFOLIO_PLAN_STEP,
-  portfolioStepIsSatisfied,
-} from "@/audit/phase2/keyword-portfolio";
-import { planStepsRequiredByInventory } from "@/lib/google/gbp-field-plan-map";
+import { KEYWORD_PORTFOLIO_PLAN_STEP } from "@/audit/phase2/keyword-portfolio";
 import { resolvePlanStepAction } from "@/audit/phase3/gbp-plan-actions";
 import { CUSTOM_PLAN_STEP_START } from "@/audit/phase3/plan-custom-steps";
 
@@ -271,40 +265,8 @@ export function mergeLlmGbpPlan(
     standardSteps.push(mergeSelectedStep(selection, candidate.templateStep));
   }
 
-  // Always keep keyword portfolio when unsatisfied — LLM validation historically omitted 17.
-  const portfolioCandidate = candidateByStep.get(KEYWORD_PORTFOLIO_PLAN_STEP);
-  if (
-    portfolioCandidate &&
-    !portfolioStepIsSatisfied(audit) &&
-    !standardSteps.some((step) => step.stepNumber === KEYWORD_PORTFOLIO_PLAN_STEP)
-  ) {
-    standardSteps.push(portfolioCandidate.templateStep);
-  }
-
-  // Keep unsatisfied steps linked to rank-outside-pack gaps (LLM often under-selects them).
-  for (const candidate of candidates) {
-    if (candidate.satisfied) continue;
-    if (!candidate.linkedGapIds.some((id) => isRankOutsidePackGapId(id))) continue;
-    if (standardSteps.some((step) => step.stepNumber === candidate.stepNumber)) continue;
-    standardSteps.push(candidate.templateStep);
-  }
-
-  // When views don't convert, keep CTA / trust / place-action conversion steps in the plan.
-  if (auditNeedsConversionBoost(audit)) {
-    for (const stepNumber of CONVERSION_PLAN_STEPS) {
-      if (standardSteps.some((step) => step.stepNumber === stepNumber)) continue;
-      if (isStepSatisfied(audit, stepNumber)) continue;
-      const candidate = candidateByStep.get(stepNumber);
-      if (!candidate) continue;
-      standardSteps.push(candidate.templateStep);
-    }
-  }
-
-  const inventoryRequired = audit.gbp.locationInventory
-    ? planStepsRequiredByInventory(audit.gbp.locationInventory)
-    : new Set<number>();
-
-  for (const stepNumber of inventoryRequired) {
+  // Force portfolio / rank-outside-pack / conversion / inventory — same classes as reconcile.
+  for (const stepNumber of resolveForcedPlanStepNumbers(audit, candidates)) {
     if (standardSteps.some((step) => step.stepNumber === stepNumber)) continue;
     const candidate = candidateByStep.get(stepNumber);
     if (!candidate) continue;

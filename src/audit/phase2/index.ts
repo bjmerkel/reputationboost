@@ -79,7 +79,11 @@ export { applyRankSnapshotsToAudit, applyGridSnapshotsToAudit, computeScoreDaily
 export { buildScoreChangelogFromSnapshots, buildScoreChangelogFromHealthScores, buildRankMovementsFromSnapshots, buildRankMovementsForChangelog } from "./score-changelog";
 export { backfillScoreDailyForBusiness, ingestScoreDailyForBusiness } from "./score-ingest";
 export { detectGaps } from "./gaps";
-export { buildPlanStepCandidates, summarizePlanCandidates } from "./plan-candidates";
+export {
+  buildPlanStepCandidates,
+  resolveForcedPlanStepNumbers,
+  summarizePlanCandidates,
+} from "./plan-candidates";
 export type { PlanStepCandidate } from "./plan-candidates";
 export {
   auditNeedsConversionBoost,

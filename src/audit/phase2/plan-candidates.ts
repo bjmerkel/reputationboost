@@ -10,9 +10,14 @@ import { detectGaps } from "./gaps";
 import { buildAllGbpPlanSteps } from "./gbp-plan";
 import { isStepSatisfied, simulateStepDriverImpact } from "./counterfactual";
 import {
+  KEYWORD_PORTFOLIO_PLAN_STEP,
+  portfolioStepIsSatisfied,
+} from "./keyword-portfolio";
+import {
   estimateStepOutcomeImpact,
   estimateStepRevenueImpact,
 } from "./score-impact";
+import { planStepsRequiredByInventory } from "@/lib/google/gbp-field-plan-map";
 
 export {
   auditNeedsConversionBoost,
@@ -135,6 +140,53 @@ export function buildPlanStepCandidates(
       templateStep,
     };
   });
+}
+
+/**
+ * Step numbers that merge/reconcile must keep even if the LLM (or prior plan) omitted them.
+ * Same force classes as gbp-plan-merge: portfolio, rank-outside-pack, conversion, inventory.
+ * Does NOT include every unsatisfied template step — that re-bloated curated plans on reconcile.
+ */
+export function resolveForcedPlanStepNumbers(
+  audit: Phase1AuditPayload,
+  candidates: PlanStepCandidate[]
+): number[] {
+  const forced = new Set<number>();
+  const byStep = new Map(candidates.map((candidate) => [candidate.stepNumber, candidate]));
+
+  const portfolio = byStep.get(KEYWORD_PORTFOLIO_PLAN_STEP);
+  if (
+    portfolio &&
+    !portfolio.satisfied &&
+    !portfolioStepIsSatisfied(audit)
+  ) {
+    forced.add(KEYWORD_PORTFOLIO_PLAN_STEP);
+  }
+
+  for (const candidate of candidates) {
+    if (candidate.satisfied) continue;
+    if (!candidate.linkedGapIds.some((id) => isRankOutsidePackGapId(id))) continue;
+    forced.add(candidate.stepNumber);
+  }
+
+  if (auditNeedsConversionBoost(audit)) {
+    for (const stepNumber of CONVERSION_PLAN_STEPS) {
+      const candidate = byStep.get(stepNumber);
+      if (candidate) {
+        if (!candidate.satisfied) forced.add(stepNumber);
+        continue;
+      }
+      if (!isStepSatisfied(audit, stepNumber)) forced.add(stepNumber);
+    }
+  }
+
+  if (audit.gbp.locationInventory) {
+    for (const stepNumber of planStepsRequiredByInventory(audit.gbp.locationInventory)) {
+      forced.add(stepNumber);
+    }
+  }
+
+  return [...forced].sort((a, b) => a - b);
 }
 
 /** LLM-facing summary — excludes template payloads to keep prompts smaller. */
