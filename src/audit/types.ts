@@ -768,6 +768,8 @@ export interface KeywordScoreCard {
   impressions: number | null;
   impressionsLabel: string;
   estimatedMonthlyRevenue: number | null;
+  /** Monthly lead estimate from impressions × CTR × lead rate (no ACV required). */
+  estimatedMonthlyLeads: number | null;
   potentialAtRank1: number | null;
   scoreImpactIfRank1: number;
   suggestedAction: string;
@@ -853,6 +855,10 @@ export interface PathToHealthy {
   estimatedMonthlyRevenue?: number | null;
   /** Projected monthly revenue after path actions (requires ACV) */
   projectedMonthlyRevenue?: number | null;
+  /** Current estimated monthly leads at existing ranks (no ACV required) */
+  estimatedMonthlyLeads?: number | null;
+  /** Projected monthly leads after path actions (no ACV required) */
+  projectedMonthlyLeads?: number | null;
   currentRevenueCapture?: number;
   projectedRevenueCapture?: number;
   calibrationConfidence?: import("./phase2/attribution-calibration").CalibrationConfidence;

@@ -861,6 +861,10 @@ export interface ProjectedOutcomeScores {
   overallGain: number;
   estimatedMonthlyRevenue: number | null;
   revenueGain: number | null;
+  /** Projected monthly leads after actions (no ACV required). */
+  estimatedMonthlyLeads: number | null;
+  /** Incremental monthly leads from the action set. */
+  leadsGain: number | null;
 }
 
 export interface CounterfactualProjectionOptions {
@@ -1068,12 +1072,38 @@ function totalEstimatedRevenue(
   return any ? sum : null;
 }
 
+/** Round lead counts for display/ranking without wiping small conversion gains. */
+export function roundLeadCount(leads: number): number | null {
+  if (leads <= 0) return null;
+  const rounded = Math.round(leads * 10) / 10;
+  return rounded > 0 ? rounded : null;
+}
+
+function totalEstimatedLeads(audit: Phase1AuditPayload): number | null {
+  const cards = computeKeywordScores(audit);
+  let sum = 0;
+  let any = false;
+  for (const card of cards) {
+    if (card.estimatedMonthlyLeads != null) {
+      sum += card.estimatedMonthlyLeads;
+      any = true;
+    }
+  }
+  return any ? sum : null;
+}
+
 /** Sum of per-keyword monthly revenue estimates at current ranks. */
 export function estimateTotalMonthlyRevenue(
   audit: Phase1AuditPayload,
   avgCustomerValue?: number | null
 ): number | null {
   return totalEstimatedRevenue(audit, avgCustomerValue);
+}
+
+/** Sum of per-keyword monthly lead estimates at current ranks (no ACV). */
+export function estimateTotalMonthlyLeads(audit: Phase1AuditPayload): number | null {
+  const total = totalEstimatedLeads(audit);
+  return total == null ? null : roundLeadCount(total);
 }
 
 /**
@@ -1256,17 +1286,14 @@ export function stackDampeningFactor(stackIndex: number): number {
 }
 
 /**
- * Estimated monthly revenue from conversion-step engagement uplifts.
+ * Raw monthly leads from conversion-step engagement uplifts.
  * Uses the same plan stack index as mutations so a conversion step after a rank
  * step is dampened (not full value just because it's the first conversion).
  */
-function conversionEngagementRevenueGain(
+function conversionEngagementRawLeads(
   audit: Phase1AuditPayload,
-  actions: ActionRef[],
-  avgCustomerValue?: number | null
+  actions: ActionRef[]
 ): number | null {
-  if (avgCustomerValue == null || avgCustomerValue <= 0) return null;
-
   const views = Math.max(audit.gbp.performance.profileViews, 100);
   let calls = 0;
   let directions = 0;
@@ -1296,8 +1323,26 @@ function conversionEngagementRevenueGain(
   if (calls + directions + websiteClicks <= 0) return null;
 
   // Mirror DEFAULT_ROI_CONFIG lead rates without importing a circular path.
-  const leads = calls * 0.25 + directions * 0.3 + websiteClicks * 0.05;
-  return Math.round(leads * avgCustomerValue);
+  return calls * 0.25 + directions * 0.3 + websiteClicks * 0.05;
+}
+
+function conversionEngagementLeadsGain(
+  audit: Phase1AuditPayload,
+  actions: ActionRef[]
+): number | null {
+  const raw = conversionEngagementRawLeads(audit, actions);
+  return raw == null ? null : roundLeadCount(raw);
+}
+
+function conversionEngagementRevenueGain(
+  audit: Phase1AuditPayload,
+  actions: ActionRef[],
+  avgCustomerValue?: number | null
+): number | null {
+  if (avgCustomerValue == null || avgCustomerValue <= 0) return null;
+  const raw = conversionEngagementRawLeads(audit, actions);
+  if (raw == null) return null;
+  return Math.round(raw * avgCustomerValue);
 }
 
 /**
@@ -1331,6 +1376,9 @@ export function projectOutcomeScoresFromActions(
     actions,
     options.avgCustomerValue
   );
+  const beforeLeads = totalEstimatedLeads(audit);
+  const afterLeads = totalEstimatedLeads(mutated);
+  const conversionLeads = conversionEngagementLeadsGain(audit, actions);
 
   const rankRevenueGain =
     beforeRevenue != null && afterRevenue != null
@@ -1351,6 +1399,20 @@ export function projectOutcomeScoresFromActions(
       ? (afterRevenue ?? beforeRevenue ?? 0) + (conversionRevenue ?? 0)
       : null;
 
+  const rankLeadsGain =
+    beforeLeads != null && afterLeads != null
+      ? Math.max(0, afterLeads - beforeLeads)
+      : null;
+  const rawLeadsGain =
+    rankLeadsGain != null || conversionLeads != null
+      ? (rankLeadsGain ?? 0) + (conversionLeads ?? 0)
+      : null;
+  const leadsGain = rawLeadsGain != null ? roundLeadCount(rawLeadsGain) : null;
+  const projectedMonthlyLeads =
+    afterLeads != null || conversionLeads != null
+      ? roundLeadCount((afterLeads ?? beforeLeads ?? 0) + (conversionLeads ?? 0))
+      : null;
+
   return {
     projectedOutcomeIndex: after.outcomeIndex,
     projectedVisibility: after.visibility,
@@ -1362,6 +1424,8 @@ export function projectOutcomeScoresFromActions(
     overallGain: after.overall - before.overall,
     estimatedMonthlyRevenue: projectedMonthly,
     revenueGain,
+    estimatedMonthlyLeads: projectedMonthlyLeads,
+    leadsGain,
   };
 }
 

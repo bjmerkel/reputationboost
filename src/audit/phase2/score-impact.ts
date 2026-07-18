@@ -123,25 +123,15 @@ export function estimateStepRevenueImpact(
   return projection.revenueGain;
 }
 
-/**
- * Unit ACV so revenue helpers return lead counts (impressions×CTR×lead-rate and
- * conversion engagement leads) without requiring a configured job value.
- */
-const LEADS_UNIT_ACV = 1;
-
-/** Plan step estimated monthly lead gain if completed in isolation. */
+/** Plan step estimated monthly lead gain if completed in isolation (no ACV). */
 export function estimateStepLeadsImpact(
   audit: Phase1AuditPayload,
   stepNumber: number
 ): number | null {
-  const projection = projectOutcomeScoresFromActions(
-    audit,
-    [{ source: "plan", id: `gbp-step-${stepNumber}` }],
-    { avgCustomerValue: LEADS_UNIT_ACV }
-  );
-  const leads = projection.revenueGain;
-  if (leads == null || leads <= 0) return null;
-  return leads;
+  const projection = projectOutcomeScoresFromActions(audit, [
+    { source: "plan", id: `gbp-step-${stepNumber}` },
+  ]);
+  return projection.leadsGain;
 }
 
 const CATEGORY_COMPONENT: Partial<Record<GapFlag["category"], ScoreComponent>> = {

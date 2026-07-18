@@ -2,6 +2,7 @@
 
 import type { Plan } from "@/audit/types";
 import { formatCurrency } from "@/audit/attribution/roi";
+import { formatLeadsMo } from "@/audit/phase3/plan-impact-label";
 import { calibrationConfidenceLabel } from "@/components/audit/path-impact-display";
 import { formatPlanTimestamp } from "./plan-timestamps";
 
@@ -12,6 +13,8 @@ export default function PlanProgressHeader({
   pendingApprovalCount,
   estimatedMonthlyRevenue,
   projectedMonthlyRevenue,
+  estimatedMonthlyLeads,
+  projectedMonthlyLeads,
   currency = "USD",
   planReconciledAt,
   onRefreshPlan,
@@ -24,6 +27,8 @@ export default function PlanProgressHeader({
   pendingApprovalCount?: number;
   estimatedMonthlyRevenue?: number | null;
   projectedMonthlyRevenue?: number | null;
+  estimatedMonthlyLeads?: number | null;
+  projectedMonthlyLeads?: number | null;
   currency?: string;
   planReconciledAt?: string | null;
   onRefreshPlan?: () => void;
@@ -80,6 +85,20 @@ export default function PlanProgressHeader({
                 {isUncalibrated ? "Model est. " : "Est. "}
                 {formatCurrency(estimatedMonthlyRevenue, currency)} →{" "}
                 {formatCurrency(projectedMonthlyRevenue, currency)}/mo
+              </p>
+            )}
+          {!(estimatedMonthlyRevenue != null && estimatedMonthlyRevenue > 0) &&
+            estimatedMonthlyLeads != null &&
+            projectedMonthlyLeads != null &&
+            estimatedMonthlyLeads > 0 && (
+              <p
+                className={`mt-1 text-sm font-medium ${
+                  isLight ? "text-[#188038]" : "text-emerald-400"
+                }`}
+              >
+                {isUncalibrated ? "Model est. " : "Est. "}
+                {formatLeadsMo(estimatedMonthlyLeads).replace(" leads/mo", "")} →{" "}
+                {formatLeadsMo(projectedMonthlyLeads)}
               </p>
             )}
           {confidenceLabel ? (

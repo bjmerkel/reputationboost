@@ -271,6 +271,7 @@ export default function PlanStepCard({
           {step.status !== "completed" &&
             step.context.projectionConfidence === "default" &&
             ((step.context.revenueImpact ?? 0) > 0 ||
+              (step.context.leadsImpact ?? 0) > 0 ||
               (step.context.healthScoreImpact ?? 0) > 0) && (
               <p className={`mt-2 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
                 Impact is a model estimate until we calibrate from your published results.
