@@ -1,4 +1,11 @@
 import type { GapFlag, GbpPlanStep, Phase1AuditPayload } from "../types";
+import {
+  auditNeedsConversionBoost,
+  CONVERSION_PLAN_STEPS,
+  isRankOutsidePackGapId,
+  profileNeedsConversionWork,
+  RANK_OUTSIDE_PACK_PLAN_STEPS,
+} from "./conversion-boost";
 import { detectGaps } from "./gaps";
 import { buildAllGbpPlanSteps } from "./gbp-plan";
 import { isStepSatisfied, simulateStepDriverImpact } from "./counterfactual";
@@ -6,6 +13,14 @@ import {
   estimateStepOutcomeImpact,
   estimateStepRevenueImpact,
 } from "./score-impact";
+
+export {
+  auditNeedsConversionBoost,
+  CONVERSION_PLAN_STEPS,
+  isRankOutsidePackGapId,
+  profileNeedsConversionWork,
+  RANK_OUTSIDE_PACK_PLAN_STEPS,
+};
 
 export interface PlanStepCandidate {
   stepNumber: number;
@@ -52,11 +67,17 @@ function gapLinksToStep(gap: GapFlag, stepNumber: number): boolean {
   if (gap.id === "no-search-keyword-data" && [1, 3, 8].includes(stepNumber)) {
     return true;
   }
-  if (gap.id.startsWith("rank-outside-pack") && [3, 4, 8, 10].includes(stepNumber)) {
+  if (
+    isRankOutsidePackGapId(gap.id) &&
+    (RANK_OUTSIDE_PACK_PLAN_STEPS as readonly number[]).includes(stepNumber)
+  ) {
     return true;
   }
   // Views without actions → CTA posts, trust replies, attributes/links, place actions
-  if (gap.id === "low-profile-conversions" && [8, 11, 13, 15].includes(stepNumber)) {
+  if (
+    gap.id === "low-profile-conversions" &&
+    (CONVERSION_PLAN_STEPS as readonly number[]).includes(stepNumber)
+  ) {
     return true;
   }
   if (
@@ -73,20 +94,6 @@ function gapLinksToStep(gap: GapFlag, stepNumber: number): boolean {
     return true;
   }
   return false;
-}
-
-/** Steps that convert profile views into calls/directions when action rate is weak. */
-export const CONVERSION_PLAN_STEPS = [8, 11, 13, 15] as const;
-
-export function profileNeedsConversionWork(audit: Phase1AuditPayload): boolean {
-  const gaps = detectGaps(audit);
-  return gaps.some(
-    (gap) =>
-      gap.id === "low-profile-conversions" ||
-      gap.id === "missing-place-action-links" ||
-      gap.id === "incomplete-place-action-links" ||
-      gap.id === "posts-without-cta"
-  );
 }
 
 /** Deterministic candidate pool for LLM plan composition — includes simulated score impacts. */

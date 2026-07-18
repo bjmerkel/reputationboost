@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createTestAudit } from "@/audit/phase3/test-fixtures";
 import {
+  auditNeedsConversionBoost,
   buildPlanStepCandidates,
   profileNeedsConversionWork,
+  RANK_OUTSIDE_PACK_PLAN_STEPS,
 } from "./plan-candidates";
 import { estimateStepRevenueImpact } from "./score-impact";
 
@@ -50,6 +52,7 @@ describe("plan-candidates conversion gaps", () => {
       recommendations: [],
     };
 
+    assert.equal(auditNeedsConversionBoost(audit), true);
     assert.equal(profileNeedsConversionWork(audit), true);
 
     const candidates = buildPlanStepCandidates(audit, { avgCustomerValue: 350 });
@@ -62,5 +65,19 @@ describe("plan-candidates conversion gaps", () => {
 
     const placeActionRevenue = estimateStepRevenueImpact(audit, 15, 350);
     assert.ok(placeActionRevenue != null && placeActionRevenue > 0);
+  });
+
+  it("links rank-outside-pack gaps to description, services, posts, and reviews", () => {
+    const audit = createTestAudit();
+    const candidates = buildPlanStepCandidates(audit);
+    const byStep = new Map(candidates.map((c) => [c.stepNumber, c]));
+
+    for (const stepNumber of RANK_OUTSIDE_PACK_PLAN_STEPS) {
+      const linked = byStep.get(stepNumber)?.linkedGapIds ?? [];
+      assert.ok(
+        linked.some((id) => id.startsWith("rank-outside-pack")),
+        `step ${stepNumber} should link rank-outside-pack gaps`
+      );
+    }
   });
 });

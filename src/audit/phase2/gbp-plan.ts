@@ -2,6 +2,10 @@ import type { GbpOptimizationPlan, GbpPlanStep, KeywordRankAnalysis, Phase1Audit
 import { formatStarRating } from "@/lib/format-star-rating";
 import { isStepSatisfied, simulateStepDriverImpact } from "./counterfactual";
 import {
+  auditNeedsConversionBoost,
+  CONVERSION_PLAN_STEPS,
+} from "./conversion-boost";
+import {
   estimateStepOutcomeImpact,
   estimateStepRevenueImpact,
 } from "./score-impact";
@@ -26,19 +30,9 @@ export interface GbpPlanBuildOptions {
   avgCustomerValue?: number | null;
 }
 
-/** True when the listing gets views but weak calls/directions (or no place actions). */
-export function auditNeedsConversionBoost(audit: Phase1AuditPayload): boolean {
-  const perf = audit.gbp.performance;
-  const coverage = perf.coverage;
-  const totalActions =
-    coverage?.totalActions ?? perf.calls + perf.directionRequests + perf.websiteClicks;
-  if (perf.profileViews >= 100 && totalActions === 0) return true;
-  const placeActions = audit.gbp.placeActions;
-  if (placeActions?.apiAvailable && placeActions.configuredTypes.length === 0) return true;
-  return false;
-}
+export { auditNeedsConversionBoost, CONVERSION_PLAN_STEPS } from "./conversion-boost";
 
-const CONVERSION_BOOST_STEPS = new Set([8, 11, 13, 15]);
+const CONVERSION_BOOST_STEPS = new Set<number>(CONVERSION_PLAN_STEPS);
 
 /** Rank plan steps by estimated revenue, then outcome, then driver impact. */
 export function planStepImpactScore(

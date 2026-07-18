@@ -82,6 +82,14 @@ export { detectGaps } from "./gaps";
 export { buildPlanStepCandidates, summarizePlanCandidates } from "./plan-candidates";
 export type { PlanStepCandidate } from "./plan-candidates";
 export {
+  auditNeedsConversionBoost,
+  CONVERSION_GAP_IDS,
+  CONVERSION_PLAN_STEPS,
+  isRankOutsidePackGapId,
+  profileNeedsConversionWork,
+  RANK_OUTSIDE_PACK_PLAN_STEPS,
+} from "./conversion-boost";
+export {
   estimateStepHealthImpact,
   estimateStepOutcomeImpact,
   estimateStepRevenueImpact,

@@ -133,8 +133,13 @@ describe("mergeLlmGbpPlan", () => {
     );
 
     assert.equal(merged.contentSource, "llm");
-    assert.equal(merged.steps.length, 3);
-    assert.ok(merged.steps.every((s) => s.instruction.includes("Why this step:")));
+    assert.ok(merged.steps.length >= 3);
+    for (const stepNumber of [6, 11, 8]) {
+      assert.ok(merged.steps.some((s) => s.stepNumber === stepNumber));
+    }
+    // LLM-selected steps keep selection rationale; merge-enforced injects may not.
+    const selected = merged.steps.filter((s) => [6, 11, 8].includes(s.stepNumber));
+    assert.ok(selected.every((s) => s.instruction.includes("Why this step:")));
     assert.ok(merged.steps.every((s, i) => s.displayOrder === i));
   });
 
@@ -198,14 +203,117 @@ describe("mergeLlmGbpPlan", () => {
       audit
     );
 
-    assert.equal(merged.steps.length, 4);
     const custom = merged.steps.find((s) => s.title === "Airport route video");
     assert.ok(custom);
     assert.equal(custom!.stepNumber, CUSTOM_PLAN_STEP_START);
     assert.equal(custom!.stepNumber >= 18, true);
+    assert.ok(merged.steps.length >= 4);
     assert.equal(
       merged.steps.some((s) => s.stepNumber === KEYWORD_PORTFOLIO_PLAN_STEP && s.title === "Airport route video"),
       false
+    );
+  });
+
+  it("injects rank-outside-pack linked steps when LLM omits them", () => {
+    const audit = createTestAudit();
+    const fallback = buildTemplateGbpPlan(audit);
+    const candidates = buildPlanStepCandidates(audit);
+    const rankLinked = candidates.filter(
+      (c) =>
+        !c.satisfied &&
+        c.linkedGapIds.some((id) => id.startsWith("rank-outside-pack"))
+    );
+    assert.ok(rankLinked.length > 0);
+
+    const merged = mergeLlmGbpPlan(
+      fallback,
+      {
+        selectedSteps: [
+          { stepNumber: 6, instruction: "Photos", selectionRationale: "media" },
+          { stepNumber: 11, instruction: "Respond", selectionRationale: "trust" },
+          { stepNumber: 12, instruction: "Hours", selectionRationale: "hours" },
+        ],
+      },
+      candidates,
+      audit
+    );
+
+    for (const stepNumber of [3, 4, 8, 10]) {
+      assert.ok(
+        merged.steps.some((s) => s.stepNumber === stepNumber),
+        `expected rank-linked step ${stepNumber} to be merge-enforced`
+      );
+    }
+  });
+
+  it("injects conversion steps when conversion gaps exist and LLM omits them", () => {
+    const audit = createTestAudit();
+    audit.gbp.performance.profileViews = 400;
+    audit.gbp.performance.calls = 0;
+    audit.gbp.performance.directionRequests = 0;
+    audit.gbp.performance.websiteClicks = 0;
+    audit.gbp.performance.coverage = {
+      apiAvailable: true,
+      partialApi: false,
+      coverageScore: 70,
+      hasCoreMetrics: true,
+      hasImpressionMetrics: true,
+      hasSearchKeywords: false,
+      hasConversations: false,
+      hasBookings: false,
+      keywordCount: 0,
+      trackedKeywordCount: 0,
+      totalActions: 0,
+      actionRate: 0,
+      endpoints: { coreMetrics: "ok", impressions: "ok", searchKeywords: "skipped" },
+      recommendations: [],
+    };
+    audit.gbp.placeActions = {
+      apiAvailable: true,
+      partialApi: false,
+      coverageScore: 0,
+      linkCount: 0,
+      merchantLinkCount: 0,
+      configuredTypes: [],
+      availableTypes: ["APPOINTMENT"],
+      missingRecommendedTypes: ["APPOINTMENT"],
+      missingAvailableTypes: ["APPOINTMENT"],
+      typeCatalog: [{ placeActionType: "APPOINTMENT", displayName: "Book" }],
+      hasAppointmentLink: false,
+      hasOnlineAppointmentLink: false,
+      hasDiningReservationLink: false,
+      hasFoodOrderingLink: false,
+      hasShopOnlineLink: false,
+      endpoints: { links: "ok", typeMetadata: "ok" },
+      recommendations: [],
+    };
+
+    const fallback = buildTemplateGbpPlan(audit);
+    const candidates = buildPlanStepCandidates(audit);
+
+    const merged = mergeLlmGbpPlan(
+      fallback,
+      {
+        selectedSteps: [
+          { stepNumber: 3, instruction: "Rewrite", selectionRationale: "keywords" },
+          { stepNumber: 6, instruction: "Photos", selectionRationale: "media" },
+          { stepNumber: 12, instruction: "Hours", selectionRationale: "hours" },
+        ],
+      },
+      candidates,
+      audit
+    );
+
+    for (const stepNumber of [8, 11, 13, 15]) {
+      assert.ok(
+        merged.steps.some((s) => s.stepNumber === stepNumber),
+        `expected conversion step ${stepNumber} to be merge-enforced`
+      );
+    }
+    assert.equal(
+      merged.steps.some((s) => s.stepNumber === 14),
+      false,
+      "notifications (14) are not conversion-enforced"
     );
   });
 
@@ -263,12 +371,12 @@ describe("mergeLlmGbpPlan", () => {
   it("falls back when merged plan has too few steps", () => {
     const audit = createTestAudit();
     const fallback = buildTemplateGbpPlan(audit);
-    const candidates = buildPlanStepCandidates(audit);
 
+    // Empty candidates prevent merge-enforced injects from filling the plan.
     const merged = mergeLlmGbpPlan(
       fallback,
       { selectedSteps: [{ stepNumber: 99, instruction: "invalid" }] as never },
-      candidates,
+      [],
       audit
     );
 
