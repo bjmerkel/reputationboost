@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { PlanStep } from "../types";
-import { formatPlanStepImpactLabel } from "./plan-impact-label";
+import { formatPlanStepImpactLabel, formatPlanStepImpactLabels } from "./plan-impact-label";
 
 function stubStep(overrides: Partial<PlanStep["context"]>): PlanStep {
   return {
@@ -63,7 +63,10 @@ describe("formatPlanStepImpactLabel", () => {
 
   it("falls back to ranking points when leads and engagement are missing", () => {
     assert.equal(
-      formatPlanStepImpactLabel(stubStep({ outcomeScoreImpact: 5 }), "USD"),
+      formatPlanStepImpactLabel(
+        { ...stubStep({ outcomeScoreImpact: 5 }), stepNumber: 3 },
+        "USD"
+      ),
       "+5 ranking pts"
     );
   });
@@ -90,5 +93,33 @@ describe("formatPlanStepImpactLabel", () => {
       formatPlanStepImpactLabel(custom, "USD"),
       "Competitors mention emergency response in posts."
     );
+  });
+
+  it("puts actions/mo first on conversion steps with secondary ranking pts", () => {
+    const labels = formatPlanStepImpactLabels(
+      stubStep({ engagementImpact: 18, outcomeScoreImpact: 0 }),
+      "USD"
+    );
+    assert.match(labels.primary ?? "", /18 actions\/mo/);
+    assert.equal(labels.secondary, null);
+
+    const withOutcome = formatPlanStepImpactLabels(
+      stubStep({ engagementImpact: 18, outcomeScoreImpact: 4 }),
+      "USD"
+    );
+    assert.match(withOutcome.primary ?? "", /18 actions\/mo/);
+    assert.equal(withOutcome.secondary, "+4 ranking pts");
+  });
+
+  it("puts revenue first on rank steps with ranking pts secondary", () => {
+    const labels = formatPlanStepImpactLabels(
+      {
+        ...stubStep({ revenueImpact: 420, outcomeScoreImpact: 3 }),
+        stepNumber: 3,
+      },
+      "USD"
+    );
+    assert.match(labels.primary ?? "", /\$420\/mo/);
+    assert.equal(labels.secondary, "+3 ranking pts");
   });
 });

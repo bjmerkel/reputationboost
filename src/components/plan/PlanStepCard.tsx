@@ -6,7 +6,7 @@ import type { ActionAttribution } from "@/audit/types/timeseries";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import {
   formatCustomPlanStepSignal,
-  formatPlanStepImpactLabel,
+  formatPlanStepImpactLabels,
 } from "@/audit/phase3/plan-impact-label";
 import { isCustomPlanStep } from "@/audit/phase3/plan-custom-steps";
 import PlanStepDiff from "./PlanStepDiff";
@@ -137,16 +137,12 @@ export default function PlanStepCard({
     .find((attr) => attr != null);
   const stepTrackingLabel = formatStepAttributionTrackingLabel(step, attributionByTaskId);
   const isCustom = isCustomPlanStep(step.stepNumber);
-  const showLeadOrRevenueImpact =
-    !isCompleted &&
-    step.status !== "skipped" &&
-    ((step.context.revenueImpact ?? 0) > 0 ||
-      (step.context.leadsImpact ?? 0) > 0 ||
-      (step.context.engagementImpact ?? 0) > 0 ||
-      isCustom);
-  const leadOrRevenueLabel = showLeadOrRevenueImpact
-    ? formatPlanStepImpactLabel(step, currency)
-    : null;
+  const impactLabels =
+    !isCompleted && step.status !== "skipped"
+      ? formatPlanStepImpactLabels(step, currency)
+      : { primary: null, secondary: null };
+  const leadOrRevenueLabel = impactLabels.primary;
+  const secondaryImpactLabel = impactLabels.secondary;
   const customSignal =
     !isCompleted &&
     step.status !== "skipped" &&
@@ -203,32 +199,16 @@ export default function PlanStepCard({
                 {leadOrRevenueLabel}
               </p>
             )}
+          {secondaryImpactLabel && !customSignal && (
+            <p className={`mt-0.5 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+              {secondaryImpactLabel}
+            </p>
+          )}
           {customSignal && (
             <p className={`mt-1 text-xs font-medium ${isLight ? "text-[#1a73e8]" : "text-sky-300"}`}>
               Strategist pick · {customSignal}
             </p>
           )}
-          {!isCompleted &&
-            step.status !== "skipped" &&
-            !isCustom &&
-            !(step.context.revenueImpact ?? 0) &&
-            !(step.context.leadsImpact ?? 0) &&
-            !(step.context.engagementImpact ?? 0) &&
-            (step.context.outcomeScoreImpact ?? 0) > 0 && (
-              <p className={`mt-1 text-xs ${isLight ? "text-[#1a73e8]" : "text-cyan-300"}`}>
-                +{step.context.outcomeScoreImpact} ranking outcome pts
-              </p>
-            )}
-          {!isCompleted &&
-            step.status !== "skipped" &&
-            !(step.context.revenueImpact ?? 0) &&
-            !(step.context.leadsImpact ?? 0) &&
-            !(step.context.engagementImpact ?? 0) &&
-            (step.context.healthScoreImpact ?? 0) > 0 && (
-              <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
-                +{step.context.healthScoreImpact} Reputation Boost Score pts
-              </p>
-            )}
           {!expanded && !isCompleted && (
             <p className={`mt-1 line-clamp-2 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
               {step.context.expectedEffect}

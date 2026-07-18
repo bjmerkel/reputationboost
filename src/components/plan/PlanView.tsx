@@ -314,12 +314,16 @@ export default function PlanView({
         projectedMonthlyRevenue={path?.projectedMonthlyRevenue}
         estimatedMonthlyLeads={path?.estimatedMonthlyLeads}
         projectedMonthlyLeads={path?.projectedMonthlyLeads}
+        estimatedMonthlyActions={path?.estimatedMonthlyActions}
+        projectedMonthlyActions={path?.projectedMonthlyActions}
         pathStepCount={path?.pathStepCount}
         nextThreeStepCount={path?.nextThreeStepCount}
         nextThreeEstimatedMonthlyRevenue={path?.nextThreeEstimatedMonthlyRevenue}
         nextThreeProjectedMonthlyRevenue={path?.nextThreeProjectedMonthlyRevenue}
         nextThreeEstimatedMonthlyLeads={path?.nextThreeEstimatedMonthlyLeads}
         nextThreeProjectedMonthlyLeads={path?.nextThreeProjectedMonthlyLeads}
+        nextThreeEstimatedMonthlyActions={path?.nextThreeEstimatedMonthlyActions}
+        nextThreeProjectedMonthlyActions={path?.nextThreeProjectedMonthlyActions}
         currency={currency}
         planReconciledAt={planReconciledAt ?? audit.strategy?.planReconciledAt ?? null}
         calibrationConfidence={path?.calibrationConfidence}

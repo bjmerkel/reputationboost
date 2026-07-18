@@ -88,6 +88,17 @@ describe("resolvePlanProjectionDisplay", () => {
     });
     assert.equal(display.showLeads, true);
   });
+
+  it("prefers actions over leads when revenue is unavailable", () => {
+    const display = resolvePlanProjectionDisplay({
+      estimatedMonthlyActions: 2,
+      projectedMonthlyActions: 12,
+      estimatedMonthlyLeads: 4,
+      projectedMonthlyLeads: 8,
+    });
+    assert.equal(display.showActions, true);
+    assert.equal(display.showLeads, false);
+  });
 });
 
 describe("plan UI copy helpers", () => {

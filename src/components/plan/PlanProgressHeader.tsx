@@ -2,7 +2,7 @@
 
 import type { Plan } from "@/audit/types";
 import { formatCurrency } from "@/audit/attribution/roi";
-import { formatLeadsMo } from "@/audit/phase3/plan-impact-label";
+import { formatActionsMo, formatLeadsMo } from "@/audit/phase3/plan-impact-label";
 import {
   calibrationConfidenceLabel,
   projectionEstimatePrefix,
@@ -25,12 +25,16 @@ export default function PlanProgressHeader({
   projectedMonthlyRevenue,
   estimatedMonthlyLeads,
   projectedMonthlyLeads,
+  estimatedMonthlyActions,
+  projectedMonthlyActions,
   pathStepCount,
   nextThreeStepCount,
   nextThreeEstimatedMonthlyRevenue,
   nextThreeProjectedMonthlyRevenue,
   nextThreeEstimatedMonthlyLeads,
   nextThreeProjectedMonthlyLeads,
+  nextThreeEstimatedMonthlyActions,
+  nextThreeProjectedMonthlyActions,
   currency = "USD",
   planReconciledAt,
   onRefreshPlan,
@@ -45,12 +49,16 @@ export default function PlanProgressHeader({
   projectedMonthlyRevenue?: number | null;
   estimatedMonthlyLeads?: number | null;
   projectedMonthlyLeads?: number | null;
+  estimatedMonthlyActions?: number | null;
+  projectedMonthlyActions?: number | null;
   pathStepCount?: number;
   nextThreeStepCount?: number;
   nextThreeEstimatedMonthlyRevenue?: number | null;
   nextThreeProjectedMonthlyRevenue?: number | null;
   nextThreeEstimatedMonthlyLeads?: number | null;
   nextThreeProjectedMonthlyLeads?: number | null;
+  nextThreeEstimatedMonthlyActions?: number | null;
+  nextThreeProjectedMonthlyActions?: number | null;
   currency?: string;
   planReconciledAt?: string | null;
   onRefreshPlan?: () => void;
@@ -66,20 +74,34 @@ export default function PlanProgressHeader({
   const estimatePrefix = projectionEstimatePrefix(calibrationConfidence);
   const mutedText = isLight ? "text-[#5f6368]" : "text-slate-400";
   const subtleText = isLight ? "text-[#80868b]" : "text-slate-500";
+  const stepCountLabel = pathStepCount ?? progress.totalSteps;
+  const stepCountSuffix = stepCountLabel === 1 ? "" : "s";
 
-  const { showRevenue, showLeads, showNextThreeRevenue, showNextThreeLeads } =
-    resolvePlanProjectionDisplay({
-      estimatedMonthlyRevenue,
-      projectedMonthlyRevenue,
-      estimatedMonthlyLeads,
-      projectedMonthlyLeads,
-      nextThreeEstimatedMonthlyRevenue,
-      nextThreeProjectedMonthlyRevenue,
-      nextThreeEstimatedMonthlyLeads,
-      nextThreeProjectedMonthlyLeads,
-      pathStepCount,
-      nextThreeStepCount,
-    });
+  const {
+    showRevenue,
+    showActions,
+    showLeads,
+    showNextThreeRevenue,
+    showNextThreeActions,
+    showNextThreeLeads,
+  } = resolvePlanProjectionDisplay({
+    estimatedMonthlyRevenue,
+    projectedMonthlyRevenue,
+    estimatedMonthlyLeads,
+    projectedMonthlyLeads,
+    estimatedMonthlyActions,
+    projectedMonthlyActions,
+    nextThreeEstimatedMonthlyRevenue,
+    nextThreeProjectedMonthlyRevenue,
+    nextThreeEstimatedMonthlyLeads,
+    nextThreeProjectedMonthlyLeads,
+    nextThreeEstimatedMonthlyActions,
+    nextThreeProjectedMonthlyActions,
+    pathStepCount,
+    nextThreeStepCount,
+  });
+
+  const hasOutcomeProjection = showRevenue || showActions || showLeads;
 
   return (
     <div
@@ -99,8 +121,7 @@ export default function PlanProgressHeader({
           {showRevenue && (
             <div className="mt-1">
               <p className={`text-xs ${mutedText}`}>
-                Projected after {pathStepCount ?? progress.totalSteps} recommended step
-                {(pathStepCount ?? progress.totalSteps) === 1 ? "" : "s"}
+                Projected after {stepCountLabel} recommended step{stepCountSuffix}
               </p>
               <p
                 className={`text-base font-semibold ${
@@ -113,11 +134,27 @@ export default function PlanProgressHeader({
               </p>
             </div>
           )}
+          {showActions && (
+            <div className="mt-1">
+              <p className={`text-xs ${mutedText}`}>
+                Calls + directions + clicks after {stepCountLabel} recommended step
+                {stepCountSuffix}
+              </p>
+              <p
+                className={`text-base font-semibold ${
+                  isLight ? "text-[#188038]" : "text-emerald-400"
+                }`}
+              >
+                {estimatePrefix}{" "}
+                {formatActionsMo(estimatedMonthlyActions ?? 0).replace(" actions/mo", "")} →{" "}
+                {formatActionsMo(projectedMonthlyActions!)}
+              </p>
+            </div>
+          )}
           {showLeads && (
             <div className="mt-1">
               <p className={`text-xs ${mutedText}`}>
-                Projected after {pathStepCount ?? progress.totalSteps} recommended step
-                {(pathStepCount ?? progress.totalSteps) === 1 ? "" : "s"}
+                Projected after {stepCountLabel} recommended step{stepCountSuffix}
               </p>
               <p
                 className={`text-base font-semibold ${
@@ -141,6 +178,17 @@ export default function PlanProgressHeader({
               {formatCurrency(nextThreeProjectedMonthlyRevenue!, currency)}/mo
             </p>
           )}
+          {showNextThreeActions && (
+            <p
+              className={`mt-1 text-sm font-medium ${
+                isLight ? "text-[#137333]" : "text-emerald-300"
+              }`}
+            >
+              Next {nextThreeStepCount ?? 3} actions: {estimatePrefix}{" "}
+              {formatActionsMo(nextThreeEstimatedMonthlyActions!).replace(" actions/mo", "")} →{" "}
+              {formatActionsMo(nextThreeProjectedMonthlyActions!)}
+            </p>
+          )}
           {showNextThreeLeads && (
             <p
               className={`mt-1 text-sm font-medium ${
@@ -152,14 +200,10 @@ export default function PlanProgressHeader({
               {formatLeadsMo(nextThreeProjectedMonthlyLeads!)}
             </p>
           )}
-          <p
-            className={`mt-1 text-sm font-medium ${
-              isLight ? "text-[#202124]" : "text-white"
-            }`}
-          >
+          <p className={`mt-2 text-xs ${subtleText}`}>
             Reputation Boost Score {progress.currentHealthScore} →{" "}
             {progress.projectedHealthScore}
-            <span className={isLight ? "text-[#5f6368]" : "text-slate-400"}>
+            <span className={isLight ? "text-[#bdc1c6]" : "text-slate-600"}>
               {" "}
               · {progress.completedSteps} of {progress.totalSteps} steps complete
             </span>
@@ -171,7 +215,7 @@ export default function PlanProgressHeader({
               Low-confidence model estimate — not yet calibrated from your published results
             </p>
           )}
-          {(showRevenue || showLeads) && (
+          {hasOutcomeProjection && (
             <details className="mt-1">
               <summary className={`cursor-pointer text-xs ${subtleText}`}>
                 How we calculated this

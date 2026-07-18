@@ -1160,6 +1160,27 @@ export function estimateTotalMonthlyLeads(audit: Phase1AuditPayload): number | n
   return total == null ? null : roundLeadCount(total);
 }
 
+/** Monthly profile actions (calls + directions + website clicks) from GBP performance. */
+export function estimateTotalMonthlyActions(audit: Phase1AuditPayload): number | null {
+  const perf = audit.gbp.performance;
+  const total = perf.calls + perf.directionRequests + perf.websiteClicks;
+  if (total <= 0 && perf.profileViews <= 0) return null;
+  const periodDays = Math.max(1, perf.periodDays ?? 28);
+  const monthly = (total * 30) / periodDays;
+  return Math.round(monthly * 10) / 10;
+}
+
+/** Projected monthly actions after applying engagement gains from plan steps. */
+export function projectedMonthlyActions(
+  currentActions: number | null,
+  engagementGain?: number | null
+): number | null {
+  const gain = engagementGain ?? 0;
+  if (currentActions == null && gain <= 0) return null;
+  const projected = (currentActions ?? 0) + gain;
+  return projected > 0 ? Math.round(projected * 10) / 10 : null;
+}
+
 /**
  * Project incremental calls/directions/website clicks from conversion-oriented
  * plan steps. Used so views→actions work competes with rank work on revenue.

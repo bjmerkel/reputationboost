@@ -41,18 +41,24 @@ export interface PlanProjectionDisplayInput {
   projectedMonthlyRevenue?: number | null;
   estimatedMonthlyLeads?: number | null;
   projectedMonthlyLeads?: number | null;
+  estimatedMonthlyActions?: number | null;
+  projectedMonthlyActions?: number | null;
   nextThreeEstimatedMonthlyRevenue?: number | null;
   nextThreeProjectedMonthlyRevenue?: number | null;
   nextThreeEstimatedMonthlyLeads?: number | null;
   nextThreeProjectedMonthlyLeads?: number | null;
+  nextThreeEstimatedMonthlyActions?: number | null;
+  nextThreeProjectedMonthlyActions?: number | null;
   pathStepCount?: number;
   nextThreeStepCount?: number;
 }
 
 export interface PlanProjectionDisplay {
   showRevenue: boolean;
+  showActions: boolean;
   showLeads: boolean;
   showNextThreeRevenue: boolean;
+  showNextThreeActions: boolean;
   showNextThreeLeads: boolean;
 }
 
@@ -63,8 +69,13 @@ export function resolvePlanProjectionDisplay(
     input.estimatedMonthlyRevenue != null &&
     input.projectedMonthlyRevenue != null &&
     input.estimatedMonthlyRevenue > 0;
+  const showActions =
+    !showRevenue &&
+    input.projectedMonthlyActions != null &&
+    input.projectedMonthlyActions > 0;
   const showLeads =
     !showRevenue &&
+    !showActions &&
     input.estimatedMonthlyLeads != null &&
     input.projectedMonthlyLeads != null &&
     input.estimatedMonthlyLeads > 0;
@@ -74,13 +85,28 @@ export function resolvePlanProjectionDisplay(
     input.nextThreeEstimatedMonthlyRevenue > 0 &&
     (input.nextThreeProjectedMonthlyRevenue !== input.projectedMonthlyRevenue ||
       (input.nextThreeStepCount ?? 0) < (input.pathStepCount ?? 0));
+  const showNextThreeActions =
+    !showNextThreeRevenue &&
+    input.nextThreeEstimatedMonthlyActions != null &&
+    input.nextThreeProjectedMonthlyActions != null &&
+    input.nextThreeEstimatedMonthlyActions > 0 &&
+    (input.nextThreeProjectedMonthlyActions !== input.projectedMonthlyActions ||
+      (input.nextThreeStepCount ?? 0) < (input.pathStepCount ?? 0));
   const showNextThreeLeads =
     !showNextThreeRevenue &&
+    !showNextThreeActions &&
     input.nextThreeEstimatedMonthlyLeads != null &&
     input.nextThreeProjectedMonthlyLeads != null &&
     input.nextThreeEstimatedMonthlyLeads > 0;
 
-  return { showRevenue, showLeads, showNextThreeRevenue, showNextThreeLeads };
+  return {
+    showRevenue,
+    showActions,
+    showLeads,
+    showNextThreeRevenue,
+    showNextThreeActions,
+    showNextThreeLeads,
+  };
 }
 
 export function planRefreshButtonLabel(refreshing: boolean): string {

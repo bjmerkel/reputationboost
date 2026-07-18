@@ -10,6 +10,8 @@ import { formatCurrency } from "../attribution/roi";
 import {
   estimateTotalMonthlyLeads,
   estimateTotalMonthlyRevenue,
+  estimateTotalMonthlyActions,
+  projectedMonthlyActions,
   isActionTargetMet,
   pickActionsForTarget,
   projectHealthScoresFromActions,
@@ -333,6 +335,8 @@ interface NextThreeProjection {
   projectedMonthlyRevenue: number | null;
   estimatedMonthlyLeads: number | null;
   projectedMonthlyLeads: number | null;
+  estimatedMonthlyActions: number | null;
+  projectedMonthlyActions: number | null;
   revenueGain: number | null;
 }
 
@@ -360,6 +364,7 @@ function buildNextThreeProjection(
     blendWeights: options.blendWeights,
   });
   const estimatedMonthlyRevenue = estimateTotalMonthlyRevenue(audit, options.avgCustomerValue);
+  const estimatedMonthlyActions = estimateTotalMonthlyActions(audit);
   const calibrationConfidence = resolvePathCalibrationConfidence(
     options.calibration,
     options.gapCalibration
@@ -377,6 +382,11 @@ function buildNextThreeProjection(
     projectedMonthlyRevenue: capped.projectedMonthlyRevenue,
     estimatedMonthlyLeads: estimateTotalMonthlyLeads(audit),
     projectedMonthlyLeads: outcomeProjection.estimatedMonthlyLeads,
+    estimatedMonthlyActions,
+    projectedMonthlyActions: projectedMonthlyActions(
+      estimatedMonthlyActions,
+      outcomeProjection.engagementActionsGain
+    ),
     revenueGain: capped.revenueGain,
   };
 }
@@ -393,6 +403,8 @@ function attachNextThreeProjection(
     nextThreeProjectedMonthlyRevenue: nextThree.projectedMonthlyRevenue,
     nextThreeEstimatedMonthlyLeads: nextThree.estimatedMonthlyLeads,
     nextThreeProjectedMonthlyLeads: nextThree.projectedMonthlyLeads,
+    nextThreeEstimatedMonthlyActions: nextThree.estimatedMonthlyActions,
+    nextThreeProjectedMonthlyActions: nextThree.projectedMonthlyActions,
     nextThreeRevenueGain: nextThree.revenueGain,
   };
 }
@@ -440,6 +452,7 @@ function buildHealthyPathResult(
     options.avgCustomerValue
   );
   const estimatedMonthlyLeads = estimateTotalMonthlyLeads(audit);
+  const estimatedMonthlyActions = estimateTotalMonthlyActions(audit);
 
   return attachNextThreeProjection(
     {
@@ -461,6 +474,8 @@ function buildHealthyPathResult(
       projectedMonthlyRevenue: estimatedMonthlyRevenue,
       estimatedMonthlyLeads,
       projectedMonthlyLeads: estimatedMonthlyLeads,
+      estimatedMonthlyActions,
+      projectedMonthlyActions: estimatedMonthlyActions,
       pathStepCount: 0,
       currentRevenueCapture: scores.revenueCapture,
       projectedRevenueCapture: scores.revenueCapture,
@@ -493,6 +508,7 @@ export function buildPathToHealthy(
     options.avgCustomerValue
   );
   const estimatedMonthlyLeads = estimateTotalMonthlyLeads(audit);
+  const estimatedMonthlyActions = estimateTotalMonthlyActions(audit);
 
   if (currentDriverScore >= driverTarget) {
     return buildHealthyPathResult(audit, plan, options, scores);
@@ -561,6 +577,11 @@ export function buildPathToHealthy(
       projectedMonthlyRevenue: capped.projectedMonthlyRevenue,
       estimatedMonthlyLeads,
       projectedMonthlyLeads: outcomeProjection.estimatedMonthlyLeads,
+      estimatedMonthlyActions,
+      projectedMonthlyActions: projectedMonthlyActions(
+        estimatedMonthlyActions,
+        outcomeProjection.engagementActionsGain
+      ),
       pathStepCount: selectedSteps.length,
       currentRevenueCapture: scores.revenueCapture,
       projectedRevenueCapture: outcomeProjection.projectedRevenueCapture,

@@ -1,11 +1,23 @@
 import type { PlanStep } from "../types";
 import { formatCurrency } from "../attribution/roi";
+import { isConversionPlanStep } from "../phase2/conversion-constants";
 import { isCustomPlanStep } from "./plan-custom-steps";
 
 /** Format a lead count for Plan UI (keeps one decimal under 10). */
 export function formatLeadsMo(leads: number): string {
   const rounded = leads >= 10 ? Math.round(leads) : Math.round(leads * 10) / 10;
   return `${rounded} leads/mo`;
+}
+
+/** Format profile actions (calls + directions + website clicks) for Plan UI. */
+export function formatActionsMo(actions: number): string {
+  const rounded = actions >= 10 ? Math.round(actions) : Math.round(actions * 10) / 10;
+  return `${rounded} actions/mo`;
+}
+
+export interface PlanStepImpactLabels {
+  primary: string | null;
+  secondary: string | null;
 }
 
 function estimateQualifier(
@@ -33,24 +45,65 @@ export function formatPlanStepImpactLabel(
   step: PlanStep,
   currency = "USD"
 ): string | null {
+  return formatPlanStepImpactLabels(step, currency).primary;
+}
+
+function revenueLabel(
+  amount: number,
+  currency: string,
+  qualifier: "model est." | "est."
+): string {
+  return `+${formatCurrency(amount, currency)}/mo ${qualifier}`;
+}
+
+function rankingPtsLabel(points: number): string {
+  return `+${points} ranking pts`;
+}
+
+function scorePtsLabel(points: number): string {
+  return `+${points} score pts`;
+}
+
+/** Primary + secondary impact lines for step cards (outcome-first for conversion steps). */
+export function formatPlanStepImpactLabels(
+  step: PlanStep,
+  currency = "USD"
+): PlanStepImpactLabels {
   const qualifier = estimateQualifier(step.context.projectionConfidence);
+  const custom = formatCustomPlanStepSignal(step);
+  const revenue = step.context.revenueImpact ?? 0;
+  const leads = step.context.leadsImpact ?? 0;
+  const engagement = step.context.engagementImpact ?? 0;
+  const outcome = step.context.outcomeScoreImpact ?? 0;
+  const health = step.context.healthScoreImpact ?? 0;
 
-  if ((step.context.revenueImpact ?? 0) > 0) {
-    return `+${formatCurrency(step.context.revenueImpact!, currency)}/mo ${qualifier}`;
-  }
-  if ((step.context.leadsImpact ?? 0) > 0) {
-    return `+${formatLeadsMo(step.context.leadsImpact!)} ${qualifier}`;
-  }
-  if ((step.context.engagementImpact ?? 0) > 0) {
-    return `+${step.context.engagementImpact} actions/mo ${qualifier}`;
-  }
-  if ((step.context.outcomeScoreImpact ?? 0) > 0) {
-    return `+${step.context.outcomeScoreImpact} ranking pts`;
-  }
-  if ((step.context.healthScoreImpact ?? 0) > 0) {
-    return `+${step.context.healthScoreImpact} score pts`;
+  if (isConversionPlanStep(step.stepNumber)) {
+    let primary: string | null = null;
+    if (revenue > 0) primary = revenueLabel(revenue, currency, qualifier);
+    else if (leads > 0) primary = `+${formatLeadsMo(leads)} ${qualifier}`;
+    else if (engagement > 0) primary = `+${engagement} actions/mo ${qualifier}`;
+    else if (custom) primary = custom;
+
+    let secondary: string | null = null;
+    if (outcome > 0) secondary = rankingPtsLabel(outcome);
+    else if (health > 0 && primary) secondary = scorePtsLabel(health);
+
+    return { primary, secondary };
   }
 
-  // Custom steps: never silent — show qualitative signal instead of blank impact.
-  return formatCustomPlanStepSignal(step);
+  let primary: string | null = null;
+  if (revenue > 0) primary = revenueLabel(revenue, currency, qualifier);
+  else if (outcome > 0) primary = rankingPtsLabel(outcome);
+  else if (leads > 0) primary = `+${formatLeadsMo(leads)} ${qualifier}`;
+  else if (engagement > 0) primary = `+${engagement} actions/mo ${qualifier}`;
+  else if (health > 0) primary = scorePtsLabel(health);
+  else if (custom) primary = custom;
+
+  let secondary: string | null = null;
+  if (primary && revenue > 0 && outcome > 0) secondary = rankingPtsLabel(outcome);
+  else if (primary && revenue > 0 && engagement > 0) {
+    secondary = `+${engagement} actions/mo ${qualifier}`;
+  } else if (primary && outcome > 0 && health > 0) secondary = scorePtsLabel(health);
+
+  return { primary, secondary };
 }

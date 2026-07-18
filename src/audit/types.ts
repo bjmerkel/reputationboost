@@ -873,6 +873,10 @@ export interface PathToHealthy {
   estimatedMonthlyLeads?: number | null;
   /** Projected monthly leads after path actions (no ACV required) */
   projectedMonthlyLeads?: number | null;
+  /** Current monthly profile actions from GBP performance (calls+directions+clicks) */
+  estimatedMonthlyActions?: number | null;
+  /** Projected monthly profile actions after path actions */
+  projectedMonthlyActions?: number | null;
   /** Number of steps in the full path-to-healthy projection */
   pathStepCount?: number;
   /** Next-best-action subset (typically 3) — separate scope from full path */
@@ -881,6 +885,8 @@ export interface PathToHealthy {
   nextThreeProjectedMonthlyRevenue?: number | null;
   nextThreeEstimatedMonthlyLeads?: number | null;
   nextThreeProjectedMonthlyLeads?: number | null;
+  nextThreeEstimatedMonthlyActions?: number | null;
+  nextThreeProjectedMonthlyActions?: number | null;
   nextThreeRevenueGain?: number | null;
   currentRevenueCapture?: number;
   projectedRevenueCapture?: number;
