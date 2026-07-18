@@ -109,10 +109,6 @@ export function resolvePlanProjectionDisplay(
   };
 }
 
-export function planRefreshButtonLabel(refreshing: boolean): string {
-  return refreshing ? "Refreshing…" : "Refresh plan";
-}
-
 export function planApprovalBadgeCopy(count: number, interactive: boolean): string {
   if (interactive) {
     return `${count} need approval → Review`;

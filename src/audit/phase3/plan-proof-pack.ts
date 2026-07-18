@@ -91,7 +91,7 @@ export const PLAN_SOAK_CHECKLIST = [
   "Custom strategist step shows qualitative signal (not a blank impact row)",
   "First Plan viewport reads: progress → NBA → keyword playbooks (checklist below)",
   "Reject one review reply → sibling replies on the same step stay visible",
-  "Refresh plan button does not claim a live Google fetch (use Refresh from Google panel for that)",
+  "Use Refresh profile data in the toolbar for a full Google sync and plan reconcile",
   "Google conflict panel shows context only; accept/reject actions live in plan step 0",
   "Without ACV, keyword playbooks show leads/mo — not dollar amounts for lead counts",
   "Completed step shows Measuring or Early signal while attribution window is open",

@@ -147,23 +147,6 @@ export default function PlanView({
     ]
   );
 
-  const handleReconcilePlan = useCallback(async () => {
-    try {
-      const result = await reconcilePlanNow();
-      setReconcileNotice(
-        reconcileFeedbackMessage({
-          completedTasks: result.completedTasks,
-          createdTasks: result.createdTasks,
-        })
-      );
-      if (result.audit) onAuditUpdated?.(result.audit);
-      return result;
-    } catch {
-      setReconcileNotice(null);
-      return null;
-    }
-  }, [onAuditUpdated, reconcilePlanNow]);
-
   const refreshGoogleUpdates = useCallback(async () => {
     setSyncingGoogleUpdates(true);
     try {
@@ -327,10 +310,6 @@ export default function PlanView({
         currency={currency}
         planReconciledAt={planReconciledAt ?? audit.strategy?.planReconciledAt ?? null}
         calibrationConfidence={path?.calibrationConfidence}
-        onRefreshPlan={() => {
-          void handleReconcilePlan();
-        }}
-        refreshingPlan={reconciling}
       />
 
       {reconcileNotice && !error && (

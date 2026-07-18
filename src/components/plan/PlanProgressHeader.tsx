@@ -12,7 +12,6 @@ import { formatPlanTimestamp } from "./plan-timestamps";
 import {
   planApprovalBadgeCopy,
   planProgressPercent,
-  planRefreshButtonLabel,
   resolvePlanProjectionDisplay,
 } from "./plan-display";
 
@@ -37,8 +36,6 @@ export default function PlanProgressHeader({
   nextThreeProjectedMonthlyActions,
   currency = "USD",
   planReconciledAt,
-  onRefreshPlan,
-  refreshingPlan = false,
   calibrationConfidence,
 }: {
   plan: Plan;
@@ -61,8 +58,6 @@ export default function PlanProgressHeader({
   nextThreeProjectedMonthlyActions?: number | null;
   currency?: string;
   planReconciledAt?: string | null;
-  onRefreshPlan?: () => void;
-  refreshingPlan?: boolean;
   calibrationConfidence?: "high" | "medium" | "low" | "default";
 }) {
   const isLight = variant === "light";
@@ -223,29 +218,10 @@ export default function PlanProgressHeader({
               <p className={`mt-1 text-xs ${mutedText}`}>{revenueProjectionFormulaHint()}</p>
             </details>
           )}
-          {(reconciledLabel || onRefreshPlan) && (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {reconciledLabel && (
-                <p className={`text-xs ${subtleText}`}>
-                  Recommendations updated {reconciledLabel}
-                </p>
-              )}
-              {onRefreshPlan && (
-                <button
-                  type="button"
-                  onClick={onRefreshPlan}
-                  disabled={refreshingPlan}
-                  title="Reconciles tasks with your latest audit data. Does not fetch live Google changes."
-                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition disabled:opacity-60 ${
-                    isLight
-                      ? "border-[#dadce0] text-[#1a73e8] hover:bg-[#e8f0fe]"
-                      : "border-white/15 text-sky-300 hover:bg-white/5"
-                  }`}
-                >
-                  {planRefreshButtonLabel(refreshingPlan)}
-                </button>
-              )}
-            </div>
+          {reconciledLabel && (
+            <p className={`mt-2 text-xs ${subtleText}`}>
+              Recommendations updated {reconciledLabel}
+            </p>
           )}
         </div>
         {approvalCount > 0 &&

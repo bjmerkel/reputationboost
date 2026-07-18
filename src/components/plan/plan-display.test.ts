@@ -7,7 +7,6 @@ import {
   partitionVisiblePlanSteps,
   planApprovalBadgeCopy,
   planProgressPercent,
-  planRefreshButtonLabel,
   resolvePlanProjectionDisplay,
 } from "./plan-display";
 import type { ActionAttribution } from "@/audit/types/timeseries";
@@ -102,11 +101,6 @@ describe("resolvePlanProjectionDisplay", () => {
 });
 
 describe("plan UI copy helpers", () => {
-  it("uses refresh plan labels", () => {
-    assert.equal(planRefreshButtonLabel(false), "Refresh plan");
-    assert.equal(planRefreshButtonLabel(true), "Refreshing…");
-  });
-
   it("formats approval badges", () => {
     assert.equal(planApprovalBadgeCopy(1, false), "1 needs your approval");
     assert.equal(planApprovalBadgeCopy(2, true), "2 need approval → Review");

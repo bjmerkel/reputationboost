@@ -14,10 +14,7 @@ import { createTestAudit } from "@/audit/phase3/test-fixtures";
 import type { ExecutionTask, PlanStep } from "@/audit/types";
 import { countGoogleConflictTasks } from "@/components/plan/GoogleUpdatesPanel";
 import { hasMaintenanceCadence } from "@/components/plan/PlanMaintenanceCadence";
-import {
-  filterVisiblePlanSteps,
-  planRefreshButtonLabel,
-} from "@/components/plan/plan-display";
+import { filterVisiblePlanSteps } from "@/components/plan/plan-display";
 import {
   planGbpBannerMessage,
   reconcileFeedbackMessage,
@@ -99,7 +96,11 @@ describe("plan audit regression pack", () => {
 
   it("High — reconcile copy does not claim a live Google sync", () => {
     assert.doesNotMatch(reconcileFeedbackMessage({ completedTasks: 1, createdTasks: 0 }), /Google/i);
-    assert.equal(planRefreshButtonLabel(false), "Refresh plan");
+    const headerSource = readFileSync(
+      new URL("../../components/plan/PlanProgressHeader.tsx", import.meta.url),
+      "utf8"
+    );
+    assert.doesNotMatch(headerSource, /Refresh plan/i);
     const banner = planGbpBannerMessage(
       {
         title: "Plan",
@@ -125,7 +126,7 @@ describe("plan audit regression pack", () => {
       true
     );
     assert.match(banner ?? "", /sync/i);
-    assert.doesNotMatch(planRefreshButtonLabel(false), /Google/i);
+    assert.doesNotMatch(reconcileFeedbackMessage({ completedTasks: 0, createdTasks: 0 }), /Google/i);
   });
 
   it("Medium — Google conflict tasks are counted once for panel CTA routing", () => {
