@@ -90,7 +90,7 @@ describe("planGbpBannerMessage", () => {
     ]);
     const message = planGbpBannerMessage(plan, true);
     assert.ok(message?.includes("approved and published"));
-    assert.ok(message?.includes("Sync with Google"));
+    assert.ok(message?.includes("refresh your plan"));
   });
 
   it("hides banner when plan has only completed steps", () => {
@@ -121,10 +121,10 @@ describe("reconcileFeedbackMessage", () => {
     assert.match(reconcileFeedbackMessage({ completedTasks: 2, createdTasks: 0 }), /2 tasks marked complete/);
   });
 
-  it("reports no changes when sync finds nothing", () => {
+  it("reports no changes when reconcile finds nothing", () => {
     assert.match(
       reconcileFeedbackMessage({ completedTasks: 0, createdTasks: 0 }),
-      /don't see new profile changes/
+      /no new changes found/
     );
   });
 });

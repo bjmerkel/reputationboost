@@ -1,4 +1,5 @@
 import type { FullAuditPayload, Phase1AuditPayload, Plan, PlanStep } from "../types";
+import { formatPlanStepImpactLabel } from "../phase3/plan-impact-label";
 import { keywordsTargetedByStep, keywordNeedsOutcomeWork } from "./counterfactual";
 import { detectPackFragility } from "./scoring";
 import { computeKeywordScores } from "./keyword-scores";
@@ -302,8 +303,8 @@ export interface KeywordPlaybook {
   positionLabel: string;
   impressions: number | null;
   revenueGap: number | null;
-  /** Modeled revenue from the primary linked plan step (not rank-1 upside). */
-  actionExpectedRevenue: number | null;
+  /** Formatted impact from the primary linked plan step (revenue, leads, or engagement). */
+  actionExpectedImpactLabel: string | null;
   primaryStep: number | null;
   primaryStepTitle: string | null;
   ctaLabel: string;
@@ -340,6 +341,7 @@ export function ctaLabelForPlanStep(stepNumber: number, title?: string | null): 
 export interface KeywordPlaybookOptions extends KeywordBindingOptions {
   /** Max playbooks to return (default 3). */
   limit?: number;
+  currency?: string;
 }
 
 /**
@@ -447,12 +449,9 @@ export function buildKeywordPlaybooks(
         score?.potentialAtRank1 != null && score?.estimatedMonthlyRevenue != null
           ? Math.max(0, score.potentialAtRank1 - score.estimatedMonthlyRevenue)
           : null,
-      actionExpectedRevenue:
-        primaryCard?.context.revenueImpact != null && primaryCard.context.revenueImpact > 0
-          ? primaryCard.context.revenueImpact
-          : primaryCard?.context.leadsImpact != null && primaryCard.context.leadsImpact > 0
-            ? primaryCard.context.leadsImpact
-            : null,
+      actionExpectedImpactLabel: primaryCard
+        ? formatPlanStepImpactLabel(primaryCard, options.currency ?? "USD")
+        : null,
       primaryStep,
       primaryStepTitle: primaryCard?.title ?? null,
       ctaLabel:

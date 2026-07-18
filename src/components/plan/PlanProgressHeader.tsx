@@ -195,13 +195,14 @@ export default function PlanProgressHeader({
                   type="button"
                   onClick={onRefreshPlan}
                   disabled={refreshingPlan}
+                  title="Reconciles tasks with your latest audit data. Does not fetch live Google changes."
                   className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition disabled:opacity-60 ${
                     isLight
                       ? "border-[#dadce0] text-[#1a73e8] hover:bg-[#e8f0fe]"
                       : "border-white/15 text-sky-300 hover:bg-white/5"
                   }`}
                 >
-                  {refreshingPlan ? "Syncing…" : "Sync with Google"}
+                  {refreshingPlan ? "Refreshing…" : "Refresh plan"}
                 </button>
               )}
             </div>

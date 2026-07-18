@@ -60,7 +60,7 @@ export function planGbpBannerMessage(plan: Plan, gbpConnected: boolean): string 
   }
   if (hasManual) {
     parts.push(
-      "Manual items must be completed in Google first, then use Sync with Google to update your plan."
+      "Manual items must be completed in Google first, then refresh your plan to pick up changes."
     );
   }
   return parts.join(" ");
@@ -72,18 +72,18 @@ export function reconcileFeedbackMessage(options: {
 }): string {
   const { completedTasks, createdTasks } = options;
   if (completedTasks > 0 && createdTasks > 0) {
-    return `Synced with Google — ${completedTasks} task${completedTasks === 1 ? "" : "s"} marked complete and ${createdTasks} new task${createdTasks === 1 ? "" : "s"} added.`;
+    return `Plan refreshed — ${completedTasks} task${completedTasks === 1 ? "" : "s"} marked complete and ${createdTasks} new task${createdTasks === 1 ? "" : "s"} added.`;
   }
   if (completedTasks > 0) {
-    return `Synced with Google — ${completedTasks} task${completedTasks === 1 ? "" : "s"} marked complete.`;
+    return `Plan refreshed — ${completedTasks} task${completedTasks === 1 ? "" : "s"} marked complete.`;
   }
   if (createdTasks > 0) {
     return `Plan updated — ${createdTasks} new task${createdTasks === 1 ? "" : "s"} added.`;
   }
-  return "Synced with Google — we don't see new profile changes yet. Finish the update in Google, then try again.";
+  return "Plan refreshed — no new changes found in your latest audit data.";
 }
 
 export const MANUAL_STEP_HELPER =
-  "Manual step — complete this update in Google Business Profile, then sync your plan.";
+  "Manual step — complete this update in Google Business Profile, then refresh your plan.";
 
-export const MANUAL_STEP_SYNC_LABEL = "I did this in Google — sync plan";
+export const MANUAL_STEP_SYNC_LABEL = "I did this in Google — refresh plan";

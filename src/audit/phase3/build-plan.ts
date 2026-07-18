@@ -6,7 +6,6 @@ import type {
   Plan,
   PlanPhase,
   PlanStep,
-  PlanStepStatus,
   PlanProgress,
 } from "../types";
 import { getPhaseForStep, PLAN_PHASE_DEFINITIONS } from "./plan-phases";
@@ -24,6 +23,7 @@ import {
 } from "@/lib/google/gbp-update-helpers";
 import { buildAllGbpPlanSteps, isRetiredGbpPlanStep, NOTIFICATIONS_PLAN_STEP, PLACE_ACTIONS_PLAN_STEP } from "../phase2/gbp-plan";
 import { resolveRecommendationTimestamp } from "./recommendation-timestamp";
+import { deriveStepStatus } from "./plan-step-status";
 
 function groupTasksByStep(tasks: ExecutionTask[]): Map<number, ExecutionTask[]> {
   const grouped = new Map<number, ExecutionTask[]>();
@@ -39,18 +39,6 @@ function groupTasksByStep(tasks: ExecutionTask[]): Map<number, ExecutionTask[]> 
 
 function gapDrivenPlanStep(stepNumber: number, title: string, instruction: string): GbpPlanStep {
   return { stepNumber, title, instruction, gbpAction: "manual" };
-}
-
-function deriveStepStatus(tasks: ExecutionTask[]): PlanStepStatus {
-  if (tasks.length === 0) return "pending";
-  if (tasks.every((t) => t.status === "completed")) return "completed";
-  if (tasks.some((t) => t.status === "rejected")) return "skipped";
-  if (tasks.some((t) => t.status === "pending_approval")) return "needs_approval";
-  if (tasks.every((t) => t.status === "approved" || t.status === "scheduled")) {
-    return "approved";
-  }
-  if (tasks.some((t) => t.status === "failed")) return "needs_approval";
-  return "pending";
 }
 
 function buildPlanStep(

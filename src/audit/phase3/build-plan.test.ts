@@ -254,6 +254,38 @@ describe("buildPlan", () => {
     assert.ok(photoStep!.tasks.some((task) => task.type === "gbp_media_delete"));
   });
 
+  it("keeps a multi-task step visible when only one task is rejected", () => {
+    const audit = createTestAudit();
+    const baseTask = audit.execution!.tasks[0];
+    const tasks = [
+      {
+        ...baseTask,
+        id: "review-reply-1",
+        planStepNumber: 11,
+        actionItemId: "review-reply-1",
+        type: "review_response" as const,
+        title: "Respond to Alice",
+        status: "rejected" as const,
+      },
+      {
+        ...baseTask,
+        id: "review-reply-2",
+        planStepNumber: 11,
+        actionItemId: "review-reply-2",
+        type: "review_response" as const,
+        title: "Respond to Bob",
+        status: "pending_approval" as const,
+      },
+    ];
+
+    const plan = buildPlan(audit, tasks);
+    assert.ok(plan);
+    const reviewStep = plan!.steps.find((step) => step.stepNumber === 11);
+    assert.ok(reviewStep, "review step should remain visible");
+    assert.equal(reviewStep!.status, "needs_approval");
+    assert.equal(reviewStep!.tasks.length, 2);
+  });
+
   it("places custom steps in the ongoing phase and excludes them from score projection", () => {
     const audit = createTestAudit();
     const customStep = {

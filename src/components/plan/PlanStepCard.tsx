@@ -479,7 +479,7 @@ export default function PlanStepCard({
                       : "border-sky-400/40 bg-sky-400/15 text-sky-300 hover:bg-sky-400/25"
                   }`}
                 >
-                  {actions.reconciling ? "Syncing…" : MANUAL_STEP_SYNC_LABEL}
+                  {actions.reconciling ? "Refreshing…" : MANUAL_STEP_SYNC_LABEL}
                 </button>
               )}
               {manualSyncNotice && (
