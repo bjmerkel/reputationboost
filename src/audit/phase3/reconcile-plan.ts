@@ -48,6 +48,8 @@ import { collectMissingReconcileTasks } from "./missing-tasks";
 import { resolvePlanStepNumber } from "./plan-task-utils";
 import { isMutableByReconcile } from "./task-identity";
 import { PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
+import { buildAttributionCalibration } from "@/audit/phase2/attribution-calibration";
+import { listActionAttributionsForUser } from "@/audit/storage-attribution";
 import {
   categoryLabelsMatch,
   filterActionableSecondaryCategories,
@@ -147,6 +149,7 @@ function stampDisplayOrder(steps: GbpPlanStep[]): GbpPlanStep[] {
 
 export interface RefreshGbpPlanOptions {
   avgCustomerValue?: number | null;
+  calibration?: import("@/audit/phase2/attribution-calibration").AttributionCalibration;
 }
 
 /** Drop retired steps, refresh existing metadata, and append newly required steps. */
@@ -160,6 +163,7 @@ export function refreshGbpPlanForReconcile(
   }
 
   const avgCustomerValue = options.avgCustomerValue;
+  const calibration = options.calibration;
   const allFresh = buildAllGbpPlanSteps(audit);
   const freshByNumber = new Map(allFresh.map((step) => [step.stepNumber, step]));
   const candidates = buildPlanStepCandidates(audit, { avgCustomerValue });
@@ -199,10 +203,15 @@ export function refreshGbpPlanForReconcile(
   const customs = combined
     .filter((step) => step.stepNumber >= CUSTOM_PLAN_STEP_START)
     .sort((a, b) => a.stepNumber - b.stepNumber);
-  const orderedStandard = orderGbpPlanStepsByImpact(audit, standard, avgCustomerValue);
+  const orderedStandard = orderGbpPlanStepsByImpact(
+    audit,
+    standard,
+    avgCustomerValue,
+    calibration
+  );
   const steps = stampDisplayOrder([...orderedStandard, ...customs]);
 
-  const template = buildTemplateGbpPlan(audit);
+  const template = buildTemplateGbpPlan(audit, { avgCustomerValue, calibration });
 
   return {
     plan: {
@@ -561,12 +570,14 @@ export function computePlanReconcile(
     content?: AuditGeneratedContent;
     now?: string;
     avgCustomerValue?: number | null;
+    calibration?: import("@/audit/phase2/attribution-calibration").AttributionCalibration;
   } = {}
 ): PlanReconcileComputation {
   const now = options.now ?? new Date().toISOString();
   syncReviewEngagementMetrics(audit);
   const { plan, appendedStepNumbers, refreshedStepCount } = refreshGbpPlanForReconcile(audit, {
     avgCustomerValue: options.avgCustomerValue,
+    calibration: options.calibration,
   });
 
   const nextAudit: FullAuditPayload = plan
@@ -667,6 +678,7 @@ export async function reconcilePlanForBusiness(
   );
 
   const content = await resolveReconcileContent(audit, existing, options.content);
+  // Daily/admin reconcile uses model ordering; session reconcile loads attributions.
   const computation = computePlanReconcile(audit, existing, {
     content,
     avgCustomerValue:
@@ -737,9 +749,17 @@ export async function reconcilePlanForUser(
 
   const existing = await listExecutionTasks(userId, client.id, raw.auditId);
   const content = await resolveReconcileContent(raw, existing, options.content);
+  let calibration: ReturnType<typeof buildAttributionCalibration> | undefined;
+  try {
+    const attributions = await listActionAttributionsForUser(userId, client.id, 50);
+    calibration = buildAttributionCalibration(attributions);
+  } catch {
+    // Attribution load is best-effort — plan still reconciles with model estimates.
+  }
   const computation = computePlanReconcile(raw, existing, {
     content,
     avgCustomerValue: client.avgCustomerValue,
+    calibration,
   });
 
   if (!options.dryRun) {

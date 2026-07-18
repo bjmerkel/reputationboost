@@ -37,6 +37,7 @@ Return valid JSON only.`;
 
 export interface GenerateGbpPlanOptions {
   avgCustomerValue?: number | null;
+  calibration?: import("@/audit/phase2/attribution-calibration").AttributionCalibration;
 }
 
 function buildStrategistPrompt(
@@ -139,7 +140,8 @@ export async function generateGbpOptimizationPlan(
   options: GenerateGbpPlanOptions = {}
 ): Promise<GbpOptimizationPlan> {
   const avgCustomerValue = options.avgCustomerValue;
-  const fallback = buildTemplateGbpPlan(audit, { avgCustomerValue });
+  const calibration = options.calibration;
+  const fallback = buildTemplateGbpPlan(audit, { avgCustomerValue, calibration });
   const candidates = buildPlanStepCandidates(audit, { avgCustomerValue });
 
   if (!isLlmConfigured()) {
@@ -173,7 +175,10 @@ export async function generateGbpOptimizationPlan(
       return fallback;
     }
 
-    return mergeLlmGbpPlan(fallback, validated, candidates, audit, { avgCustomerValue });
+    return mergeLlmGbpPlan(fallback, validated, candidates, audit, {
+      avgCustomerValue,
+      calibration,
+    });
   } catch (error) {
     console.error("[llm] GBP plan generation failed, using template:", error);
     return fallback;

@@ -817,6 +817,12 @@ export interface PathToHealthyOptions {
   blendWeights?: PathOptimizationBlendWeights;
   targetOutcomeIndex?: number;
   targetRevenueGain?: number | null;
+  /**
+   * When a Plan is provided, walk unfinished steps in displayOrder for the
+   * header projection instead of a separate greedy gap teleport path.
+   * Defaults to true whenever a plan is passed to buildPathToHealthy.
+   */
+  preferPlanDisplayOrder?: boolean;
 }
 
 export interface PathToHealthyStep {

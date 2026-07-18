@@ -5,6 +5,7 @@ import {
 } from "@/audit/phase2/plan-candidates";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
 import { orderGbpPlanStepsByImpact, planStepImpactScore } from "@/audit/phase2/gbp-plan";
+import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { KEYWORD_PORTFOLIO_PLAN_STEP } from "@/audit/phase2/keyword-portfolio";
 import { resolvePlanStepAction } from "@/audit/phase3/gbp-plan-actions";
 import { CUSTOM_PLAN_STEP_START } from "@/audit/phase3/plan-custom-steps";
@@ -65,6 +66,7 @@ export interface LlmGbpPlanResponse {
 
 export interface MergeLlmGbpPlanOptions {
   avgCustomerValue?: number | null;
+  calibration?: AttributionCalibration;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -254,6 +256,7 @@ export function mergeLlmGbpPlan(
 ): GbpOptimizationPlan {
   const candidateByStep = new Map(candidates.map((c) => [c.stepNumber, c]));
   const avgCustomerValue = options.avgCustomerValue;
+  const calibration = options.calibration;
   const standardSteps: GbpPlanStep[] = [];
 
   for (const selection of llm.selectedSteps ?? []) {
@@ -277,7 +280,8 @@ export function mergeLlmGbpPlan(
   const orderedStandard = orderGbpPlanStepsByImpact(
     audit,
     standardSteps,
-    avgCustomerValue
+    avgCustomerValue,
+    calibration
   );
 
   const customSteps: GbpPlanStep[] = [];
@@ -320,7 +324,8 @@ export function mergeLlmGbpPlan(
 export function mergeStepImpactScore(
   audit: Phase1AuditPayload,
   stepNumber: number,
-  avgCustomerValue?: number | null
+  avgCustomerValue?: number | null,
+  calibration?: AttributionCalibration
 ): number {
-  return planStepImpactScore(audit, stepNumber, avgCustomerValue);
+  return planStepImpactScore(audit, stepNumber, avgCustomerValue, calibration);
 }

@@ -63,6 +63,7 @@ import { GOOGLE_UPDATES_STEP_NUMBER } from "@/lib/google/gbp-update-helpers";
 
 export interface GbpPlanTaskOptions {
   avgCustomerValue?: number | null;
+  calibration?: import("@/audit/phase2/attribution-calibration").AttributionCalibration;
 }
 
 function mediaUploadDraft(hint: string, category: GbpMediaCategory): string {
@@ -108,7 +109,8 @@ export function resolveStepActionPriority(
   const score = planStepImpactScore(
     audit,
     step.stepNumber,
-    options.avgCustomerValue
+    options.avgCustomerValue,
+    options.calibration
   );
   if (score >= 20) return "P0";
   if (score >= 5) return "P1";

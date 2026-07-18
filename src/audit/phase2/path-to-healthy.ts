@@ -10,9 +10,13 @@ import { formatCurrency } from "../attribution/roi";
 import {
   estimateTotalMonthlyLeads,
   estimateTotalMonthlyRevenue,
+  isActionTargetMet,
   pickActionsForTarget,
+  projectHealthScoresFromActions,
+  projectOutcomeScoresFromActions,
   simulateActionMarginalImpact,
   type ActionRef,
+  type SelectedAction,
 } from "./counterfactual";
 import { computeKeywordScores } from "./keyword-scores";
 import {
@@ -34,6 +38,7 @@ import {
   resolvePathOptimizationMode,
 } from "./path-optimization";
 import { computeHealthScores, impressionWeightFloor, keywordImpressionWeight } from "./scoring";
+import { isRankOutsidePackGapId } from "./conversion-constants";
 
 const HEALTHY_THRESHOLD = 70;
 
@@ -136,21 +141,36 @@ function sortPoolCandidates(candidates: PoolCandidate[]): PoolCandidate[] {
   });
 }
 
+function isStandaloneRankTeleportGap(gap: GapFlag): boolean {
+  return (
+    isRankOutsidePackGapId(gap.id) ||
+    gap.id.startsWith("pack-fragility-")
+  );
+}
+
 function buildCandidatePool(
   audit: FullAuditPayload,
   plan: Plan | null,
   options: PathToHealthyOptions
 ): { steps: PathToHealthyStep[]; actions: ActionRef[] } {
   const calibration = options.calibration;
+  const preferPlanOrder = options.preferPlanDisplayOrder !== false && plan != null;
 
+  // Rank-outside-pack gaps teleport outcome without an executable GBP action —
+  // when a Plan exists they must flow through unfinished plan steps instead.
   const gapSteps = (audit.strategy?.gaps ?? [])
     .filter((gap) => gapQualifiesForPool(gap, audit, options.avgCustomerValue))
+    .filter((gap) => !(preferPlanOrder && isStandaloneRankTeleportGap(gap)))
     .map((gap, index) => gapToPoolCandidate(audit, gap, index, options));
 
   const planPathSteps = plan
-    ? plan.steps
+    ? [...plan.steps]
         .filter((s) => s.status !== "completed" && s.status !== "skipped")
-        .map((s) =>
+        .sort(
+          (a, b) =>
+            (a.displayOrder ?? a.stepNumber) - (b.displayOrder ?? b.stepNumber)
+        )
+        .map((s, index) =>
           planToPoolCandidate(
             audit,
             {
@@ -159,7 +179,7 @@ function buildCandidatePool(
               scoreImpact:
                 s.context.healthScoreImpact ??
                 estimateStepHealthImpact(audit, s.stepNumber, calibration),
-              order: s.stepNumber,
+              order: s.displayOrder ?? index,
             },
             options
           )
@@ -180,7 +200,7 @@ function buildCandidatePool(
               id: `gbp-step-${step.stepNumber}`,
               title: step.title,
               scoreImpact: estimateStepHealthImpact(audit, step.stepNumber, calibration),
-              order: index,
+              order: step.displayOrder ?? index,
             },
             options
           )
@@ -193,6 +213,17 @@ function buildCandidatePool(
             (s.revenueImpact ?? 0) > 0 ||
             (s.engagementImpact ?? 0) > 0
         );
+
+  if (preferPlanOrder && planPathSteps.length > 0) {
+    // Plan displayOrder is source of truth for the Plan tab header path.
+    const steps: PathToHealthyStep[] = planPathSteps.map(
+      ({ sortScore: _sortScore, impressionWeight: _impressionWeight, ...step }) => step
+    );
+    return {
+      steps,
+      actions: steps.map((step) => ({ source: step.source, id: step.id })),
+    };
+  }
 
   const merged: PoolCandidate[] = [...gapSteps];
   const seen = new Set(gapSteps.map((s) => s.id));
@@ -212,6 +243,74 @@ function buildCandidatePool(
     steps,
     actions: steps.map((step) => ({ source: step.source, id: step.id })),
   };
+}
+
+/** Walk plan actions in displayOrder until the path target is met (no greedy re-sort). */
+function pickActionsInPlanOrder(
+  audit: FullAuditPayload,
+  actions: ActionRef[],
+  target: {
+    mode: import("../types").PathOptimizationMode;
+    driverPointsNeeded: number;
+    outcomePointsNeeded?: number;
+    revenueGainNeeded?: number | null;
+  },
+  options: PathToHealthyOptions
+): {
+  selected: SelectedAction[];
+  projection: ReturnType<typeof projectHealthScoresFromActions>;
+  outcomeProjection: ReturnType<typeof projectOutcomeScoresFromActions>;
+} {
+  const selected: SelectedAction[] = [];
+  let projection = projectHealthScoresFromActions(audit, [], options);
+  let outcomeProjection = projectOutcomeScoresFromActions(audit, [], options);
+
+  for (const action of actions) {
+    if (isActionTargetMet(target.mode, projection, outcomeProjection, target)) {
+      break;
+    }
+    const before = {
+      driver: projection.driverGain,
+      outcome: outcomeProjection.outcomeGain,
+      revenue: outcomeProjection.revenueGain,
+      engagement: outcomeProjection.engagementActionsGain ?? 0,
+    };
+    selected.push({
+      ...action,
+      marginalDriverGain: 0,
+      marginalOutcomeGain: 0,
+      marginalRevenueGain: null,
+      marginalEngagementGain: 0,
+      marginalCompositeScore: 0,
+    });
+    projection = projectHealthScoresFromActions(audit, selected, options);
+    outcomeProjection = projectOutcomeScoresFromActions(audit, selected, options);
+    const last = selected[selected.length - 1]!;
+    last.marginalDriverGain = Math.max(0, projection.driverGain - before.driver);
+    last.marginalOutcomeGain = Math.max(0, outcomeProjection.outcomeGain - before.outcome);
+    last.marginalRevenueGain =
+      before.revenue != null && outcomeProjection.revenueGain != null
+        ? Math.max(0, outcomeProjection.revenueGain - before.revenue)
+        : outcomeProjection.revenueGain;
+    last.marginalEngagementGain = Math.max(
+      0,
+      (outcomeProjection.engagementActionsGain ?? 0) - before.engagement
+    );
+    last.marginalCompositeScore = compositeMarginalScore(
+      {
+        driverGain: last.marginalDriverGain,
+        outcomeGain: last.marginalOutcomeGain,
+        visibilityGain: 0,
+        revenueCaptureGain: 0,
+        revenueGain: last.marginalRevenueGain,
+        engagementGain: last.marginalEngagementGain,
+        overallGain: last.marginalDriverGain,
+      },
+      resolveBlendWeights(options.avgCustomerValue, options.blendWeights)
+    );
+  }
+
+  return { selected, projection, outcomeProjection };
 }
 
 function resolvePathCalibrationConfidence(
@@ -323,6 +422,7 @@ export function buildPathToHealthy(
 
   const pointsNeeded = driverTarget - currentDriverScore;
   const outcomePointsNeeded = Math.max(0, driverTarget - outcomeIndex);
+  const preferPlanOrder = options.preferPlanDisplayOrder !== false && plan != null;
   const { steps: candidateSteps, actions } = buildCandidatePool(audit, plan, options);
   const stepById = new Map(candidateSteps.map((step) => [step.id, step]));
 
@@ -333,17 +433,16 @@ export function buildPathToHealthy(
     blendWeights: options.blendWeights,
   };
 
-  const { selected, projection, outcomeProjection } = pickActionsForTarget(
-    audit,
-    actions,
-    {
-      mode: optimizationMode,
-      driverPointsNeeded: pointsNeeded,
-      outcomePointsNeeded,
-      revenueGainNeeded: options.targetRevenueGain,
-    },
-    counterfactualOptions
-  );
+  const target = {
+    mode: optimizationMode,
+    driverPointsNeeded: pointsNeeded,
+    outcomePointsNeeded,
+    revenueGainNeeded: options.targetRevenueGain,
+  };
+
+  const { selected, projection, outcomeProjection } = preferPlanOrder
+    ? pickActionsInPlanOrder(audit, actions, target, options)
+    : pickActionsForTarget(audit, actions, target, counterfactualOptions);
 
   const selectedSteps: PathToHealthyStep[] = selected.map((action, index) =>
     enrichPathStep(stepById.get(action.id)!, action, index, currency)
