@@ -22,6 +22,7 @@ import {
   KEYWORD_PORTFOLIO_PLAN_STEP,
   portfolioStepIsSatisfied,
 } from "./keyword-portfolio";
+import { CONVERSION_PLAN_STEPS } from "./conversion-boost";
 import { computeKeywordScores } from "./keyword-scores";
 import { detectPackFragility, resolveKeywordPositionAtRadius } from "./scoring";
 import { type SearchRadiusMiles } from "@/lib/google/places";
@@ -32,6 +33,42 @@ import {
   buildGbpDescriptionDraft,
   cityFromAddress,
 } from "@/lib/google/gbp-description-draft";
+
+const CONVERSION_PLAN_STEP_SET = new Set<number>(CONVERSION_PLAN_STEPS);
+
+interface EngagementGainRates {
+  calls: number;
+  directions: number;
+  websiteClicks: number;
+}
+
+/** Fractional view→action rates for conversion-family plan steps. */
+function conversionEngagementRates(stepNumber: number): EngagementGainRates | null {
+  switch (stepNumber) {
+    case 8:
+      return { calls: 0.02, directions: 0.025, websiteClicks: 0 };
+    case 11:
+      return { calls: 0.01, directions: 0, websiteClicks: 0 };
+    case 13:
+      return { calls: 0, directions: 0, websiteClicks: 0.015 };
+    case 15:
+      return { calls: 0.025, directions: 0.04, websiteClicks: 0.03 };
+    default:
+      return null;
+  }
+}
+
+function scaleConversionEngagementGains(
+  views: number,
+  rates: EngagementGainRates,
+  scale: number
+): EngagementGainRates {
+  return {
+    calls: Math.ceil(views * rates.calls * scale),
+    directions: Math.ceil(views * rates.directions * scale),
+    websiteClicks: Math.ceil(views * rates.websiteClicks * scale),
+  };
+}
 
 const PHOTO_TARGET = 60;
 const POST_FRESH_DAYS = 14;
@@ -1042,40 +1079,27 @@ export function estimateTotalMonthlyRevenue(
 /**
  * Project incremental calls/directions/website clicks from conversion-oriented
  * plan steps. Used so views→actions work competes with rank work on revenue.
+ * Later stacked actions are dampened like rank mutations.
  */
 export function applyConversionEngagementMutation(
   audit: Phase1AuditPayload,
-  stepNumber: number
+  stepNumber: number,
+  stackIndex = 0
 ): void {
+  const rates = conversionEngagementRates(stepNumber);
+  if (!rates) return;
+
   const perf = audit.gbp.performance;
   const views = Math.max(perf.profileViews, 100);
-  let callsGain = 0;
-  let directionsGain = 0;
-  let clicksGain = 0;
+  const gains = scaleConversionEngagementGains(
+    views,
+    rates,
+    stackDampeningFactor(stackIndex)
+  );
 
-  switch (stepNumber) {
-    case 8:
-      callsGain = Math.ceil(views * 0.02);
-      directionsGain = Math.ceil(views * 0.025);
-      break;
-    case 11:
-      callsGain = Math.ceil(views * 0.01);
-      break;
-    case 13:
-      clicksGain = Math.ceil(views * 0.015);
-      break;
-    case 15:
-      callsGain = Math.ceil(views * 0.025);
-      directionsGain = Math.ceil(views * 0.04);
-      clicksGain = Math.ceil(views * 0.03);
-      break;
-    default:
-      return;
-  }
-
-  perf.calls += callsGain;
-  perf.directionRequests += directionsGain;
-  perf.websiteClicks += clicksGain;
+  perf.calls += gains.calls;
+  perf.directionRequests += gains.directions;
+  perf.websiteClicks += gains.websiteClicks;
 
   const coverage = ensurePerformanceCoverage(audit);
   coverage.totalActions = perf.calls + perf.directionRequests + perf.websiteClicks;
@@ -1110,10 +1134,10 @@ export function applyOutcomeMutation(
   if (stepNumber >= CUSTOM_PLAN_STEP_START) return;
   if (isStepSatisfied(audit, stepNumber)) return;
 
-  applyConversionEngagementMutation(audit, stepNumber);
+  applyConversionEngagementMutation(audit, stepNumber, stackIndex);
 
-  // Place actions / alerts primarily move engagement, not pack rank.
-  if (stepNumber === 14 || stepNumber === 15) return;
+  // Conversion-family + alerts: engagement channel only — no pack-rank revenue claim.
+  if (CONVERSION_PLAN_STEP_SET.has(stepNumber) || stepNumber === 14) return;
 
   const baseDelta = rankDeltaForStep(stepNumber, calibration);
   const rankDelta = Math.max(1, Math.round(baseDelta * stackDampeningFactor(stackIndex)));
@@ -1250,32 +1274,17 @@ function conversionEngagementRevenueGain(
     const match = action.id.match(/^gbp-step-(\d+)$/);
     if (!match) continue;
     const stepNumber = Number(match[1]);
-    const scale = stackDampeningFactor(conversionIndex);
-    let matched = false;
-    switch (stepNumber) {
-      case 8:
-        calls += Math.ceil(views * 0.02 * scale);
-        directions += Math.ceil(views * 0.025 * scale);
-        matched = true;
-        break;
-      case 11:
-        calls += Math.ceil(views * 0.01 * scale);
-        matched = true;
-        break;
-      case 13:
-        websiteClicks += Math.ceil(views * 0.015 * scale);
-        matched = true;
-        break;
-      case 15:
-        calls += Math.ceil(views * 0.025 * scale);
-        directions += Math.ceil(views * 0.04 * scale);
-        websiteClicks += Math.ceil(views * 0.03 * scale);
-        matched = true;
-        break;
-      default:
-        break;
-    }
-    if (matched) conversionIndex += 1;
+    const rates = conversionEngagementRates(stepNumber);
+    if (!rates) continue;
+    const gains = scaleConversionEngagementGains(
+      views,
+      rates,
+      stackDampeningFactor(conversionIndex)
+    );
+    calls += gains.calls;
+    directions += gains.directions;
+    websiteClicks += gains.websiteClicks;
+    conversionIndex += 1;
   }
 
   if (calls + directions + websiteClicks <= 0) return null;
