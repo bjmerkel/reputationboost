@@ -288,4 +288,93 @@ describe("Plan path-to-9 golden fixtures", () => {
       planStepImpactScore(audit, 15, 350) > planStepImpactScore(audit, 6, 350)
     );
   });
+
+  it("zero-result calibration demotes failed steps below proven winners", () => {
+    const audit = conversionVisibleAudit();
+    const calibration = buildAttributionCalibration([
+      attribution({
+        id: "a1",
+        executionTaskId: "t1",
+        actionItemId: "gbp-step-8",
+        taskType: "google_post",
+        callsDelta: 0,
+        directionsDelta: 0,
+        websiteClicksDelta: 0,
+        rankBefore: 5,
+        rankAfter: 6,
+      }),
+      attribution({
+        id: "a2",
+        executionTaskId: "t2",
+        actionItemId: "gbp-step-8",
+        taskType: "google_post",
+        callsDelta: 0,
+        directionsDelta: 0,
+        websiteClicksDelta: 0,
+        rankBefore: 4,
+        rankAfter: 5,
+      }),
+      attribution({
+        id: "a3",
+        executionTaskId: "t3",
+        actionItemId: "gbp-step-15",
+        callsDelta: 40,
+        directionsDelta: 60,
+        websiteClicksDelta: 50,
+      }),
+      attribution({
+        id: "a4",
+        executionTaskId: "t4",
+        actionItemId: "gbp-step-15",
+        callsDelta: 36,
+        directionsDelta: 55,
+        websiteClicksDelta: 48,
+      }),
+    ]);
+
+    const steps = [
+      { stepNumber: 8, title: "Posts", instruction: "post" },
+      { stepNumber: 15, title: "Place actions", instruction: "links" },
+    ];
+    const ordered = orderGbpPlanStepsByImpact(audit, steps, 350, calibration);
+    assert.equal(ordered[0]?.stepNumber, 15);
+    assert.ok(
+      planStepImpactScore(audit, 15, 350, calibration) >
+        planStepImpactScore(audit, 8, 350, calibration)
+    );
+  });
+
+  it("zero-rank calibration suppresses rank lift projection for failed steps", () => {
+    const audit = createTestAudit();
+    const calibration = buildAttributionCalibration([
+      attribution({
+        actionItemId: "gbp-step-3",
+        rankBefore: 6,
+        rankAfter: 8,
+      }),
+      attribution({
+        id: "a2",
+        executionTaskId: "t2",
+        actionItemId: "gbp-step-3",
+        rankBefore: 5,
+        rankAfter: 6,
+      }),
+    ]);
+
+    const projection = projectOutcomeScoresFromActions(
+      audit,
+      [{ source: "plan", id: "gbp-step-3" }],
+      { avgCustomerValue: 350, calibration }
+    );
+    const uncalibrated = projectOutcomeScoresFromActions(
+      audit,
+      [{ source: "plan", id: "gbp-step-3" }],
+      { avgCustomerValue: 350 }
+    );
+
+    assert.ok(
+      (projection.outcomeGain ?? 0) < (uncalibrated.outcomeGain ?? 0),
+      "negative rank evidence should reduce projected outcome gain"
+    );
+  });
 });

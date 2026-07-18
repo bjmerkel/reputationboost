@@ -10,7 +10,10 @@ import {
   resolveConversionChannelBias,
 } from "./conversion-channel";
 import { CONVERSION_PLAN_STEPS } from "./conversion-constants";
-import type { AttributionCalibration } from "./attribution-calibration";
+import {
+  negativeEvidencePenalty,
+  type AttributionCalibration,
+} from "./attribution-calibration";
 import {
   estimateStepEngagementImpact,
   estimateStepLeadsImpact,
@@ -120,6 +123,7 @@ export function planStepImpactScore(
   }
   const effort = PLAN_STEP_EFFORT[stepNumber] ?? 4;
   score *= (11 - effort) / 10;
+  score *= negativeEvidencePenalty(stepNumber, calibration);
   return score;
 }
 

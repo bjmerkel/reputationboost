@@ -7,9 +7,12 @@ import {
   buildGapAttributionCalibration,
   calibratedRevenueGain,
   calibratedStepImpact,
+  mergeCalibrations,
+  negativeEvidencePenalty,
   projectionRevenueScaleForStep,
   projectionScaleForStep,
   rankDeltaForGap,
+  rankDeltaForStep,
   resolveCalibrationConfidence,
 } from "./attribution-calibration";
 
@@ -208,6 +211,129 @@ describe("blendEngagementRates", () => {
     ]);
     const heuristic = { calls: 0.02, directions: 0.025, websiteClicks: 0 };
     assert.deepEqual(blendEngagementRates(heuristic, 8, 400, calibration), heuristic);
+  });
+
+  it("dampens heuristic rates when observed engagement is zero with sample ≥ 2", () => {
+    const calibration = buildAttributionCalibration([
+      attribution({
+        actionItemId: "gbp-step-8",
+        callsDelta: 0,
+        directionsDelta: 0,
+        websiteClicksDelta: 0,
+      }),
+      attribution({
+        id: "a2",
+        executionTaskId: "t2",
+        actionItemId: "gbp-step-8",
+        callsDelta: 0,
+        directionsDelta: 0,
+        websiteClicksDelta: 0,
+      }),
+    ]);
+
+    const heuristic = { calls: 0.02, directions: 0.025, websiteClicks: 0.015 };
+    const blended = blendEngagementRates(heuristic, 8, 400, calibration);
+    assert.ok(blended.calls < heuristic.calls);
+    assert.ok(blended.calls >= heuristic.calls * 0.5);
+    assert.ok(blended.directions < heuristic.directions);
+  });
+});
+
+describe("rankDeltaForStep", () => {
+  it("returns zero when calibrated median rank delta is non-positive", () => {
+    const calibration = buildAttributionCalibration([
+      attribution({
+        actionItemId: "gbp-step-8",
+        rankBefore: 6,
+        rankAfter: 8,
+      }),
+      attribution({
+        id: "a2",
+        executionTaskId: "t2",
+        actionItemId: "gbp-step-8",
+        rankBefore: 5,
+        rankAfter: 6,
+      }),
+    ]);
+
+    assert.equal(rankDeltaForStep(8, calibration), 0);
+  });
+
+  it("returns default lift when uncalibrated", () => {
+    assert.equal(rankDeltaForStep(3), 1);
+  });
+});
+
+describe("negativeEvidencePenalty", () => {
+  it("demotes steps with zero observed engagement when sample ≥ 2", () => {
+    const calibration = buildAttributionCalibration([
+      attribution({
+        actionItemId: "gbp-step-8",
+        callsDelta: 0,
+        directionsDelta: 0,
+        websiteClicksDelta: 0,
+      }),
+      attribution({
+        id: "a2",
+        executionTaskId: "t2",
+        actionItemId: "gbp-step-8",
+        callsDelta: 0,
+        directionsDelta: 0,
+        websiteClicksDelta: 0,
+      }),
+    ]);
+
+    assert.equal(negativeEvidencePenalty(8, calibration), 0.3);
+    assert.equal(negativeEvidencePenalty(15, calibration), 1);
+  });
+});
+
+describe("mergeCalibrations", () => {
+  it("preserves business zero engagement deltas instead of substituting global", () => {
+    const merged = mergeCalibrations(
+      {
+        8: {
+          sampleSize: 3,
+          medianRankDelta: null,
+          medianCallsDelta: 0,
+          medianDirectionsDelta: 0,
+          medianWebsiteClicksDelta: 0,
+          estimatedScoreImpact: 2,
+          projectionSampleSize: 0,
+          medianProjectedDriverImpact: null,
+          medianObservedDriverImpact: null,
+          medianObservedOutcomeImpact: null,
+          medianObservedRevenueGain: null,
+          medianProjectedRevenueGain: null,
+          revenueProjectionSampleSize: 0,
+          revenueProjectionScale: 1,
+          confidence: "medium",
+        },
+      },
+      {
+        8: {
+          sampleSize: 20,
+          medianRankDelta: 2,
+          medianCallsDelta: 5,
+          medianDirectionsDelta: 8,
+          medianWebsiteClicksDelta: 3,
+          estimatedScoreImpact: 4,
+          projectionSampleSize: 0,
+          medianProjectedDriverImpact: null,
+          medianObservedDriverImpact: null,
+          medianObservedOutcomeImpact: null,
+          medianObservedRevenueGain: null,
+          medianProjectedRevenueGain: null,
+          revenueProjectionSampleSize: 0,
+          revenueProjectionScale: 1,
+          confidence: "high",
+        },
+      }
+    );
+
+    assert.equal(merged?.[8]?.medianCallsDelta, 0);
+    assert.equal(merged?.[8]?.medianDirectionsDelta, 0);
+    assert.equal(merged?.[8]?.medianWebsiteClicksDelta, 0);
   });
 });
 

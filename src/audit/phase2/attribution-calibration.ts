@@ -307,6 +307,42 @@ export function buildGapAttributionCalibration(
   return calibration;
 }
 
+/** Uncalibrated default rank lift until per-step priors are applied (phase 3). */
+export const DEFAULT_UNCALIBRATED_RANK_DELTA = 1;
+
+function calibratedRankDeltaFromMedian(
+  medianRankDelta: number | null,
+  sampleSize: number
+): number | null {
+  if (medianRankDelta == null) return null;
+  if (medianRankDelta <= 0) return 0;
+  const cap = sampleSize >= 5 ? 5 : 3;
+  return Math.min(cap, Math.max(1, Math.round(medianRankDelta)));
+}
+
+/** Calibrated rank lift for a plan step counterfactual. */
+export function rankDeltaForStep(
+  stepNumber: number,
+  calibration?: AttributionCalibration
+): number {
+  const cal = calibration?.[stepNumber];
+  if (cal?.sampleSize != null && cal.sampleSize >= 2) {
+    const calibrated = calibratedRankDeltaFromMedian(cal.medianRankDelta, cal.sampleSize);
+    if (calibrated != null) return calibrated;
+
+    // Engagement-only evidence with no rank movement observed.
+    if (
+      cal.medianCallsDelta <= 0 &&
+      cal.medianDirectionsDelta <= 0 &&
+      cal.medianWebsiteClicksDelta <= 0
+    ) {
+      return 0;
+    }
+  }
+
+  return DEFAULT_UNCALIBRATED_RANK_DELTA;
+}
+
 /** Calibrated rank lift for a rank-outside-pack gap counterfactual. */
 export function rankDeltaForGap(
   gapId: string,
@@ -315,10 +351,38 @@ export function rankDeltaForGap(
 ): number {
   const keyword = gapId.replace("rank-outside-pack-", "").toLowerCase();
   const gapCal = gapCalibration?.[gapId] ?? gapCalibration?.[keyword];
-  if (gapCal?.medianRankDelta != null && gapCal.medianRankDelta > 0) {
+  if (gapCal?.sampleSize >= 2 && gapCal.medianRankDelta != null) {
+    const calibrated = calibratedRankDeltaFromMedian(
+      gapCal.medianRankDelta,
+      gapCal.sampleSize
+    );
+    if (calibrated != null) return calibrated;
+  } else if (gapCal?.medianRankDelta != null && gapCal.medianRankDelta > 0) {
     return Math.min(5, Math.max(1, Math.round(gapCal.medianRankDelta)));
   }
   return Math.max(3, currentRank - 3);
+}
+
+/**
+ * Demote plan steps with observed zero/negative attribution when sample ≥ 2.
+ * Returns a multiplier applied to planStepImpactScore.
+ */
+export function negativeEvidencePenalty(
+  stepNumber: number,
+  calibration?: AttributionCalibration
+): number {
+  const cal = calibration?.[stepNumber];
+  if (!cal || cal.sampleSize < 2) return 1;
+
+  const hasNegativeRank =
+    cal.medianRankDelta != null && cal.medianRankDelta <= 0;
+  const hasZeroEngagement =
+    cal.medianCallsDelta <= 0 &&
+    cal.medianDirectionsDelta <= 0 &&
+    cal.medianWebsiteClicksDelta <= 0;
+
+  if (hasNegativeRank || hasZeroEngagement) return 0.3;
+  return 1;
 }
 
 export function calibratedStepImpact(
@@ -372,11 +436,22 @@ export function blendEngagementRates(
     websiteClicks: Math.max(0, cal.medianWebsiteClicksDelta * monthlyFactor) / denom,
   };
 
-  if (observed.calls + observed.directions + observed.websiteClicks <= 0) {
-    return heuristic;
-  }
-
   const weight = cal.sampleSize >= 5 ? 0.7 : 0.5;
+
+  if (observed.calls + observed.directions + observed.websiteClicks <= 0) {
+    // Observed zero engagement: dampen toward zero instead of reverting to heuristic.
+    const dampenChannel = (heuristicRate: number): number => {
+      if (heuristicRate <= 0) return 0;
+      const dampened = heuristicRate * (1 - weight);
+      return Math.max(heuristicRate * MIN_REVENUE_SCALE, dampened);
+    };
+
+    return {
+      calls: dampenChannel(heuristic.calls),
+      directions: dampenChannel(heuristic.directions),
+      websiteClicks: dampenChannel(heuristic.websiteClicks),
+    };
+  }
 
   const blendChannel = (heuristicRate: number, observedRate: number): number => {
     const mixed = heuristicRate * (1 - weight) + observedRate * weight;
@@ -423,10 +498,10 @@ export function mergeCalibrations(
     merged[stepNum] = {
       sampleSize: cal.sampleSize + globalCal.sampleSize,
       medianRankDelta: cal.medianRankDelta ?? globalCal.medianRankDelta,
-      medianCallsDelta: cal.medianCallsDelta || globalCal.medianCallsDelta,
-      medianDirectionsDelta: cal.medianDirectionsDelta || globalCal.medianDirectionsDelta,
+      medianCallsDelta: cal.medianCallsDelta ?? globalCal.medianCallsDelta,
+      medianDirectionsDelta: cal.medianDirectionsDelta ?? globalCal.medianDirectionsDelta,
       medianWebsiteClicksDelta:
-        cal.medianWebsiteClicksDelta || globalCal.medianWebsiteClicksDelta,
+        cal.medianWebsiteClicksDelta ?? globalCal.medianWebsiteClicksDelta,
       projectionSampleSize: cal.projectionSampleSize + globalCal.projectionSampleSize,
       medianProjectedDriverImpact:
         cal.medianProjectedDriverImpact ?? globalCal.medianProjectedDriverImpact,

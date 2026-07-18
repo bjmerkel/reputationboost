@@ -19,6 +19,7 @@ import { computeHealthScores, detectPackFragility } from "./scoring";
 import { estimateStepHealthImpact } from "./score-impact";
 import { buildPathToHealthy } from "./path-to-healthy";
 import { detectGaps } from "./gaps";
+import { buildAttributionCalibration } from "./attribution-calibration";
 
 describe("counterfactual score simulation", () => {
   it("returns zero impact for already-satisfied steps", () => {
@@ -285,6 +286,95 @@ describe("counterfactual score simulation", () => {
     assert.ok(marginal.outcomeGain > 0);
     assert.ok(marginal.revenueGain != null);
     assert.ok(marginal.revenueGain! > 0);
+  });
+
+  it("aligns projected monthly revenue with calibrated revenue gain", () => {
+    const audit = createTestAudit();
+    const outsideKeyword = audit.rankings.keywords.find((k) => !k.inLocalPack)?.keyword;
+    assert.ok(outsideKeyword);
+
+    const withKeywords = {
+      ...audit,
+      gbp: {
+        ...audit.gbp,
+        performance: {
+          ...audit.gbp.performance,
+          searchKeywords: audit.rankings.keywords.map((kw) => ({
+            keyword: kw.keyword,
+            impressions: 800,
+            belowThreshold: false,
+          })),
+        },
+      },
+    };
+
+    const calibration = buildAttributionCalibration([
+      {
+        id: "a1",
+        executionTaskId: "t1",
+        businessId: "b1",
+        actionItemId: "gbp-step-3",
+        taskType: "gbp_description",
+        title: "Description",
+        publishedAt: "2026-06-01T00:00:00.000Z",
+        windowDays: 14,
+        primaryKeyword: outsideKeyword,
+        rankBefore: 8,
+        rankAfter: 6,
+        rankDelta: -2,
+        keywordsImproved: 1,
+        callsDelta: null,
+        directionsDelta: null,
+        websiteClicksDelta: null,
+        impressionsDelta: null,
+        estimatedRevenue: 200,
+        projectedRevenueGain: 1000,
+        narrative: "",
+        preliminary: false,
+        computedAt: "2026-06-15T00:00:00.000Z",
+      },
+      {
+        id: "a2",
+        executionTaskId: "t2",
+        businessId: "b1",
+        actionItemId: "gbp-step-3",
+        taskType: "gbp_description",
+        title: "Description",
+        publishedAt: "2026-06-01T00:00:00.000Z",
+        windowDays: 14,
+        primaryKeyword: outsideKeyword,
+        rankBefore: 9,
+        rankAfter: 7,
+        rankDelta: -2,
+        keywordsImproved: 1,
+        callsDelta: null,
+        directionsDelta: null,
+        websiteClicksDelta: null,
+        impressionsDelta: null,
+        estimatedRevenue: 180,
+        projectedRevenueGain: 900,
+        narrative: "",
+        preliminary: false,
+        computedAt: "2026-06-15T00:00:00.000Z",
+      },
+    ]);
+
+    const before = projectOutcomeScoresFromActions(withKeywords, [], {
+      avgCustomerValue: 350,
+    });
+    const after = projectOutcomeScoresFromActions(
+      withKeywords,
+      [{ source: "plan", id: "gbp-step-3" }],
+      { avgCustomerValue: 350, calibration }
+    );
+
+    assert.ok(before.estimatedMonthlyRevenue != null);
+    assert.ok(after.estimatedMonthlyRevenue != null);
+    assert.ok(after.revenueGain != null);
+    assert.equal(
+      after.estimatedMonthlyRevenue,
+      before.estimatedMonthlyRevenue! + after.revenueGain!
+    );
   });
 
   it("flags pack-fragile in-pack keywords as needing outcome work", () => {

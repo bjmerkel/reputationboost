@@ -9,6 +9,7 @@ import {
   blendEngagementRates,
   calibratedRevenueGain,
   rankDeltaForGap,
+  rankDeltaForStep,
   type AttributionCalibration,
   type EngagementGainRates,
   type GapAttributionCalibration,
@@ -1073,40 +1074,6 @@ function refreshRankingAggregates(audit: Phase1AuditPayload): void {
     : 0;
 }
 
-function rankDeltaForStep(
-  stepNumber: number,
-  calibration?: AttributionCalibration
-): number {
-  const cal = calibration?.[stepNumber];
-  // Evidence-gated: only use observed median when we have a real sample.
-  if (
-    cal?.sampleSize != null &&
-    cal.sampleSize >= 2 &&
-    cal.medianRankDelta != null &&
-    cal.medianRankDelta > 0
-  ) {
-    const cap = cal.sampleSize >= 5 ? 5 : 3;
-    return Math.min(cap, Math.max(1, Math.round(cal.medianRankDelta)));
-  }
-
-  // Uncalibrated heuristics stay conservative so $/mo claims are not overstated.
-  switch (stepNumber) {
-    case 3:
-    case 4:
-    case 5:
-    case 8:
-      return 1;
-    case 9:
-    case 10:
-    case 11:
-    case 6:
-    case 7:
-      return 1;
-    default:
-      return 1;
-  }
-}
-
 /** Keywords a plan step is modeled to influence for rank/outcome projections. */
 export function keywordsTargetedByStep(audit: Phase1AuditPayload, stepNumber: number): string[] {
   const keywords = audit.rankings.keywords;
@@ -1257,6 +1224,8 @@ export function applyOutcomeMutation(
   if (CONVERSION_PLAN_STEP_SET.has(stepNumber) || stepNumber === 14) return;
 
   const baseDelta = rankDeltaForStep(stepNumber, calibration);
+  if (baseDelta <= 0) return;
+
   const rankDelta = Math.max(1, Math.round(baseDelta * stackDampeningFactor(stackIndex)));
   const targets = new Set(
     keywordsTargetedByStep(audit, stepNumber).map((keyword) => keyword.toLowerCase())
@@ -1520,9 +1489,11 @@ export function projectOutcomeScoresFromActions(
       : null;
 
   const projectedMonthly =
-    afterRevenue != null || conversionRevenue != null
-      ? (afterRevenue ?? beforeRevenue ?? 0) + (conversionRevenue ?? 0)
-      : null;
+    revenueGain != null
+      ? (beforeRevenue ?? 0) + revenueGain
+      : afterRevenue != null || conversionRevenue != null
+        ? (afterRevenue ?? beforeRevenue ?? 0) + (conversionRevenue ?? 0)
+        : null;
 
   const rankLeadsGain =
     beforeLeads != null && afterLeads != null
