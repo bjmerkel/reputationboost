@@ -124,8 +124,8 @@ describe("plan audit regression pack", () => {
       },
       true
     );
-    assert.match(banner ?? "", /refresh your plan/i);
-    assert.doesNotMatch(banner ?? "", /Sync with Google/i);
+    assert.match(banner ?? "", /sync/i);
+    assert.doesNotMatch(planRefreshButtonLabel(false), /Google/i);
   });
 
   it("Medium — Google conflict tasks are counted once for panel CTA routing", () => {

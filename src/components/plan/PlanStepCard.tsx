@@ -22,7 +22,8 @@ import DriverImpactComparison from "@/components/attribution/DriverImpactCompari
 import {
   MANUAL_STEP_HELPER,
   MANUAL_STEP_SYNC_LABEL,
-  reconcileFeedbackMessage,
+  MANUAL_STEP_SYNCING_LABEL,
+  liveSyncFeedbackMessage,
 } from "./plan-ux-copy";
 import { formatStepAttributionTrackingLabel } from "./plan-display";
 
@@ -454,10 +455,11 @@ export default function PlanStepCard({
                   disabled={actions.reconciling}
                   onClick={() => {
                     setManualSyncNotice(null);
-                    void actions.reconcilePlanNow?.()
+                    void actions.reconcilePlanNow?.({ live: true })
                       .then((result) => {
                         setManualSyncNotice(
-                          reconcileFeedbackMessage({
+                          liveSyncFeedbackMessage({
+                            gbpRefreshed: result.gbpRefreshed === true,
                             completedTasks: result.completedTasks,
                             createdTasks: result.createdTasks,
                           })
@@ -471,7 +473,7 @@ export default function PlanStepCard({
                       : "border-sky-400/40 bg-sky-400/15 text-sky-300 hover:bg-sky-400/25"
                   }`}
                 >
-                  {actions.reconciling ? "Refreshing…" : MANUAL_STEP_SYNC_LABEL}
+                  {actions.reconciling ? MANUAL_STEP_SYNCING_LABEL : MANUAL_STEP_SYNC_LABEL}
                 </button>
               )}
               {manualSyncNotice && (

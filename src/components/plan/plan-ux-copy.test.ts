@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { ExecutionTask, Plan, PlanStep } from "@/audit/types";
 import {
   MANUAL_STEP_SYNC_LABEL,
+  liveSyncFeedbackMessage,
   planGbpBannerMessage,
   planHasManualSteps,
   planStepHasPublishableTasks,
@@ -90,7 +91,7 @@ describe("planGbpBannerMessage", () => {
     ]);
     const message = planGbpBannerMessage(plan, true);
     assert.ok(message?.includes("approved and published"));
-    assert.ok(message?.includes("refresh your plan"));
+    assert.ok(message?.toLowerCase().includes("sync"));
   });
 
   it("hides banner when plan has only completed steps", () => {
@@ -132,5 +133,30 @@ describe("reconcileFeedbackMessage", () => {
 describe("MANUAL_STEP_SYNC_LABEL", () => {
   it("does not promise instant mark done", () => {
     assert.ok(!MANUAL_STEP_SYNC_LABEL.toLowerCase().includes("mark done"));
+  });
+
+  it("mentions sync for live Google pull", () => {
+    assert.match(MANUAL_STEP_SYNC_LABEL.toLowerCase(), /sync/);
+  });
+});
+
+describe("liveSyncFeedbackMessage", () => {
+  it("prefixes success when Google sync worked", () => {
+    const message = liveSyncFeedbackMessage({
+      gbpRefreshed: true,
+      completedTasks: 1,
+      createdTasks: 0,
+    });
+    assert.match(message, /^Synced from Google\./);
+    assert.match(message, /marked complete/);
+  });
+
+  it("explains fallback when Google sync failed", () => {
+    const message = liveSyncFeedbackMessage({
+      gbpRefreshed: false,
+      completedTasks: 0,
+      createdTasks: 0,
+    });
+    assert.match(message, /Couldn't sync from Google/);
   });
 });

@@ -48,6 +48,7 @@ import { collectMissingReconcileTasks } from "./missing-tasks";
 import { resolvePlanStepNumber } from "./plan-task-utils";
 import { isMutableByReconcile } from "./task-identity";
 import { PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
+import { refreshAuditGbpFromGoogle } from "@/audit/live-audit";
 import { buildAttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { listActionAttributionsForBusinessAdmin, listActionAttributionsForUser } from "@/audit/storage-attribution";
 import {
@@ -108,6 +109,8 @@ export interface ReconcilePlanResult {
   updatedTasks: ExecutionTask[];
   appendedStepNumbers: number[];
   refreshedStepCount: number;
+  /** True when a live Google fetch ran and returned fresh GBP slices. */
+  gbpRefreshed?: boolean;
 }
 
 function mergePlanStepMetadata(
@@ -637,9 +640,16 @@ export interface ReconcilePlanOptions {
   dryRun?: boolean;
   /** When set, require this audit id (user-triggered refresh). */
   auditId?: string;
+  /** Fetch live GBP profile + reviews from Google before reconciling. */
+  live?: boolean;
+  /** Required when live is true (user or cron business row). */
+  businessRow?: BusinessRecord;
 }
 
-function toReconcileResult(computation: PlanReconcileComputation): ReconcilePlanResult {
+function toReconcileResult(
+  computation: PlanReconcileComputation,
+  gbpRefreshed?: boolean
+): ReconcilePlanResult {
   return {
     audit: computation.nextAudit,
     createdTasks: computation.missingTasks,
@@ -647,7 +657,18 @@ function toReconcileResult(computation: PlanReconcileComputation): ReconcilePlan
     updatedTasks: computation.tasksToUpdate,
     appendedStepNumbers: computation.appendedStepNumbers,
     refreshedStepCount: computation.refreshedStepCount,
+    ...(gbpRefreshed != null ? { gbpRefreshed } : {}),
   };
+}
+
+async function maybeRefreshAuditFromGoogle(
+  audit: FullAuditPayload,
+  options: ReconcilePlanOptions
+): Promise<{ audit: FullAuditPayload; gbpRefreshed: boolean }> {
+  if (!options.live || !options.businessRow) {
+    return { audit, gbpRefreshed: false };
+  }
+  return refreshAuditGbpFromGoogle(options.businessRow, audit);
 }
 
 /**
@@ -671,13 +692,18 @@ export async function reconcilePlanForBusiness(
   if (!audit) return null;
   if (options.auditId && audit.auditId !== options.auditId) return null;
 
+  const { audit: refreshedAudit, gbpRefreshed } = await maybeRefreshAuditFromGoogle(
+    audit,
+    { ...options, businessRow: row }
+  );
+
   const existing = await listExecutionTasksForBusinessAdmin(
     row.user_id,
     row.id,
     audit.auditId
   );
 
-  const content = await resolveReconcileContent(audit, existing, options.content);
+  const content = await resolveReconcileContent(refreshedAudit, existing, options.content);
   let calibration: ReturnType<typeof buildAttributionCalibration> | undefined;
   try {
     const attributions = await listActionAttributionsForBusinessAdmin(row.id, 50);
@@ -685,7 +711,7 @@ export async function reconcilePlanForBusiness(
   } catch {
     // Attribution load is best-effort — plan still reconciles with model estimates.
   }
-  const computation = computePlanReconcile(audit, existing, {
+  const computation = computePlanReconcile(refreshedAudit, existing, {
     content,
     avgCustomerValue:
       row.avg_customer_value != null ? Number(row.avg_customer_value) : null,
@@ -726,7 +752,7 @@ export async function reconcilePlanForBusiness(
     }
   }
 
-  return toReconcileResult(computation);
+  return toReconcileResult(computation, options.live ? gbpRefreshed : undefined);
 }
 
 /**
@@ -754,8 +780,13 @@ export async function reconcilePlanForUser(
   if (!raw) return null;
   if (options.auditId && raw.auditId !== options.auditId) return null;
 
-  const existing = await listExecutionTasks(userId, client.id, raw.auditId);
-  const content = await resolveReconcileContent(raw, existing, options.content);
+  const { audit: refreshedAudit, gbpRefreshed } = await maybeRefreshAuditFromGoogle(
+    raw,
+    options
+  );
+
+  const existing = await listExecutionTasks(userId, client.id, refreshedAudit.auditId);
+  const content = await resolveReconcileContent(refreshedAudit, existing, options.content);
   let calibration: ReturnType<typeof buildAttributionCalibration> | undefined;
   try {
     const attributions = await listActionAttributionsForUser(userId, client.id, 50);
@@ -763,7 +794,7 @@ export async function reconcilePlanForUser(
   } catch {
     // Attribution load is best-effort — plan still reconciles with model estimates.
   }
-  const computation = computePlanReconcile(raw, existing, {
+  const computation = computePlanReconcile(refreshedAudit, existing, {
     content,
     avgCustomerValue: client.avgCustomerValue,
     calibration,
@@ -792,5 +823,5 @@ export async function reconcilePlanForUser(
     await saveAuditToSupabase(userId, client.businessId, computation.nextAudit);
   }
 
-  return toReconcileResult(computation);
+  return toReconcileResult(computation, options.live ? gbpRefreshed : undefined);
 }

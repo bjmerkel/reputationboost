@@ -52,17 +52,20 @@ export async function fetchExecutionState(
 
 export async function reconcilePlan(
   clientId: string,
-  auditId: string
+  auditId: string,
+  options: { live?: boolean } = {}
 ): Promise<{
   planReconciledAt: string | null;
   createdTasks: number;
   completedTasks: number;
+  gbpRefreshed?: boolean;
+  live?: boolean;
   audit?: FullAuditPayload;
 }> {
   const res = await fetch("/api/execution/reconcile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, auditId }),
+    body: JSON.stringify({ clientId, auditId, live: options.live === true }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Failed to refresh plan");
@@ -70,6 +73,8 @@ export async function reconcilePlan(
     planReconciledAt: data.planReconciledAt ?? null,
     createdTasks: data.createdTasks ?? 0,
     completedTasks: data.completedTasks ?? 0,
+    gbpRefreshed: data.gbpRefreshed ?? false,
+    live: data.live ?? false,
     audit: data.audit,
   };
 }

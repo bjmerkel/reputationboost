@@ -123,6 +123,24 @@ function mergeRefreshedGbp(
   return merged;
 }
 
+/**
+ * Lightweight live GBP pull for plan reconcile — profile + reviews only (no Places).
+ * Returns the merged audit and whether Google data was refreshed.
+ */
+export async function refreshAuditGbpFromGoogle(
+  row: BusinessRecord,
+  audit: FullAuditPayload
+): Promise<{ audit: FullAuditPayload; gbpRefreshed: boolean }> {
+  const slices = await refreshGbpSlicesForBusiness(row);
+  if (!slices) {
+    return { audit, gbpRefreshed: false };
+  }
+  return {
+    audit: mergeRefreshedGbp(audit, slices.gbp, slices.reviews),
+    gbpRefreshed: true,
+  };
+}
+
 function mergeLiveStrategy(
   stored: FullAuditPayload,
   hydrated: Phase1AuditPayload,

@@ -260,11 +260,11 @@ export function usePlanTasks({
     }
   }, [tasks, refresh]);
 
-  const reconcilePlanNow = useCallback(async () => {
+  const reconcilePlanNow = useCallback(async (options?: { live?: boolean }) => {
     setReconciling(true);
     setError(null);
     try {
-      const result = await reconcilePlan(clientId, auditId);
+      const result = await reconcilePlan(clientId, auditId, options);
       if (result.planReconciledAt) {
         setPlanReconciledAt(result.planReconciledAt);
       }
