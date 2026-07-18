@@ -22,6 +22,7 @@ import {
 import GoogleUpdatesPanel from "./GoogleUpdatesPanel";
 import PlanAcvNudge from "./PlanAcvNudge";
 import PlanKeywordPlaybooks from "./PlanKeywordPlaybooks";
+import PlanMaintenanceCadence from "./PlanMaintenanceCadence";
 import PlanNextBestActions from "./PlanNextBestActions";
 import PlanPhaseSection from "./PlanPhaseSection";
 import PlanProgressHeader from "./PlanProgressHeader";
@@ -298,9 +299,6 @@ export default function PlanView({
 
       <GoogleUpdatesPanel
         audit={audit}
-        gbpConnected={gbpConnected}
-        actions={actions}
-        attributionByTaskId={attributionByTaskId}
         tasks={tasks}
         syncing={syncingGoogleUpdates}
         onRefresh={() => void refreshGoogleUpdates()}
@@ -418,6 +416,12 @@ export default function PlanView({
           />
         );
       })}
+
+      <PlanMaintenanceCadence
+        weeklyCadence={audit.strategy.gbpPlan?.weeklyCadence ?? []}
+        monthlyCadence={audit.strategy.gbpPlan?.monthlyCadence ?? []}
+        variant={variant}
+      />
     </div>
   );
 }

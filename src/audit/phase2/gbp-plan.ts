@@ -350,9 +350,9 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
     {
       stepNumber: 3,
       title: "Rewrite the Business Description",
-      instruction: `Your live description is ${audit.gbp.completeness.descriptionLength} characters. Google descriptions should weave in services, city names, and trust signals. Aim for 600-750 characters with every target keyword mentioned naturally.`,
+      instruction: `Your live description is ${audit.gbp.completeness.descriptionLength} characters. Write a clear, accurate summary of your services and service area (600–750 characters). Mention what you do and where you work naturally — avoid keyword stuffing or repeating the same phrases.`,
       current: currentDescription(audit),
-      recommended: "Updated description below — includes all target keywords",
+      recommended: "Updated description below — accurate services, city, and trust signals",
       copyBlocks: [{ label: "Recommended description (paste into GBP)", content: descriptionDraft(audit) }],
       gbpAction: "update_description",
       actionData: { description: descriptionDraft(audit) },
@@ -361,7 +361,7 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       stepNumber: 4,
       title: "Complete Every Service Section",
       instruction:
-        "Services are one of the strongest ranking signals. Add a dedicated GBP service for each keyword you're not yet ranking for.",
+        "Services help customers and Google understand what you offer (relevance). Add a dedicated GBP service for each major offering or keyword gap — use natural names and unique descriptions.",
       current: currentServices(audit),
       recommended: `Add ${missingKeywordsForServices(audit).length || targetKeywords.length} service(s) for uncovered keywords`,
       copyBlocks: serviceSteps(audit),
@@ -463,7 +463,7 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       stepNumber: 10,
       title: "Request more reviews",
       instruction:
-        "Send personalized SMS review requests to recent customers. More Google reviews strengthen rankings — especially for keywords where you trail competitors on review count.",
+        "Send personalized SMS review requests to recent customers. More Google reviews can improve prominence — especially for keywords where you trail competitors on review count.",
       current: `${audit.gbp.engagement.reviewCount} reviews at ${formatStarRating(audit.gbp.engagement.averageRating)}★`,
       recommended: `${reviewTarget}+ reviews with keyword-rich natural language`,
       bullets: [
@@ -492,7 +492,7 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
     {
       stepNumber: 12,
       title: "Maintain Accurate Hours",
-      instruction: "Inconsistent hours hurt rankings and customer trust.",
+      instruction: "Inconsistent hours hurt customer trust and local visibility.",
       current: audit.gbp.completeness.hasHours
         ? audit.gbp.completeness.hasHolidayHours
           ? audit.gbp.completeness.hasFullWeekHours

@@ -1,28 +1,27 @@
 "use client";
 
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
-import type { PlanTaskActions } from "@/hooks/usePlanTasks";
-import type { ActionAttribution } from "@/audit/types/timeseries";
+import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 import {
   getGoogleDiffFields,
   getGooglePendingFields,
+  GOOGLE_UPDATES_STEP_NUMBER,
 } from "@/lib/google/gbp-update-helpers";
-import PlanStepTaskRow from "./PlanStepTaskRow";
+
+export function countGoogleConflictTasks(tasks: ExecutionTask[]): number {
+  return tasks.filter(
+    (task) => task.type === "gbp_accept_suggestion" || task.type === "gbp_reject_suggestion"
+  ).length;
+}
 
 export default function GoogleUpdatesPanel({
   audit,
-  gbpConnected,
-  actions,
-  attributionByTaskId = {},
   tasks,
   syncing = false,
   onRefresh,
   variant = "light",
 }: {
   audit: FullAuditPayload;
-  gbpConnected: boolean;
-  actions: PlanTaskActions;
-  attributionByTaskId?: Record<string, ActionAttribution>;
   tasks: ExecutionTask[];
   syncing?: boolean;
   onRefresh?: () => void;
@@ -31,12 +30,15 @@ export default function GoogleUpdatesPanel({
   const isLight = variant === "light";
   const diffFields = getGoogleDiffFields(audit);
   const pendingFields = getGooglePendingFields(audit);
+  const conflictCount = countGoogleConflictTasks(tasks);
 
   if (diffFields.length === 0 && pendingFields.length === 0) return null;
 
-  const suggestionTasks = tasks.filter(
-    (task) => task.type === "gbp_accept_suggestion" || task.type === "gbp_reject_suggestion"
-  );
+  const scrollToConflictStep = () => {
+    document
+      .getElementById(planScrollElementId(GOOGLE_UPDATES_STEP_NUMBER))
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <section
@@ -52,7 +54,7 @@ export default function GoogleUpdatesPanel({
           </h2>
           <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
             Google separates processing updates from conflicts. Processing fields need time; conflicts
-            need your decision.
+            are resolved in the plan step below.
           </p>
         </div>
         {onRefresh && (
@@ -71,7 +73,11 @@ export default function GoogleUpdatesPanel({
 
       {pendingFields.length > 0 && (
         <div className="mt-4">
-          <p className={`text-xs font-semibold uppercase tracking-wide ${isLight ? "text-[#137333]" : "text-emerald-300"}`}>
+          <p
+            className={`text-xs font-semibold uppercase tracking-wide ${
+              isLight ? "text-[#137333]" : "text-emerald-300"
+            }`}
+          >
             Processing on Google
           </p>
           <ul className={`mt-2 space-y-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
@@ -94,7 +100,11 @@ export default function GoogleUpdatesPanel({
 
       {diffFields.length > 0 && (
         <div className="mt-4">
-          <p className={`text-xs font-semibold uppercase tracking-wide ${isLight ? "text-[#b06000]" : "text-amber-200"}`}>
+          <p
+            className={`text-xs font-semibold uppercase tracking-wide ${
+              isLight ? "text-[#b06000]" : "text-amber-200"
+            }`}
+          >
             Needs your decision
           </p>
           <div className="mt-2 space-y-3">
@@ -108,15 +118,27 @@ export default function GoogleUpdatesPanel({
                 <p className={`text-sm font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
                   {field.label}
                 </p>
-                <div className={`mt-2 grid gap-2 text-sm sm:grid-cols-2 ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
+                <div
+                  className={`mt-2 grid gap-2 text-sm sm:grid-cols-2 ${
+                    isLight ? "text-[#3c4043]" : "text-slate-300"
+                  }`}
+                >
                   <div>
-                    <p className={`text-xs font-medium uppercase ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                    <p
+                      className={`text-xs font-medium uppercase ${
+                        isLight ? "text-[#80868b]" : "text-slate-500"
+                      }`}
+                    >
                       Your version
                     </p>
                     <p className="mt-1 whitespace-pre-wrap">{field.ownerValue}</p>
                   </div>
                   <div>
-                    <p className={`text-xs font-medium uppercase ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                    <p
+                      className={`text-xs font-medium uppercase ${
+                        isLight ? "text-[#80868b]" : "text-slate-500"
+                      }`}
+                    >
                       Google shows
                     </p>
                     <p className="mt-1 whitespace-pre-wrap">{field.googleValue}</p>
@@ -128,18 +150,17 @@ export default function GoogleUpdatesPanel({
         </div>
       )}
 
-      {suggestionTasks.length > 0 && (
-        <div className="mt-4 space-y-3">
-          {suggestionTasks.map((task) => (
-            <PlanStepTaskRow
-              key={task.id}
-              task={task}
-              gbpConnected={gbpConnected}
-              actions={actions}
-              attribution={attributionByTaskId[task.id]}
-              variant={variant}
-            />
-          ))}
+      {conflictCount > 0 && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={scrollToConflictStep}
+            className={`text-sm font-semibold ${
+              isLight ? "text-[#1a73e8] hover:text-[#174ea6]" : "text-sky-300 hover:text-sky-200"
+            }`}
+          >
+            Resolve {conflictCount} conflict{conflictCount === 1 ? "" : "s"} in plan step below →
+          </button>
         </div>
       )}
     </section>
