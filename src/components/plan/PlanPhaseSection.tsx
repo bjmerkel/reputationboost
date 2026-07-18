@@ -4,6 +4,7 @@ import type { PlanPhase, PlanStep, GbpAttributeCoverage, GbpMediaCoverage, GbpPl
 import PlanStepCard from "./PlanStepCard";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import type { ActionAttribution } from "@/audit/types/timeseries";
+import { partitionVisiblePlanSteps } from "./plan-display";
 
 export default function PlanPhaseSection({
   phase,
@@ -51,17 +52,8 @@ export default function PlanPhaseSection({
   onSeeResults?: (stepNumber: number) => void;
 }) {
   const isLight = variant === "light";
-  const visibleSteps = steps
-    .filter((s) => s.status !== "skipped")
-    .sort((a, b) => {
-      const aDone = a.status === "completed" ? 1 : 0;
-      const bDone = b.status === "completed" ? 1 : 0;
-      if (aDone !== bDone) return aDone - bDone;
-      return (a.displayOrder ?? a.stepNumber) - (b.displayOrder ?? b.stepNumber);
-    });
-  const openSteps = visibleSteps.filter((s) => s.status !== "completed");
-  const completedSteps = visibleSteps.filter((s) => s.status === "completed");
-  const phaseNeedsApproval = openSteps.some((s) => s.status === "needs_approval");
+  const { visible: visibleSteps, open: openSteps, completed: completedSteps, phaseNeedsApproval } =
+    partitionVisiblePlanSteps(steps);
   const focusInCompleted = completedSteps.some(
     (s) => s.stepNumber === focusStep || s.stepNumber === defaultExpandedStep
   );

@@ -24,6 +24,7 @@ import {
   MANUAL_STEP_SYNC_LABEL,
   reconcileFeedbackMessage,
 } from "./plan-ux-copy";
+import { formatStepAttributionTrackingLabel } from "./plan-display";
 
 const STATUS_STYLES = {
   completed: "border-[#ceead6] bg-[#f6faf7]",
@@ -134,6 +135,7 @@ export default function PlanStepCard({
   const stepAttribution = step.tasks
     .map((task) => attributionByTaskId[task.id])
     .find((attr) => attr != null);
+  const stepTrackingLabel = formatStepAttributionTrackingLabel(step, attributionByTaskId);
   const isCustom = isCustomPlanStep(step.stepNumber);
   const showLeadOrRevenueImpact =
     !isCompleted &&
@@ -239,6 +241,11 @@ export default function PlanStepCard({
               }`}
             >
               {step.outcome.narrative}
+            </p>
+          )}
+          {!expanded && isCompleted && stepTrackingLabel && (
+            <p className={`mt-1 text-xs ${isLight ? "text-[#e37400]" : "text-amber-400"}`}>
+              {stepTrackingLabel}
             </p>
           )}
           {isCompleted && onSeeResults && (
