@@ -6,6 +6,7 @@ import {
   buildPlanStepCandidates,
   profileNeedsConversionWork,
   RANK_OUTSIDE_PACK_PLAN_STEPS,
+  resolveForcedPlanStepNumbers,
 } from "./plan-candidates";
 import { estimateStepRevenueImpact } from "./score-impact";
 
@@ -79,5 +80,19 @@ describe("plan-candidates conversion gaps", () => {
         `step ${stepNumber} should link rank-outside-pack gaps`
       );
     }
+  });
+
+  it("forces only merge-class steps, not the full unsatisfied checklist", () => {
+    const audit = createTestAudit();
+    const candidates = buildPlanStepCandidates(audit);
+    const forced = resolveForcedPlanStepNumbers(audit, candidates);
+
+    for (const stepNumber of RANK_OUTSIDE_PACK_PLAN_STEPS) {
+      assert.ok(forced.includes(stepNumber), `expected forced rank step ${stepNumber}`);
+    }
+    // Photos / hours / videos are unsatisfied in the fixture but not merge-forced.
+    assert.equal(forced.includes(6), false);
+    assert.equal(forced.includes(7), false);
+    assert.equal(forced.includes(12), false);
   });
 });

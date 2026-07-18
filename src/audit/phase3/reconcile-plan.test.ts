@@ -282,6 +282,39 @@ describe("refreshGbpPlanForReconcile", () => {
     assert.equal(plan!.steps.some((step) => step.title === "Booking Feature"), false);
   });
 
+  it("does not append the full unsatisfied checklist onto a curated plan", () => {
+    const audit = createTestAudit();
+    // Curated strategist set — omit photos/hours/services extras that are still unsatisfied.
+    audit.strategy.gbpPlan = {
+      ...audit.strategy.gbpPlan!,
+      steps: audit.strategy.gbpPlan!.steps.filter((step) =>
+        [3, 8, 11].includes(step.stepNumber)
+      ),
+    };
+    const curatedCount = audit.strategy.gbpPlan!.steps.length;
+    assert.equal(curatedCount, 3);
+
+    const { plan, appendedStepNumbers } = refreshGbpPlanForReconcile(audit, {
+      avgCustomerValue: 350,
+    });
+    assert.ok(plan);
+
+    // Rank-outside-pack forces 3/4/8/10; conversion may add 13/15 depending on gaps.
+    // Must NOT append every unsatisfied template step (e.g. 5, 6, 7, 12).
+    assert.equal(appendedStepNumbers.includes(5), false);
+    assert.equal(appendedStepNumbers.includes(6), false);
+    assert.equal(appendedStepNumbers.includes(7), false);
+    assert.equal(appendedStepNumbers.includes(12), false);
+
+    const afterNumbers = new Set(plan!.steps.map((s) => s.stepNumber));
+    assert.ok(afterNumbers.has(3));
+    assert.ok(afterNumbers.has(8));
+    assert.ok(afterNumbers.has(11));
+    // Forced rank-outside-pack companions may append, but plan stays far below full checklist.
+    assert.ok(plan!.steps.length < 10);
+    assert.ok(plan!.steps.length <= curatedCount + appendedStepNumbers.length);
+  });
+
   it("re-orders steps by impact and restamps displayOrder", () => {
     const audit = createTestAudit();
     // Force a stale checklist order so reconcile must re-rank.

@@ -8,8 +8,11 @@ import {
   buildTemplateGbpPlan,
   isRetiredGbpPlanStep,
   orderGbpPlanStepsByImpact,
-  selectGbpPlanSteps,
 } from "@/audit/phase2/gbp-plan";
+import {
+  buildPlanStepCandidates,
+  resolveForcedPlanStepNumbers,
+} from "@/audit/phase2/plan-candidates";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
 import { portfolioStepIsSatisfied } from "@/audit/phase2/keyword-portfolio";
 import { CUSTOM_PLAN_STEP_START } from "@/audit/phase3/plan-custom-steps";
@@ -159,7 +162,8 @@ export function refreshGbpPlanForReconcile(
   const avgCustomerValue = options.avgCustomerValue;
   const allFresh = buildAllGbpPlanSteps(audit);
   const freshByNumber = new Map(allFresh.map((step) => [step.stepNumber, step]));
-  const required = selectGbpPlanSteps(audit, allFresh, { avgCustomerValue });
+  const candidates = buildPlanStepCandidates(audit, { avgCustomerValue });
+  const forcedStepNumbers = resolveForcedPlanStepNumbers(audit, candidates);
   const activeExistingSteps = existingPlan.steps.filter(
     (step) => !isRetiredGbpPlanStep(step.stepNumber, step.title)
   );
@@ -179,13 +183,15 @@ export function refreshGbpPlanForReconcile(
     return next;
   });
 
+  // Append only merge-class forces — never every unsatisfied template step.
   const appended: GbpPlanStep[] = [];
-  for (const step of required) {
-    if (existingNumbers.has(step.stepNumber)) continue;
-    // Don't invent custom LLM steps; only append template/required steps.
-    if (step.stepNumber >= CUSTOM_PLAN_STEP_START) continue;
-    appended.push(step);
-    existingNumbers.add(step.stepNumber);
+  for (const stepNumber of forcedStepNumbers) {
+    if (existingNumbers.has(stepNumber)) continue;
+    if (stepNumber >= CUSTOM_PLAN_STEP_START) continue;
+    const fresh = freshByNumber.get(stepNumber);
+    if (!fresh) continue;
+    appended.push(fresh);
+    existingNumbers.add(stepNumber);
   }
 
   const combined = [...mergedSteps, ...appended];
