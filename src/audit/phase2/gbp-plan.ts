@@ -26,6 +26,20 @@ export interface GbpPlanBuildOptions {
   avgCustomerValue?: number | null;
 }
 
+/** True when the listing gets views but weak calls/directions (or no place actions). */
+export function auditNeedsConversionBoost(audit: Phase1AuditPayload): boolean {
+  const perf = audit.gbp.performance;
+  const coverage = perf.coverage;
+  const totalActions =
+    coverage?.totalActions ?? perf.calls + perf.directionRequests + perf.websiteClicks;
+  if (perf.profileViews >= 100 && totalActions === 0) return true;
+  const placeActions = audit.gbp.placeActions;
+  if (placeActions?.apiAvailable && placeActions.configuredTypes.length === 0) return true;
+  return false;
+}
+
+const CONVERSION_BOOST_STEPS = new Set([8, 11, 13, 15]);
+
 /** Rank plan steps by estimated revenue, then outcome, then driver impact. */
 export function planStepImpactScore(
   audit: Phase1AuditPayload,
@@ -35,7 +49,12 @@ export function planStepImpactScore(
   const revenue = estimateStepRevenueImpact(audit, stepNumber, avgCustomerValue) ?? 0;
   const outcome = estimateStepOutcomeImpact(audit, stepNumber);
   const driver = simulateStepDriverImpact(audit, stepNumber);
-  return revenue * 1000 + outcome * 10 + driver;
+  let score = revenue * 1000 + outcome * 10 + driver;
+  // When views don't convert, elevate CTA/place-action/trust work over pure completeness.
+  if (auditNeedsConversionBoost(audit) && CONVERSION_BOOST_STEPS.has(stepNumber)) {
+    score += 50;
+  }
+  return score;
 }
 
 /** Sort steps by impact and stamp displayOrder (0-based). */
@@ -396,6 +415,41 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       gbpAction: "update_attributes",
     },
   ];
+
+  // Gap-driven conversion steps (also task-generated); include when unsatisfied so
+  // LLM/template plans can prioritize views→actions work.
+  if (!isStepSatisfied(audit, PLACE_ACTIONS_PLAN_STEP)) {
+    steps.push({
+      stepNumber: PLACE_ACTIONS_PLAN_STEP,
+      title: "Place action links",
+      instruction:
+        "Add booking, ordering, or shop links so customers can act directly from Google Maps — critical when you get profile views without calls or directions.",
+      current:
+        audit.gbp.placeActions?.configuredTypes.length
+          ? `${audit.gbp.placeActions.configuredTypes.length} link type(s) configured`
+          : "No place action links configured",
+      recommended: "Add appointment, ordering, or shop links matching your services",
+      bullets: [
+        "Place action links appear as buttons on your Maps listing",
+        "Prioritize when profile views are high but calls/directions are low",
+      ],
+      gbpAction: "manual",
+    });
+  }
+
+  if (!isStepSatisfied(audit, NOTIFICATIONS_PLAN_STEP)) {
+    steps.push({
+      stepNumber: NOTIFICATIONS_PLAN_STEP,
+      title: "Real-time GBP alerts",
+      instruction:
+        "Subscribe to Pub/Sub alerts for new reviews and Google edits so you can respond before competitors do.",
+      current: audit.gbp.notifications?.configured
+        ? "Alerts partially configured"
+        : "No real-time GBP alerts configured",
+      recommended: "Enable review, Google update, and Voice of Merchant alerts",
+      gbpAction: "manual",
+    });
+  }
 
   const portfolioStep = buildKeywordPortfolioPlanStep(audit);
   if (portfolioStep) {

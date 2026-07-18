@@ -89,7 +89,7 @@ ${JSON.stringify(
 
 INSTRUCTIONS:
 1. Select ONLY from unsatisfied candidates (stepNumbers 1–15 and ${KEYWORD_PORTFOLIO_PLAN_STEP} for keyword portfolio). Never select retired step 16. Do not include satisfied steps.
-2. Prefer steps with higher revenueImpact when available, else outcomeScoreImpact, else driverScoreImpact — use linkedGapIds and linkedKeywords to justify rank-focused work.
+2. Prefer steps with higher revenueImpact when available, else outcomeScoreImpact, else driverScoreImpact — use linkedGapIds and linkedKeywords to justify rank-focused work. When linkedGapIds include "low-profile-conversions" or "missing-place-action-links", prioritize steps 8, 11, 13, and 15 (CTA posts, review replies, attributes, place action links) so profile views turn into calls and directions.
 3. Include selectionRationale on each step explaining why it matters for THIS business.
 4. For steps 3, 4, 5, and 9 include copyBlocks with paste-ready text when selected.
    For step 3 (business description): 600-750 characters of plain text. NEVER include a phone number, email, URL, or "Call us at ..." CTA — Google's guidelines require contact details in dedicated profile fields, and the API rejects descriptions containing them. Put the same clean text in actionData.description.

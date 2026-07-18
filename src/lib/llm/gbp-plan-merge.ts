@@ -1,7 +1,13 @@
 import type { GbpOptimizationPlan, GbpPlanStep, Phase1AuditPayload } from "@/audit/types";
 import type { PlanStepCandidate } from "@/audit/phase2/plan-candidates";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
-import { orderGbpPlanStepsByImpact, planStepImpactScore } from "@/audit/phase2/gbp-plan";
+import {
+  auditNeedsConversionBoost,
+  NOTIFICATIONS_PLAN_STEP,
+  orderGbpPlanStepsByImpact,
+  PLACE_ACTIONS_PLAN_STEP,
+  planStepImpactScore,
+} from "@/audit/phase2/gbp-plan";
 import {
   KEYWORD_PORTFOLIO_PLAN_STEP,
   portfolioStepIsSatisfied,
@@ -274,6 +280,17 @@ export function mergeLlmGbpPlan(
     !standardSteps.some((step) => step.stepNumber === KEYWORD_PORTFOLIO_PLAN_STEP)
   ) {
     standardSteps.push(portfolioCandidate.templateStep);
+  }
+
+  // When views don't convert, keep place-action / CTA conversion steps in the plan.
+  if (auditNeedsConversionBoost(audit)) {
+    for (const stepNumber of [PLACE_ACTIONS_PLAN_STEP, 8, 11, 13, NOTIFICATIONS_PLAN_STEP]) {
+      if (standardSteps.some((step) => step.stepNumber === stepNumber)) continue;
+      if (isStepSatisfied(audit, stepNumber)) continue;
+      const candidate = candidateByStep.get(stepNumber);
+      if (!candidate) continue;
+      standardSteps.push(candidate.templateStep);
+    }
   }
 
   const inventoryRequired = audit.gbp.locationInventory

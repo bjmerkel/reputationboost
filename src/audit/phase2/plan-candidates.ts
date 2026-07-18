@@ -55,7 +55,38 @@ function gapLinksToStep(gap: GapFlag, stepNumber: number): boolean {
   if (gap.id.startsWith("rank-outside-pack") && [3, 4, 8, 10].includes(stepNumber)) {
     return true;
   }
+  // Views without actions → CTA posts, trust replies, attributes/links, place actions
+  if (gap.id === "low-profile-conversions" && [8, 11, 13, 15].includes(stepNumber)) {
+    return true;
+  }
+  if (
+    (gap.id === "missing-place-action-links" || gap.id === "incomplete-place-action-links") &&
+    stepNumber === 15
+  ) {
+    return true;
+  }
+  if (gap.id === "place-actions-api-unavailable" && stepNumber === 15) return true;
+  if (
+    (gap.id === "missing-pubsub-notifications" || gap.id === "incomplete-notification-types") &&
+    stepNumber === 14
+  ) {
+    return true;
+  }
   return false;
+}
+
+/** Steps that convert profile views into calls/directions when action rate is weak. */
+export const CONVERSION_PLAN_STEPS = [8, 11, 13, 15] as const;
+
+export function profileNeedsConversionWork(audit: Phase1AuditPayload): boolean {
+  const gaps = detectGaps(audit);
+  return gaps.some(
+    (gap) =>
+      gap.id === "low-profile-conversions" ||
+      gap.id === "missing-place-action-links" ||
+      gap.id === "incomplete-place-action-links" ||
+      gap.id === "posts-without-cta"
+  );
 }
 
 /** Deterministic candidate pool for LLM plan composition — includes simulated score impacts. */

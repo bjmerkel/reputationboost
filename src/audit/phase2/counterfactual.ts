@@ -299,6 +299,21 @@ export function isStepSatisfied(audit: Phase1AuditPayload, stepNumber: number): 
       }
       return gbp.completeness.attributeCount >= 5;
     }
+    case 14: {
+      const notifications = gbp.notifications;
+      if (!notifications) return true;
+      return (
+        notifications.configured && notifications.missingRecommendedTypes.length === 0
+      );
+    }
+    case 15: {
+      const placeActions = gbp.placeActions;
+      if (!placeActions?.apiAvailable) return true;
+      return (
+        placeActions.configuredTypes.length > 0 &&
+        placeActions.missingAvailableTypes.length === 0
+      );
+    }
     case KEYWORD_PORTFOLIO_PLAN_STEP:
       return portfolioStepIsSatisfied(audit);
     default:
@@ -381,10 +396,43 @@ export function applyStepMutation(audit: Phase1AuditPayload, stepNumber: number)
     case 7:
       audit.gbp.content.videoCount = Math.max(2, audit.gbp.content.videoCount);
       break;
-    case 8:
+    case 8: {
       audit.gbp.content.lastPostDate = new Date().toISOString();
       audit.gbp.content.postCount = Math.max(1, audit.gbp.content.postCount);
+      const localPosts = ensureLocalPostCoverage(audit);
+      localPosts.hasCallToActionPosts = true;
+      localPosts.daysSinceLastPost = 0;
+      localPosts.postsLast30Days = Math.max(1, localPosts.postsLast30Days);
+      localPosts.coverageScore = Math.max(localPosts.coverageScore, 80);
       break;
+    }
+    case 14: {
+      const coverage = ensureNotificationCoverage(audit);
+      coverage.configured = true;
+      coverage.enabledTypes = [
+        ...new Set([...coverage.enabledTypes, ...coverage.missingRecommendedTypes]),
+      ];
+      coverage.missingRecommendedTypes = [];
+      coverage.coverageScore = 100;
+      coverage.hasReviewAlerts = true;
+      coverage.hasGoogleUpdateAlerts = true;
+      coverage.hasCustomerMediaAlerts = true;
+      coverage.hasVoiceOfMerchantAlerts = true;
+      break;
+    }
+    case 15: {
+      const coverage = ensurePlaceActionCoverage(audit);
+      coverage.apiAvailable = true;
+      coverage.configuredTypes = ["APPOINTMENT", "ONLINE_APPOINTMENT"];
+      coverage.missingRecommendedTypes = [];
+      coverage.missingAvailableTypes = [];
+      coverage.coverageScore = 100;
+      coverage.hasAppointmentLink = true;
+      coverage.hasOnlineAppointmentLink = true;
+      coverage.linkCount = Math.max(2, coverage.linkCount);
+      coverage.merchantLinkCount = Math.max(2, coverage.merchantLinkCount);
+      break;
+    }
     case 9: {
       const toRemove = new Set(audit.reviews.disputeCandidates);
       audit.reviews.reviews = audit.reviews.reviews.filter((r) => !toRemove.has(r.id));
@@ -991,6 +1039,53 @@ export function estimateTotalMonthlyRevenue(
   return totalEstimatedRevenue(audit, avgCustomerValue);
 }
 
+/**
+ * Project incremental calls/directions/website clicks from conversion-oriented
+ * plan steps. Used so views→actions work competes with rank work on revenue.
+ */
+export function applyConversionEngagementMutation(
+  audit: Phase1AuditPayload,
+  stepNumber: number
+): void {
+  const perf = audit.gbp.performance;
+  const views = Math.max(perf.profileViews, 100);
+  let callsGain = 0;
+  let directionsGain = 0;
+  let clicksGain = 0;
+
+  switch (stepNumber) {
+    case 8:
+      callsGain = Math.ceil(views * 0.02);
+      directionsGain = Math.ceil(views * 0.025);
+      break;
+    case 11:
+      callsGain = Math.ceil(views * 0.01);
+      break;
+    case 13:
+      clicksGain = Math.ceil(views * 0.015);
+      break;
+    case 15:
+      callsGain = Math.ceil(views * 0.025);
+      directionsGain = Math.ceil(views * 0.04);
+      clicksGain = Math.ceil(views * 0.03);
+      break;
+    default:
+      return;
+  }
+
+  perf.calls += callsGain;
+  perf.directionRequests += directionsGain;
+  perf.websiteClicks += clicksGain;
+
+  const coverage = ensurePerformanceCoverage(audit);
+  coverage.totalActions = perf.calls + perf.directionRequests + perf.websiteClicks;
+  if (perf.profileViews > 0) {
+    coverage.actionRate =
+      Math.round((coverage.totalActions / perf.profileViews) * 1000) / 10;
+  }
+  coverage.hasCoreMetrics = true;
+}
+
 /** Apply projected rank improvements for keywords a plan step would influence. */
 export function applyOutcomeMutation(
   audit: Phase1AuditPayload,
@@ -1012,6 +1107,11 @@ export function applyOutcomeMutation(
 
   if (stepNumber >= CUSTOM_PLAN_STEP_START) return;
   if (isStepSatisfied(audit, stepNumber)) return;
+
+  applyConversionEngagementMutation(audit, stepNumber);
+
+  // Place actions / alerts primarily move engagement, not pack rank.
+  if (stepNumber === 14 || stepNumber === 15) return;
 
   const rankDelta = rankDeltaForStep(stepNumber, calibration);
   const targets = new Set(
@@ -1113,6 +1213,52 @@ export function projectHealthScoresFromActions(
   };
 }
 
+/** Estimated monthly revenue from conversion-step engagement uplifts (calls/directions). */
+function conversionEngagementRevenueGain(
+  audit: Phase1AuditPayload,
+  actions: ActionRef[],
+  avgCustomerValue?: number | null
+): number | null {
+  if (avgCustomerValue == null || avgCustomerValue <= 0) return null;
+
+  const views = Math.max(audit.gbp.performance.profileViews, 100);
+  let calls = 0;
+  let directions = 0;
+  let websiteClicks = 0;
+
+  for (const action of actions) {
+    if (action.source !== "plan") continue;
+    const match = action.id.match(/^gbp-step-(\d+)$/);
+    if (!match) continue;
+    const stepNumber = Number(match[1]);
+    switch (stepNumber) {
+      case 8:
+        calls += Math.ceil(views * 0.02);
+        directions += Math.ceil(views * 0.025);
+        break;
+      case 11:
+        calls += Math.ceil(views * 0.01);
+        break;
+      case 13:
+        websiteClicks += Math.ceil(views * 0.015);
+        break;
+      case 15:
+        calls += Math.ceil(views * 0.025);
+        directions += Math.ceil(views * 0.04);
+        websiteClicks += Math.ceil(views * 0.03);
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (calls + directions + websiteClicks <= 0) return null;
+
+  // Mirror DEFAULT_ROI_CONFIG lead rates without importing a circular path.
+  const leads = calls * 0.25 + directions * 0.3 + websiteClicks * 0.05;
+  return Math.round(leads * avgCustomerValue);
+}
+
 /** Project ranking outcome and revenue after applying profile + rank counterfactuals. */
 export function projectOutcomeScoresFromActions(
   audit: Phase1AuditPayload,
@@ -1129,14 +1275,29 @@ export function projectOutcomeScoresFromActions(
 
   const after = computeHealthScores(mutated);
   const afterRevenue = totalEstimatedRevenue(mutated, options.avgCustomerValue);
+  const conversionRevenue = conversionEngagementRevenueGain(
+    audit,
+    actions,
+    options.avgCustomerValue
+  );
 
-  const rawRevenueGain =
+  const rankRevenueGain =
     beforeRevenue != null && afterRevenue != null
       ? Math.max(0, afterRevenue - beforeRevenue)
+      : null;
+  // Keep 0 (not null) when revenue is estimable so marginal deltas still compute.
+  const rawRevenueGain =
+    rankRevenueGain != null || conversionRevenue != null
+      ? (rankRevenueGain ?? 0) + (conversionRevenue ?? 0)
       : null;
   const revenueGain =
     rawRevenueGain != null
       ? calibratedRevenueGain(rawRevenueGain, actions, options.calibration)
+      : null;
+
+  const projectedMonthly =
+    afterRevenue != null || conversionRevenue != null
+      ? (afterRevenue ?? beforeRevenue ?? 0) + (conversionRevenue ?? 0)
       : null;
 
   return {
@@ -1148,7 +1309,7 @@ export function projectOutcomeScoresFromActions(
     visibilityGain: after.visibility - before.visibility,
     revenueCaptureGain: after.revenueCapture - before.revenueCapture,
     overallGain: after.overall - before.overall,
-    estimatedMonthlyRevenue: afterRevenue,
+    estimatedMonthlyRevenue: projectedMonthly,
     revenueGain,
   };
 }
