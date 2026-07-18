@@ -167,7 +167,9 @@ describe("keyword-action-binding", () => {
         );
         const linked = plan.steps.find((step) => step.stepNumber === playbook.primaryStep);
         if ((linked?.context.revenueImpact ?? 0) > 0) {
-          assert.equal(playbook.actionExpectedRevenue, linked!.context.revenueImpact);
+          assert.match(playbook.actionExpectedImpactLabel ?? "", /\$|USD/);
+        } else if ((linked?.context.leadsImpact ?? 0) > 0) {
+          assert.match(playbook.actionExpectedImpactLabel ?? "", /leads\/mo/);
         }
       }
     }
@@ -204,5 +206,27 @@ describe("keyword-action-binding", () => {
         ctx8.targetKeywords.some((t) => t.toLowerCase() === kw)
       )
     );
+  });
+
+  it("formats leads as leads/mo when revenue is unavailable", () => {
+    const audit = createTestAudit();
+    const plan = planFromSteps([
+      stubStep({
+        stepNumber: 8,
+        title: "Posts",
+        context: {
+          targetKeywords: ["emergency plumber dallas"],
+          primaryKeyword: "emergency plumber dallas",
+          expectedEffect: "More calls",
+          revenueImpact: null,
+          leadsImpact: 3,
+        },
+      }),
+    ]);
+    const playbooks = buildKeywordPlaybooks(audit, plan, { limit: 1 });
+    assert.ok(playbooks.length >= 1);
+    const label = playbooks[0].actionExpectedImpactLabel ?? "";
+    assert.match(label, /3 leads\/mo/);
+    assert.doesNotMatch(label, /\$3/);
   });
 });

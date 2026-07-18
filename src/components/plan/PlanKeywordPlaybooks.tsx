@@ -32,9 +32,10 @@ export default function PlanKeywordPlaybooks({
       buildKeywordPlaybooks(audit, plan, {
         avgCustomerValue,
         calibration,
+        currency,
         limit: 5,
       }),
-    [audit, plan, avgCustomerValue, calibration]
+    [audit, plan, avgCustomerValue, calibration, currency]
   );
 
   if (playbooks.length === 0) return null;
@@ -119,18 +120,15 @@ export default function PlanKeywordPlaybooks({
                       from this action alone
                     </p>
                   )}
-                  {playbook.actionExpectedRevenue != null &&
-                    playbook.actionExpectedRevenue > 0 && (
-                      <p
-                        className={`mt-0.5 text-xs ${
-                          isLight ? "text-[#1a73e8]" : "text-sky-300"
-                        }`}
-                      >
-                        {playbook.ctaLabel}: +
-                        {formatCurrency(playbook.actionExpectedRevenue, currency)}/mo model est.
-                        from this step
-                      </p>
-                    )}
+                  {playbook.actionExpectedImpactLabel && (
+                    <p
+                      className={`mt-0.5 text-xs ${
+                        isLight ? "text-[#1a73e8]" : "text-sky-300"
+                      }`}
+                    >
+                      {playbook.ctaLabel}: {playbook.actionExpectedImpactLabel} from this step
+                    </p>
+                  )}
                 </div>
 
                 {playbook.primaryStep != null && (
