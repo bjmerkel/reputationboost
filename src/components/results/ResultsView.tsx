@@ -24,6 +24,8 @@ export default function ResultsView({
   engagementLoading = false,
   avgCustomerValue,
   globalCalibration = {},
+  focusStep = null,
+  onFocusHandled,
   onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
@@ -36,6 +38,8 @@ export default function ResultsView({
   engagementLoading?: boolean;
   avgCustomerValue?: number | null;
   globalCalibration?: AttributionCalibration;
+  focusStep?: number | null;
+  onFocusHandled?: () => void;
   onNavigateToPlan?: (stepNumber: number) => void;
 }) {
   const timelineEntries = useMemo(() => {
@@ -79,6 +83,8 @@ export default function ResultsView({
         entries={timelineEntries}
         attributionsById={attributionsById}
         loading={attributionLoading}
+        focusStep={focusStep}
+        onFocusHandled={onFocusHandled}
         onNavigateToPlan={onNavigateToPlan}
       />
     </div>

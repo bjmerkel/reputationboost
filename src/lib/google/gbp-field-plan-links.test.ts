@@ -5,6 +5,7 @@ import {
   enrichInventoryWithPlanLinks,
   planLinkForApiPath,
   planScrollElementId,
+  resultsScrollElementId,
 } from "./gbp-field-plan-links";
 import { planStepsRequiredByInventory } from "./gbp-field-plan-map";
 
@@ -122,6 +123,7 @@ describe("gbp-field-plan-links", () => {
   it("builds scroll element ids", () => {
     assert.equal(planScrollElementId(3), "plan-step-3");
     assert.equal(planScrollElementId(0, "google-updates"), "google-updates-panel");
+    assert.equal(resultsScrollElementId(8), "results-step-8");
   });
 
   it("enriches service fields with active plan tasks even when count looks good", () => {

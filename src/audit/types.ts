@@ -1083,6 +1083,8 @@ export interface GbpOptimizationPlan {
   businessName: string;
   address: string;
   objective: string;
+  /** LLM/strategist explanation of overall plan composition (when available). */
+  planRationale?: string;
   targetKeywords: string[];
   currentState: GbpCurrentStateSummary;
   keywordRankings: KeywordRankAnalysis[];
@@ -1169,6 +1171,8 @@ export interface Plan {
   title: string;
   businessName: string;
   objective: string;
+  /** LLM/strategist explanation of overall plan composition (when available). */
+  planRationale?: string;
   targetKeywords: string[];
   phases: PlanPhase[];
   steps: PlanStep[];

@@ -121,6 +121,7 @@ export default function AuditDashboard({
     "google-updates" | null
   >(null);
   const [focusPlanKeyword, setFocusPlanKeyword] = useState<string | null>(null);
+  const [focusResultsStep, setFocusResultsStep] = useState<number | null>(null);
   const autoAuditStartedRef = useRef(false);
 
   const reviewParam = searchParams.get("review");
@@ -565,7 +566,10 @@ export default function AuditDashboard({
                 setFocusPlanScrollTarget(null);
                 setFocusPlanKeyword(null);
               }}
-              onSeeResults={() => setView("data")}
+              onSeeResults={(stepNumber) => {
+                setFocusResultsStep(stepNumber ?? null);
+                setView("data");
+              }}
             />
           )}
 
@@ -581,6 +585,8 @@ export default function AuditDashboard({
               engagementLoading={attributionLoading}
               avgCustomerValue={avgCustomerValue}
               globalCalibration={scoreHistory.globalCalibration}
+              focusStep={focusResultsStep}
+              onFocusHandled={() => setFocusResultsStep(null)}
               onNavigateToPlan={openPlanStep}
             />
           )}

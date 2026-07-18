@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
 import type { PlanTimelineEntry } from "@/audit/phase3/build-timeline";
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
 import type { ActionAttribution } from "@/audit/types/timeseries";
+import { resultsScrollElementId } from "@/lib/google/gbp-field-plan-links";
 
 function formatRank(rank: number | null | undefined): string {
   if (rank == null) return "—";
@@ -43,13 +45,47 @@ export default function PlanResultsTimeline({
   entries,
   attributionsById = {},
   loading = false,
+  focusStep = null,
+  onFocusHandled,
   onNavigateToPlan,
 }: {
   entries: PlanTimelineEntry[];
   attributionsById?: Record<string, ActionAttribution>;
   loading?: boolean;
+  focusStep?: number | null;
+  onFocusHandled?: () => void;
   onNavigateToPlan?: (stepNumber: number) => void;
 }) {
+  const anchorEntryIds = useMemo(() => {
+    const ids = new Set<string>();
+    const seenSteps = new Set<number>();
+    for (const entry of entries) {
+      if (entry.stepNumber == null || seenSteps.has(entry.stepNumber)) continue;
+      seenSteps.add(entry.stepNumber);
+      ids.add(entry.id);
+    }
+    return ids;
+  }, [entries]);
+
+  useEffect(() => {
+    if (focusStep == null || loading) return;
+
+    const elementId = resultsScrollElementId(focusStep);
+    const timer = window.setTimeout(() => {
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+        element.classList.add("ring-2", "ring-[#1a73e8]", "ring-offset-2");
+        window.setTimeout(() => {
+          element.classList.remove("ring-2", "ring-[#1a73e8]", "ring-offset-2");
+        }, 1600);
+        onFocusHandled?.();
+      }
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [focusStep, loading, onFocusHandled]);
+
   if (loading) {
     return (
       <section className="space-y-3">
@@ -87,14 +123,29 @@ export default function PlanResultsTimeline({
             entry.rankAfter != null &&
             entry.rankBefore !== entry.rankAfter;
 
+          const anchorId =
+            entry.stepNumber != null && anchorEntryIds.has(entry.id)
+              ? resultsScrollElementId(entry.stepNumber)
+              : undefined;
+
+          const isFocused = focusStep != null && entry.stepNumber === focusStep;
+
           return (
-            <li key={entry.id} className={`relative pb-6 ${index === entries.length - 1 ? "pb-0" : ""}`}>
+            <li
+              key={entry.id}
+              id={anchorId}
+              className={`relative pb-6 scroll-mt-4 ${index === entries.length - 1 ? "pb-0" : ""}`}
+            >
               <span
                 className={`absolute -left-[calc(0.625rem+1px)] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-white ${style.dot}`}
                 aria-hidden
               />
 
-              <div className="rounded-lg border border-[#dadce0] bg-white px-4 py-3">
+              <div
+                className={`rounded-lg border bg-white px-4 py-3 transition ${
+                  isFocused ? "border-[#1a73e8]" : "border-[#dadce0]"
+                }`}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">

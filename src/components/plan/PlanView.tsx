@@ -280,6 +280,29 @@ export default function PlanView({
         onFocusStep={(stepNumber) => setLocalFocusStep(stepNumber)}
       />
 
+      {(plan.planRationale || plan.objective) && (
+        <aside
+          className={`rounded-xl border px-4 py-3 ${
+            isLight ? "border-[#e8f0fe] bg-[#f8fbff]" : "border-sky-400/20 bg-sky-400/10"
+          }`}
+        >
+          <p
+            className={`text-xs font-semibold uppercase tracking-wider ${
+              isLight ? "text-[#1a73e8]" : "text-sky-300"
+            }`}
+          >
+            Why this plan
+          </p>
+          <p
+            className={`mt-1 text-sm leading-relaxed ${
+              isLight ? "text-[#3c4043]" : "text-slate-200"
+            }`}
+          >
+            {plan.planRationale || plan.objective}
+          </p>
+        </aside>
+      )}
+
       <PlanKeywordPriority
         audit={audit}
         plan={plan}

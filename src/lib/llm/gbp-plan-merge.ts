@@ -336,6 +336,7 @@ export function mergeLlmGbpPlan(
     ...fallback,
     title: llm.title || fallback.title,
     objective: llm.objective || fallback.objective,
+    planRationale: llm.planRationale || fallback.planRationale,
     steps,
     keywordPriority:
       llm.keywordPriority && llm.keywordPriority.length > 0

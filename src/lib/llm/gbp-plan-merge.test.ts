@@ -214,6 +214,32 @@ describe("mergeLlmGbpPlan", () => {
     );
   });
 
+  it("persists planRationale from the LLM response", () => {
+    const audit = createTestAudit();
+    const fallback = buildTemplateGbpPlan(audit);
+    const candidates = buildPlanStepCandidates(audit);
+
+    const merged = mergeLlmGbpPlan(
+      fallback,
+      {
+        planRationale:
+          "Prioritize outside-pack keywords with description and services before posting cadence.",
+        selectedSteps: [
+          { stepNumber: 3, instruction: "Rewrite", selectionRationale: "keywords" },
+          { stepNumber: 8, instruction: "Post", selectionRationale: "stale" },
+          { stepNumber: 11, instruction: "Respond", selectionRationale: "trust" },
+        ],
+      },
+      candidates,
+      audit
+    );
+
+    assert.equal(
+      merged.planRationale,
+      "Prioritize outside-pack keywords with description and services before posting cadence."
+    );
+  });
+
   it("injects rank-outside-pack linked steps when LLM omits them", () => {
     const audit = createTestAudit();
     const fallback = buildTemplateGbpPlan(audit);

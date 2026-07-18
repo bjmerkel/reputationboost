@@ -310,6 +310,20 @@ describe("buildPlan", () => {
     );
   });
 
+  it("passes planRationale through from gbpPlan", () => {
+    const audit = createTestAudit();
+    audit.strategy!.gbpPlan = {
+      ...audit.strategy!.gbpPlan!,
+      planRationale: "Focus on pack presence for emergency plumber keywords first.",
+    };
+    const plan = buildPlan(audit, audit.execution!.tasks);
+    assert.ok(plan);
+    assert.equal(
+      plan!.planRationale,
+      "Focus on pack presence for emergency plumber keywords first."
+    );
+  });
+
   it("populates step revenueImpact when avgCustomerValue is provided", () => {
     const audit = createTestAudit();
     const withoutAcv = buildPlan(audit, audit.execution!.tasks);
