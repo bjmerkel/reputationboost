@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { FullAuditPayload, Plan } from "@/audit/types";
 import { formatCurrency } from "@/audit/attribution/roi";
+import { resolveBestPlanStepForKeyword } from "@/audit/phase2/keyword-action-binding";
 import { computeKeywordScores } from "@/audit/phase2/keyword-scores";
 
 export default function PlanKeywordPriority({
@@ -50,15 +51,9 @@ export default function PlanKeywordPriority({
       const score = keywordScores.find(
         (s) => s.keyword.toLowerCase() === item.keyword.toLowerCase()
       );
-      const linkedStep = plan.steps.find(
-        (step) =>
-          step.status !== "completed" &&
-          step.status !== "skipped" &&
-          (step.context.primaryKeyword?.toLowerCase() === item.keyword.toLowerCase() ||
-            step.context.targetKeywords.some(
-              (kw) => kw.toLowerCase() === item.keyword.toLowerCase()
-            ))
-      );
+      const linkedStepNumber = resolveBestPlanStepForKeyword(audit, plan, item.keyword, {
+        avgCustomerValue,
+      });
       return {
         ...item,
         inLocalPack: ranking?.inLocalPack ?? score?.inLocalPack ?? false,
@@ -69,10 +64,10 @@ export default function PlanKeywordPriority({
           score?.potentialAtRank1 != null && score?.estimatedMonthlyRevenue != null
             ? Math.max(0, score.potentialAtRank1 - score.estimatedMonthlyRevenue)
             : null,
-        linkedStepNumber: linkedStep?.stepNumber,
+        linkedStepNumber,
       };
     });
-  }, [priorities, rankings, keywordScores, plan.steps]);
+  }, [audit, avgCustomerValue, priorities, rankings, keywordScores, plan]);
 
   if (rows.length === 0) return null;
 

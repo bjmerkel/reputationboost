@@ -3,11 +3,14 @@ import { describe, it } from "node:test";
 import { createTestAudit } from "@/audit/phase3/test-fixtures";
 import {
   auditNeedsConversionBoost,
+  auditPrefersConversionOverRank,
   CONVERSION_PLAN_STEPS,
   isRankOutsidePackGapId,
   profileNeedsConversionWork,
   RANK_OUTSIDE_PACK_PLAN_STEPS,
+  WEAK_PROFILE_ACTION_RATE_PCT,
 } from "./conversion-boost";
+import { detectGaps } from "./gaps";
 
 describe("conversion-boost", () => {
   it("detects conversion boost from gaps and aliases profileNeedsConversionWork", () => {
@@ -37,6 +40,72 @@ describe("conversion-boost", () => {
 
     assert.equal(auditNeedsConversionBoost(audit), true);
     assert.equal(profileNeedsConversionWork(audit), true);
+  });
+
+  it("detects weak action-rate conversions (not only zero actions)", () => {
+    const audit = createTestAudit();
+    audit.gbp.performance.profileViews = 500;
+    audit.gbp.performance.calls = 3;
+    audit.gbp.performance.directionRequests = 2;
+    audit.gbp.performance.websiteClicks = 0;
+    audit.gbp.performance.coverage = {
+      apiAvailable: true,
+      partialApi: false,
+      coverageScore: 70,
+      hasCoreMetrics: true,
+      hasImpressionMetrics: true,
+      hasSearchKeywords: false,
+      hasConversations: false,
+      hasBookings: false,
+      keywordCount: 0,
+      trackedKeywordCount: 0,
+      totalActions: 5,
+      actionRate: 1,
+      endpoints: { coreMetrics: "ok", impressions: "ok", searchKeywords: "skipped" },
+      recommendations: [],
+    };
+
+    assert.ok(1 < WEAK_PROFILE_ACTION_RATE_PCT);
+    assert.equal(auditNeedsConversionBoost(audit), true);
+    assert.ok(detectGaps(audit).some((gap) => gap.id === "weak-profile-conversions"));
+    assert.equal(
+      detectGaps(audit).some((gap) => gap.id === "low-profile-conversions"),
+      false
+    );
+  });
+
+  it("prefers conversion over rank when pack share is high and conversion is weak", () => {
+    const audit = createTestAudit();
+    audit.rankings.keywordsInPack = 3;
+    audit.rankings.totalKeywords = 3;
+    audit.rankings.keywords = audit.rankings.keywords.map((kw) => ({
+      ...kw,
+      inLocalPack: true,
+      localPackPosition: 2 as const,
+      geoRanks: kw.geoRanks.map((g) => ({ ...g, rank: 2, inLocalPack: true })),
+    }));
+    audit.gbp.performance.profileViews = 500;
+    audit.gbp.performance.calls = 3;
+    audit.gbp.performance.directionRequests = 2;
+    audit.gbp.performance.websiteClicks = 0;
+    audit.gbp.performance.coverage = {
+      apiAvailable: true,
+      partialApi: false,
+      coverageScore: 70,
+      hasCoreMetrics: true,
+      hasImpressionMetrics: true,
+      hasSearchKeywords: false,
+      hasConversations: false,
+      hasBookings: false,
+      keywordCount: 0,
+      trackedKeywordCount: 0,
+      totalActions: 5,
+      actionRate: 1,
+      endpoints: { coreMetrics: "ok", impressions: "ok", searchKeywords: "skipped" },
+      recommendations: [],
+    };
+
+    assert.equal(auditPrefersConversionOverRank(audit), true);
   });
 
   it("treats incomplete place-action links as conversion work", () => {

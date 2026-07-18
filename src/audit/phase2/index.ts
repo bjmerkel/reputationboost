@@ -89,12 +89,24 @@ export {
 export type { PlanStepCandidate } from "./plan-candidates";
 export {
   auditNeedsConversionBoost,
+  auditPrefersConversionOverRank,
+  profileNeedsConversionWork,
+  WEAK_PROFILE_ACTION_RATE_PCT,
+} from "./conversion-boost";
+export {
   CONVERSION_GAP_IDS,
   CONVERSION_PLAN_STEPS,
+  isConversionPlanStep,
   isRankOutsidePackGapId,
-  profileNeedsConversionWork,
   RANK_OUTSIDE_PACK_PLAN_STEPS,
-} from "./conversion-boost";
+} from "./conversion-constants";
+export {
+  buildKeywordActionBindings,
+  resolveBestPlanStepForKeyword,
+  resolveStepPrimaryKeyword,
+  resolveStepTargetKeywords,
+} from "./keyword-action-binding";
+export type { KeywordActionBinding } from "./keyword-action-binding";
 export {
   estimateStepEngagementImpact,
   estimateStepHealthImpact,
@@ -117,6 +129,7 @@ export {
   cloneAudit,
   isStepSatisfied,
   keywordNeedsOutcomeWork,
+  keywordsTargetedByStep,
   pickActionsForDriverTarget,
   pickActionsForTarget,
   estimateTotalMonthlyLeads,

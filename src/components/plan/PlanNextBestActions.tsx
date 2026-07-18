@@ -9,15 +9,18 @@ export default function PlanNextBestActions({
   plan,
   currency = "USD",
   variant = "light",
+  preferConversionSteps = false,
   onFocusStep,
 }: {
   plan: Plan;
   currency?: string;
   variant?: "light" | "dark";
+  /** When the listing is visible but under-converting, lead with CTA / place-action work. */
+  preferConversionSteps?: boolean;
   onFocusStep?: (stepNumber: number) => void;
 }) {
   const isLight = variant === "light";
-  const nextSteps = selectNextBestPlanSteps(plan, 3);
+  const nextSteps = selectNextBestPlanSteps(plan, 3, { preferConversionSteps });
   if (nextSteps.length === 0) return null;
 
   const hasRevenue = nextSteps.some((step) => (step.context.revenueImpact ?? 0) > 0);
@@ -37,13 +40,15 @@ export default function PlanNextBestActions({
         Next best actions
       </p>
       <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-        {hasRevenue && hasLeads
-          ? "Ordered by estimated revenue, then leads — do these first."
-          : hasRevenue
-            ? "Ordered by estimated revenue impact — do these first."
-            : hasLeads
-              ? "Ordered by estimated lead impact — do these first."
-              : "Ordered by estimated impact — do these first."}
+        {preferConversionSteps
+          ? "You’re visible — convert views into calls and directions first."
+          : hasRevenue && hasLeads
+            ? "Ordered by estimated revenue, then leads — do these first."
+            : hasRevenue
+              ? "Ordered by estimated revenue impact — do these first."
+              : hasLeads
+                ? "Ordered by estimated lead impact — do these first."
+                : "Ordered by estimated impact — do these first."}
       </p>
       <ol className="mt-3 space-y-2">
         {nextSteps.map((step, index) => {

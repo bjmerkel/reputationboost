@@ -3,6 +3,10 @@ import type { AttributionCalibration } from "../phase2/attribution-calibration";
 import { resolveCalibrationConfidence } from "../phase2/attribution-calibration";
 import { keywordsMissingFromText } from "@/audit/attribution/keywords";
 import {
+  resolveStepPrimaryKeyword,
+  resolveStepTargetKeywords,
+} from "../phase2/keyword-action-binding";
+import {
   estimateStepHealthImpact,
   estimateStepLeadsImpact,
   estimateStepEngagementImpact,
@@ -32,6 +36,8 @@ const DESCRIPTION_RECOMMENDED_PLACEHOLDER =
   "Updated description below — includes all target keywords";
 
 function targetKeywords(audit: FullAuditPayload, step: GbpPlanStep): string[] {
+  const bound = resolveStepTargetKeywords(audit, step.stepNumber);
+  if (bound.length > 0) return bound;
   const fromPlan = audit.strategy.gbpPlan?.targetKeywords ?? [];
   if (fromPlan.length > 0) return fromPlan;
   return audit.rankings.keywords.map((k) => k.keyword);
@@ -219,9 +225,10 @@ export function buildStepContext(
   avgCustomerValue?: number | null
 ): PlanStepContext {
   const keywords = targetKeywords(audit, step);
-  const outsidePack = keywordsOutsidePack(audit);
   const primaryKeyword =
-    outsidePack[0] ?? keywords[0] ?? audit.strategy.gbpPlan?.keywordPriority?.[0]?.keyword;
+    resolveStepPrimaryKeyword(audit, step.stepNumber, { avgCustomerValue }) ??
+    keywords[0] ??
+    audit.strategy.gbpPlan?.keywordPriority?.[0]?.keyword;
 
   const isCustom = isCustomPlanStep(step.stepNumber);
   const selectionRationale = extractSelectionRationale(step.instruction);

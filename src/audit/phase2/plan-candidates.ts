@@ -1,11 +1,13 @@
 import type { GapFlag, GbpPlanStep, Phase1AuditPayload } from "../types";
 import {
   auditNeedsConversionBoost,
+  profileNeedsConversionWork,
+} from "./conversion-boost";
+import {
   CONVERSION_PLAN_STEPS,
   isRankOutsidePackGapId,
-  profileNeedsConversionWork,
   RANK_OUTSIDE_PACK_PLAN_STEPS,
-} from "./conversion-boost";
+} from "./conversion-constants";
 import { detectGaps } from "./gaps";
 import { buildAllGbpPlanSteps } from "./gbp-plan";
 import { isStepSatisfied, simulateStepDriverImpact } from "./counterfactual";
@@ -81,9 +83,9 @@ function gapLinksToStep(gap: GapFlag, stepNumber: number): boolean {
   ) {
     return true;
   }
-  // Views without actions → CTA posts, trust replies, attributes/links, place actions
+  // Views without / under-converting actions → CTA posts, trust replies, attributes/links, place actions
   if (
-    gap.id === "low-profile-conversions" &&
+    (gap.id === "low-profile-conversions" || gap.id === "weak-profile-conversions") &&
     (CONVERSION_PLAN_STEPS as readonly number[]).includes(stepNumber)
   ) {
     return true;
