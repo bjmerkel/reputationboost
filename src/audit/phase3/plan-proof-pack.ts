@@ -90,4 +90,10 @@ export const PLAN_SOAK_CHECKLIST = [
   "Batch approve modal opens highest-impact pending task first",
   "Custom strategist step shows qualitative signal (not a blank impact row)",
   "First Plan viewport reads: progress → NBA → keyword playbooks (checklist below)",
+  "Reject one review reply → sibling replies on the same step stay visible",
+  "Refresh plan button does not claim a live Google fetch (use Refresh from Google panel for that)",
+  "Google conflict panel shows context only; accept/reject actions live in plan step 0",
+  "Without ACV, keyword playbooks show leads/mo — not dollar amounts for lead counts",
+  "Completed step shows Measuring or Early signal while attribution window is open",
+  "Stay on track section shows weekly/monthly maintenance cadence when present",
 ] as const;
