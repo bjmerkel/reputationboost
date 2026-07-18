@@ -3,11 +3,10 @@ import type { PlanStepCandidate } from "@/audit/phase2/plan-candidates";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
 import {
   auditNeedsConversionBoost,
-  NOTIFICATIONS_PLAN_STEP,
-  orderGbpPlanStepsByImpact,
-  PLACE_ACTIONS_PLAN_STEP,
-  planStepImpactScore,
-} from "@/audit/phase2/gbp-plan";
+  CONVERSION_PLAN_STEPS,
+  isRankOutsidePackGapId,
+} from "@/audit/phase2/conversion-boost";
+import { orderGbpPlanStepsByImpact, planStepImpactScore } from "@/audit/phase2/gbp-plan";
 import {
   KEYWORD_PORTFOLIO_PLAN_STEP,
   portfolioStepIsSatisfied,
@@ -282,9 +281,17 @@ export function mergeLlmGbpPlan(
     standardSteps.push(portfolioCandidate.templateStep);
   }
 
-  // When views don't convert, keep place-action / CTA conversion steps in the plan.
+  // Keep unsatisfied steps linked to rank-outside-pack gaps (LLM often under-selects them).
+  for (const candidate of candidates) {
+    if (candidate.satisfied) continue;
+    if (!candidate.linkedGapIds.some((id) => isRankOutsidePackGapId(id))) continue;
+    if (standardSteps.some((step) => step.stepNumber === candidate.stepNumber)) continue;
+    standardSteps.push(candidate.templateStep);
+  }
+
+  // When views don't convert, keep CTA / trust / place-action conversion steps in the plan.
   if (auditNeedsConversionBoost(audit)) {
-    for (const stepNumber of [PLACE_ACTIONS_PLAN_STEP, 8, 11, 13, NOTIFICATIONS_PLAN_STEP]) {
+    for (const stepNumber of CONVERSION_PLAN_STEPS) {
       if (standardSteps.some((step) => step.stepNumber === stepNumber)) continue;
       if (isStepSatisfied(audit, stepNumber)) continue;
       const candidate = candidateByStep.get(stepNumber);
