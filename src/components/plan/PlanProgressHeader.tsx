@@ -201,7 +201,7 @@ export default function PlanProgressHeader({
                       : "border-white/15 text-sky-300 hover:bg-white/5"
                   }`}
                 >
-                  {refreshingPlan ? "Refreshing…" : "Refresh plan"}
+                  {refreshingPlan ? "Syncing…" : "Sync with Google"}
                 </button>
               )}
             </div>

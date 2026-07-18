@@ -14,6 +14,7 @@ import ReviewResponseKeywordHints, {
   reviewResponseCanSuggestWeave,
 } from "./ReviewResponseKeywordHints";
 import { formatPlanTimestamp } from "./plan-timestamps";
+import { taskPrimaryActionLabel } from "./plan-ux-copy";
 
 const EDIT_STATUS_STYLES: Record<GbpEditStatus, string> = {
   accepted: "bg-[#e6f4ea] text-[#137333]",
@@ -276,7 +277,7 @@ export default function PlanStepTaskRow({
                   onClick={() => void actions.approveAndPublish(task, { draftContent: draft })}
                   className="btn-primary rounded-full px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
-                  {loading ? "Publishing…" : "Approve & publish"}
+                  {taskPrimaryActionLabel(task, { loading })}
                 </button>
               )}
               <button

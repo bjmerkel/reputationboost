@@ -19,6 +19,11 @@ import PlanStepPlaceActions from "./PlanStepPlaceActions";
 import ReviewRequestPanel from "@/components/review-requests/ReviewRequestPanel";
 import ReviewDisputePanel from "@/components/review-disputes/ReviewDisputePanel";
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
+import {
+  MANUAL_STEP_HELPER,
+  MANUAL_STEP_SYNC_LABEL,
+  reconcileFeedbackMessage,
+} from "./plan-ux-copy";
 
 const STATUS_STYLES = {
   completed: "border-[#ceead6] bg-[#f6faf7]",
@@ -93,12 +98,14 @@ export default function PlanStepCard({
           reviewRequestTask != null ||
           reviewDisputeTasks.length > 0))
   );
+  const [manualSyncNotice, setManualSyncNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (defaultExpanded) setExpanded(true);
   }, [defaultExpanded]);
 
   const hasPhotoTasks = step.tasks.some((t) => t.type === "gbp_photo");
+  const showPhotoSection = hasPhotoTasks || (step.stepNumber === 6 && expanded);
   const hasVideoTasks = step.tasks.some((t) => t.type === "gbp_video");
   const attributeTasks = step.tasks.filter(
     (t) => t.type === "gbp_attributes" && t.status !== "completed"
@@ -337,7 +344,7 @@ export default function PlanStepCard({
             </div>
           ))}
 
-          {hasPhotoTasks && (
+          {showPhotoSection && (
             <PlanStepPhotos
               tasks={step.tasks}
               gbpConnected={gbpConnected}
@@ -447,22 +454,38 @@ export default function PlanStepCard({
           {step.tasks.length === 0 && (
             <div className="mt-4 space-y-2">
               <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-                Manual step — complete this update in Google Business Profile, then refresh your plan.
+                {MANUAL_STEP_HELPER}
               </p>
               {actions.reconcilePlanNow && (
                 <button
                   type="button"
+                  disabled={actions.reconciling}
                   onClick={() => {
-                    void actions.reconcilePlanNow?.();
+                    setManualSyncNotice(null);
+                    void actions.reconcilePlanNow?.()
+                      .then((result) => {
+                        setManualSyncNotice(
+                          reconcileFeedbackMessage({
+                            completedTasks: result.completedTasks,
+                            createdTasks: result.createdTasks,
+                          })
+                        );
+                      })
+                      .catch(() => undefined);
                   }}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${
                     isLight
                       ? "border-[#1a73e8] bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc]"
                       : "border-sky-400/40 bg-sky-400/15 text-sky-300 hover:bg-sky-400/25"
                   }`}
                 >
-                  Mark done & refresh plan
+                  {actions.reconciling ? "Syncing…" : MANUAL_STEP_SYNC_LABEL}
                 </button>
+              )}
+              {manualSyncNotice && (
+                <p className={`text-xs ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>
+                  {manualSyncNotice}
+                </p>
               )}
             </div>
           )}

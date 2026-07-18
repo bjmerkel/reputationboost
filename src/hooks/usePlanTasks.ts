@@ -325,5 +325,6 @@ export type PlanTaskActions = Pick<
   | "reconcilePlanNow"
   | "refresh"
   | "loadingTaskId"
+  | "reconciling"
   | "error"
 >;

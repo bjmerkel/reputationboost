@@ -25,6 +25,7 @@ import PlanKeywordPlaybooks from "./PlanKeywordPlaybooks";
 import PlanNextBestActions from "./PlanNextBestActions";
 import PlanPhaseSection from "./PlanPhaseSection";
 import PlanProgressHeader from "./PlanProgressHeader";
+import { planGbpBannerMessage, reconcileFeedbackMessage } from "./plan-ux-copy";
 
 export default function PlanView({
   audit,
@@ -68,6 +69,7 @@ export default function PlanView({
   const isLight = variant === "light";
   const [syncingGoogleUpdates, setSyncingGoogleUpdates] = useState(false);
   const [localFocusStep, setLocalFocusStep] = useState<number | null>(null);
+  const [reconcileNotice, setReconcileNotice] = useState<string | null>(null);
   const acvRefreshStartedRef = useRef(false);
   const internalPlanTasks = usePlanTasks({
     clientId,
@@ -119,6 +121,7 @@ export default function PlanView({
       reconcilePlanNow,
       refresh,
       loadingTaskId,
+      reconciling,
       error,
     }),
     [
@@ -138,9 +141,27 @@ export default function PlanView({
       reconcilePlanNow,
       refresh,
       loadingTaskId,
+      reconciling,
       error,
     ]
   );
+
+  const handleReconcilePlan = useCallback(async () => {
+    try {
+      const result = await reconcilePlanNow();
+      setReconcileNotice(
+        reconcileFeedbackMessage({
+          completedTasks: result.completedTasks,
+          createdTasks: result.createdTasks,
+        })
+      );
+      if (result.audit) onAuditUpdated?.(result.audit);
+      return result;
+    } catch {
+      setReconcileNotice(null);
+      return null;
+    }
+  }, [onAuditUpdated, reconcilePlanNow]);
 
   const refreshGoogleUpdates = useCallback(async () => {
     setSyncingGoogleUpdates(true);
@@ -190,6 +211,12 @@ export default function PlanView({
     void reconcilePlanNow()
       .then((result) => {
         consumePlanRefreshAfterAcvSave();
+        setReconcileNotice(
+          reconcileFeedbackMessage({
+            completedTasks: result.completedTasks,
+            createdTasks: result.createdTasks,
+          })
+        );
         if (result.audit) onAuditUpdated?.(result.audit);
       })
       .catch(() => {
@@ -242,13 +269,10 @@ export default function PlanView({
     void refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    if (!gbpConnected || !plan) return;
-    const photoStep = plan.steps.find((s) => s.stepNumber === 6);
-    if (photoStep && photoStep.tasks.length === 0) {
-      void ensurePhotoTasks().catch(() => undefined);
-    }
-  }, [gbpConnected, plan, ensurePhotoTasks]);
+  const gbpBannerMessage = useMemo(
+    () => (plan ? planGbpBannerMessage(plan, gbpConnected) : null),
+    [gbpConnected, plan]
+  );
 
   if (loading && !plan) {
     return (
@@ -266,9 +290,9 @@ export default function PlanView({
 
   return (
     <div className="space-y-6">
-      {gbpConnected && (
+      {gbpBannerMessage && (
         <div className="rounded-lg border border-[#ceead6] bg-[#e6f4ea] px-4 py-3 text-sm text-[#137333]">
-          Approve and publish each step here — changes go directly to your Google Business Profile.
+          {gbpBannerMessage}
         </div>
       )}
 
@@ -302,14 +326,14 @@ export default function PlanView({
         planReconciledAt={planReconciledAt ?? audit.strategy?.planReconciledAt ?? null}
         calibrationConfidence={path?.calibrationConfidence}
         onRefreshPlan={() => {
-          void reconcilePlanNow()
-            .then((result) => {
-              if (result.audit) onAuditUpdated?.(result.audit);
-            })
-            .catch(() => undefined);
+          void handleReconcilePlan();
         }}
         refreshingPlan={reconciling}
       />
+
+      {reconcileNotice && !error && (
+        <p className={`text-sm ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>{reconcileNotice}</p>
+      )}
 
       {!avgCustomerValue && <PlanAcvNudge variant={variant} />}
 
