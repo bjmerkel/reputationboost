@@ -343,4 +343,26 @@ describe("buildPlan", () => {
     assert.ok((step8With!.context.revenueImpact ?? 0) > 0);
     assert.equal(step8Without?.context.revenueImpact ?? null, null);
   });
+
+  it("populates leadsImpact when avgCustomerValue is missing", () => {
+    const audit = createTestAudit();
+    audit.gbp.performance.profileViews = 500;
+    audit.gbp.performance.calls = 0;
+    audit.gbp.performance.directionRequests = 0;
+    audit.gbp.performance.websiteClicks = 0;
+    audit.gbp.performance.searchKeywords = [
+      { keyword: "emergency plumber dallas", impressions: 1200, belowThreshold: false },
+    ];
+
+    const plan = buildPlan(audit, audit.execution!.tasks);
+    assert.ok(plan);
+
+    const leadSteps = plan!.steps.filter((step) => (step.context.leadsImpact ?? 0) > 0);
+    assert.ok(leadSteps.length > 0);
+
+    const step8 = plan!.steps.find((s) => s.stepNumber === 8);
+    assert.ok(step8);
+    assert.equal(step8!.context.revenueImpact ?? null, null);
+    assert.ok((step8!.context.leadsImpact ?? 0) > 0);
+  });
 });

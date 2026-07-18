@@ -18,11 +18,11 @@ export default function PlanAcvNudge({
       }`}
     >
       <p className={`font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
-        Add your average job value to unlock revenue estimates
+        Add your average job value to turn leads into $/mo
       </p>
       <p className={`mt-1 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-        Plan steps will show estimated $/mo from more calls and directions once average
-        customer value is set.
+        Steps already show estimated leads/mo. Set average customer value to convert those
+        into dollar estimates.
       </p>
       <Link
         href="/platform/settings"

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { PlanStep, GbpAttributeCoverage, GbpMediaCoverage, GbpPlaceActionCoverage, GbpPlaceActionLinkSummary } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
-import { formatCurrency } from "@/audit/attribution/roi";
+import { formatPlanStepImpactLabel } from "@/audit/phase3/plan-impact-label";
 import PlanStepDiff from "./PlanStepDiff";
 import PlanStepPhotos from "./PlanStepPhotos";
 import PlanStepVideos from "./PlanStepVideos";
@@ -123,6 +123,13 @@ export default function PlanStepCard({
   const stepAttribution = step.tasks
     .map((task) => attributionByTaskId[task.id])
     .find((attr) => attr != null);
+  const showLeadOrRevenueImpact =
+    !isCompleted &&
+    step.status !== "skipped" &&
+    ((step.context.revenueImpact ?? 0) > 0 || (step.context.leadsImpact ?? 0) > 0);
+  const leadOrRevenueLabel = showLeadOrRevenueImpact
+    ? formatPlanStepImpactLabel(step, currency)
+    : null;
 
   return (
     <article
@@ -172,16 +179,15 @@ export default function PlanStepCard({
                 +{step.context.healthScoreImpact} Reputation Boost Score pts
               </p>
             )}
-          {!isCompleted &&
-            step.status !== "skipped" &&
-            (step.context.revenueImpact ?? 0) > 0 && (
+          {leadOrRevenueLabel && (
               <p className={`mt-1 text-xs font-semibold ${isLight ? "text-[#188038]" : "text-emerald-400"}`}>
-                +{formatCurrency(step.context.revenueImpact!, currency)}/mo est.
+                {leadOrRevenueLabel}
               </p>
             )}
           {!isCompleted &&
             step.status !== "skipped" &&
             !(step.context.revenueImpact ?? 0) &&
+            !(step.context.leadsImpact ?? 0) &&
             (step.context.outcomeScoreImpact ?? 0) > 0 && (
               <p className={`mt-1 text-xs ${isLight ? "text-[#1a73e8]" : "text-cyan-300"}`}>
                 +{step.context.outcomeScoreImpact} ranking outcome pts

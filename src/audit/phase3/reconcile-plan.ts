@@ -7,10 +7,12 @@ import {
   buildAllGbpPlanSteps,
   buildTemplateGbpPlan,
   isRetiredGbpPlanStep,
+  orderGbpPlanStepsByImpact,
   selectGbpPlanSteps,
 } from "@/audit/phase2/gbp-plan";
 import { isStepSatisfied } from "@/audit/phase2/counterfactual";
 import { portfolioStepIsSatisfied } from "@/audit/phase2/keyword-portfolio";
+import { CUSTOM_PLAN_STEP_START } from "@/audit/phase3/plan-custom-steps";
 import {
   countUnrespondedNegativeReviews,
   isReviewRecordResponded,
@@ -136,18 +138,28 @@ function mergePlanStepMetadata(
   };
 }
 
+function stampDisplayOrder(steps: GbpPlanStep[]): GbpPlanStep[] {
+  return steps.map((step, index) => ({ ...step, displayOrder: index }));
+}
+
+export interface RefreshGbpPlanOptions {
+  avgCustomerValue?: number | null;
+}
+
 /** Drop retired steps, refresh existing metadata, and append newly required steps. */
 export function refreshGbpPlanForReconcile(
-  audit: FullAuditPayload
+  audit: FullAuditPayload,
+  options: RefreshGbpPlanOptions = {}
 ): { plan: GbpOptimizationPlan | null; appendedStepNumbers: number[]; refreshedStepCount: number } {
   const existingPlan = audit.strategy.gbpPlan;
   if (!existingPlan) {
     return { plan: null, appendedStepNumbers: [], refreshedStepCount: 0 };
   }
 
+  const avgCustomerValue = options.avgCustomerValue;
   const allFresh = buildAllGbpPlanSteps(audit);
   const freshByNumber = new Map(allFresh.map((step) => [step.stepNumber, step]));
-  const required = selectGbpPlanSteps(audit, allFresh);
+  const required = selectGbpPlanSteps(audit, allFresh, { avgCustomerValue });
   const activeExistingSteps = existingPlan.steps.filter(
     (step) => !isRetiredGbpPlanStep(step.stepNumber, step.title)
   );
@@ -171,10 +183,18 @@ export function refreshGbpPlanForReconcile(
   for (const step of required) {
     if (existingNumbers.has(step.stepNumber)) continue;
     // Don't invent custom LLM steps; only append template/required steps.
-    if (step.stepNumber >= 18) continue;
+    if (step.stepNumber >= CUSTOM_PLAN_STEP_START) continue;
     appended.push(step);
     existingNumbers.add(step.stepNumber);
   }
+
+  const combined = [...mergedSteps, ...appended];
+  const standard = combined.filter((step) => step.stepNumber < CUSTOM_PLAN_STEP_START);
+  const customs = combined
+    .filter((step) => step.stepNumber >= CUSTOM_PLAN_STEP_START)
+    .sort((a, b) => a.stepNumber - b.stepNumber);
+  const orderedStandard = orderGbpPlanStepsByImpact(audit, standard, avgCustomerValue);
+  const steps = stampDisplayOrder([...orderedStandard, ...customs]);
 
   const template = buildTemplateGbpPlan(audit);
 
@@ -184,7 +204,7 @@ export function refreshGbpPlanForReconcile(
       currentState: template.currentState,
       keywordRankings: template.keywordRankings,
       targetKeywords: template.targetKeywords,
-      steps: [...mergedSteps, ...appended],
+      steps,
     },
     appendedStepNumbers: appended.map((step) => step.stepNumber),
     refreshedStepCount,
@@ -531,11 +551,17 @@ export function selectStep5ServiceTasksToUpgrade(
 export function computePlanReconcile(
   audit: FullAuditPayload,
   existing: ExecutionTask[],
-  options: { content?: AuditGeneratedContent; now?: string } = {}
+  options: {
+    content?: AuditGeneratedContent;
+    now?: string;
+    avgCustomerValue?: number | null;
+  } = {}
 ): PlanReconcileComputation {
   const now = options.now ?? new Date().toISOString();
   syncReviewEngagementMetrics(audit);
-  const { plan, appendedStepNumbers, refreshedStepCount } = refreshGbpPlanForReconcile(audit);
+  const { plan, appendedStepNumbers, refreshedStepCount } = refreshGbpPlanForReconcile(audit, {
+    avgCustomerValue: options.avgCustomerValue,
+  });
 
   const nextAudit: FullAuditPayload = plan
     ? {
@@ -635,7 +661,11 @@ export async function reconcilePlanForBusiness(
   );
 
   const content = await resolveReconcileContent(audit, existing, options.content);
-  const computation = computePlanReconcile(audit, existing, { content });
+  const computation = computePlanReconcile(audit, existing, {
+    content,
+    avgCustomerValue:
+      row.avg_customer_value != null ? Number(row.avg_customer_value) : null,
+  });
 
   if (!options.dryRun) {
     if (computation.missingTasks.length > 0) {
@@ -701,7 +731,10 @@ export async function reconcilePlanForUser(
 
   const existing = await listExecutionTasks(userId, client.id, raw.auditId);
   const content = await resolveReconcileContent(raw, existing, options.content);
-  const computation = computePlanReconcile(raw, existing, { content });
+  const computation = computePlanReconcile(raw, existing, {
+    content,
+    avgCustomerValue: client.avgCustomerValue,
+  });
 
   if (!options.dryRun) {
     if (computation.missingTasks.length > 0) {

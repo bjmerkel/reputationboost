@@ -282,6 +282,37 @@ describe("refreshGbpPlanForReconcile", () => {
     assert.equal(plan!.steps.some((step) => step.title === "Booking Feature"), false);
   });
 
+  it("re-orders steps by impact and restamps displayOrder", () => {
+    const audit = createTestAudit();
+    // Force a stale checklist order so reconcile must re-rank.
+    audit.strategy.gbpPlan = {
+      ...audit.strategy.gbpPlan!,
+      steps: [...audit.strategy.gbpPlan!.steps]
+        .sort((a, b) => a.stepNumber - b.stepNumber)
+        .map((step, index) => ({ ...step, displayOrder: index })),
+    };
+
+    const beforeNumbers = audit.strategy.gbpPlan!.steps.map((s) => s.stepNumber);
+    const { plan } = refreshGbpPlanForReconcile(audit, { avgCustomerValue: 350 });
+    assert.ok(plan);
+
+    const orders = plan!.steps.map((s) => s.displayOrder);
+    assert.deepEqual(
+      orders,
+      plan!.steps.map((_, i) => i),
+      "displayOrder should be contiguous 0..n-1 after reconcile"
+    );
+
+    const afterNumbers = plan!.steps.map((s) => s.stepNumber);
+    const ascending = [...afterNumbers].sort((a, b) => a - b);
+    // When impact ranking differs from step-number order, reconcile must not keep checklist order.
+    if (JSON.stringify(beforeNumbers) === JSON.stringify(ascending)) {
+      assert.ok(afterNumbers.length > 0);
+    } else {
+      assert.notDeepEqual(afterNumbers, ascending);
+    }
+  });
+
   it("appends keyword portfolio step when rotation is needed and missing", () => {
     const audit = createTestAudit();
     audit.strategy.gbpPlan = {

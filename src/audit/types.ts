@@ -1125,6 +1125,8 @@ export interface PlanStepContext {
   healthScoreImpact?: number;
   outcomeScoreImpact?: number;
   revenueImpact?: number | null;
+  /** Estimated monthly lead gain when ACV is unset (or as a secondary signal). */
+  leadsImpact?: number | null;
   /** Whether revenue/score impacts are calibrated from this business's history. */
   projectionConfidence?: "high" | "medium" | "low" | "default";
 }

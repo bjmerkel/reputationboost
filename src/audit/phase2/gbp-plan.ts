@@ -6,6 +6,7 @@ import {
   CONVERSION_PLAN_STEPS,
 } from "./conversion-boost";
 import {
+  estimateStepLeadsImpact,
   estimateStepOutcomeImpact,
   estimateStepRevenueImpact,
 } from "./score-impact";
@@ -41,9 +42,11 @@ export function planStepImpactScore(
   avgCustomerValue?: number | null
 ): number {
   const revenue = estimateStepRevenueImpact(audit, stepNumber, avgCustomerValue) ?? 0;
+  // When ACV is missing, rank/conversion lead estimates still differentiate impact order.
+  const leads = revenue > 0 ? 0 : (estimateStepLeadsImpact(audit, stepNumber) ?? 0);
   const outcome = estimateStepOutcomeImpact(audit, stepNumber);
   const driver = simulateStepDriverImpact(audit, stepNumber);
-  let score = revenue * 1000 + outcome * 10 + driver;
+  let score = revenue * 1000 + leads * 50 + outcome * 10 + driver;
   // When views don't convert, elevate CTA/place-action/trust work over pure completeness.
   if (auditNeedsConversionBoost(audit) && CONVERSION_BOOST_STEPS.has(stepNumber)) {
     score += 50;

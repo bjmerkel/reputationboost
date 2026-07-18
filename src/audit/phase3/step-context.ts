@@ -2,7 +2,12 @@ import type { FullAuditPayload, GbpPlanStep, PlanStepContext } from "../types";
 import type { AttributionCalibration } from "../phase2/attribution-calibration";
 import { resolveCalibrationConfidence } from "../phase2/attribution-calibration";
 import { keywordsMissingFromText } from "@/audit/attribution/keywords";
-import { estimateStepHealthImpact, estimateStepOutcomeImpact, estimateStepRevenueImpact } from "../phase2/score-impact";
+import {
+  estimateStepHealthImpact,
+  estimateStepLeadsImpact,
+  estimateStepOutcomeImpact,
+  estimateStepRevenueImpact,
+} from "../phase2/score-impact";
 import { isCustomPlanStep } from "./plan-custom-steps";
 import {
   countUnrespondedNegativeReviews,
@@ -243,6 +248,7 @@ export function buildStepContext(
     revenueImpact: isCustom
       ? null
       : estimateStepRevenueImpact(audit, step.stepNumber, avgCustomerValue),
+    leadsImpact: isCustom ? null : estimateStepLeadsImpact(audit, step.stepNumber),
     projectionConfidence: isCustom
       ? undefined
       : resolveCalibrationConfidence(sampleSize),
@@ -268,6 +274,9 @@ export function buildTaskPayloadContext(
       : {}),
     ...(context.revenueImpact != null && context.revenueImpact > 0
       ? { projectedRevenueGain: context.revenueImpact, revenueImpact: context.revenueImpact }
+      : {}),
+    ...(context.leadsImpact != null && context.leadsImpact > 0
+      ? { projectedLeadsGain: context.leadsImpact, leadsImpact: context.leadsImpact }
       : {}),
     ...(isCustomPlanStep(step.stepNumber) ? { isCustomPlanStep: true } : {}),
   };
