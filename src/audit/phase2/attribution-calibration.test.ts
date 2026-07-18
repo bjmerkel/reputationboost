@@ -259,8 +259,11 @@ describe("rankDeltaForStep", () => {
     assert.equal(rankDeltaForStep(8, calibration), 0);
   });
 
-  it("returns default lift when uncalibrated", () => {
+  it("returns step-specific prior when uncalibrated", () => {
+    assert.equal(rankDeltaForStep(1), 2);
     assert.equal(rankDeltaForStep(3), 1);
+    assert.equal(rankDeltaForStep(8), 0);
+    assert.equal(rankDeltaForStep(15), 0);
   });
 });
 

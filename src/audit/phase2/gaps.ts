@@ -702,7 +702,7 @@ export function detectGaps(
         "P2",
         "rankings",
         `Ranked but no demand: "${item.keyword}"`,
-        `${item.reason} Consider swapping for a term Google is actually reporting.`,
+        `${item.reason} Consider swapping for a term Google is actually reporting. Rank on this term may reflect proximity or demand limits — profile tweaks alone rarely move it.`,
         5,
         2
       )

@@ -1,5 +1,6 @@
 import type { ActionAttribution } from "../types/timeseries";
 import { positionVisibilityScore } from "./scoring";
+import { uncalibratedRankPriorForStep } from "./rank-priors";
 
 export type CalibrationConfidence = "high" | "medium" | "low" | "default";
 
@@ -307,7 +308,7 @@ export function buildGapAttributionCalibration(
   return calibration;
 }
 
-/** Uncalibrated default rank lift until per-step priors are applied (phase 3). */
+/** Uncalibrated fallback when no step-specific prior exists (legacy alias). */
 export const DEFAULT_UNCALIBRATED_RANK_DELTA = 1;
 
 function calibratedRankDeltaFromMedian(
@@ -338,9 +339,11 @@ export function rankDeltaForStep(
     ) {
       return 0;
     }
+    // Positive engagement but no rank signal — fall back to the step prior.
+    return uncalibratedRankPriorForStep(stepNumber);
   }
 
-  return DEFAULT_UNCALIBRATED_RANK_DELTA;
+  return uncalibratedRankPriorForStep(stepNumber);
 }
 
 /** Calibrated rank lift for a rank-outside-pack gap counterfactual. */

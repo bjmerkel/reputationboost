@@ -377,4 +377,23 @@ describe("Plan path-to-9 golden fixtures", () => {
       "negative rank evidence should reduce projected outcome gain"
     );
   });
+
+  it("uncalibrated rank priors differentiate description from posts", () => {
+    const audit = createTestAudit();
+    const description = projectOutcomeScoresFromActions(
+      audit,
+      [{ source: "plan", id: "gbp-step-3" }],
+      { avgCustomerValue: 350 }
+    );
+    const posts = projectOutcomeScoresFromActions(
+      audit,
+      [{ source: "plan", id: "gbp-step-8" }],
+      { avgCustomerValue: 350 }
+    );
+
+    assert.ok(
+      (description.outcomeGain ?? 0) > (posts.outcomeGain ?? 0),
+      "description should project more rank outcome than posts"
+    );
+  });
 });
