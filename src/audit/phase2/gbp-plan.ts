@@ -3,8 +3,9 @@ import { formatStarRating } from "@/lib/format-star-rating";
 import { isStepSatisfied, simulateStepDriverImpact } from "./counterfactual";
 import {
   auditNeedsConversionBoost,
-  CONVERSION_PLAN_STEPS,
+  auditPrefersConversionOverRank,
 } from "./conversion-boost";
+import { CONVERSION_PLAN_STEPS } from "./conversion-constants";
 import {
   estimateStepLeadsImpact,
   estimateStepOutcomeImpact,
@@ -31,7 +32,8 @@ export interface GbpPlanBuildOptions {
   avgCustomerValue?: number | null;
 }
 
-export { auditNeedsConversionBoost, CONVERSION_PLAN_STEPS } from "./conversion-boost";
+export { auditNeedsConversionBoost } from "./conversion-boost";
+export { CONVERSION_PLAN_STEPS } from "./conversion-constants";
 
 const CONVERSION_BOOST_STEPS = new Set<number>(CONVERSION_PLAN_STEPS);
 
@@ -50,6 +52,10 @@ export function planStepImpactScore(
   // When views don't convert, elevate CTA/place-action/trust work over pure completeness.
   if (auditNeedsConversionBoost(audit) && CONVERSION_BOOST_STEPS.has(stepNumber)) {
     score += 50;
+    // Already mostly in-pack → conversion work should outrank volume/completeness.
+    if (auditPrefersConversionOverRank(audit)) {
+      score += 75;
+    }
   }
   return score;
 }

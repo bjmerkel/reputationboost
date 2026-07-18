@@ -910,6 +910,7 @@ export const SUPPLEMENTARY_GAP_IDS = new Set([
   "partial-performance-api",
   "no-search-keyword-data",
   "low-profile-conversions",
+  "weak-profile-conversions",
   "place-actions-api-unavailable",
   "missing-place-action-links",
   "incomplete-place-action-links",

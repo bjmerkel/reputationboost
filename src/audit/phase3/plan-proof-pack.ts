@@ -1,6 +1,7 @@
 /**
- * Plan tab Definition of 9.0 — acceptance criteria closed by J1–J6.
- * Automated coverage lives in plan-proof-pack.test.ts; soak is manual.
+ * Plan tab Definition of 9.0 — acceptance criteria closed by J1–J6 (product polish)
+ * and R1–R6 (revenue effectiveness). Automated coverage lives in plan-proof-pack.test.ts;
+ * soak is manual.
  */
 export const PLAN_DEFINITION_OF_NINE = [
   {
@@ -37,13 +38,27 @@ export const PLAN_DEFINITION_OF_NINE = [
     title: "Proof pack",
     criterion: "Regression suite covers J1–J5 findings; one live soak checklist passes.",
   },
+  {
+    id: "R1",
+    title: "Keyword action binding",
+    criterion:
+      "Step primaryKeyword ∈ keywordsTargetedByStep; Keyword Priority deep-link opens the best unfinished bound step (not first list match).",
+  },
+  {
+    id: "R2",
+    title: "Weak conversion rate",
+    criterion:
+      "Weak actionRate (<3%) triggers conversion boost; when pack share ≥50%, NBA overweights steps 8/11/13/15.",
+  },
 ] as const;
 
-/** Manual soak on one live business after J1–J5 land on main. */
+/** Manual soak on one live business after J1–J5 / R1–R2 land on main. */
 export const PLAN_SOAK_CHECKLIST = [
   "No ACV → steps + header show leads/mo; NBA order is sensible",
   "Set ACV in Settings → open Plan → $/mo appears and step order still makes sense",
   "Curated plan → Refresh Plan → step count does not explode into the full checklist",
   "Publish a conversion step → See results deep-link works (or miss notice + focus clears)",
   "Stack two high-impact steps → stacked estimate is below the sum of isolated card impacts",
+  "Keyword Priority → Work steps opens the bound step for that keyword (not a random early card)",
+  "In-pack business with low action rate → NBA leads with place actions / CTA posts / replies",
 ] as const;

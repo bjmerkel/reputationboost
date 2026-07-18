@@ -1,16 +1,21 @@
 import type { Phase1AuditPayload } from "../types";
-import { detectGaps } from "./gaps";
+import { detectGaps, WEAK_PROFILE_ACTION_RATE_PCT } from "./gaps";
+import {
+  CONVERSION_GAP_IDS,
+  CONVERSION_PLAN_STEPS,
+  isConversionPlanStep,
+  isRankOutsidePackGapId,
+  RANK_OUTSIDE_PACK_PLAN_STEPS,
+} from "./conversion-constants";
 
-/** Gap ids that mean the listing gets attention but weak conversion actions. */
-export const CONVERSION_GAP_IDS = [
-  "low-profile-conversions",
-  "missing-place-action-links",
-  "incomplete-place-action-links",
-  "posts-without-cta",
-] as const;
-
-/** Plan steps that convert profile views into calls/directions. */
-export const CONVERSION_PLAN_STEPS = [8, 11, 13, 15] as const;
+export { WEAK_PROFILE_ACTION_RATE_PCT };
+export {
+  CONVERSION_GAP_IDS,
+  CONVERSION_PLAN_STEPS,
+  isConversionPlanStep,
+  isRankOutsidePackGapId,
+  RANK_OUTSIDE_PACK_PLAN_STEPS,
+};
 
 const CONVERSION_GAP_ID_SET = new Set<string>(CONVERSION_GAP_IDS);
 
@@ -22,9 +27,14 @@ export function auditNeedsConversionBoost(audit: Phase1AuditPayload): boolean {
 /** @deprecated Prefer auditNeedsConversionBoost — same gap-based detector. */
 export const profileNeedsConversionWork = auditNeedsConversionBoost;
 
-/** Plan steps linked to rank-outside-pack gaps via gapLinksToStep. */
-export const RANK_OUTSIDE_PACK_PLAN_STEPS = [3, 4, 8, 10] as const;
-
-export function isRankOutsidePackGapId(gapId: string): boolean {
-  return gapId.startsWith("rank-outside-pack");
+/**
+ * True when the profile is already mostly in-pack and needs conversion work —
+ * NBA should overweight engagement levers over pure rank/completeness volume.
+ */
+export function auditPrefersConversionOverRank(audit: Phase1AuditPayload): boolean {
+  if (!auditNeedsConversionBoost(audit)) return false;
+  const total = audit.rankings.totalKeywords || audit.rankings.keywords.length;
+  if (total <= 0) return false;
+  const packShare = audit.rankings.keywordsInPack / total;
+  return packShare >= 0.5;
 }

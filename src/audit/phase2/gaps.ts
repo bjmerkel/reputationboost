@@ -14,6 +14,9 @@ import { missingMediaGapCopy } from "@/lib/google/gbp-media-coverage";
 import { napDriftGapId } from "@/lib/google/nap-drift";
 import { isReviewRecordResponded, resolveReviewResponseRate } from "@/audit/review-engagement";
 
+/** Action-rate (%) below which views are treated as under-converting. */
+export const WEAK_PROFILE_ACTION_RATE_PCT = 3;
+
 function daysSince(iso: string | null): number {
   if (!iso) return 999;
   return Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
@@ -709,20 +712,44 @@ export function detectGaps(
   if (
     perfCoverage?.apiAvailable &&
     perfCoverage.hasImpressionMetrics &&
-    perfCoverage.totalActions === 0 &&
     audit.gbp.performance.profileViews >= 100
   ) {
-    gaps.push(
-      gap(
-        "low-profile-conversions",
-        "P2",
-        "gbp_profile",
-        "Views without actions",
-        `${audit.gbp.performance.profileViews} profile views but no calls, directions, or website clicks in ${audit.gbp.performance.periodDays} days.`,
-        5,
-        2
-      )
-    );
+    const totalActions =
+      perfCoverage.totalActions > 0
+        ? perfCoverage.totalActions
+        : audit.gbp.performance.calls +
+          audit.gbp.performance.directionRequests +
+          audit.gbp.performance.websiteClicks;
+    const actionRate =
+      audit.gbp.performance.profileViews > 0
+        ? Math.round((totalActions / audit.gbp.performance.profileViews) * 1000) / 10
+        : 0;
+
+    if (totalActions === 0) {
+      gaps.push(
+        gap(
+          "low-profile-conversions",
+          "P2",
+          "gbp_profile",
+          "Views without actions",
+          `${audit.gbp.performance.profileViews} profile views but no calls, directions, or website clicks in ${audit.gbp.performance.periodDays} days.`,
+          5,
+          2
+        )
+      );
+    } else if (actionRate < WEAK_PROFILE_ACTION_RATE_PCT) {
+      gaps.push(
+        gap(
+          "weak-profile-conversions",
+          "P2",
+          "gbp_profile",
+          "Views under-converting",
+          `${audit.gbp.performance.profileViews} profile views with only a ${actionRate}% action rate (calls + directions + website clicks). Aim for ${WEAK_PROFILE_ACTION_RATE_PCT}%+ so visibility turns into leads.`,
+          5,
+          2
+        )
+      );
+    }
   }
 
   const placeActions = audit.gbp.placeActions;

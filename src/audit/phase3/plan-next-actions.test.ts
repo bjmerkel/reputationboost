@@ -184,6 +184,79 @@ describe("selectNextBestPlanSteps", () => {
       [3, 1]
     );
   });
+
+  it("overweights conversion steps when preferConversionSteps is set", () => {
+    const plan: Plan = {
+      title: "Plan",
+      businessName: "Test",
+      objective: "Convert views",
+      targetKeywords: [],
+      phases: [],
+      progress: {
+        totalSteps: 3,
+        completedSteps: 0,
+        needsApproval: 3,
+        currentHealthScore: 50,
+        projectedHealthScore: 70,
+      },
+      steps: [
+        stubStep({
+          stepNumber: 6,
+          title: "Photos",
+          displayOrder: 0,
+          status: "pending",
+          context: {
+            targetKeywords: ["plumber near me"],
+            expectedEffect: "Add photos",
+            revenueImpact: 200,
+            leadsImpact: 3,
+            engagementImpact: 0,
+            outcomeScoreImpact: 2,
+            healthScoreImpact: 4,
+          },
+        }),
+        stubStep({
+          stepNumber: 15,
+          title: "Place action links",
+          displayOrder: 4,
+          status: "needs_approval",
+          context: {
+            targetKeywords: ["plumber near me"],
+            expectedEffect: "Add booking links",
+            revenueImpact: 80,
+            leadsImpact: 2,
+            engagementImpact: 20,
+            outcomeScoreImpact: 0,
+            healthScoreImpact: 2,
+          },
+        }),
+        stubStep({
+          stepNumber: 8,
+          title: "Posts",
+          displayOrder: 5,
+          status: "pending",
+          context: {
+            targetKeywords: ["plumber near me"],
+            expectedEffect: "CTA posts",
+            revenueImpact: 60,
+            leadsImpact: 1,
+            engagementImpact: 15,
+            outcomeScoreImpact: 0,
+            healthScoreImpact: 1,
+          },
+        }),
+      ],
+    };
+
+    const withoutMode = selectNextBestPlanSteps(plan, 2);
+    assert.equal(withoutMode[0]?.stepNumber, 6);
+
+    const withMode = selectNextBestPlanSteps(plan, 2, { preferConversionSteps: true });
+    assert.deepEqual(
+      withMode.map((s) => s.stepNumber),
+      [15, 8]
+    );
+  });
 });
 
 describe("resolveStepActionPriority", () => {

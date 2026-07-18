@@ -10,6 +10,16 @@ import {
   buildPlanStepCandidates,
 } from "../phase2/plan-candidates";
 import {
+  auditNeedsConversionBoost,
+  auditPrefersConversionOverRank,
+} from "../phase2/conversion-boost";
+import {
+  buildKeywordActionBindings,
+  resolveBestPlanStepForKeyword,
+  resolveStepPrimaryKeyword,
+} from "../phase2/keyword-action-binding";
+import { keywordsTargetedByStep } from "../phase2/counterfactual";
+import {
   estimateStepEngagementImpact,
   estimateStepLeadsImpact,
   estimateStepOutcomeImpact,
@@ -17,6 +27,7 @@ import {
 } from "../phase2/score-impact";
 import { buildPlan } from "./build-plan";
 import { formatPlanStepImpactLabel } from "./plan-impact-label";
+import { selectNextBestPlanSteps } from "./plan-next-actions";
 import {
   PLAN_DEFINITION_OF_NINE,
   PLAN_SOAK_CHECKLIST,
@@ -62,12 +73,12 @@ function conversionAudit() {
 }
 
 describe("Plan proof pack (Definition of 9)", () => {
-  it("documents six acceptance criteria and a live soak checklist", () => {
-    assert.equal(PLAN_DEFINITION_OF_NINE.length, 6);
-    assert.ok(PLAN_SOAK_CHECKLIST.length >= 5);
+  it("documents polish + revenue acceptance criteria and a live soak checklist", () => {
+    assert.equal(PLAN_DEFINITION_OF_NINE.length, 8);
+    assert.ok(PLAN_SOAK_CHECKLIST.length >= 7);
     assert.deepEqual(
       PLAN_DEFINITION_OF_NINE.map((item) => item.id),
-      ["J1", "J2", "J3", "J4", "J5", "J6"]
+      ["J1", "J2", "J3", "J4", "J5", "J6", "R1", "R2"]
     );
   });
 
@@ -213,6 +224,133 @@ describe("Plan proof pack (Definition of 9)", () => {
         assert.equal(miss.sectionId, PLAN_CHANGELOG_SECTION_ID);
         assert.equal(miss.stepNumber, 8);
       }
+    });
+  });
+
+  describe("R1 — keyword action binding", () => {
+    it("keeps primaryKeyword inside keywordsTargetedByStep and deep-links bound steps", () => {
+      const audit = createTestAudit();
+      const plan = buildPlan(audit, audit.execution!.tasks);
+      assert.ok(plan);
+
+      for (const step of plan.steps.filter((s) => [3, 4, 5, 8].includes(s.stepNumber))) {
+        const targeted = keywordsTargetedByStep(audit, step.stepNumber);
+        const primary =
+          step.context.primaryKeyword ?? resolveStepPrimaryKeyword(audit, step.stepNumber);
+        assert.ok(primary, `step ${step.stepNumber} needs a primary keyword`);
+        assert.ok(
+          targeted.some((kw) => kw.toLowerCase() === primary!.toLowerCase()),
+          `step ${step.stepNumber} primary must be targeted`
+        );
+      }
+
+      const bindings = buildKeywordActionBindings(audit);
+      const outside = bindings.filter((b) => !b.inLocalPack);
+      assert.ok(outside.length >= 2);
+      for (const binding of outside) {
+        const linked = resolveBestPlanStepForKeyword(audit, plan, binding.keyword);
+        assert.ok(linked != null, `expected deep-link for ${binding.keyword}`);
+        const card = plan.steps.find((s) => s.stepNumber === linked);
+        assert.ok(card);
+        assert.ok(
+          card.status === "pending" ||
+            card.status === "needs_approval" ||
+            card.status === "approved"
+        );
+      }
+    });
+  });
+
+  describe("R2 — weak conversion rate", () => {
+    it("boosts conversion work for weak action rates and overweights NBA when in-pack", () => {
+      const audit = createTestAudit();
+      audit.rankings.keywordsInPack = 3;
+      audit.rankings.totalKeywords = 3;
+      audit.rankings.keywords = audit.rankings.keywords.map((kw) => ({
+        ...kw,
+        inLocalPack: true,
+        localPackPosition: 2 as const,
+        geoRanks: kw.geoRanks.map((g) => ({ ...g, rank: 2, inLocalPack: true })),
+      }));
+      audit.gbp.performance.profileViews = 500;
+      audit.gbp.performance.calls = 3;
+      audit.gbp.performance.directionRequests = 2;
+      audit.gbp.performance.websiteClicks = 0;
+      audit.gbp.performance.coverage = {
+        apiAvailable: true,
+        partialApi: false,
+        coverageScore: 70,
+        hasCoreMetrics: true,
+        hasImpressionMetrics: true,
+        hasSearchKeywords: true,
+        hasConversations: false,
+        hasBookings: false,
+        keywordCount: 3,
+        trackedKeywordCount: 3,
+        totalActions: 5,
+        actionRate: 1,
+        endpoints: { coreMetrics: "ok", impressions: "ok", searchKeywords: "ok" },
+        recommendations: [],
+      };
+      audit.gbp.placeActions = {
+        apiAvailable: true,
+        partialApi: false,
+        coverageScore: 0,
+        linkCount: 0,
+        merchantLinkCount: 0,
+        configuredTypes: [],
+        availableTypes: ["APPOINTMENT"],
+        missingRecommendedTypes: ["APPOINTMENT"],
+        missingAvailableTypes: ["APPOINTMENT"],
+        typeCatalog: [{ placeActionType: "APPOINTMENT", displayName: "Book" }],
+        hasAppointmentLink: false,
+        hasOnlineAppointmentLink: false,
+        hasDiningReservationLink: false,
+        hasFoodOrderingLink: false,
+        hasShopOnlineLink: false,
+        endpoints: { links: "ok", typeMetadata: "ok" },
+        recommendations: [],
+      };
+
+      assert.equal(auditNeedsConversionBoost(audit), true);
+      assert.equal(auditPrefersConversionOverRank(audit), true);
+
+      const plan = buildPlan(audit, audit.execution?.tasks ?? []);
+      assert.ok(plan);
+      // Ensure conversion + photo steps exist for NBA ordering assertion.
+      const ensure = (stepNumber: number, title: string, revenue: number) => {
+        if (plan.steps.some((s) => s.stepNumber === stepNumber)) return;
+        plan.steps.push({
+          stepNumber,
+          title,
+          phaseId: "foundation",
+          instruction: title,
+          status: "needs_approval",
+          tasks: [],
+          displayOrder: stepNumber,
+          context: {
+            targetKeywords: ["plumber near me"],
+            primaryKeyword: "plumber near me",
+            expectedEffect: title,
+            revenueImpact: revenue,
+            leadsImpact: 1,
+            engagementImpact: stepNumber === 6 ? 0 : 12,
+            outcomeScoreImpact: stepNumber === 6 ? 2 : 0,
+            healthScoreImpact: 2,
+          },
+        });
+      };
+      ensure(6, "Photos", 250);
+      ensure(15, "Place action links", 90);
+      ensure(8, "Weekly Google Posts", 70);
+
+      const nba = selectNextBestPlanSteps(plan, 2, { preferConversionSteps: true });
+      assert.ok(nba.length >= 1);
+      assert.ok(
+        [8, 11, 13, 15].includes(nba[0]!.stepNumber),
+        `NBA should lead with a conversion step, got ${nba[0]?.stepNumber}`
+      );
+      assert.notEqual(nba[0]?.stepNumber, 6);
     });
   });
 });

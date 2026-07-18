@@ -23,7 +23,7 @@ import {
   KEYWORD_PORTFOLIO_PLAN_STEP,
   portfolioStepIsSatisfied,
 } from "./keyword-portfolio";
-import { CONVERSION_PLAN_STEPS } from "./conversion-boost";
+import { CONVERSION_PLAN_STEPS } from "./conversion-constants";
 import { computeKeywordScores } from "./keyword-scores";
 import { detectPackFragility, resolveKeywordPositionAtRadius } from "./scoring";
 import { type SearchRadiusMiles } from "@/lib/google/places";
@@ -675,7 +675,8 @@ export function applyGapMutation(audit: Phase1AuditPayload, gap: GapFlag): void 
       coverage.coverageScore = Math.max(coverage.coverageScore, 85);
       break;
     }
-    case "low-profile-conversions": {
+    case "low-profile-conversions":
+    case "weak-profile-conversions": {
       const perf = audit.gbp.performance;
       perf.calls = Math.max(perf.calls, 20);
       perf.directionRequests = Math.max(perf.directionRequests, 30);
@@ -1025,7 +1026,8 @@ function rankDeltaForStep(
   }
 }
 
-function keywordsTargetedByStep(audit: Phase1AuditPayload, stepNumber: number): string[] {
+/** Keywords a plan step is modeled to influence for rank/outcome projections. */
+export function keywordsTargetedByStep(audit: Phase1AuditPayload, stepNumber: number): string[] {
   const keywords = audit.rankings.keywords;
   const needsWork = keywords
     .filter((k) => keywordNeedsOutcomeWork(k))
