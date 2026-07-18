@@ -45,8 +45,7 @@ import {
   formatAttributionCreditNote,
 } from "./credit-sharing";
 import { buildAttributionCalibration } from "@/audit/phase2/attribution-calibration";
-
-const DEFAULT_WINDOW_DAYS = 14;
+import { resolveAttributionWindowDays } from "./window";
 
 function formatDateYmd(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -109,7 +108,7 @@ async function keywordSnapshotAtWindowEnd(
 
 export async function computeAttributionForTask(
   record: CompletedTaskRecord,
-  windowDays = DEFAULT_WINDOW_DAYS
+  windowDays = resolveAttributionWindowDays(record.task.type)
 ): Promise<void> {
   const { task, businessId, keywords, avgCustomerValue, avgCustomerValueCurrency } = record;
   if (!task.completedAt || task.status !== "completed") return;
