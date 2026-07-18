@@ -273,3 +273,8 @@ export function planScrollElementId(
   if (scrollTarget === "google-updates") return "google-updates-panel";
   return `plan-step-${stepNumber}`;
 }
+
+/** Anchor id for a Plan changelog entry on the Results tab. */
+export function resultsScrollElementId(stepNumber: number): string {
+  return `results-step-${stepNumber}`;
+}

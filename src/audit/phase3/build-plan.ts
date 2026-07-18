@@ -302,6 +302,7 @@ export function buildPlan(
     title: gbpPlan.title,
     businessName: gbpPlan.businessName,
     objective: gbpPlan.objective,
+    planRationale: gbpPlan.planRationale,
     targetKeywords: gbpPlan.targetKeywords,
     phases: filterPhasesWithSteps(PLAN_PHASE_DEFINITIONS, planSteps),
     steps: planSteps,

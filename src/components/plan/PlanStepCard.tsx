@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PlanStep, GbpAttributeCoverage, GbpMediaCoverage, GbpPlaceActionCoverage, GbpPlaceActionLinkSummary } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
@@ -70,6 +70,7 @@ export default function PlanStepCard({
   onSeeResults?: (stepNumber: number) => void;
 }) {
   const isLight = variant === "light";
+  const isCompleted = step.status === "completed";
   const reviewRequestTask = step.tasks.find(
     (t) => t.type === "review_request" && t.status !== "completed"
   );
@@ -82,11 +83,16 @@ export default function PlanStepCard({
     /dispute/i.test(step.title);
   const [expanded, setExpanded] = useState(
     defaultExpanded ||
-      step.status === "needs_approval" ||
-      step.status === "approved" ||
-      reviewRequestTask != null ||
-      reviewDisputeTasks.length > 0
+      (!isCompleted &&
+        (step.status === "needs_approval" ||
+          step.status === "approved" ||
+          reviewRequestTask != null ||
+          reviewDisputeTasks.length > 0))
   );
+
+  useEffect(() => {
+    if (defaultExpanded) setExpanded(true);
+  }, [defaultExpanded]);
 
   const hasPhotoTasks = step.tasks.some((t) => t.type === "gbp_photo");
   const hasVideoTasks = step.tasks.some((t) => t.type === "gbp_video");
@@ -129,34 +135,51 @@ export default function PlanStepCard({
         className="flex w-full items-start justify-between gap-3 p-4 text-left"
       >
         <div className="min-w-0 flex-1">
-          <p className={`text-xs font-medium ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
-            {displayIndex != null && displayTotal != null
-              ? `Step ${displayIndex} of ${displayTotal}`
-              : `Step ${step.stepNumber} of ${totalSteps}`}
-          </p>
-          <h4 className={`mt-0.5 text-base font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className={`text-xs font-medium ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+              {isCompleted
+                ? "Done"
+                : displayIndex != null && displayTotal != null
+                  ? `Step ${displayIndex} of ${displayTotal}`
+                  : `Step ${step.stepNumber} of ${totalSteps}`}
+            </p>
+            {isCompleted && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  isLight ? "bg-[#e6f4ea] text-[#137333]" : "bg-emerald-400/15 text-emerald-300"
+                }`}
+              >
+                Completed
+              </span>
+            )}
+          </div>
+          <h4
+            className={`mt-0.5 font-semibold ${
+              isCompleted ? "text-sm" : "text-base"
+            } ${isLight ? "text-[#202124]" : "text-white"}`}
+          >
             {step.title}
           </h4>
-          {step.context.primaryKeyword && (
+          {!isCompleted && step.context.primaryKeyword && (
             <p className={`mt-1 text-sm ${isLight ? "text-[#1a73e8]" : "text-cyan-300"}`}>
               Targets &ldquo;{step.context.primaryKeyword}&rdquo;
             </p>
           )}
-          {step.status !== "completed" &&
+          {!isCompleted &&
             step.status !== "skipped" &&
             (step.context.healthScoreImpact ?? 0) > 0 && (
               <p className={`mt-1 text-xs font-semibold ${isLight ? "text-[#188038]" : "text-emerald-400"}`}>
                 +{step.context.healthScoreImpact} Reputation Boost Score pts
               </p>
             )}
-          {step.status !== "completed" &&
+          {!isCompleted &&
             step.status !== "skipped" &&
             (step.context.revenueImpact ?? 0) > 0 && (
               <p className={`mt-1 text-xs font-semibold ${isLight ? "text-[#188038]" : "text-emerald-400"}`}>
                 +{formatCurrency(step.context.revenueImpact!, currency)}/mo est.
               </p>
             )}
-          {step.status !== "completed" &&
+          {!isCompleted &&
             step.status !== "skipped" &&
             !(step.context.revenueImpact ?? 0) &&
             (step.context.outcomeScoreImpact ?? 0) > 0 && (
@@ -164,24 +187,21 @@ export default function PlanStepCard({
                 +{step.context.outcomeScoreImpact} ranking outcome pts
               </p>
             )}
-          {!expanded && (
+          {!expanded && !isCompleted && (
             <p className={`mt-1 line-clamp-2 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
               {step.context.expectedEffect}
             </p>
           )}
-          {step.status === "completed" && step.outcome?.narrative && (
-            <p className={`mt-2 text-sm font-medium ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>
+          {!expanded && isCompleted && step.outcome?.narrative && (
+            <p
+              className={`mt-1 line-clamp-1 text-xs ${
+                isLight ? "text-[#137333]" : "text-emerald-400"
+              }`}
+            >
               {step.outcome.narrative}
             </p>
           )}
-          {step.status === "completed" && (
-            <DriverImpactComparison
-              attribution={stepAttribution}
-              variant={variant}
-              className="mt-1"
-            />
-          )}
-          {step.status === "completed" && onSeeResults && (
+          {isCompleted && onSeeResults && (
             <button
               type="button"
               onClick={(event) => {
@@ -216,6 +236,23 @@ export default function PlanStepCard({
               </span>
               {step.context.selectionRationale}
             </div>
+          )}
+
+          {isCompleted && step.outcome?.narrative && (
+            <p
+              className={`mb-3 text-sm font-medium ${
+                isLight ? "text-[#137333]" : "text-emerald-400"
+              }`}
+            >
+              {step.outcome.narrative}
+            </p>
+          )}
+          {isCompleted && (
+            <DriverImpactComparison
+              attribution={stepAttribution}
+              variant={variant}
+              className="mb-3"
+            />
           )}
 
           <p className={`text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
