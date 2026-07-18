@@ -72,6 +72,19 @@ function blendedKeywordClickShare(
   return totalWeight > 0 ? weightedSum / totalWeight : 0;
 }
 
+/** Monthly leads from impressions × blended CTR × lead rate (no ACV). */
+function estimateKeywordLeads(
+  impressions: number,
+  kw: KeywordRankSnapshot,
+  audit: Phase1AuditPayload,
+  model: LearnedScoreModel | null = DEFAULT_LEARNED_SCORE_MODEL
+): number | null {
+  if (impressions <= 0) return null;
+  const clickShare = blendedKeywordClickShare(kw, audit, model) / 100;
+  const leads = impressions * clickShare * blendedLeadRate();
+  return leads > 0 ? leads : null;
+}
+
 function estimateKeywordRevenue(
   impressions: number,
   kw: KeywordRankSnapshot,
@@ -80,8 +93,8 @@ function estimateKeywordRevenue(
   model: LearnedScoreModel | null = DEFAULT_LEARNED_SCORE_MODEL
 ): number | null {
   if (!avgCustomerValue || avgCustomerValue <= 0 || impressions <= 0) return null;
-  const clickShare = blendedKeywordClickShare(kw, audit, model) / 100;
-  const leads = impressions * clickShare * blendedLeadRate();
+  const leads = estimateKeywordLeads(impressions, kw, audit, model);
+  if (leads == null) return null;
   return Math.round(leads * avgCustomerValue);
 }
 
@@ -94,8 +107,8 @@ function estimateKeywordRevenueAtRank1(
 ): number | null {
   if (!avgCustomerValue || avgCustomerValue <= 0 || impressions <= 0) return null;
   const rank1Kw = projectKeywordToRank1(kw);
-  const clickShare = blendedKeywordClickShare(rank1Kw, audit, model) / 100;
-  const leads = impressions * clickShare * blendedLeadRate();
+  const leads = estimateKeywordLeads(impressions, rank1Kw, audit, model);
+  if (leads == null) return null;
   return Math.round(leads * avgCustomerValue);
 }
 
@@ -197,6 +210,9 @@ export function computeKeywordScores(
       const visibilityScore = keywordServiceAreaVisibilityScore(kw, weights);
       const revenueCaptureScore = keywordServiceAreaRevenueCaptureScore(kw, weights, model);
       const relevanceScore = relevance?.score ?? 50;
+      const estimatedMonthlyLeads = impressions
+        ? estimateKeywordLeads(impressions, kw, audit, model)
+        : null;
       const estimatedMonthlyRevenue = impressions
         ? estimateKeywordRevenue(impressions, kw, audit, options.avgCustomerValue, model)
         : null;
@@ -215,6 +231,7 @@ export function computeKeywordScores(
         impressions,
         impressionsLabel: impressionsLabel(impressions),
         estimatedMonthlyRevenue,
+        estimatedMonthlyLeads,
         potentialAtRank1,
         scoreImpactIfRank1: overallImpactIfRank1(audit, kw.keyword, position),
         suggestedAction: suggestedAction(

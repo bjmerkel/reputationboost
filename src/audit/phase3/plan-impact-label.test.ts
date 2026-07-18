@@ -37,6 +37,10 @@ describe("formatPlanStepImpactLabel", () => {
       formatPlanStepImpactLabel(stubStep({ leadsImpact: 12.4 }), "USD"),
       "+12 leads/mo est."
     );
+    assert.equal(
+      formatPlanStepImpactLabel(stubStep({ leadsImpact: 0.4 }), "USD"),
+      "+0.4 leads/mo est."
+    );
   });
 
   it("falls back to ranking points when leads are missing", () => {

@@ -364,5 +364,13 @@ describe("buildPlan", () => {
     assert.ok(step8);
     assert.equal(step8!.context.revenueImpact ?? null, null);
     assert.ok((step8!.context.leadsImpact ?? 0) > 0);
+
+    // Small conversion gains must not round away (unit-ACV hack used to drop these).
+    const step13 = plan!.steps.find((s) => s.stepNumber === 13);
+    assert.ok(step13);
+    assert.ok(
+      (step13!.context.leadsImpact ?? 0) > 0,
+      "attributes step should keep fractional leads without ACV"
+    );
   });
 });

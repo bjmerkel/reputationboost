@@ -258,6 +258,8 @@ export default function PlanView({
         pendingApprovalCount={pendingApprovalCount}
         estimatedMonthlyRevenue={path?.estimatedMonthlyRevenue}
         projectedMonthlyRevenue={path?.projectedMonthlyRevenue}
+        estimatedMonthlyLeads={path?.estimatedMonthlyLeads}
+        projectedMonthlyLeads={path?.projectedMonthlyLeads}
         currency={currency}
         planReconciledAt={planReconciledAt ?? audit.strategy?.planReconciledAt ?? null}
         calibrationConfidence={path?.calibrationConfidence}

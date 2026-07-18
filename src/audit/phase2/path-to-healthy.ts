@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import { formatCurrency } from "../attribution/roi";
 import {
+  estimateTotalMonthlyLeads,
   estimateTotalMonthlyRevenue,
   pickActionsForTarget,
   simulateActionMarginalImpact,
@@ -259,6 +260,7 @@ function buildHealthyPathResult(
     audit,
     options.avgCustomerValue
   );
+  const estimatedMonthlyLeads = estimateTotalMonthlyLeads(audit);
 
   return {
     targetScore: HEALTHY_THRESHOLD,
@@ -277,6 +279,8 @@ function buildHealthyPathResult(
     optimizationMode: resolvePathOptimizationMode(options, scores),
     estimatedMonthlyRevenue,
     projectedMonthlyRevenue: estimatedMonthlyRevenue,
+    estimatedMonthlyLeads,
+    projectedMonthlyLeads: estimatedMonthlyLeads,
     currentRevenueCapture: scores.revenueCapture,
     projectedRevenueCapture: scores.revenueCapture,
     calibrationConfidence: resolvePathCalibrationConfidence(
@@ -305,6 +309,7 @@ export function buildPathToHealthy(
     audit,
     options.avgCustomerValue
   );
+  const estimatedMonthlyLeads = estimateTotalMonthlyLeads(audit);
 
   if (currentDriverScore >= driverTarget) {
     return buildHealthyPathResult(audit, options, scores);
@@ -358,6 +363,8 @@ export function buildPathToHealthy(
     optimizationMode,
     estimatedMonthlyRevenue,
     projectedMonthlyRevenue: outcomeProjection.estimatedMonthlyRevenue,
+    estimatedMonthlyLeads,
+    projectedMonthlyLeads: outcomeProjection.estimatedMonthlyLeads,
     currentRevenueCapture: scores.revenueCapture,
     projectedRevenueCapture: outcomeProjection.projectedRevenueCapture,
     calibrationConfidence: resolvePathCalibrationConfidence(
