@@ -3,6 +3,7 @@ import { formatStarRating } from "@/lib/format-star-rating";
 import { isStepSatisfied, simulateStepDriverImpact } from "./counterfactual";
 import {
   auditNeedsConversionBoost,
+  auditNeedsSoftConversionBoost,
   auditPrefersConversionOverRank,
 } from "./conversion-boost";
 import {
@@ -91,10 +92,19 @@ export function planStepImpactScore(
     revenue * 1000 + leads * 50 + engagement * 10 + outcome * 10 + driver;
   // When views don't convert, elevate CTA/place-action/trust work over pure completeness.
   if (auditNeedsConversionBoost(audit) && CONVERSION_BOOST_STEPS.has(stepNumber)) {
-    score += 50;
-    // Already mostly in-pack → conversion work should outrank volume/completeness.
-    if (auditPrefersConversionOverRank(audit)) {
-      score += 75;
+    if (auditNeedsSoftConversionBoost(audit)) {
+      const zeroActions =
+        audit.gbp.performance.calls +
+          audit.gbp.performance.directionRequests +
+          audit.gbp.performance.websiteClicks ===
+        0;
+      score += zeroActions ? 40 : 30;
+    } else {
+      score += 50;
+      // Already mostly in-pack → conversion work should outrank volume/completeness.
+      if (auditPrefersConversionOverRank(audit)) {
+        score += 75;
+      }
     }
     const preferred = conversionLeversForChannel(
       resolveConversionChannelBias(audit, {
@@ -105,17 +115,6 @@ export function planStepImpactScore(
     if (channelRank >= 0) {
       score += (preferred.length - channelRank) * 5;
     }
-  } else if (
-    // Soft nudge for low-traffic listings with zero actions (below the 100-view gap gate).
-    audit.gbp.performance.profileViews >= 40 &&
-    audit.gbp.performance.profileViews < 100 &&
-    audit.gbp.performance.calls +
-      audit.gbp.performance.directionRequests +
-      audit.gbp.performance.websiteClicks ===
-      0 &&
-    CONVERSION_BOOST_STEPS.has(stepNumber)
-  ) {
-    score += 20;
   }
   // Demote media busywork when the listing is visible but under-converting, or
   // when photo/video coverage is already adequate.

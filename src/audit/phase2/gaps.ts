@@ -709,11 +709,8 @@ export function detectGaps(
     );
   }
 
-  if (
-    perfCoverage?.apiAvailable &&
-    perfCoverage.hasImpressionMetrics &&
-    audit.gbp.performance.profileViews >= 100
-  ) {
+  if (perfCoverage?.apiAvailable && perfCoverage.hasImpressionMetrics) {
+    const profileViews = audit.gbp.performance.profileViews;
     const totalActions =
       perfCoverage.totalActions > 0
         ? perfCoverage.totalActions
@@ -721,42 +718,51 @@ export function detectGaps(
           audit.gbp.performance.directionRequests +
           audit.gbp.performance.websiteClicks;
     const actionRate =
-      audit.gbp.performance.profileViews > 0
-        ? Math.round((totalActions / audit.gbp.performance.profileViews) * 1000) / 10
+      profileViews > 0
+        ? Math.round((totalActions / profileViews) * 1000) / 10
         : 0;
-
-    // When already mostly in-pack, conversion is the revenue bottleneck → P0.
-    // Otherwise still elevate above default P2 so views→actions isn't buried.
     const totalKeywords =
       audit.rankings.totalKeywords || audit.rankings.keywords.length;
     const packShare =
       totalKeywords > 0 ? audit.rankings.keywordsInPack / totalKeywords : 0;
-    const conversionPriority = packShare >= 0.5 ? "P0" : "P1";
 
-    if (totalActions === 0) {
-      gaps.push(
-        gap(
-          "low-profile-conversions",
-          conversionPriority,
-          "gbp_profile",
-          "Views without actions",
-          `${audit.gbp.performance.profileViews} profile views but no calls, directions, or website clicks in ${audit.gbp.performance.periodDays} days.`,
-          5,
-          2
-        )
-      );
-    } else if (actionRate < WEAK_PROFILE_ACTION_RATE_PCT) {
-      gaps.push(
-        gap(
-          "weak-profile-conversions",
-          conversionPriority,
-          "gbp_profile",
-          "Views under-converting",
-          `${audit.gbp.performance.profileViews} profile views with only a ${actionRate}% action rate (calls + directions + website clicks). Aim for ${WEAK_PROFILE_ACTION_RATE_PCT}%+ so visibility turns into leads.`,
-          5,
-          2
-        )
-      );
+    const pushConversionGap = (priority: ActionPriority) => {
+      if (totalActions === 0) {
+        gaps.push(
+          gap(
+            "low-profile-conversions",
+            priority,
+            "gbp_profile",
+            "Views without actions",
+            `${profileViews} profile views but no calls, directions, or website clicks in ${audit.gbp.performance.periodDays} days.`,
+            5,
+            2
+          )
+        );
+      } else if (actionRate < WEAK_PROFILE_ACTION_RATE_PCT) {
+        gaps.push(
+          gap(
+            "weak-profile-conversions",
+            priority,
+            "gbp_profile",
+            "Views under-converting",
+            `${profileViews} profile views with only a ${actionRate}% action rate (calls + directions + website clicks). Aim for ${WEAK_PROFILE_ACTION_RATE_PCT}%+ so visibility turns into leads.`,
+            5,
+            2
+          )
+        );
+      }
+    };
+
+    // Soft tier: 40–99 views → P1 nudge without full conversion-first reorder.
+    if (profileViews >= 40 && profileViews < 100) {
+      pushConversionGap("P1");
+    }
+
+    // Full tier: ≥100 views — P0 when mostly in-pack, else P1.
+    if (profileViews >= 100) {
+      const conversionPriority = packShare >= 0.5 ? "P0" : "P1";
+      pushConversionGap(conversionPriority);
     }
   }
 

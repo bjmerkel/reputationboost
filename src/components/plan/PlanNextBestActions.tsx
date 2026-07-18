@@ -11,6 +11,7 @@ export default function PlanNextBestActions({
   currency = "USD",
   variant = "light",
   preferConversionSteps = false,
+  softConversionBoost = false,
   calibration,
   onFocusStep,
 }: {
@@ -19,12 +20,15 @@ export default function PlanNextBestActions({
   variant?: "light" | "dark";
   /** When the listing is visible but under-converting, lead with CTA / place-action work. */
   preferConversionSteps?: boolean;
+  /** Mild boost for 40–99 view listings with conversion gaps. */
+  softConversionBoost?: boolean;
   calibration?: AttributionCalibration;
   onFocusStep?: (stepNumber: number) => void;
 }) {
   const isLight = variant === "light";
   const nextSteps = selectNextBestPlanSteps(plan, 3, {
     preferConversionSteps,
+    softConversionBoost,
     calibration,
   });
   if (nextSteps.length === 0) return null;
@@ -45,7 +49,9 @@ export default function PlanNextBestActions({
       <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
         {preferConversionSteps
           ? "You’re visible — convert views into calls and directions first."
-          : "Ordered by expected value, confidence, and effort — do these first."}
+          : softConversionBoost
+            ? "Early traffic with no actions yet — prioritize calls and directions while you grow views."
+            : "Ordered by expected value, confidence, and effort — do these first."}
       </p>
       <ol className="mt-3 space-y-2">
         {nextSteps.map((step, index) => {

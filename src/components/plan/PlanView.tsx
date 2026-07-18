@@ -9,7 +9,7 @@ import {
   mergeCalibrations,
   type AttributionCalibration,
 } from "@/audit/phase2/attribution-calibration";
-import { auditPrefersConversionOverRank } from "@/audit/phase2/conversion-boost";
+import { auditNeedsSoftConversionBoost, auditPrefersConversionOverRank } from "@/audit/phase2/conversion-boost";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
@@ -341,6 +341,7 @@ export default function PlanView({
         variant={variant}
         calibration={calibration}
         preferConversionSteps={auditPrefersConversionOverRank(audit)}
+        softConversionBoost={auditNeedsSoftConversionBoost(audit)}
         onFocusStep={(stepNumber) => setLocalFocusStep(stepNumber)}
       />
 

@@ -17,6 +17,11 @@ export interface NextBestPlanStepsOptions {
    * steps so NBA leads with place actions / CTA posts / replies / attributes.
    */
   preferConversionSteps?: boolean;
+  /**
+   * Mild boost (1.15×) for 40–99 view listings with conversion gaps — softer
+   * than preferConversionSteps.
+   */
+  softConversionBoost?: boolean;
   calibration?: AttributionCalibration;
   preferredConversionChannel?: ConversionChannelBias;
 }
@@ -34,8 +39,12 @@ function scoreImpactTieBreak(step: PlanStep): number {
 function conversionBoostForStep(
   step: PlanStep,
   preferConversionSteps: boolean,
-  preferredConversionChannel?: ConversionChannelBias
+  preferredConversionChannel?: ConversionChannelBias,
+  softConversionBoost = false
 ): number {
+  if (softConversionBoost && isConversionPlanStep(step.stepNumber)) {
+    return 1.15;
+  }
   if (!preferConversionSteps) return 1;
 
   if (isConversionPlanStep(step.stepNumber)) {
@@ -65,6 +74,7 @@ export function selectNextBestPlanSteps(
   options: NextBestPlanStepsOptions = {}
 ): PlanStep[] {
   const preferConversionSteps = options.preferConversionSteps === true;
+  const softConversionBoost = options.softConversionBoost === true;
 
   return plan.steps
     .filter(
@@ -78,7 +88,8 @@ export function selectNextBestPlanSteps(
           conversionBoost: conversionBoostForStep(
             b,
             preferConversionSteps,
-            options.preferredConversionChannel
+            options.preferredConversionChannel,
+            softConversionBoost
           ),
         }) -
         planStepPriorityScore(a, {
@@ -86,7 +97,8 @@ export function selectNextBestPlanSteps(
           conversionBoost: conversionBoostForStep(
             a,
             preferConversionSteps,
-            options.preferredConversionChannel
+            options.preferredConversionChannel,
+            softConversionBoost
           ),
         });
       if (priorityDiff !== 0) return priorityDiff;

@@ -9,7 +9,7 @@ import {
   orderGbpPlanStepsByImpact,
   planStepImpactScore,
 } from "./gbp-plan";
-import { auditPrefersConversionOverRank } from "./conversion-boost";
+import { auditNeedsSoftConversionBoost, auditPrefersConversionOverRank } from "./conversion-boost";
 import { CONVERSION_PLAN_STEPS } from "./conversion-constants";
 import {
   applyStepMutation,
@@ -112,6 +112,13 @@ function conversionVisibleAudit() {
   return audit;
 }
 
+function softConversionAudit() {
+  const audit = conversionVisibleAudit();
+  audit.gbp.performance.profileViews = 60;
+  withPerfCoverage(audit, 0);
+  return audit;
+}
+
 describe("Plan path-to-9 golden fixtures", () => {
   it("visible + zero actions → conversion gaps are P0 and NBA is conversion-first", () => {
     const audit = conversionVisibleAudit();
@@ -141,6 +148,38 @@ describe("Plan path-to-9 golden fixtures", () => {
         (CONVERSION_PLAN_STEPS as readonly number[]).includes(step.stepNumber)
       ),
       `NBA should be conversion-family, got ${nba.map((s) => s.stepNumber).join(",")}`
+    );
+  });
+
+  it("60 views + zero actions → soft conversion P1 gaps and conversion in NBA top 3", () => {
+    const audit = softConversionAudit();
+    assert.equal(auditNeedsSoftConversionBoost(audit), true);
+    assert.equal(auditPrefersConversionOverRank(audit), false);
+
+    const conversionGaps = detectGaps(audit).filter(
+      (gap) =>
+        gap.id === "low-profile-conversions" || gap.id === "weak-profile-conversions"
+    );
+    assert.ok(conversionGaps.every((gap) => gap.priority === "P1"));
+
+    const gbpPlan = buildTemplateGbpPlan(audit, { avgCustomerValue: 350 });
+    audit.strategy.gbpPlan = gbpPlan;
+    const plan = buildPlan(
+      audit,
+      audit.execution?.tasks ?? [],
+      [],
+      undefined,
+      350
+    );
+    assert.ok(plan);
+    const nba = selectNextBestPlanSteps(plan!, 3, { softConversionBoost: true });
+    assert.ok(nba.length >= 2);
+    const conversionCount = nba.filter((step) =>
+      (CONVERSION_PLAN_STEPS as readonly number[]).includes(step.stepNumber)
+    ).length;
+    assert.ok(
+      conversionCount >= 2,
+      `expected ≥2 conversion steps in NBA, got ${nba.map((s) => s.stepNumber).join(",")}`
     );
   });
 

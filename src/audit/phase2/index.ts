@@ -91,6 +91,7 @@ export {
 export type { PlanStepCandidate } from "./plan-candidates";
 export {
   auditNeedsConversionBoost,
+  auditNeedsSoftConversionBoost,
   auditPrefersConversionOverRank,
   profileNeedsConversionWork,
   WEAK_PROFILE_ACTION_RATE_PCT,

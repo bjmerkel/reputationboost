@@ -40,7 +40,7 @@ import {
 } from "./path-optimization";
 import { computeHealthScores, impressionWeightFloor, keywordImpressionWeight } from "./scoring";
 import { isRankOutsidePackGapId } from "./conversion-constants";
-import { auditPrefersConversionOverRank } from "./conversion-boost";
+import { auditNeedsSoftConversionBoost, auditPrefersConversionOverRank } from "./conversion-boost";
 import { selectNextBestPlanSteps } from "../phase3/plan-next-actions";
 
 const HEALTHY_THRESHOLD = 70;
@@ -343,6 +343,7 @@ function buildNextThreeProjection(
 ): NextThreeProjection | null {
   const nextSteps = selectNextBestPlanSteps(plan, 3, {
     preferConversionSteps: auditPrefersConversionOverRank(audit),
+    softConversionBoost: auditNeedsSoftConversionBoost(audit),
     calibration: options.calibration,
     preferredConversionChannel: options.preferredConversionChannel,
   });

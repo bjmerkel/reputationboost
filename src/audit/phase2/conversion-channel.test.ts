@@ -42,4 +42,24 @@ describe("resolveConversionChannelBias", () => {
       "website"
     );
   });
+
+  it("defaults to calls for home services with zero calls on thin traffic", () => {
+    const audit = createTestAudit();
+    audit.gbp.identity.primaryCategory = "Plumber";
+    audit.gbp.performance.profileViews = 80;
+    audit.gbp.performance.calls = 0;
+    audit.gbp.performance.directionRequests = 3;
+    audit.gbp.performance.websiteClicks = 1;
+    assert.equal(resolveConversionChannelBias(audit), "calls");
+  });
+
+  it("uses a looser deficit threshold below 200 profile views", () => {
+    const audit = createTestAudit();
+    audit.gbp.identity.primaryCategory = "Plumber";
+    audit.gbp.performance.profileViews = 150;
+    audit.gbp.performance.calls = 1;
+    audit.gbp.performance.directionRequests = 2;
+    audit.gbp.performance.websiteClicks = 0;
+    assert.equal(resolveConversionChannelBias(audit), "calls");
+  });
 });

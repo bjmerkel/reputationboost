@@ -32,15 +32,20 @@ export function resolveCategoryChannelTargets(
     return { calls: 0.015, directions: 0.035, website: 0.02 };
   }
 
-  if (
-    /plumber|hvac|electric|roof|contractor|repair|lawyer|attorney|dentist|clinic|doctor|mechanic|landscap/.test(
-      category
-    )
-  ) {
+  if (isHomeServiceCategory(audit)) {
     return { calls: 0.03, directions: 0.015, website: 0.012 };
   }
 
   return DEFAULT_CHANNEL_TARGETS;
+}
+
+/** Home-service categories where calls are the primary revenue channel. */
+export function isHomeServiceCategory(audit: Phase1AuditPayload): boolean {
+  const category = (audit.gbp.identity.primaryCategory || audit.clientName || "")
+    .toLowerCase();
+  return /plumber|hvac|electric|roof|contractor|repair|lawyer|attorney|dentist|clinic|doctor|mechanic|landscap/.test(
+    category
+  );
 }
 
 /**
@@ -74,8 +79,14 @@ export function resolveConversionChannelBias(
   const top = deficits[0];
   const second = deficits[1];
   if (!top || top.deficit <= 0) return "balanced";
-  // Require a clear winner so tiny noise doesn't reshuffle NBA.
-  if (second && top.deficit - second.deficit < 0.005) return "balanced";
+  // Looser threshold on thinner traffic so channel bias still activates.
+  const winnerThreshold = views < 200 ? 0.0025 : 0.005;
+  if (second && top.deficit - second.deficit < winnerThreshold) {
+    if (audit.gbp.performance.calls === 0 && views >= 40 && isHomeServiceCategory(audit)) {
+      return "calls";
+    }
+    return "balanced";
+  }
   return top.channel;
 }
 
