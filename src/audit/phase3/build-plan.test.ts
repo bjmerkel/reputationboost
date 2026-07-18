@@ -309,4 +309,24 @@ describe("buildPlan", () => {
       planWithoutCustomProjection!.progress.projectedHealthScore
     );
   });
+
+  it("populates step revenueImpact when avgCustomerValue is provided", () => {
+    const audit = createTestAudit();
+    const withoutAcv = buildPlan(audit, audit.execution!.tasks);
+    const withAcv = buildPlan(audit, audit.execution!.tasks, [], undefined, 350);
+
+    assert.ok(withoutAcv);
+    assert.ok(withAcv);
+
+    const revenueSteps = withAcv!.steps.filter(
+      (step) => (step.context.revenueImpact ?? 0) > 0
+    );
+    assert.ok(revenueSteps.length > 0);
+
+    const step8With = withAcv!.steps.find((s) => s.stepNumber === 8);
+    const step8Without = withoutAcv!.steps.find((s) => s.stepNumber === 8);
+    assert.ok(step8With);
+    assert.ok((step8With!.context.revenueImpact ?? 0) > 0);
+    assert.equal(step8Without?.context.revenueImpact ?? null, null);
+  });
 });

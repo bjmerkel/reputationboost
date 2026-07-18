@@ -549,6 +549,8 @@ export default function AuditDashboard({
               gbpConnected={gbpConnected}
               gbpGoogleUpdateAt={gbpGoogleUpdateAt}
               attributionByTaskId={attributionData.attributionByTaskId}
+              attributions={attributionData.attributions}
+              globalCalibration={scoreHistory.globalCalibration}
               variant="light"
               onReviewPending={openBatchReview}
               onAuditUpdated={applyAudit}
@@ -577,6 +579,8 @@ export default function AuditDashboard({
               engagement={attributionData.engagement}
               attributionLoading={attributionLoading}
               engagementLoading={attributionLoading}
+              avgCustomerValue={avgCustomerValue}
+              globalCalibration={scoreHistory.globalCalibration}
               onNavigateToPlan={openPlanStep}
             />
           )}

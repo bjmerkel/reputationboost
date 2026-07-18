@@ -5,6 +5,7 @@ import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution, AttributionSummary } from "@/audit/types/timeseries";
 import type { EngagementPeriodSummary } from "@/audit/engagement-period";
 import { buildRollingEngagementHeadline } from "@/audit/engagement-period";
+import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { buildPlan } from "@/audit/phase3/build-plan";
 import { buildPlanTimeline } from "@/audit/phase3/build-timeline";
 import ProfilePerformanceTrends from "@/components/audit/ProfilePerformanceTrends";
@@ -21,6 +22,8 @@ export default function ResultsView({
   engagement,
   attributionLoading = false,
   engagementLoading = false,
+  avgCustomerValue,
+  globalCalibration = {},
   onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
@@ -31,12 +34,20 @@ export default function ResultsView({
   engagement: EngagementPeriodSummary | null;
   attributionLoading?: boolean;
   engagementLoading?: boolean;
+  avgCustomerValue?: number | null;
+  globalCalibration?: AttributionCalibration;
   onNavigateToPlan?: (stepNumber: number) => void;
 }) {
   const timelineEntries = useMemo(() => {
-    const plan = buildPlan(audit, tasks, attributions);
+    const plan = buildPlan(
+      audit,
+      tasks,
+      attributions,
+      globalCalibration,
+      avgCustomerValue
+    );
     return buildPlanTimeline(audit, plan, attributions);
-  }, [audit, tasks, attributions]);
+  }, [audit, tasks, attributions, globalCalibration, avgCustomerValue]);
 
   const attributionsById = useMemo(
     () => Object.fromEntries(attributions.map((attr) => [attr.id, attr])),

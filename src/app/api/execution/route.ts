@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getPrimaryBusiness, loadBusinessConfig } from "@/audit/businesses";
+import type { ClientConfig } from "@/audit/types";
 import { attachExecutionTasks } from "@/audit/attach-execution-tasks";
 import { buildPlan } from "@/audit/phase3/build-plan";
 import { listActionAttributionsForUser } from "@/audit/storage-attribution";
+import { loadGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import { listExecutionTasks } from "@/audit/storage-execution";
 import {
   loadAuditByIdFromSupabase,
@@ -24,13 +26,22 @@ export async function GET(request: Request) {
   const auditId = searchParams.get("auditId") ?? undefined;
   const includePlan = searchParams.get("includePlan") !== "false";
 
+  let client: ClientConfig | null = null;
   if (!clientId) {
-    const business = await getPrimaryBusiness(user.id);
-    clientId = business?.id ?? null;
+    client = await getPrimaryBusiness(user.id);
+    clientId = client?.id ?? null;
   }
 
   if (!clientId) {
     return NextResponse.json({ error: "No business configured" }, { status: 400 });
+  }
+
+  if (!client) {
+    try {
+      client = await loadBusinessConfig(user.id, clientId);
+    } catch {
+      client = null;
+    }
   }
 
   const tasks = await listExecutionTasks(user.id, clientId, auditId);
@@ -48,8 +59,17 @@ export async function GET(request: Request) {
   }
 
   const audit = ensureStrategy(attachExecutionTasks(rawAudit, tasks));
-  const attributions = await listActionAttributionsForUser(user.id, clientId, 100);
-  const plan = buildPlan(audit, tasks, attributions);
+  const [attributions, globalCalibration] = await Promise.all([
+    listActionAttributionsForUser(user.id, clientId, 100),
+    loadGlobalScoreCalibration(),
+  ]);
+  const plan = buildPlan(
+    audit,
+    tasks,
+    attributions,
+    globalCalibration,
+    client?.avgCustomerValue
+  );
 
   return NextResponse.json({
     tasks,

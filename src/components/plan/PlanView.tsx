@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FullAuditPayload } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
+import {
+  buildAttributionCalibration,
+  buildGapAttributionCalibration,
+  mergeCalibrations,
+  type AttributionCalibration,
+} from "@/audit/phase2/attribution-calibration";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
@@ -21,6 +27,8 @@ export default function PlanView({
   gbpConnected = true,
   gbpGoogleUpdateAt,
   attributionByTaskId = {},
+  attributions = [],
+  globalCalibration = {},
   variant = "light",
   onReviewPending,
   onAuditUpdated,
@@ -38,6 +46,8 @@ export default function PlanView({
   gbpConnected?: boolean;
   gbpGoogleUpdateAt?: string | null;
   attributionByTaskId?: Record<string, ActionAttribution>;
+  attributions?: ActionAttribution[];
+  globalCalibration?: AttributionCalibration;
   variant?: "light" | "dark";
   onReviewPending?: () => void;
   onAuditUpdated?: (audit: FullAuditPayload) => void;
@@ -162,9 +172,27 @@ export default function PlanView({
     return () => window.clearTimeout(timer);
   }, [focusScrollTarget, focusStep, loading, onFocusHandled]);
 
+  const businessCalibration = useMemo(
+    () => buildAttributionCalibration(attributions),
+    [attributions]
+  );
+  const gapCalibration = useMemo(
+    () => buildGapAttributionCalibration(attributions),
+    [attributions]
+  );
+  const calibration = useMemo(
+    () => mergeCalibrations(businessCalibration, globalCalibration),
+    [businessCalibration, globalCalibration]
+  );
   const path = useMemo(
-    () => buildPathToHealthy(audit, plan, { avgCustomerValue, currency }),
-    [audit, plan, avgCustomerValue, currency]
+    () =>
+      buildPathToHealthy(audit, plan, {
+        avgCustomerValue,
+        currency,
+        calibration,
+        gapCalibration,
+      }),
+    [audit, plan, avgCustomerValue, currency, calibration, gapCalibration]
   );
 
   const reviewUrl = useMemo(
