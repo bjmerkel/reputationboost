@@ -249,7 +249,10 @@ describe("selectNextBestPlanSteps", () => {
     };
 
     const withoutMode = selectNextBestPlanSteps(plan, 2);
-    assert.equal(withoutMode[0]?.stepNumber, 6);
+    assert.deepEqual(
+      withoutMode.map((s) => s.stepNumber),
+      [15, 6]
+    );
 
     const withMode = selectNextBestPlanSteps(plan, 2, { preferConversionSteps: true });
     assert.deepEqual(

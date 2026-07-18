@@ -3,6 +3,7 @@
 import type { Plan } from "@/audit/types";
 import { formatPlanStepImpactLabel } from "@/audit/phase3/plan-impact-label";
 import { selectNextBestPlanSteps } from "@/audit/phase3/plan-next-actions";
+import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 
 export default function PlanNextBestActions({
@@ -10,6 +11,7 @@ export default function PlanNextBestActions({
   currency = "USD",
   variant = "light",
   preferConversionSteps = false,
+  calibration,
   onFocusStep,
 }: {
   plan: Plan;
@@ -17,14 +19,15 @@ export default function PlanNextBestActions({
   variant?: "light" | "dark";
   /** When the listing is visible but under-converting, lead with CTA / place-action work. */
   preferConversionSteps?: boolean;
+  calibration?: AttributionCalibration;
   onFocusStep?: (stepNumber: number) => void;
 }) {
   const isLight = variant === "light";
-  const nextSteps = selectNextBestPlanSteps(plan, 3, { preferConversionSteps });
+  const nextSteps = selectNextBestPlanSteps(plan, 3, {
+    preferConversionSteps,
+    calibration,
+  });
   if (nextSteps.length === 0) return null;
-
-  const hasRevenue = nextSteps.some((step) => (step.context.revenueImpact ?? 0) > 0);
-  const hasLeads = nextSteps.some((step) => (step.context.leadsImpact ?? 0) > 0);
 
   return (
     <section
@@ -42,13 +45,7 @@ export default function PlanNextBestActions({
       <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
         {preferConversionSteps
           ? "You’re visible — convert views into calls and directions first."
-          : hasRevenue && hasLeads
-            ? "Ordered by estimated revenue, then leads — do these first."
-            : hasRevenue
-              ? "Ordered by estimated revenue impact — do these first."
-              : hasLeads
-                ? "Ordered by estimated lead impact — do these first."
-                : "Ordered by estimated impact — do these first."}
+          : "Ordered by expected value, confidence, and effort — do these first."}
       </p>
       <ol className="mt-3 space-y-2">
         {nextSteps.map((step, index) => {

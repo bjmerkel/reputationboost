@@ -342,6 +342,8 @@ function buildNextThreeProjection(
 ): NextThreeProjection | null {
   const nextSteps = selectNextBestPlanSteps(plan, 3, {
     preferConversionSteps: auditPrefersConversionOverRank(audit),
+    calibration: options.calibration,
+    preferredConversionChannel: options.preferredConversionChannel,
   });
   if (nextSteps.length === 0) return null;
 

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { FullAuditPayload, Plan } from "@/audit/types";
 import { formatCurrency } from "@/audit/attribution/roi";
+import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { buildKeywordPlaybooks } from "@/audit/phase2/keyword-action-binding";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 
@@ -10,6 +11,7 @@ export default function PlanKeywordPlaybooks({
   audit,
   plan,
   avgCustomerValue,
+  calibration,
   currency = "USD",
   variant = "light",
   onFocusKeyword,
@@ -17,6 +19,7 @@ export default function PlanKeywordPlaybooks({
   audit: FullAuditPayload;
   plan: Plan;
   avgCustomerValue?: number | null;
+  calibration?: AttributionCalibration;
   currency?: string;
   variant?: "light" | "dark";
   onFocusKeyword?: (keyword: string, stepNumber?: number) => void;
@@ -28,9 +31,10 @@ export default function PlanKeywordPlaybooks({
     () =>
       buildKeywordPlaybooks(audit, plan, {
         avgCustomerValue,
+        calibration,
         limit: 5,
       }),
-    [audit, plan, avgCustomerValue]
+    [audit, plan, avgCustomerValue, calibration]
   );
 
   if (playbooks.length === 0) return null;

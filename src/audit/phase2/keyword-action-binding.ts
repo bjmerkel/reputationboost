@@ -7,7 +7,9 @@ import { CONVERSION_GAP_IDS } from "./conversion-constants";
 import {
   conversionLeversForChannel,
   resolveConversionChannelBias,
+  type ConversionChannelBias,
 } from "./conversion-channel";
+import { planStepPriorityScore } from "./plan-prioritization";
 
 const CONVERSION_GAP_ID_SET = new Set<string>(CONVERSION_GAP_IDS);
 
@@ -37,6 +39,8 @@ export interface KeywordActionBinding {
 
 export interface KeywordBindingOptions {
   avgCustomerValue?: number | null;
+  calibration?: import("./attribution-calibration").AttributionCalibration;
+  preferredConversionChannel?: import("./conversion-channel").ConversionChannelBias;
   /** When set, prefer primary steps that appear in this unfinished set. */
   unfinishedStepNumbers?: ReadonlySet<number>;
 }
@@ -55,13 +59,16 @@ function uniqueSteps(steps: number[]): number[] {
 function leverPoolForKeyword(
   audit: Phase1AuditPayload,
   inLocalPack: boolean,
-  packFragile: boolean
+  packFragile: boolean,
+  options: KeywordBindingOptions = {}
 ): number[] {
   if (!inLocalPack) return [...OUTSIDE_PACK_LEVERS];
   if (packFragile) return [...PACK_FRAGILE_LEVERS];
   if (needsConversionBoost(audit)) {
     const channelLevers = conversionLeversForChannel(
-      resolveConversionChannelBias(audit)
+      resolveConversionChannelBias(audit, {
+        preferredChannel: options.preferredConversionChannel,
+      })
     );
     return uniqueSteps([...channelLevers, ...CONVERSION_LEVERS]);
   }
@@ -128,7 +135,9 @@ export function buildKeywordActionBindings(
 
   return ordered.map((kw) => {
     const packFragile = detectPackFragility(kw).fragile;
-    const pool = uniqueSteps(leverPoolForKeyword(audit, kw.inLocalPack, packFragile));
+    const pool = uniqueSteps(
+      leverPoolForKeyword(audit, kw.inLocalPack, packFragile, options)
+    );
     const usable = unfinished
       ? pool.filter((step) => unfinished.has(step))
       : pool;
@@ -201,14 +210,11 @@ const ACTIONABLE: ReadonlySet<PlanStep["status"]> = new Set([
   "approved",
 ]);
 
-function stepImpactScore(step: PlanStep): number {
-  return (
-    (step.context.revenueImpact ?? 0) * 1000 +
-    (step.context.leadsImpact ?? 0) * 50 +
-    (step.context.engagementImpact ?? 0) * 10 +
-    (step.context.outcomeScoreImpact ?? 0) * 10 +
-    (step.context.healthScoreImpact ?? 0)
-  );
+function stepImpactScore(
+  step: PlanStep,
+  options: KeywordBindingOptions = {}
+): number {
+  return planStepPriorityScore(step, { calibration: options.calibration });
 }
 
 function stepMentionsKeyword(step: PlanStep, keyword: string): boolean {
@@ -278,7 +284,7 @@ export function resolveBestPlanStepForKeyword(
     }
   }
 
-  return [...unfinished].sort((a, b) => stepImpactScore(b) - stepImpactScore(a))[0]
+  return [...unfinished].sort((a, b) => stepImpactScore(b, options) - stepImpactScore(a, options))[0]
     ?.stepNumber;
 }
 

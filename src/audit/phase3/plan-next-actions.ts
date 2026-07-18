@@ -1,5 +1,9 @@
 import type { Plan, PlanStep } from "../types";
+import type { AttributionCalibration } from "../phase2/attribution-calibration";
+import type { ConversionChannelBias } from "../phase2/conversion-channel";
+import { conversionLeversForChannel } from "../phase2/conversion-channel";
 import { isConversionPlanStep } from "../phase2/conversion-constants";
+import { planStepPriorityScore } from "../phase2/plan-prioritization";
 
 const ACTIONABLE: ReadonlySet<PlanStep["status"]> = new Set([
   "pending",
@@ -13,22 +17,12 @@ export interface NextBestPlanStepsOptions {
    * steps so NBA leads with place actions / CTA posts / replies / attributes.
    */
   preferConversionSteps?: boolean;
+  calibration?: AttributionCalibration;
+  preferredConversionChannel?: ConversionChannelBias;
 }
 
 function stepRank(step: PlanStep): number {
   return step.displayOrder ?? step.stepNumber;
-}
-
-function revenueImpact(step: PlanStep): number {
-  return step.context.revenueImpact ?? 0;
-}
-
-function leadsImpact(step: PlanStep): number {
-  return step.context.leadsImpact ?? 0;
-}
-
-function engagementImpact(step: PlanStep): number {
-  return step.context.engagementImpact ?? 0;
 }
 
 function scoreImpactTieBreak(step: PlanStep): number {
@@ -37,13 +31,34 @@ function scoreImpactTieBreak(step: PlanStep): number {
   );
 }
 
-/** Sort key boost so conversion levers win NBA when the listing is visible but under-acting. */
-function conversionModeBoost(step: PlanStep, preferConversionSteps: boolean): number {
-  if (!preferConversionSteps || !isConversionPlanStep(step.stepNumber)) return 0;
-  return 1_000_000;
+function conversionBoostForStep(
+  step: PlanStep,
+  preferConversionSteps: boolean,
+  preferredConversionChannel?: ConversionChannelBias
+): number {
+  if (!preferConversionSteps) return 1;
+
+  if (isConversionPlanStep(step.stepNumber)) {
+    let boost = 1.35;
+    if (preferredConversionChannel && preferredConversionChannel !== "balanced") {
+      const levers = conversionLeversForChannel(preferredConversionChannel);
+      const rank = levers.indexOf(step.stepNumber);
+      if (rank >= 0) {
+        boost += (levers.length - rank) * 0.08;
+      }
+    }
+    return boost;
+  }
+
+  // Match gbp-plan: demote photo/video busywork when views don't convert.
+  if (step.stepNumber === 6 || step.stepNumber === 7) {
+    return 0.25;
+  }
+
+  return 1;
 }
 
-/** Top unfinished plan steps ordered by revenue, then leads, then engagement, then displayOrder. */
+/** Top unfinished plan steps ordered by EV × confidence ÷ effort. */
 export function selectNextBestPlanSteps(
   plan: Plan,
   limit = 3,
@@ -57,17 +72,25 @@ export function selectNextBestPlanSteps(
         ACTIONABLE.has(step.status) && step.stepNumber !== 0 /* google updates shown separately */
     )
     .sort((a, b) => {
-      const conversionDiff =
-        conversionModeBoost(b, preferConversionSteps) -
-        conversionModeBoost(a, preferConversionSteps);
-      if (conversionDiff !== 0) return conversionDiff;
+      const priorityDiff =
+        planStepPriorityScore(b, {
+          calibration: options.calibration,
+          conversionBoost: conversionBoostForStep(
+            b,
+            preferConversionSteps,
+            options.preferredConversionChannel
+          ),
+        }) -
+        planStepPriorityScore(a, {
+          calibration: options.calibration,
+          conversionBoost: conversionBoostForStep(
+            a,
+            preferConversionSteps,
+            options.preferredConversionChannel
+          ),
+        });
+      if (priorityDiff !== 0) return priorityDiff;
 
-      const revenueDiff = revenueImpact(b) - revenueImpact(a);
-      if (revenueDiff !== 0) return revenueDiff;
-      const leadsDiff = leadsImpact(b) - leadsImpact(a);
-      if (leadsDiff !== 0) return leadsDiff;
-      const engagementDiff = engagementImpact(b) - engagementImpact(a);
-      if (engagementDiff !== 0) return engagementDiff;
       const rankDiff = stepRank(a) - stepRank(b);
       if (rankDiff !== 0) return rankDiff;
       return scoreImpactTieBreak(b) - scoreImpactTieBreak(a);

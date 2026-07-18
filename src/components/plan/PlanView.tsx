@@ -317,6 +317,7 @@ export default function PlanView({
         plan={plan}
         currency={currency}
         variant={variant}
+        calibration={calibration}
         preferConversionSteps={auditPrefersConversionOverRank(audit)}
         onFocusStep={(stepNumber) => setLocalFocusStep(stepNumber)}
       />
@@ -325,6 +326,7 @@ export default function PlanView({
         audit={audit}
         plan={plan}
         avgCustomerValue={avgCustomerValue}
+        calibration={calibration}
         currency={currency}
         variant={variant}
         onFocusKeyword={(_keyword, stepNumber) => {
