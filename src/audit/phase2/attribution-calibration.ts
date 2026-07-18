@@ -1,6 +1,6 @@
 import type { ActionAttribution } from "../types/timeseries";
 import { positionVisibilityScore } from "./scoring";
-import { uncalibratedRankPriorForStep } from "./rank-priors";
+import { stepClaimsRankImprovement, uncalibratedRankPriorForStep } from "./rank-priors";
 
 export type CalibrationConfidence = "high" | "medium" | "low" | "default";
 
@@ -46,6 +46,12 @@ const STEP_FROM_ACTION_ITEM = /^gbp-step-(\d+)$/;
 const MAX_DRIVER_IMPACT = 15;
 const MAX_REVENUE_SCALE = 1.5;
 const MIN_REVENUE_SCALE = 0.5;
+
+/** Discount applied to rank-derived $/mo before step-level attribution calibration exists. */
+export const UNCALIBRATED_RANK_REVENUE_CONFIDENCE = 0.4;
+
+/** Cap uncalibrated path revenue gain at this fraction of current estimated $/mo. */
+export const UNCALIBRATED_PATH_REVENUE_GAIN_CAP_PCT = 0.5;
 
 function rankDeltaToVisibilityImpact(rankBefore: number, rankAfter: number): number {
   const before = positionVisibilityScore(rankBefore);
@@ -412,6 +418,89 @@ export function calibratedRevenueGain(
   if (rawGain <= 0) return 0;
   const scale = averageRevenueScaleForActions(actions, calibration);
   return Math.max(0, Math.round(rawGain * scale));
+}
+
+/**
+ * Average confidence multiplier for rank-derived revenue in a projection.
+ * Rank-family plan steps and rank-outside-pack gaps without sampleSize ≥ 2
+ * use UNCALIBRATED_RANK_REVENUE_CONFIDENCE (0.4).
+ */
+export function rankRevenueConfidenceFactor(
+  actions: Array<{ source: "plan" | "gap"; id: string }>,
+  calibration?: AttributionCalibration,
+  gapCalibration?: GapAttributionCalibration
+): number {
+  const factors: number[] = [];
+
+  for (const action of actions) {
+    if (action.source === "plan") {
+      const match = action.id.match(/^gbp-step-(\d+)$/);
+      if (!match) continue;
+      const stepNumber = Number(match[1]);
+      if (!stepClaimsRankImprovement(stepNumber)) continue;
+      const cal = calibration?.[stepNumber];
+      factors.push(
+        cal && cal.sampleSize >= 2 ? 1 : UNCALIBRATED_RANK_REVENUE_CONFIDENCE
+      );
+      continue;
+    }
+
+    if (action.id.startsWith("rank-outside-pack-")) {
+      const gapCal = gapCalibration?.[action.id];
+      factors.push(
+        gapCal && gapCal.sampleSize >= 2 ? 1 : UNCALIBRATED_RANK_REVENUE_CONFIDENCE
+      );
+    }
+  }
+
+  if (factors.length === 0) return 1;
+  return factors.reduce((sum, factor) => sum + factor, 0) / factors.length;
+}
+
+/** Apply rank-revenue confidence discount before calibrated revenue scaling. */
+export function applyRankRevenueConfidenceDiscount(
+  rankRevenueGain: number | null,
+  actions: Array<{ source: "plan" | "gap"; id: string }>,
+  calibration?: AttributionCalibration,
+  gapCalibration?: GapAttributionCalibration
+): number | null {
+  if (rankRevenueGain == null || rankRevenueGain <= 0) return rankRevenueGain;
+  const factor = rankRevenueConfidenceFactor(actions, calibration, gapCalibration);
+  if (factor >= 1) return rankRevenueGain;
+  return Math.max(0, Math.round(rankRevenueGain * factor));
+}
+
+/**
+ * Cap stacked path revenue projections when calibration confidence is below medium.
+ * Prevents uncalibrated rank stacking from teleporting header $/mo.
+ */
+export function capUncalibratedPathRevenueProjection(
+  estimatedMonthlyRevenue: number | null,
+  projectedMonthlyRevenue: number | null,
+  revenueGain: number | null,
+  calibrationConfidence: CalibrationConfidence
+): {
+  projectedMonthlyRevenue: number | null;
+  revenueGain: number | null;
+} {
+  if (
+    calibrationConfidence === "high" ||
+    calibrationConfidence === "medium" ||
+    estimatedMonthlyRevenue == null ||
+    revenueGain == null ||
+    revenueGain <= 0
+  ) {
+    return { projectedMonthlyRevenue, revenueGain };
+  }
+
+  const maxGain = Math.round(
+    estimatedMonthlyRevenue * UNCALIBRATED_PATH_REVENUE_GAIN_CAP_PCT
+  );
+  const cappedGain = Math.min(revenueGain, maxGain);
+  return {
+    revenueGain: cappedGain,
+    projectedMonthlyRevenue: estimatedMonthlyRevenue + cappedGain,
+  };
 }
 
 const DEFAULT_ATTRIBUTION_WINDOW_DAYS = 14;

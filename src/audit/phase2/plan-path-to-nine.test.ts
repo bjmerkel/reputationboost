@@ -13,7 +13,10 @@ import { auditPrefersConversionOverRank } from "./conversion-boost";
 import { CONVERSION_PLAN_STEPS } from "./conversion-constants";
 import {
   applyStepMutation,
+  cloneAudit,
+  applyOutcomeMutation,
   projectOutcomeScoresFromActions,
+  estimateTotalMonthlyRevenue,
 } from "./counterfactual";
 import { buildAttributionCalibration } from "./attribution-calibration";
 import type { ActionAttribution } from "@/audit/types/timeseries";
@@ -200,17 +203,37 @@ describe("Plan path-to-9 golden fixtures", () => {
 
   it("uncalibrated rank claims stay conservative (step 3 delta capped)", () => {
     const audit = createTestAudit();
-    const before = audit.rankings.keywords
-      .filter((k) => !k.inLocalPack)
-      .map((k) => k.localPackPosition);
     const projection = projectOutcomeScoresFromActions(
       audit,
       [{ source: "plan", id: "gbp-step-3" }],
       { avgCustomerValue: 350 }
     );
-    // With conservative rank deltas, revenue gain should be modest / labeled via model.
+    // With conservative rank deltas + 0.4 confidence discount, revenue gain stays modest.
     assert.ok(projection.revenueGain == null || projection.revenueGain < 5000);
-    void before;
+  });
+
+  it("uncalibrated rank revenue is at least 60% below full rank claim", () => {
+    const audit = createTestAudit();
+    const discounted = projectOutcomeScoresFromActions(
+      audit,
+      [{ source: "plan", id: "gbp-step-3" }],
+      { avgCustomerValue: 350 }
+    );
+    const mutated = cloneAudit(audit);
+    applyStepMutation(mutated, 3);
+    applyOutcomeMutation(mutated, 3, undefined, 0);
+    const beforeRevenue = estimateTotalMonthlyRevenue(audit, 350);
+    const afterRevenue = estimateTotalMonthlyRevenue(mutated, 350);
+    const fullRankGain =
+      beforeRevenue != null && afterRevenue != null
+        ? Math.max(0, afterRevenue - beforeRevenue)
+        : 0;
+    if (fullRankGain > 0 && discounted.revenueGain != null) {
+      assert.ok(
+        discounted.revenueGain <= Math.round(fullRankGain * 0.41),
+        `discounted ${discounted.revenueGain} should be ≤ 40% of full rank gain ${fullRankGain}`
+      );
+    }
   });
 
   it("step 5 mutation adds priority services; step 1 mutates primary only", () => {

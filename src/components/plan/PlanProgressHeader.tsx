@@ -168,7 +168,7 @@ export default function PlanProgressHeader({
             <p className={`mt-1 text-xs ${subtleText}`}>{confidenceLabel}</p>
           ) : (
             <p className={`mt-1 text-xs ${subtleText}`}>
-              Model estimate — not yet calibrated from your published results
+              Low-confidence model estimate — not yet calibrated from your published results
             </p>
           )}
           {(showRevenue || showLeads) && (

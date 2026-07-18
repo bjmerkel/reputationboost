@@ -29,6 +29,7 @@ import {
 } from "./score-impact";
 import {
   resolveCalibrationConfidence,
+  capUncalibratedPathRevenueProjection,
   type AttributionCalibration,
   type GapAttributionCalibration,
 } from "./attribution-calibration";
@@ -357,14 +358,25 @@ function buildNextThreeProjection(
     avgCustomerValue: options.avgCustomerValue,
     blendWeights: options.blendWeights,
   });
+  const estimatedMonthlyRevenue = estimateTotalMonthlyRevenue(audit, options.avgCustomerValue);
+  const calibrationConfidence = resolvePathCalibrationConfidence(
+    options.calibration,
+    options.gapCalibration
+  );
+  const capped = capUncalibratedPathRevenueProjection(
+    estimatedMonthlyRevenue,
+    outcomeProjection.estimatedMonthlyRevenue,
+    outcomeProjection.revenueGain,
+    calibrationConfidence
+  );
 
   return {
     stepCount: nextSteps.length,
-    estimatedMonthlyRevenue: estimateTotalMonthlyRevenue(audit, options.avgCustomerValue),
-    projectedMonthlyRevenue: outcomeProjection.estimatedMonthlyRevenue,
+    estimatedMonthlyRevenue,
+    projectedMonthlyRevenue: capped.projectedMonthlyRevenue,
     estimatedMonthlyLeads: estimateTotalMonthlyLeads(audit),
     projectedMonthlyLeads: outcomeProjection.estimatedMonthlyLeads,
-    revenueGain: outcomeProjection.revenueGain,
+    revenueGain: capped.revenueGain,
   };
 }
 
@@ -515,6 +527,16 @@ export function buildPathToHealthy(
 
   const revenueGain = outcomeProjection.revenueGain;
   const revenueLabel = formatRevenueLabel(revenueGain, currency);
+  const calibrationConfidence = resolvePathCalibrationConfidence(
+    options.calibration,
+    options.gapCalibration
+  );
+  const capped = capUncalibratedPathRevenueProjection(
+    estimatedMonthlyRevenue,
+    outcomeProjection.estimatedMonthlyRevenue,
+    revenueGain,
+    calibrationConfidence
+  );
 
   return attachNextThreeProjection(
     {
@@ -527,22 +549,21 @@ export function buildPathToHealthy(
       projectedDriverScore: projection.projectedDriverScore,
       projectedOutcomeIndex: outcomeProjection.projectedOutcomeIndex,
       steps: selectedSteps,
-      estimatedRevenueGain: revenueGain,
-      estimatedRevenueGainLabel: revenueLabel ? `${revenueLabel} from path actions` : null,
+      estimatedRevenueGain: capped.revenueGain,
+      estimatedRevenueGainLabel: formatRevenueLabel(capped.revenueGain, currency)
+        ? `${formatRevenueLabel(capped.revenueGain, currency)} from path actions`
+        : null,
       topKeywords: computeKeywordScores(audit, options).slice(0, 3),
       alreadyHealthy: false,
       optimizationMode,
       estimatedMonthlyRevenue,
-      projectedMonthlyRevenue: outcomeProjection.estimatedMonthlyRevenue,
+      projectedMonthlyRevenue: capped.projectedMonthlyRevenue,
       estimatedMonthlyLeads,
       projectedMonthlyLeads: outcomeProjection.estimatedMonthlyLeads,
       pathStepCount: selectedSteps.length,
       currentRevenueCapture: scores.revenueCapture,
       projectedRevenueCapture: outcomeProjection.projectedRevenueCapture,
-      calibrationConfidence: resolvePathCalibrationConfidence(
-        options.calibration,
-        options.gapCalibration
-      ),
+      calibrationConfidence,
     },
     plan ? buildNextThreeProjection(audit, plan, options) : null
   );

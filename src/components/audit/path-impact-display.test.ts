@@ -76,8 +76,9 @@ describe("projection estimate labeling", () => {
     assert.equal(isUncalibratedProjection("high"), false);
   });
 
-  it("uses Model est. prefix until medium/high calibration", () => {
-    assert.equal(projectionEstimatePrefix("default"), "Model est.");
+  it("uses Low-confidence model est. prefix when no calibration exists", () => {
+    assert.equal(projectionEstimatePrefix("default"), "Low-confidence model est.");
+    assert.equal(projectionEstimatePrefix(undefined), "Low-confidence model est.");
     assert.equal(projectionEstimatePrefix("low"), "Model est.");
     assert.equal(projectionEstimatePrefix("medium"), "Est.");
     assert.equal(projectionEstimatePrefix("high"), "Est.");

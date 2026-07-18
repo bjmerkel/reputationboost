@@ -58,7 +58,10 @@ export function isUncalibratedProjection(
 
 export function projectionEstimatePrefix(
   confidence?: "high" | "medium" | "low" | "default"
-): "Model est." | "Est." {
+): "Low-confidence model est." | "Model est." | "Est." {
+  if (confidence == null || confidence === "default") {
+    return "Low-confidence model est.";
+  }
   return isUncalibratedProjection(confidence) ? "Model est." : "Est.";
 }
 

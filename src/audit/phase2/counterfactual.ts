@@ -6,6 +6,7 @@ import {
 } from "./gbp-current-state";
 import { computeHealthScores } from "./scoring";
 import {
+  applyRankRevenueConfidenceDiscount,
   blendEngagementRates,
   calibratedRevenueGain,
   rankDeltaForGap,
@@ -1478,10 +1479,16 @@ export function projectOutcomeScoresFromActions(
     beforeRevenue != null && afterRevenue != null
       ? Math.max(0, afterRevenue - beforeRevenue)
       : null;
+  const adjustedRankRevenue = applyRankRevenueConfidenceDiscount(
+    rankRevenueGain,
+    actions,
+    options.calibration,
+    options.gapCalibration
+  );
   // Keep 0 (not null) when revenue is estimable so marginal deltas still compute.
   const rawRevenueGain =
-    rankRevenueGain != null || conversionRevenue != null
-      ? (rankRevenueGain ?? 0) + (conversionRevenue ?? 0)
+    adjustedRankRevenue != null || conversionRevenue != null
+      ? (adjustedRankRevenue ?? 0) + (conversionRevenue ?? 0)
       : null;
   const revenueGain =
     rawRevenueGain != null

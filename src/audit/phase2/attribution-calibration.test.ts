@@ -2,18 +2,22 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import {
+  applyRankRevenueConfidenceDiscount,
   blendEngagementRates,
   buildAttributionCalibration,
   buildGapAttributionCalibration,
   calibratedRevenueGain,
   calibratedStepImpact,
+  capUncalibratedPathRevenueProjection,
   mergeCalibrations,
   negativeEvidencePenalty,
   projectionRevenueScaleForStep,
   projectionScaleForStep,
   rankDeltaForGap,
   rankDeltaForStep,
+  rankRevenueConfidenceFactor,
   resolveCalibrationConfidence,
+  UNCALIBRATED_RANK_REVENUE_CONFIDENCE,
 } from "./attribution-calibration";
 
 function attribution(
@@ -368,5 +372,70 @@ describe("revenue projection calibration", () => {
     );
     assert.ok(calibrated < 500);
     assert.ok(calibrated > 0);
+  });
+});
+
+describe("rank revenue honesty", () => {
+  it("applies UNCALIBRATED_RANK_REVENUE_CONFIDENCE for rank steps without calibration", () => {
+    assert.equal(UNCALIBRATED_RANK_REVENUE_CONFIDENCE, 0.4);
+    assert.equal(
+      rankRevenueConfidenceFactor([{ source: "plan", id: "gbp-step-3" }]),
+      0.4
+    );
+    assert.equal(
+      rankRevenueConfidenceFactor([{ source: "plan", id: "gbp-step-8" }]),
+      1
+    );
+  });
+
+  it("uses full confidence when rank step has sampleSize ≥ 2", () => {
+    const calibration = buildAttributionCalibration([
+      attribution({ actionItemId: "gbp-step-3", rankBefore: 8, rankAfter: 6 }),
+      attribution({
+        id: "a2",
+        executionTaskId: "t2",
+        actionItemId: "gbp-step-3",
+        rankBefore: 7,
+        rankAfter: 5,
+      }),
+    ]);
+    assert.equal(
+      rankRevenueConfidenceFactor([{ source: "plan", id: "gbp-step-3" }], calibration),
+      1
+    );
+  });
+
+  it("discounts rank revenue gain before calibrated scaling", () => {
+    assert.equal(
+      applyRankRevenueConfidenceDiscount(1000, [{ source: "plan", id: "gbp-step-3" }]),
+      400
+    );
+    assert.equal(
+      applyRankRevenueConfidenceDiscount(
+        1000,
+        [{ source: "plan", id: "gbp-step-3" }],
+        buildAttributionCalibration([
+          attribution({ actionItemId: "gbp-step-3", rankBefore: 8, rankAfter: 6 }),
+          attribution({
+            id: "a2",
+            executionTaskId: "t2",
+            actionItemId: "gbp-step-3",
+            rankBefore: 7,
+            rankAfter: 5,
+          }),
+        ])
+      ),
+      1000
+    );
+  });
+
+  it("caps uncalibrated path revenue gain at 50% of current $/mo", () => {
+    const capped = capUncalibratedPathRevenueProjection(2000, 6000, 4000, "default");
+    assert.equal(capped.revenueGain, 1000);
+    assert.equal(capped.projectedMonthlyRevenue, 3000);
+
+    const unchanged = capUncalibratedPathRevenueProjection(2000, 2600, 600, "medium");
+    assert.equal(unchanged.revenueGain, 600);
+    assert.equal(unchanged.projectedMonthlyRevenue, 2600);
   });
 });
