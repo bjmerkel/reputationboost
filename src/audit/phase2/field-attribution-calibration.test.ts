@@ -12,6 +12,8 @@ const stepCalibration: AttributionCalibration = {
     sampleSize: 4,
     medianRankDelta: 2,
     medianCallsDelta: 3,
+    medianDirectionsDelta: 4,
+    medianWebsiteClicksDelta: 1,
     estimatedScoreImpact: 6,
     projectionSampleSize: 4,
     medianProjectedDriverImpact: 5,

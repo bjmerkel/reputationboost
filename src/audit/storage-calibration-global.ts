@@ -63,6 +63,12 @@ function rowToStepCalibration(
       row.median_rank_delta != null ? Number(row.median_rank_delta) : null,
     medianCallsDelta:
       row.median_calls_delta != null ? Number(row.median_calls_delta) : 0,
+    medianDirectionsDelta:
+      row.median_directions_delta != null ? Number(row.median_directions_delta) : 0,
+    medianWebsiteClicksDelta:
+      row.median_website_clicks_delta != null
+        ? Number(row.median_website_clicks_delta)
+        : 0,
     estimatedScoreImpact: row.estimated_score_impact as number,
     projectionSampleSize: (row.projection_sample_size as number) ?? 0,
     medianProjectedDriverImpact:

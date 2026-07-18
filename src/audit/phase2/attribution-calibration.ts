@@ -7,6 +7,10 @@ export interface StepCalibration {
   sampleSize: number;
   medianRankDelta: number | null;
   medianCallsDelta: number;
+  /** Median observed directions delta in the attribution window. */
+  medianDirectionsDelta: number;
+  /** Median observed website-click delta in the attribution window. */
+  medianWebsiteClicksDelta: number;
   estimatedScoreImpact: number;
   projectionSampleSize: number;
   medianProjectedDriverImpact: number | null;
@@ -17,6 +21,13 @@ export interface StepCalibration {
   revenueProjectionSampleSize: number;
   revenueProjectionScale: number;
   confidence: CalibrationConfidence;
+}
+
+/** Heuristic view→action rates used by conversion-family counterfactuals. */
+export interface EngagementGainRates {
+  calls: number;
+  directions: number;
+  websiteClicks: number;
 }
 
 export type AttributionCalibration = Record<number, StepCalibration>;
@@ -216,6 +227,8 @@ export function buildAttributionCalibration(
     const revenueProjection = revenueProjectionStats(rows);
     const rankDeltas: number[] = [];
     const callsDeltas: number[] = [];
+    const directionsDeltas: number[] = [];
+    const websiteClicksDeltas: number[] = [];
     const outcomeImpacts: number[] = [];
 
     for (const row of rows) {
@@ -224,6 +237,8 @@ export function buildAttributionCalibration(
         outcomeImpacts.push(rankDeltaToVisibilityImpact(row.rankBefore, row.rankAfter));
       }
       if (row.callsDelta != null) callsDeltas.push(row.callsDelta);
+      if (row.directionsDelta != null) directionsDeltas.push(row.directionsDelta);
+      if (row.websiteClicksDelta != null) websiteClicksDeltas.push(row.websiteClicksDelta);
       if (row.projectedOutcomeImpact != null) {
         outcomeImpacts.push(row.projectedOutcomeImpact);
       }
@@ -233,6 +248,9 @@ export function buildAttributionCalibration(
       sampleSize: rows.length,
       medianRankDelta: rankDeltas.length > 0 ? median(rankDeltas) : null,
       medianCallsDelta: callsDeltas.length > 0 ? median(callsDeltas) : 0,
+      medianDirectionsDelta: directionsDeltas.length > 0 ? median(directionsDeltas) : 0,
+      medianWebsiteClicksDelta:
+        websiteClicksDeltas.length > 0 ? median(websiteClicksDeltas) : 0,
       estimatedScoreImpact: resolveEstimatedScoreImpact(rankImpact, projection),
       projectionSampleSize: projection.projectionSampleSize,
       medianProjectedDriverImpact: projection.medianProjectedDriverImpact,
@@ -329,6 +347,56 @@ export function calibratedRevenueGain(
   return Math.max(0, Math.round(rawGain * scale));
 }
 
+const DEFAULT_ATTRIBUTION_WINDOW_DAYS = 14;
+
+/**
+ * Blend heuristic view→action rates with observed attribution deltas.
+ * Observed window deltas are annualized to a monthly rate vs profile views.
+ * Clamped to 0.5×–1.5× the heuristic channel when the heuristic is non-zero.
+ */
+export function blendEngagementRates(
+  heuristic: EngagementGainRates,
+  stepNumber: number,
+  views: number,
+  calibration?: AttributionCalibration,
+  windowDays = DEFAULT_ATTRIBUTION_WINDOW_DAYS
+): EngagementGainRates {
+  const cal = calibration?.[stepNumber];
+  if (!cal || cal.sampleSize < 2) return heuristic;
+
+  const monthlyFactor = 30 / Math.max(1, windowDays);
+  const denom = Math.max(views, 100);
+  const observed: EngagementGainRates = {
+    calls: Math.max(0, cal.medianCallsDelta * monthlyFactor) / denom,
+    directions: Math.max(0, cal.medianDirectionsDelta * monthlyFactor) / denom,
+    websiteClicks: Math.max(0, cal.medianWebsiteClicksDelta * monthlyFactor) / denom,
+  };
+
+  if (observed.calls + observed.directions + observed.websiteClicks <= 0) {
+    return heuristic;
+  }
+
+  const weight = cal.sampleSize >= 5 ? 0.7 : 0.5;
+
+  const blendChannel = (heuristicRate: number, observedRate: number): number => {
+    const mixed = heuristicRate * (1 - weight) + observedRate * weight;
+    if (heuristicRate <= 0) {
+      // Don't invent a huge new channel from noise when the heuristic is zero.
+      return Math.max(0, Math.min(0.05, mixed));
+    }
+    return Math.max(
+      heuristicRate * MIN_REVENUE_SCALE,
+      Math.min(heuristicRate * MAX_REVENUE_SCALE, mixed)
+    );
+  };
+
+  return {
+    calls: blendChannel(heuristic.calls, observed.calls),
+    directions: blendChannel(heuristic.directions, observed.directions),
+    websiteClicks: blendChannel(heuristic.websiteClicks, observed.websiteClicks),
+  };
+}
+
 /** Prefer business-specific calibration; fall back to global cross-customer data. */
 export function mergeCalibrations(
   business?: AttributionCalibration,
@@ -356,6 +424,9 @@ export function mergeCalibrations(
       sampleSize: cal.sampleSize + globalCal.sampleSize,
       medianRankDelta: cal.medianRankDelta ?? globalCal.medianRankDelta,
       medianCallsDelta: cal.medianCallsDelta || globalCal.medianCallsDelta,
+      medianDirectionsDelta: cal.medianDirectionsDelta || globalCal.medianDirectionsDelta,
+      medianWebsiteClicksDelta:
+        cal.medianWebsiteClicksDelta || globalCal.medianWebsiteClicksDelta,
       projectionSampleSize: cal.projectionSampleSize + globalCal.projectionSampleSize,
       medianProjectedDriverImpact:
         cal.medianProjectedDriverImpact ?? globalCal.medianProjectedDriverImpact,

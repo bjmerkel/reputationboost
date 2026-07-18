@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import {
+  blendEngagementRates,
   buildAttributionCalibration,
   buildGapAttributionCalibration,
   calibratedRevenueGain,
@@ -168,6 +169,45 @@ describe("rankDeltaForGap", () => {
 
   it("falls back to default lift when no calibration exists", () => {
     assert.equal(rankDeltaForGap("rank-outside-pack-roofing", 12), 9);
+  });
+});
+
+describe("blendEngagementRates", () => {
+  it("pulls heuristic rates toward observed attribution when sample ≥ 2", () => {
+    const calibration = buildAttributionCalibration([
+      attribution({
+        actionItemId: "gbp-step-15",
+        callsDelta: 1,
+        directionsDelta: 2,
+        websiteClicksDelta: 1,
+      }),
+      attribution({
+        id: "a2",
+        executionTaskId: "t2",
+        actionItemId: "gbp-step-15",
+        callsDelta: 1,
+        directionsDelta: 2,
+        websiteClicksDelta: 0,
+      }),
+    ]);
+
+    const heuristic = { calls: 0.025, directions: 0.04, websiteClicks: 0.03 };
+    const blended = blendEngagementRates(heuristic, 15, 500, calibration);
+    assert.ok(blended.calls < heuristic.calls);
+    assert.ok(blended.calls >= heuristic.calls * 0.5);
+    assert.ok(blended.directions < heuristic.directions);
+  });
+
+  it("keeps heuristic rates when sample size is below 2", () => {
+    const calibration = buildAttributionCalibration([
+      attribution({
+        actionItemId: "gbp-step-8",
+        callsDelta: 10,
+        directionsDelta: 10,
+      }),
+    ]);
+    const heuristic = { calls: 0.02, directions: 0.025, websiteClicks: 0 };
+    assert.deepEqual(blendEngagementRates(heuristic, 8, 400, calibration), heuristic);
   });
 });
 

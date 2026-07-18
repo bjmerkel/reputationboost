@@ -50,9 +50,27 @@ export const PLAN_DEFINITION_OF_NINE = [
     criterion:
       "Weak actionRate (<3%) triggers conversion boost; when pack share ≥50%, NBA overweights steps 8/11/13/15.",
   },
+  {
+    id: "R3",
+    title: "Calibrated engagement estimates",
+    criterion:
+      "Engagement projections blend attribution when sample ≥ 2; UI labels model vs calibrated estimates.",
+  },
+  {
+    id: "R4",
+    title: "Media coverage over volume",
+    criterion:
+      "Photo/video satisfaction uses coverage (not arbitrary counts); media does not outrank conversion when pack held + weak CTR.",
+  },
+  {
+    id: "R5",
+    title: "Batch approve = impact order",
+    criterion:
+      "Pending batch/routine approve order follows revenue→leads→engagement impact, not raw step number.",
+  },
 ] as const;
 
-/** Manual soak on one live business after J1–J5 / R1–R2 land on main. */
+/** Manual soak on one live business after polish + revenue criteria land on main. */
 export const PLAN_SOAK_CHECKLIST = [
   "No ACV → steps + header show leads/mo; NBA order is sensible",
   "Set ACV in Settings → open Plan → $/mo appears and step order still makes sense",
@@ -61,4 +79,7 @@ export const PLAN_SOAK_CHECKLIST = [
   "Stack two high-impact steps → stacked estimate is below the sum of isolated card impacts",
   "Keyword Priority → Work steps opens the bound step for that keyword (not a random early card)",
   "In-pack business with low action rate → NBA leads with place actions / CTA posts / replies",
+  "After several attributed publishes → step impact drops 'model' wording when confidence rises",
+  "Business with 40+ photos + weak CTR → Photos is not the top NBA item",
+  "Batch approve modal opens highest-impact pending task first",
 ] as const;
