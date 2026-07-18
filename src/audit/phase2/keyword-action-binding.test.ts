@@ -165,6 +165,10 @@ describe("keyword-action-binding", () => {
               step.status !== "skipped"
           )
         );
+        const linked = plan.steps.find((step) => step.stepNumber === playbook.primaryStep);
+        if ((linked?.context.revenueImpact ?? 0) > 0) {
+          assert.equal(playbook.actionExpectedRevenue, linked!.context.revenueImpact);
+        }
       }
     }
     // Diversified primaries when multiple outside-pack keywords exist.

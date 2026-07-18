@@ -49,7 +49,8 @@ export default function PlanKeywordPlaybooks({
         Win these searches
       </p>
       <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-        One primary action per keyword — do these to grow views, calls, and directions.
+        One primary action per keyword — priority order reflects opportunity, not your live
+        Google rank.
       </p>
 
       <ol className="mt-3 space-y-3">
@@ -70,7 +71,7 @@ export default function PlanKeywordPlaybooks({
                         isLight ? "text-[#80868b]" : "text-slate-500"
                       }`}
                     >
-                      #{playbook.rank}
+                      Priority {playbook.rank}
                     </span>
                     <span
                       className={`text-sm font-semibold ${
@@ -110,9 +111,22 @@ export default function PlanKeywordPlaybooks({
                         isLight ? "text-[#188038]" : "text-emerald-400"
                       }`}
                     >
-                      +{formatCurrency(playbook.revenueGap, currency)}/mo if #1
+                      +{formatCurrency(playbook.revenueGap, currency)}/mo potential at #1 — not
+                      from this action alone
                     </p>
                   )}
+                  {playbook.actionExpectedRevenue != null &&
+                    playbook.actionExpectedRevenue > 0 && (
+                      <p
+                        className={`mt-0.5 text-xs ${
+                          isLight ? "text-[#1a73e8]" : "text-sky-300"
+                        }`}
+                      >
+                        {playbook.ctaLabel}: +
+                        {formatCurrency(playbook.actionExpectedRevenue, currency)}/mo model est.
+                        from this step
+                      </p>
+                    )}
                 </div>
 
                 {playbook.primaryStep != null && (

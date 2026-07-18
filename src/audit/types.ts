@@ -869,6 +869,15 @@ export interface PathToHealthy {
   estimatedMonthlyLeads?: number | null;
   /** Projected monthly leads after path actions (no ACV required) */
   projectedMonthlyLeads?: number | null;
+  /** Number of steps in the full path-to-healthy projection */
+  pathStepCount?: number;
+  /** Next-best-action subset (typically 3) — separate scope from full path */
+  nextThreeStepCount?: number;
+  nextThreeEstimatedMonthlyRevenue?: number | null;
+  nextThreeProjectedMonthlyRevenue?: number | null;
+  nextThreeEstimatedMonthlyLeads?: number | null;
+  nextThreeProjectedMonthlyLeads?: number | null;
+  nextThreeRevenueGain?: number | null;
   currentRevenueCapture?: number;
   projectedRevenueCapture?: number;
   calibrationConfidence?: import("./phase2/attribution-calibration").CalibrationConfidence;

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createTestAudit } from "../phase3/test-fixtures";
+import { buildPlan } from "../phase3/build-plan";
+import { buildTemplateGbpPlan } from "./gbp-plan";
 import { pickActionsForDriverTarget, pickActionsForTarget } from "./counterfactual";
 import { buildPathToHealthy } from "./path-to-healthy";
 import { resolvePathOptimizationMode } from "./path-optimization";
@@ -163,5 +165,28 @@ describe("buildPathToHealthy multi-objective path", () => {
     assert.ok(path);
     assert.equal(path!.currentRevenueCapture, scores.revenueCapture);
     assert.ok(path!.projectedRevenueCapture != null);
+  });
+
+  it("exposes separate next-three and full-path revenue projections when a plan exists", () => {
+    const audit = createTestAudit();
+    const gbpPlan = buildTemplateGbpPlan(audit, { avgCustomerValue: 350 });
+    audit.strategy.gbpPlan = gbpPlan;
+    const plan = buildPlan(audit, audit.execution?.tasks ?? [], [], undefined, 350);
+    assert.ok(plan);
+
+    const path = buildPathToHealthy(audit, plan, {
+      avgCustomerValue: 350,
+      preferPlanDisplayOrder: true,
+    });
+
+    assert.ok(path);
+    assert.ok(path!.nextThreeStepCount != null && path!.nextThreeStepCount! > 0);
+    assert.ok(path!.pathStepCount != null);
+    assert.equal(path!.nextThreeEstimatedMonthlyRevenue, path!.estimatedMonthlyRevenue);
+    if ((path!.pathStepCount ?? 0) > (path!.nextThreeStepCount ?? 0)) {
+      assert.ok(
+        (path!.projectedMonthlyRevenue ?? 0) >= (path!.nextThreeProjectedMonthlyRevenue ?? 0)
+      );
+    }
   });
 });

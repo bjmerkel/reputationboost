@@ -49,6 +49,23 @@ export function calibrationConfidenceLabel(
   }
 }
 
+/** Treat default and low confidence as model estimates, not calibrated projections. */
+export function isUncalibratedProjection(
+  confidence?: "high" | "medium" | "low" | "default"
+): boolean {
+  return confidence == null || confidence === "default" || confidence === "low";
+}
+
+export function projectionEstimatePrefix(
+  confidence?: "high" | "medium" | "low" | "default"
+): "Model est." | "Est." {
+  return isUncalibratedProjection(confidence) ? "Model est." : "Est.";
+}
+
+export function revenueProjectionFormulaHint(): string {
+  return "impressions × engagement rate × lead rate × customer value, adjusted by calibration confidence";
+}
+
 export function optimizationModeHint(mode?: PathOptimizationMode): string | null {
   switch (mode) {
     case "revenue":

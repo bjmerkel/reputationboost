@@ -3,7 +3,10 @@ import { describe, it } from "node:test";
 import {
   calibrationConfidenceLabel,
   formatPathStepImpact,
+  isUncalibratedProjection,
   optimizationModeHint,
+  projectionEstimatePrefix,
+  revenueProjectionFormulaHint,
 } from "@/components/audit/path-impact-display";
 
 describe("formatPathStepImpact", () => {
@@ -62,5 +65,26 @@ describe("calibrationConfidenceLabel", () => {
 
   it("labels high confidence", () => {
     assert.ok(calibrationConfidenceLabel("high")?.includes("high confidence"));
+  });
+});
+
+describe("projection estimate labeling", () => {
+  it("treats default and low confidence as uncalibrated", () => {
+    assert.equal(isUncalibratedProjection("default"), true);
+    assert.equal(isUncalibratedProjection("low"), true);
+    assert.equal(isUncalibratedProjection("medium"), false);
+    assert.equal(isUncalibratedProjection("high"), false);
+  });
+
+  it("uses Model est. prefix until medium/high calibration", () => {
+    assert.equal(projectionEstimatePrefix("default"), "Model est.");
+    assert.equal(projectionEstimatePrefix("low"), "Model est.");
+    assert.equal(projectionEstimatePrefix("medium"), "Est.");
+    assert.equal(projectionEstimatePrefix("high"), "Est.");
+  });
+
+  it("documents the revenue projection formula", () => {
+    assert.ok(revenueProjectionFormulaHint().includes("impressions"));
+    assert.ok(revenueProjectionFormulaHint().includes("calibration"));
   });
 });
