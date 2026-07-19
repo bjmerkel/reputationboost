@@ -547,6 +547,7 @@ export default function AuditDashboard({
             <PlanView
               audit={audit}
               clientId={clientId}
+              businessId={businessId}
               gbpConnected={gbpConnected}
               gbpGoogleUpdateAt={gbpGoogleUpdateAt}
               attributionByTaskId={attributionData.attributionByTaskId}

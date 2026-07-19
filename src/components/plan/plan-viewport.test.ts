@@ -66,4 +66,16 @@ describe("buildAcvRevenuePreview", () => {
     audit.gbp.identity.primaryCategory = "Retail store";
     assert.equal(defaultAcvPreviewHint(audit), 75);
   });
+
+  it("prefers an LLM/template estimated ACV when provided", () => {
+    const audit = createTestAudit();
+    audit.gbp.identity.primaryCategory = "Plumber";
+    const preview = buildAcvRevenuePreview(audit, {
+      nextThreeProjectedMonthlyLeads: 3,
+      estimatedAcv: 425,
+    });
+    assert.ok(preview);
+    assert.equal(preview!.defaultAcv, 425);
+    assert.equal(preview!.projectedMonthlyRevenue, 1275);
+  });
 });

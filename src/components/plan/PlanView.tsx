@@ -24,6 +24,7 @@ import GoogleUpdatesCompactBanner, {
   GoogleUpdatesConflictLink,
 } from "./GoogleUpdatesCompactBanner";
 import PlanAcvNudge from "./PlanAcvNudge";
+import PlanAcvReminderModal from "./PlanAcvReminderModal";
 import PlanKeywordPlaybooks from "./PlanKeywordPlaybooks";
 import PlanMaintenanceCadence from "./PlanMaintenanceCadence";
 import PlanNextBestActions from "./PlanNextBestActions";
@@ -34,6 +35,9 @@ import {
   buildAcvRevenuePreview,
   resolveGoogleUpdatesPresentation,
 } from "./plan-viewport";
+import { shouldShowPlanAcvReminder } from "./plan-acv-reminder";
+import { useAcvEstimate } from "@/hooks/useAcvEstimate";
+import { parseLocationFromAddress } from "@/lib/llm/acv-estimate";
 import {
   markManualPlanSynced,
   readLastManualPlanSyncAt,
@@ -43,6 +47,7 @@ import {
 export default function PlanView({
   audit,
   clientId,
+  businessId,
   gbpConnected = true,
   gbpGoogleUpdateAt,
   attributionByTaskId = {},
@@ -62,6 +67,7 @@ export default function PlanView({
 }: {
   audit: FullAuditPayload;
   clientId: string;
+  businessId?: string;
   gbpConnected?: boolean;
   gbpGoogleUpdateAt?: string | null;
   attributionByTaskId?: Record<string, ActionAttribution>;
@@ -83,6 +89,9 @@ export default function PlanView({
   const [syncingGoogleUpdates, setSyncingGoogleUpdates] = useState(false);
   const [localFocusStep, setLocalFocusStep] = useState<number | null>(null);
   const [reconcileNotice, setReconcileNotice] = useState<string | null>(null);
+  const [savedAcv, setSavedAcv] = useState<number | null>(null);
+  const [acvReminderOpen, setAcvReminderOpen] = useState(false);
+  const [acvReminderDismissed, setAcvReminderDismissed] = useState(false);
   const acvRefreshStartedRef = useRef(false);
   const manualLiveSyncInFlightRef = useRef(false);
   const internalPlanTasks = usePlanTasks({
@@ -116,6 +125,31 @@ export default function PlanView({
     refresh,
     reconcilePlanNow,
   } = sharedPlanTasks ?? internalPlanTasks;
+
+  const effectiveAvgCustomerValue = savedAcv ?? avgCustomerValue ?? null;
+  const acvMissing = effectiveAvgCustomerValue == null || effectiveAvgCustomerValue <= 0;
+  const location = useMemo(
+    () => parseLocationFromAddress(audit.gbp.identity.address),
+    [audit.gbp.identity.address]
+  );
+  const { estimate: acvEstimate, loading: acvEstimateLoading } = useAcvEstimate({
+    enabled: acvMissing,
+    businessId,
+    clientId,
+    businessName: audit.clientName,
+    primaryCategory: audit.gbp.identity.primaryCategory,
+    city: location.city,
+    state: location.state,
+    industry: audit.gbp.identity.primaryCategory,
+  });
+
+  useEffect(() => {
+    if (!plan || loading || acvReminderDismissed) return;
+    if (!shouldShowPlanAcvReminder({ businessId, avgCustomerValue: effectiveAvgCustomerValue })) {
+      return;
+    }
+    setAcvReminderOpen(true);
+  }, [acvReminderDismissed, businessId, effectiveAvgCustomerValue, loading, plan]);
 
   const handleManualPlanRefresh = useCallback(() => {
     void reconcilePlanNow({ live: true })
@@ -276,7 +310,7 @@ export default function PlanView({
   // After Settings saves ACV, reconcile once so $/mo order updates without cron.
   useEffect(() => {
     if (loading || reconciling) return;
-    if (avgCustomerValue == null || avgCustomerValue <= 0) return;
+    if (effectiveAvgCustomerValue == null || effectiveAvgCustomerValue <= 0) return;
     if (acvRefreshStartedRef.current) return;
     if (!hasPlanRefreshAfterAcvSave()) return;
 
@@ -297,7 +331,7 @@ export default function PlanView({
         acvRefreshStartedRef.current = false;
       });
   }, [
-    avgCustomerValue,
+    effectiveAvgCustomerValue,
     loading,
     reconciling,
     reconcilePlanNow,
@@ -319,12 +353,12 @@ export default function PlanView({
   const path = useMemo(
     () =>
       buildPathToHealthy(audit, plan, {
-        avgCustomerValue,
+        avgCustomerValue: effectiveAvgCustomerValue,
         currency,
         calibration,
         gapCalibration,
       }),
-    [audit, plan, avgCustomerValue, currency, calibration, gapCalibration]
+    [audit, plan, effectiveAvgCustomerValue, currency, calibration, gapCalibration]
   );
 
   const reviewUrl = useMemo(
@@ -354,15 +388,16 @@ export default function PlanView({
 
   const acvRevenuePreview = useMemo(
     () =>
-      !avgCustomerValue
+      acvMissing
         ? buildAcvRevenuePreview(audit, {
             nextThreeProjectedMonthlyLeads: path?.nextThreeProjectedMonthlyLeads,
             nextThreeEstimatedMonthlyLeads: path?.nextThreeEstimatedMonthlyLeads,
             projectedMonthlyLeads: path?.projectedMonthlyLeads,
             estimatedMonthlyLeads: path?.estimatedMonthlyLeads,
+            estimatedAcv: acvEstimate?.avgCustomerValue,
           })
         : null,
-    [audit, avgCustomerValue, path]
+    [acvEstimate?.avgCustomerValue, acvMissing, audit, path]
   );
 
   if (loading && !plan) {
@@ -432,11 +467,39 @@ export default function PlanView({
         />
       )}
 
-      {!avgCustomerValue && (
+      {acvMissing && (
         <PlanAcvNudge
           variant={variant}
           revenuePreview={acvRevenuePreview}
           currency={currency}
+          estimate={acvEstimate}
+          onOpenReminder={
+            businessId
+              ? () => {
+                  setAcvReminderDismissed(false);
+                  setAcvReminderOpen(true);
+                }
+              : undefined
+          }
+        />
+      )}
+
+      {businessId && (
+        <PlanAcvReminderModal
+          open={acvReminderOpen}
+          businessId={businessId}
+          currency={currency}
+          estimate={acvEstimate}
+          estimateLoading={acvEstimateLoading}
+          revenuePreview={acvRevenuePreview}
+          onClose={() => {
+            setAcvReminderOpen(false);
+            setAcvReminderDismissed(true);
+          }}
+          onSaved={(value) => {
+            setSavedAcv(value);
+            setAcvReminderOpen(false);
+          }}
         />
       )}
 
@@ -454,7 +517,7 @@ export default function PlanView({
       <PlanKeywordPlaybooks
         audit={audit}
         plan={plan}
-        avgCustomerValue={avgCustomerValue}
+        avgCustomerValue={effectiveAvgCustomerValue}
         calibration={calibration}
         currency={currency}
         variant={variant}
