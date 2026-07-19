@@ -152,6 +152,56 @@ describe("buildPlan", () => {
     assert.equal(plan!.steps.some((step) => step.title === "Booking Feature"), false);
   });
 
+  it("drops legacy Messaging checklist tasks from gap-driven step 14", () => {
+    const audit = createTestAudit();
+    audit.gbp.notifications = {
+      apiAvailable: true,
+      partialApi: false,
+      configured: false,
+      enabledTypes: [],
+      missingRecommendedTypes: ["NEW_REVIEW", "GOOGLE_UPDATE"],
+      deprecatedTypesEnabled: [],
+      coverageScore: 0,
+      hasReviewAlerts: false,
+      hasGoogleUpdateAlerts: false,
+      hasCustomerMediaAlerts: false,
+      hasVoiceOfMerchantAlerts: false,
+    };
+    const messagingTask = {
+      id: "legacy-messaging",
+      auditId: audit.auditId,
+      actionItemId: "gbp-step-14",
+      type: "gbp_checklist" as const,
+      title: "Step 14: Messaging",
+      description: "Turn on GBP chat/messages.",
+      priority: "P2" as const,
+      status: "approved" as const,
+      draftContent:
+        "Turn on GBP chat/messages and respond within minutes when possible.\nRecommended: Enable messaging with fast response times",
+      payload: { gbpStepNumber: 14, gbpStepTitle: "Messaging", planPhaseId: "foundation" },
+    };
+    const notificationTask = {
+      id: "alerts-task",
+      auditId: audit.auditId,
+      actionItemId: "gbp-step-14",
+      type: "gbp_notifications" as const,
+      title: "Enable recommended GBP alerts",
+      description: "Approve Pub/Sub notifications.",
+      priority: "P2" as const,
+      status: "pending_approval" as const,
+      draftContent: "Enable alerts",
+      payload: { gbpStepNumber: 14, gbpStepTitle: "Real-time GBP alerts", planPhaseId: "foundation" },
+    };
+
+    const plan = buildPlan(audit, [...(audit.execution?.tasks ?? []), messagingTask, notificationTask]);
+
+    const step14 = plan!.steps.find((step) => step.stepNumber === 14);
+    assert.ok(step14);
+    assert.equal(step14!.title, "Real-time GBP alerts");
+    assert.equal(step14!.tasks.some((task) => task.title.includes("Messaging")), false);
+    assert.equal(step14!.tasks.some((task) => task.type === "gbp_notifications"), true);
+  });
+
   it("attaches outcomes from attributions to completed steps", () => {
     const audit = createTestAudit();
     const tasks = audit.execution!.tasks.map((t) =>

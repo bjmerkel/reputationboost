@@ -21,13 +21,19 @@ import {
   GOOGLE_UPDATES_STEP_NUMBER,
   isGoogleUpdateTask,
 } from "@/lib/google/gbp-update-helpers";
-import { buildAllGbpPlanSteps, isRetiredGbpPlanStep, NOTIFICATIONS_PLAN_STEP, PLACE_ACTIONS_PLAN_STEP } from "../phase2/gbp-plan";
+import {
+  buildAllGbpPlanSteps,
+  filterActiveGbpPlanTasks,
+  isRetiredGbpPlanStep,
+  NOTIFICATIONS_PLAN_STEP,
+  PLACE_ACTIONS_PLAN_STEP,
+} from "../phase2/gbp-plan";
 import { resolveRecommendationTimestamp } from "./recommendation-timestamp";
 import { deriveStepStatus } from "./plan-step-status";
 
 function groupTasksByStep(tasks: ExecutionTask[]): Map<number, ExecutionTask[]> {
   const grouped = new Map<number, ExecutionTask[]>();
-  for (const task of tasks) {
+  for (const task of filterActiveGbpPlanTasks(tasks)) {
     const stepNumber = resolvePlanStepNumber(task);
     if (stepNumber == null) continue;
     const existing = grouped.get(stepNumber) ?? [];

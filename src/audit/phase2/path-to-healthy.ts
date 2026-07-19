@@ -44,6 +44,7 @@ import { computeHealthScores, impressionWeightFloor, keywordImpressionWeight } f
 import { isRankOutsidePackGapId } from "./conversion-constants";
 import { auditNeedsSoftConversionBoost, auditPrefersConversionOverRank } from "./conversion-boost";
 import { selectNextBestPlanSteps } from "../phase3/plan-next-actions";
+import { isRetiredGbpPlanStep } from "./gbp-plan";
 
 const HEALTHY_THRESHOLD = 70;
 
@@ -198,6 +199,7 @@ function buildCandidatePool(
             (s.engagementImpact ?? 0) > 0
         )
     : (audit.strategy?.gbpPlan?.steps ?? [])
+        .filter((step) => !isRetiredGbpPlanStep(step.stepNumber, step.title))
         .map((step, index) =>
           planToPoolCandidate(
             audit,
