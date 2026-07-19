@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { formatCurrency } from "@/audit/attribution/roi";
+import { formatLeadGainSuffix } from "@/audit/phase3/plan-impact-label";
 import type { AcvEstimateResult } from "@/lib/llm/acv-estimate";
 import type { AcvRevenuePreview } from "./plan-viewport";
 
@@ -39,7 +40,7 @@ export default function PlanAcvNudge({
           <span className="font-semibold">
             {formatCurrency(revenuePreview.projectedMonthlyRevenue, currency)}/mo
           </span>
-          {revenuePreview.leadGain != null ? ` (+${revenuePreview.leadGain} leads/mo)` : ""}.
+          {formatLeadGainSuffix(revenuePreview.leadGain)}.
         </p>
       ) : estimate ? (
         <p className={`mt-1 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>

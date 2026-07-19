@@ -78,4 +78,21 @@ describe("buildAcvRevenuePreview", () => {
     assert.equal(preview!.defaultAcv, 425);
     assert.equal(preview!.projectedMonthlyRevenue, 1275);
   });
+
+  it("rounds tiny lead gains and omits negligible deltas", () => {
+    const audit = createTestAudit();
+    const preview = buildAcvRevenuePreview(audit, {
+      nextThreeProjectedMonthlyLeads: 1.64,
+      nextThreeEstimatedMonthlyLeads: 1.6,
+    });
+    assert.ok(preview);
+    assert.equal(preview!.leadGain, null);
+
+    const rounded = buildAcvRevenuePreview(audit, {
+      nextThreeProjectedMonthlyLeads: 1.81,
+      nextThreeEstimatedMonthlyLeads: 1.71,
+    });
+    assert.ok(rounded);
+    assert.equal(rounded!.leadGain, 0.1);
+  });
 });

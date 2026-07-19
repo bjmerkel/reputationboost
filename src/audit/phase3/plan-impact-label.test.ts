@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { PlanStep } from "../types";
-import { formatPlanStepImpactLabel, formatPlanStepImpactLabels } from "./plan-impact-label";
+import {
+  formatLeadGainSuffix,
+  formatPlanStepImpactLabel,
+  formatPlanStepImpactLabels,
+} from "./plan-impact-label";
 
 function stubStep(overrides: Partial<PlanStep["context"]>): PlanStep {
   return {
@@ -20,6 +24,15 @@ function stubStep(overrides: Partial<PlanStep["context"]>): PlanStep {
     status: "pending",
   };
 }
+
+describe("formatLeadGainSuffix", () => {
+  it("formats rounded lead gains and hides tiny values", () => {
+    assert.equal(formatLeadGainSuffix(2), " (+2 leads/mo)");
+    assert.equal(formatLeadGainSuffix(0.09999999999999987), " (+0.1 leads/mo)");
+    assert.equal(formatLeadGainSuffix(0), "");
+    assert.equal(formatLeadGainSuffix(null), "");
+  });
+});
 
 describe("formatPlanStepImpactLabel", () => {
   it("prefers revenue over leads and marks uncalibrated estimates as model", () => {

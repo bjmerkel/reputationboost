@@ -3,10 +3,23 @@ import { formatCurrency } from "../attribution/roi";
 import { isConversionPlanStep } from "../phase2/conversion-constants";
 import { isCustomPlanStep } from "./plan-custom-steps";
 
+/** Round lead counts for display (whole numbers at 10+, one decimal below). */
+export function roundLeadCount(leads: number): number {
+  if (!Number.isFinite(leads)) return 0;
+  return leads >= 10 ? Math.round(leads) : Math.round(leads * 10) / 10;
+}
+
 /** Format a lead count for Plan UI (keeps one decimal under 10). */
 export function formatLeadsMo(leads: number): string {
-  const rounded = leads >= 10 ? Math.round(leads) : Math.round(leads * 10) / 10;
-  return `${rounded} leads/mo`;
+  return `${roundLeadCount(leads)} leads/mo`;
+}
+
+/** Parenthetical suffix for ACV preview copy, e.g. " (+2 leads/mo)". */
+export function formatLeadGainSuffix(leadGain: number | null | undefined): string {
+  if (leadGain == null || leadGain <= 0) return "";
+  const rounded = roundLeadCount(leadGain);
+  if (rounded <= 0) return "";
+  return ` (+${rounded} leads/mo)`;
 }
 
 /** Format profile actions (calls + directions + website clicks) for Plan UI. */
