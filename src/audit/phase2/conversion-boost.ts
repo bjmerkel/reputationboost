@@ -16,6 +16,11 @@ export {
   isRankOutsidePackGapId,
   RANK_OUTSIDE_PACK_PLAN_STEPS,
 };
+export {
+  auditHasReviewVelocityGap,
+  auditNeedsReviewVelocityBoost,
+  auditPackShare,
+} from "./review-velocity";
 
 const CONVERSION_GAP_ID_SET = new Set<string>(CONVERSION_GAP_IDS);
 

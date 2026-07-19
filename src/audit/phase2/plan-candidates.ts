@@ -59,12 +59,18 @@ function keywordFromGapId(gapId: string): string | null {
   if (gapId.startsWith("review-gap-")) {
     return gapId.replace("review-gap-", "");
   }
+  if (gapId.startsWith("review-velocity-")) {
+    return gapId.replace("review-velocity-", "");
+  }
   return null;
 }
 
 function gapLinksToStep(gap: GapFlag, stepNumber: number): boolean {
   if (gap.id.startsWith("relevance-gap-") && stepNumber <= 5) return true;
   if (gap.id.startsWith("review-gap-") && (stepNumber === 10 || stepNumber === 11)) {
+    return true;
+  }
+  if (gap.id.startsWith("review-velocity-") && stepNumber === 10) {
     return true;
   }
   if (gap.id === "low-photos" && stepNumber === 6) return true;
