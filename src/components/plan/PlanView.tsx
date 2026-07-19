@@ -20,6 +20,9 @@ import {
   hasPlanRefreshAfterAcvSave,
 } from "@/components/results/results-focus";
 import GoogleUpdatesPanel from "./GoogleUpdatesPanel";
+import GoogleUpdatesCompactBanner, {
+  GoogleUpdatesConflictLink,
+} from "./GoogleUpdatesCompactBanner";
 import PlanAcvNudge from "./PlanAcvNudge";
 import PlanKeywordPlaybooks from "./PlanKeywordPlaybooks";
 import PlanMaintenanceCadence from "./PlanMaintenanceCadence";
@@ -27,6 +30,10 @@ import PlanNextBestActions from "./PlanNextBestActions";
 import PlanPhaseSection from "./PlanPhaseSection";
 import PlanProgressHeader from "./PlanProgressHeader";
 import { planGbpBannerMessage, reconcileFeedbackMessage, liveSyncFeedbackMessage, planHasManualSteps } from "./plan-ux-copy";
+import {
+  buildAcvRevenuePreview,
+  resolveGoogleUpdatesPresentation,
+} from "./plan-viewport";
 import {
   markManualPlanSynced,
   readLastManualPlanSyncAt,
@@ -110,6 +117,22 @@ export default function PlanView({
     reconcilePlanNow,
   } = sharedPlanTasks ?? internalPlanTasks;
 
+  const handleManualPlanRefresh = useCallback(() => {
+    void reconcilePlanNow({ live: true })
+      .then((result) => {
+        markManualPlanSynced(audit.auditId);
+        setReconcileNotice(
+          liveSyncFeedbackMessage({
+            gbpRefreshed: result.gbpRefreshed === true,
+            completedTasks: result.completedTasks,
+            createdTasks: result.createdTasks,
+          })
+        );
+        if (result.audit) onAuditUpdated?.(result.audit);
+      })
+      .catch(() => undefined);
+  }, [audit.auditId, onAuditUpdated, reconcilePlanNow]);
+
   const actions = useMemo(
     () => ({
       approveAndPublish,
@@ -126,6 +149,7 @@ export default function PlanView({
       approveAllRoutine,
       regenerateReviewResponse,
       reconcilePlanNow,
+      manualPlanRefresh: handleManualPlanRefresh,
       refresh,
       loadingTaskId,
       reconciling,
@@ -146,6 +170,7 @@ export default function PlanView({
       approveAllRoutine,
       regenerateReviewResponse,
       reconcilePlanNow,
+      handleManualPlanRefresh,
       refresh,
       loadingTaskId,
       reconciling,
@@ -322,6 +347,24 @@ export default function PlanView({
     [gbpConnected, plan]
   );
 
+  const googleUpdates = useMemo(
+    () => resolveGoogleUpdatesPresentation(audit, tasks),
+    [audit, tasks]
+  );
+
+  const acvRevenuePreview = useMemo(
+    () =>
+      !avgCustomerValue
+        ? buildAcvRevenuePreview(audit, {
+            nextThreeProjectedMonthlyLeads: path?.nextThreeProjectedMonthlyLeads,
+            nextThreeEstimatedMonthlyLeads: path?.nextThreeEstimatedMonthlyLeads,
+            projectedMonthlyLeads: path?.projectedMonthlyLeads,
+            estimatedMonthlyLeads: path?.estimatedMonthlyLeads,
+          })
+        : null,
+    [audit, avgCustomerValue, path]
+  );
+
   if (loading && !plan) {
     return (
       <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>Loading your plan…</p>
@@ -343,14 +386,6 @@ export default function PlanView({
           {gbpBannerMessage}
         </div>
       )}
-
-      <GoogleUpdatesPanel
-        audit={audit}
-        tasks={tasks}
-        syncing={syncingGoogleUpdates}
-        onRefresh={() => void refreshGoogleUpdates()}
-        variant={variant}
-      />
 
       <PlanProgressHeader
         plan={plan}
@@ -380,7 +415,30 @@ export default function PlanView({
         <p className={`text-sm ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>{reconcileNotice}</p>
       )}
 
-      {!avgCustomerValue && <PlanAcvNudge variant={variant} />}
+      {googleUpdates.mode === "compact" && (
+        <GoogleUpdatesCompactBanner
+          pendingCount={googleUpdates.pendingCount}
+          variant={variant}
+          syncing={syncingGoogleUpdates}
+          onRefresh={() => void refreshGoogleUpdates()}
+        />
+      )}
+
+      {googleUpdates.mode === "full" && (
+        <GoogleUpdatesConflictLink
+          conflictCount={googleUpdates.conflictCount}
+          diffCount={googleUpdates.diffCount}
+          variant={variant}
+        />
+      )}
+
+      {!avgCustomerValue && (
+        <PlanAcvNudge
+          variant={variant}
+          revenuePreview={acvRevenuePreview}
+          currency={currency}
+        />
+      )}
 
       <PlanNextBestActions
         plan={plan}
@@ -427,6 +485,16 @@ export default function PlanView({
             {plan.planRationale || plan.objective}
           </p>
         </aside>
+      )}
+
+      {googleUpdates.mode === "full" && (
+        <GoogleUpdatesPanel
+          audit={audit}
+          tasks={tasks}
+          syncing={syncingGoogleUpdates}
+          onRefresh={() => void refreshGoogleUpdates()}
+          variant={variant}
+        />
       )}
 
       {error && <p className="text-sm text-[#d93025]">{error}</p>}

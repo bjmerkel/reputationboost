@@ -10,7 +10,9 @@ import {
   taskPrimaryActionLabel,
   taskUsesLocalCompletion,
   MANUAL_STEP_HELPER,
+  MANUAL_STEP_REFRESH_LABEL,
   MANUAL_STEP_SYNCING_LABEL,
+  planStepIsManual,
 } from "./plan-ux-copy";
 
 function stubTask(type: ExecutionTask["type"], status: ExecutionTask["status"] = "pending_approval"): ExecutionTask {
@@ -132,13 +134,30 @@ describe("reconcileFeedbackMessage", () => {
 });
 
 describe("manual step copy", () => {
-  it("explains automatic Google checks", () => {
-    assert.match(MANUAL_STEP_HELPER.toLowerCase(), /automatically/);
-    assert.ok(!MANUAL_STEP_HELPER.toLowerCase().includes("mark done"));
+  it("explains automatic Google checks and manual refresh button", () => {
+    assert.match(MANUAL_STEP_HELPER.toLowerCase(), /mark done/);
+    assert.match(MANUAL_STEP_REFRESH_LABEL.toLowerCase(), /mark done/);
   });
 
   it("uses a checking label while sync runs", () => {
     assert.match(MANUAL_STEP_SYNCING_LABEL.toLowerCase(), /checking google/);
+  });
+
+  it("detects manual steps without tasks", () => {
+    assert.equal(
+      planStepIsManual(stubStep({ stepNumber: 12, title: "Hours", tasks: [] })),
+      true
+    );
+    assert.equal(
+      planStepIsManual(
+        stubStep({
+          stepNumber: 3,
+          title: "Description",
+          tasks: [stubTask("gbp_description")],
+        })
+      ),
+      false
+    );
   });
 });
 

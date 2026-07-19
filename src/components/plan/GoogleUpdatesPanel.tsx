@@ -8,11 +8,11 @@ import {
   GOOGLE_UPDATES_STEP_NUMBER,
 } from "@/lib/google/gbp-update-helpers";
 
-export function countGoogleConflictTasks(tasks: ExecutionTask[]): number {
-  return tasks.filter(
-    (task) => task.type === "gbp_accept_suggestion" || task.type === "gbp_reject_suggestion"
-  ).length;
-}
+import {
+  countGoogleConflictTasks,
+} from "@/components/plan/plan-viewport";
+
+export { countGoogleConflictTasks };
 
 export default function GoogleUpdatesPanel({
   audit,

@@ -38,10 +38,17 @@ export function planStepHasPublishableTasks(step: PlanStep): boolean {
   );
 }
 
-export function planHasManualSteps(plan: Plan): boolean {
-  return plan.steps.some(
-    (step) => step.status !== "completed" && step.status !== "skipped" && step.tasks.length === 0
+export function planStepIsManual(step: PlanStep): boolean {
+  return (
+    step.stepNumber !== 0 &&
+    step.status !== "completed" &&
+    step.status !== "skipped" &&
+    step.tasks.length === 0
   );
+}
+
+export function planHasManualSteps(plan: Plan): boolean {
+  return plan.steps.some(planStepIsManual);
 }
 
 /** Top-of-plan GBP guidance — null when disconnected or nothing actionable. */
@@ -84,7 +91,9 @@ export function reconcileFeedbackMessage(options: {
 }
 
 export const MANUAL_STEP_HELPER =
-  "Complete this in Google Business Profile — we check Google automatically and update your plan.";
+  "Complete this in Google Business Profile, then click Mark done & refresh plan below.";
+
+export const MANUAL_STEP_REFRESH_LABEL = "Mark done & refresh plan";
 
 export const MANUAL_STEP_SYNCING_LABEL = "Checking Google for updates…";
 

@@ -21,6 +21,7 @@ import ReviewDisputePanel from "@/components/review-disputes/ReviewDisputePanel"
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
 import {
   MANUAL_STEP_HELPER,
+  MANUAL_STEP_REFRESH_LABEL,
   MANUAL_STEP_SYNCING_LABEL,
 } from "./plan-ux-copy";
 import { formatStepAttributionTrackingLabel } from "./plan-display";
@@ -61,7 +62,7 @@ export default function PlanStepCard({
   displayIndex?: number;
   displayTotal?: number;
   gbpConnected: boolean;
-  actions: PlanTaskActions;
+  actions: PlanTaskActions & { manualPlanRefresh?: () => void };
   attributionByTaskId: Record<string, ActionAttribution>;
   mediaCoverage?: GbpMediaCoverage;
   attributeCoverage?: GbpAttributeCoverage;
@@ -445,7 +446,27 @@ export default function PlanStepCard({
               <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
                 {MANUAL_STEP_HELPER}
               </p>
-              {actions.reconciling && (
+              {!isCompleted && gbpConnected && (
+                <button
+                  type="button"
+                  disabled={actions.reconciling}
+                  onClick={() => {
+                    if (actions.manualPlanRefresh) {
+                      actions.manualPlanRefresh();
+                      return;
+                    }
+                    void actions.reconcilePlanNow?.({ live: true });
+                  }}
+                  className={`rounded-full border px-4 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+                    isLight
+                      ? "border-[#1a73e8] bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc]"
+                      : "border-sky-400/40 bg-sky-400/10 text-sky-300 hover:bg-sky-400/20"
+                  }`}
+                >
+                  {actions.reconciling ? MANUAL_STEP_SYNCING_LABEL : MANUAL_STEP_REFRESH_LABEL}
+                </button>
+              )}
+              {actions.reconciling && isCompleted && (
                 <p className={`text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
                   {MANUAL_STEP_SYNCING_LABEL}
                 </p>
