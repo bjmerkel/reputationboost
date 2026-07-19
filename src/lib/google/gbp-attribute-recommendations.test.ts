@@ -270,7 +270,7 @@ describe("attribute plan integration", () => {
     );
   });
 
-  it("explains the reputation score impact in step context", () => {
+  it("explains outcome-first impact in step context", () => {
     const context = buildStepContext(auditWithCoverage(), {
       stepNumber: 13,
       title: "Attributes",
@@ -279,7 +279,15 @@ describe("attribute plan integration", () => {
     });
 
     assert.match(context.expectedEffect, /missing 5 of 6 available attributes/i);
-    assert.match(context.expectedEffect, /Reputation Boost Score/i);
+    assert.match(
+      context.expectedEffect,
+      /conversion|action rates|relevance/i,
+      "attributes copy should emphasize conversion outcomes, not only completeness"
+    );
+    assert.ok(
+      (context.engagementImpact ?? 0) > 0 || (context.healthScoreImpact ?? 0) > 0,
+      "step context should quantify engagement or health impact"
+    );
   });
 });
 

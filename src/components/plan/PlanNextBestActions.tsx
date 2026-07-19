@@ -12,6 +12,7 @@ export default function PlanNextBestActions({
   variant = "light",
   preferConversionSteps = false,
   softConversionBoost = false,
+  reviewVelocityBoost = false,
   calibration,
   onFocusStep,
 }: {
@@ -22,6 +23,8 @@ export default function PlanNextBestActions({
   preferConversionSteps?: boolean;
   /** Mild boost for 40–99 view listings with conversion gaps. */
   softConversionBoost?: boolean;
+  /** Outside-pack listings where review velocity blocks pack entry. */
+  reviewVelocityBoost?: boolean;
   calibration?: AttributionCalibration;
   onFocusStep?: (stepNumber: number) => void;
 }) {
@@ -29,6 +32,7 @@ export default function PlanNextBestActions({
   const nextSteps = selectNextBestPlanSteps(plan, 3, {
     preferConversionSteps,
     softConversionBoost,
+    reviewVelocityBoost,
     calibration,
   });
   if (nextSteps.length === 0) return null;
@@ -49,6 +53,8 @@ export default function PlanNextBestActions({
       <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
         {preferConversionSteps
           ? "You’re visible — convert views into calls and directions first."
+          : reviewVelocityBoost
+            ? "You’re outside the 3-Pack on key terms — close the review gap, then reinforce categories and services."
           : softConversionBoost
             ? "Early traffic with no actions yet — prioritize calls and directions while you grow views."
             : "Ordered by expected value, confidence, and effort — do these first."}

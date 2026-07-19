@@ -4,6 +4,7 @@ import { isStepSatisfied, simulateStepDriverImpact } from "./counterfactual";
 import {
   auditNeedsConversionBoost,
   auditNeedsSoftConversionBoost,
+  auditNeedsReviewVelocityBoost,
   auditPrefersConversionOverRank,
 } from "./conversion-boost";
 import {
@@ -130,6 +131,9 @@ export function planStepImpactScore(
   const effort = PLAN_STEP_EFFORT[stepNumber] ?? 4;
   score *= (11 - effort) / 10;
   score *= negativeEvidencePenalty(stepNumber, calibration);
+  if (auditNeedsReviewVelocityBoost(audit) && stepNumber === 10) {
+    score += 65;
+  }
   return score;
 }
 

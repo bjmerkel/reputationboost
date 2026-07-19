@@ -11,6 +11,7 @@ import {
   type ConversionChannelBias,
 } from "./conversion-channel";
 import { planStepPriorityScore } from "./plan-prioritization";
+import { keywordQualifiesForReviewVelocityGap } from "./review-velocity";
 
 const CONVERSION_GAP_ID_SET = new Set<string>(CONVERSION_GAP_IDS);
 
@@ -59,11 +60,24 @@ function uniqueSteps(steps: number[]): number[] {
 
 function leverPoolForKeyword(
   audit: Phase1AuditPayload,
+  keyword: string,
   inLocalPack: boolean,
   packFragile: boolean,
   options: KeywordBindingOptions = {}
 ): number[] {
-  if (!inLocalPack) return [...OUTSIDE_PACK_LEVERS];
+  if (!inLocalPack) {
+    const snapshot = audit.rankings.keywords.find(
+      (row) => row.keyword.toLowerCase() === keyword.toLowerCase()
+    );
+    const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+    if (
+      snapshot &&
+      keywordQualifiesForReviewVelocityGap(snapshot, searchKeywords)
+    ) {
+      return uniqueSteps([10, ...OUTSIDE_PACK_LEVERS]);
+    }
+    return [...OUTSIDE_PACK_LEVERS];
+  }
   if (packFragile) return [...PACK_FRAGILE_LEVERS];
   if (needsConversionBoost(audit)) {
     const channelLevers = conversionLeversForChannel(
@@ -81,9 +95,13 @@ function rationaleForKeyword(
   inLocalPack: boolean,
   packFragile: boolean,
   primaryStep: number,
-  conversionBoost: boolean
+  conversionBoost: boolean,
+  reviewVelocityBoost: boolean
 ): string {
   if (!inLocalPack) {
+    if (reviewVelocityBoost && primaryStep === 10) {
+      return `"${keyword}" is outside the 3-Pack — close the review gap with step 10 before other rank levers.`;
+    }
     return `"${keyword}" is outside the 3-Pack — start with step ${primaryStep}.`;
   }
   if (packFragile) {
@@ -136,8 +154,11 @@ export function buildKeywordActionBindings(
 
   return ordered.map((kw) => {
     const packFragile = detectPackFragility(kw).fragile;
+    const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+    const reviewVelocityBoost =
+      !kw.inLocalPack && keywordQualifiesForReviewVelocityGap(kw, searchKeywords);
     const pool = uniqueSteps(
-      leverPoolForKeyword(audit, kw.inLocalPack, packFragile, options)
+      leverPoolForKeyword(audit, kw.keyword, kw.inLocalPack, packFragile, options)
     );
     const usable = unfinished
       ? pool.filter((step) => unfinished.has(step))
@@ -160,7 +181,8 @@ export function buildKeywordActionBindings(
         kw.inLocalPack,
         packFragile,
         primaryStep,
-        conversionBoost
+        conversionBoost,
+        reviewVelocityBoost
       ),
     };
   });

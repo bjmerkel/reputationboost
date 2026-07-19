@@ -22,6 +22,11 @@ export interface NextBestPlanStepsOptions {
    * than preferConversionSteps.
    */
   softConversionBoost?: boolean;
+  /**
+   * When true (mostly outside-pack + review-velocity gap), elevate review
+   * request campaigns so step 10 can appear in the top 3.
+   */
+  reviewVelocityBoost?: boolean;
   calibration?: AttributionCalibration;
   preferredConversionChannel?: ConversionChannelBias;
 }
@@ -40,10 +45,14 @@ function conversionBoostForStep(
   step: PlanStep,
   preferConversionSteps: boolean,
   preferredConversionChannel?: ConversionChannelBias,
-  softConversionBoost = false
+  softConversionBoost = false,
+  reviewVelocityBoost = false
 ): number {
   if (softConversionBoost && isConversionPlanStep(step.stepNumber)) {
     return 1.15;
+  }
+  if (reviewVelocityBoost && step.stepNumber === 10) {
+    return 2.5;
   }
   if (!preferConversionSteps) return 1;
 
@@ -75,37 +84,72 @@ export function selectNextBestPlanSteps(
 ): PlanStep[] {
   const preferConversionSteps = options.preferConversionSteps === true;
   const softConversionBoost = options.softConversionBoost === true;
+  const reviewVelocityBoost = options.reviewVelocityBoost === true;
 
-  return plan.steps
-    .filter(
-      (step) =>
-        ACTIONABLE.has(step.status) && step.stepNumber !== 0 /* google updates shown separately */
-    )
-    .sort((a, b) => {
-      const priorityDiff =
-        planStepPriorityScore(b, {
-          calibration: options.calibration,
-          conversionBoost: conversionBoostForStep(
-            b,
-            preferConversionSteps,
-            options.preferredConversionChannel,
-            softConversionBoost
-          ),
-        }) -
-        planStepPriorityScore(a, {
-          calibration: options.calibration,
-          conversionBoost: conversionBoostForStep(
-            a,
-            preferConversionSteps,
-            options.preferredConversionChannel,
-            softConversionBoost
-          ),
-        });
-      if (priorityDiff !== 0) return priorityDiff;
+  const actionable = plan.steps.filter(
+    (step) =>
+      ACTIONABLE.has(step.status) && step.stepNumber !== 0 /* google updates shown separately */
+  );
 
-      const rankDiff = stepRank(a) - stepRank(b);
-      if (rankDiff !== 0) return rankDiff;
-      return scoreImpactTieBreak(b) - scoreImpactTieBreak(a);
-    })
-    .slice(0, limit);
+  const sorted = [...actionable].sort((a, b) => {
+    const priorityDiff =
+      planStepPriorityScore(b, {
+        calibration: options.calibration,
+        conversionBoost: conversionBoostForStep(
+          b,
+          preferConversionSteps,
+          options.preferredConversionChannel,
+          softConversionBoost,
+          reviewVelocityBoost
+        ),
+      }) -
+      planStepPriorityScore(a, {
+        calibration: options.calibration,
+        conversionBoost: conversionBoostForStep(
+          a,
+          preferConversionSteps,
+          options.preferredConversionChannel,
+          softConversionBoost,
+          reviewVelocityBoost
+        ),
+      });
+    if (priorityDiff !== 0) return priorityDiff;
+
+    const rankDiff = stepRank(a) - stepRank(b);
+    if (rankDiff !== 0) return rankDiff;
+    return scoreImpactTieBreak(b) - scoreImpactTieBreak(a);
+  });
+
+  const top = sorted.slice(0, limit);
+  if (reviewVelocityBoost && !preferConversionSteps) {
+    const step10 = sorted.find((step) => step.stepNumber === 10);
+    if (step10 && !top.some((step) => step.stepNumber === 10)) {
+      top[top.length - 1] = step10;
+      top.sort(
+        (a, b) =>
+          planStepPriorityScore(b, {
+            calibration: options.calibration,
+            conversionBoost: conversionBoostForStep(
+              b,
+              preferConversionSteps,
+              options.preferredConversionChannel,
+              softConversionBoost,
+              reviewVelocityBoost
+            ),
+          }) -
+          planStepPriorityScore(a, {
+            calibration: options.calibration,
+            conversionBoost: conversionBoostForStep(
+              a,
+              preferConversionSteps,
+              options.preferredConversionChannel,
+              softConversionBoost,
+              reviewVelocityBoost
+            ),
+          })
+      );
+    }
+  }
+
+  return top;
 }

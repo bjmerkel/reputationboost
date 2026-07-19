@@ -18,6 +18,11 @@ import {
   countUnrespondedNegativeReviews,
   isReviewResponseWorkSatisfied,
 } from "@/audit/review-engagement";
+import {
+  keywordQualifiesForReviewVelocityGap,
+  keywordReviewGap,
+  REVIEW_VELOCITY_LEADER_RATIO,
+} from "../phase2/review-velocity";
 
 const SELECTION_RATIONALE_MARKER = "\n\nWhy this step: ";
 
@@ -161,6 +166,18 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
         ? `Publish weekly CTA posts targeting keywords outside the 3-Pack (starting with "${outsidePack[0]}") to grow pack presence and click-to-call / directions.`
         : "Publish weekly Google Posts with clear call/directions CTAs so profile views turn into actions.";
     case 10: {
+      const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+      const outsideReviewVelocity = audit.rankings.keywords.filter(
+        (kw) =>
+          !kw.inLocalPack && keywordQualifiesForReviewVelocityGap(kw, searchKeywords)
+      );
+      if (outsideReviewVelocity.length > 0) {
+        const kw = outsideReviewVelocity[0]!;
+        const reviewGap = keywordReviewGap(kw);
+        const targetReviews = Math.ceil(kw.packLeaderReviewCount * REVIEW_VELOCITY_LEADER_RATIO);
+        const needed = Math.max(1, targetReviews - kw.clientReviewCount);
+        return `~${needed} more review${needed === 1 ? "" : "s"} to reach pack-entry social proof for "${kw.keyword}" (${kw.clientReviewCount} vs leader's ${kw.packLeaderReviewCount}, ${reviewGap} behind).`;
+      }
       const gaps = rankings.filter((r) => r.reviewGap > 20);
       if (gaps.length > 0) {
         return `Close review-count gaps on "${gaps[0].keyword}" (${gaps[0].reviewGap} behind the pack leader).`;

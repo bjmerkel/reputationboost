@@ -13,6 +13,12 @@ import { gapScoreComponent, gapScoreImpact } from "./score-impact";
 import { missingMediaGapCopy } from "@/lib/google/gbp-media-coverage";
 import { napDriftGapId } from "@/lib/google/nap-drift";
 import { isReviewRecordResponded, resolveReviewResponseRate } from "@/audit/review-engagement";
+import {
+  auditPackShare,
+  keywordQualifiesForReviewVelocityGap,
+  keywordReviewGap,
+  medianSearchKeywordImpressions,
+} from "./review-velocity";
 
 /** Action-rate (%) below which views are treated as under-converting. */
 export const WEAK_PROFILE_ACTION_RATE_PCT = 3;
@@ -107,6 +113,10 @@ export function detectGaps(
 ): GapFlag[] {
   const gaps: GapFlag[] = [];
 
+  const searchKeywords = audit.gbp.performance.searchKeywords ?? [];
+  const impressionMedian = medianSearchKeywordImpressions(searchKeywords);
+  const packShare = auditPackShare(audit);
+
   for (const kw of audit.rankings.keywords.filter((k) => !k.inLocalPack)) {
     gaps.push(
       gap(
@@ -117,6 +127,23 @@ export function detectGaps(
         `You are missing 70%+ of map clicks for this keyword. Position: ${kw.localPackPosition}. Pack leader has ${kw.packLeaderReviewCount} reviews.`,
         10,
         6
+      )
+    );
+  }
+
+  for (const kw of audit.rankings.keywords.filter((k) => !k.inLocalPack)) {
+    if (!keywordQualifiesForReviewVelocityGap(kw, searchKeywords)) continue;
+    const reviewGap = keywordReviewGap(kw);
+    const priority: ActionPriority = packShare < 0.5 ? "P0" : "P2";
+    gaps.push(
+      gap(
+        `review-velocity-${kw.keyword}`,
+        priority,
+        "reviews",
+        `Review velocity blocking pack entry: "${kw.keyword}"`,
+        `You have ${kw.clientReviewCount} reviews vs the pack leader's ${kw.packLeaderReviewCount} (${reviewGap} behind). Reviews are often the binding constraint before "${kw.keyword}" can enter the 3-Pack.`,
+        9,
+        7
       )
     );
   }
