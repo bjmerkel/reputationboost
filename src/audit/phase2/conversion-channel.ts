@@ -48,6 +48,21 @@ export function isHomeServiceCategory(audit: Phase1AuditPayload): boolean {
   );
 }
 
+/** Pack-presence-adjusted category targets (visible listings convert higher). */
+export function resolveEffectiveChannelTargets(
+  audit: Phase1AuditPayload
+): ConversionChannelTargets {
+  const category = resolveCategoryChannelTargets(audit);
+  const total = audit.rankings.totalKeywords || audit.rankings.keywords.length;
+  const packShare = total > 0 ? audit.rankings.keywordsInPack / total : 0;
+  const multiplier = packShare >= 0.5 ? 1.05 : 0.9;
+  return {
+    calls: category.calls * multiplier,
+    directions: category.directions * multiplier,
+    website: category.website * multiplier,
+  };
+}
+
 /**
  * Prefer conversion levers that match the weakest action channel.
  * Returns balanced when traffic is too thin or all channels look similar.
@@ -64,7 +79,7 @@ export function resolveConversionChannelBias(
   const views = audit.gbp.performance.profileViews;
   if (views < 40) return "balanced";
 
-  const targets = resolveCategoryChannelTargets(audit);
+  const targets = resolveEffectiveChannelTargets(audit);
   const calls = audit.gbp.performance.calls / views;
   const directions = audit.gbp.performance.directionRequests / views;
   const website = audit.gbp.performance.websiteClicks / views;

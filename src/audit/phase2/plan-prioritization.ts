@@ -28,7 +28,8 @@ export function stepConfidenceMultiplier(
   calibration?: AttributionCalibration
 ): number {
   const cal = calibration?.[stepNumber];
-  if (!cal || cal.sampleSize < 2) return 0.6;
+  if (!cal || cal.sampleSize < 1) return 0.6;
+  if (cal.sampleSize === 1) return 0.75;
 
   switch (resolveCalibrationConfidence(cal.sampleSize)) {
     case "high":

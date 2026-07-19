@@ -205,7 +205,7 @@ describe("blendEngagementRates", () => {
     assert.ok(blended.directions < heuristic.directions);
   });
 
-  it("keeps heuristic rates when sample size is below 2", () => {
+  it("partially blends heuristic rates when sample size is 1", () => {
     const calibration = buildAttributionCalibration([
       attribution({
         actionItemId: "gbp-step-8",
@@ -214,7 +214,10 @@ describe("blendEngagementRates", () => {
       }),
     ]);
     const heuristic = { calls: 0.02, directions: 0.025, websiteClicks: 0 };
-    assert.deepEqual(blendEngagementRates(heuristic, 8, 400, calibration), heuristic);
+    const blended = blendEngagementRates(heuristic, 8, 400, calibration);
+    assert.notDeepEqual(blended, heuristic);
+    assert.ok(blended.calls > heuristic.calls);
+    assert.ok(blended.directions > heuristic.directions);
   });
 
   it("dampens heuristic rates when observed engagement is zero with sample ≥ 2", () => {

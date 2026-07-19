@@ -518,7 +518,24 @@ export function blendEngagementRates(
   windowDays = DEFAULT_ATTRIBUTION_WINDOW_DAYS
 ): EngagementGainRates {
   const cal = calibration?.[stepNumber];
-  if (!cal || cal.sampleSize < 2) return heuristic;
+  if (!cal || cal.sampleSize < 1) return heuristic;
+  if (cal.sampleSize === 1) {
+    const monthlyFactor = 30 / Math.max(1, windowDays);
+    const denom = Math.max(views, 100);
+    const observed: EngagementGainRates = {
+      calls: Math.max(0, cal.medianCallsDelta * monthlyFactor) / denom,
+      directions: Math.max(0, cal.medianDirectionsDelta * monthlyFactor) / denom,
+      websiteClicks: Math.max(0, cal.medianWebsiteClicksDelta * monthlyFactor) / denom,
+    };
+    const weight = 0.5;
+    const blendChannel = (heuristicRate: number, observedRate: number): number =>
+      heuristicRate * (1 - weight) + observedRate * weight;
+    return {
+      calls: blendChannel(heuristic.calls, observed.calls),
+      directions: blendChannel(heuristic.directions, observed.directions),
+      websiteClicks: blendChannel(heuristic.websiteClicks, observed.websiteClicks),
+    };
+  }
 
   const monthlyFactor = 30 / Math.max(1, windowDays);
   const denom = Math.max(views, 100);

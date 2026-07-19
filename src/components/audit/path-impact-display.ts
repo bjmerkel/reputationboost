@@ -43,7 +43,7 @@ export function calibrationConfidenceLabel(
     case "medium":
       return "Calibrated from your action history (medium confidence)";
     case "low":
-      return "Early calibration from limited action history";
+      return "Early signal from your first published result";
     default:
       return null;
   }
@@ -58,9 +58,12 @@ export function isUncalibratedProjection(
 
 export function projectionEstimatePrefix(
   confidence?: "high" | "medium" | "low" | "default"
-): "Low-confidence model est." | "Model est." | "Est." {
+): "Low-confidence model est." | "Early signal est." | "Model est." | "Est." {
   if (confidence == null || confidence === "default") {
     return "Low-confidence model est.";
+  }
+  if (confidence === "low") {
+    return "Early signal est.";
   }
   return isUncalibratedProjection(confidence) ? "Model est." : "Est.";
 }

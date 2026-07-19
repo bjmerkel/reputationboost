@@ -12,6 +12,7 @@ import {
 } from "./conversion-channel";
 import { planStepPriorityScore } from "./plan-prioritization";
 import { keywordQualifiesForReviewVelocityGap } from "./review-velocity";
+import { keywordReviewOpportunityScore } from "./peer-benchmarks";
 
 const CONVERSION_GAP_ID_SET = new Set<string>(CONVERSION_GAP_IDS);
 
@@ -405,18 +406,28 @@ export function buildKeywordPlaybooks(
 
   // Prefer money keywords by revenue gap, then strategist priority, then bindings.
   const revenueOrdered = [...scores]
-    .map((card) => ({
-      keyword: card.keyword,
-      revenueGap:
+    .map((card) => {
+      const ranking = rankingByKeyword.get(card.keyword.toLowerCase());
+      const reviewGap = ranking?.reviewGap ?? 0;
+      const revenueGap =
         card.potentialAtRank1 != null && card.estimatedMonthlyRevenue != null
           ? Math.max(0, card.potentialAtRank1 - card.estimatedMonthlyRevenue)
-          : 0,
-      impressions: card.impressions ?? 0,
-      needsWork: !card.inLocalPack || Boolean(card.packFragile),
-    }))
+          : 0;
+      const impressions = card.impressions ?? 0;
+      return {
+        keyword: card.keyword,
+        revenueGap,
+        impressions,
+        reviewOpportunity: keywordReviewOpportunityScore(impressions, reviewGap),
+        needsWork: !card.inLocalPack || Boolean(card.packFragile),
+      };
+    })
     .sort((a, b) => {
       if (b.needsWork !== a.needsWork) return Number(b.needsWork) - Number(a.needsWork);
       if (b.revenueGap !== a.revenueGap) return b.revenueGap - a.revenueGap;
+      if (b.reviewOpportunity !== a.reviewOpportunity) {
+        return b.reviewOpportunity - a.reviewOpportunity;
+      }
       return b.impressions - a.impressions;
     })
     .map((row) => row.keyword);

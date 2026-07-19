@@ -13,6 +13,7 @@ import { gapScoreComponent, gapScoreImpact } from "./score-impact";
 import { missingMediaGapCopy } from "@/lib/google/gbp-media-coverage";
 import { napDriftGapId } from "@/lib/google/nap-drift";
 import { isReviewRecordResponded, resolveReviewResponseRate } from "@/audit/review-engagement";
+import { resolveWeakActionRateThresholdPct } from "./peer-benchmarks";
 import {
   auditPackShare,
   keywordQualifiesForReviewVelocityGap,
@@ -752,6 +753,7 @@ export function detectGaps(
       audit.rankings.totalKeywords || audit.rankings.keywords.length;
     const packShare =
       totalKeywords > 0 ? audit.rankings.keywordsInPack / totalKeywords : 0;
+    const weakActionRateThreshold = resolveWeakActionRateThresholdPct(audit);
 
     const pushConversionGap = (priority: ActionPriority) => {
       if (totalActions === 0) {
@@ -766,14 +768,14 @@ export function detectGaps(
             2
           )
         );
-      } else if (actionRate < WEAK_PROFILE_ACTION_RATE_PCT) {
+      } else if (actionRate < weakActionRateThreshold) {
         gaps.push(
           gap(
             "weak-profile-conversions",
             priority,
             "gbp_profile",
             "Views under-converting",
-            `${profileViews} profile views with only a ${actionRate}% action rate (calls + directions + website clicks). Aim for ${WEAK_PROFILE_ACTION_RATE_PCT}%+ so visibility turns into leads.`,
+            `${profileViews} profile views with only a ${actionRate}% action rate (calls + directions + website clicks). Aim for ${weakActionRateThreshold}%+ so visibility turns into leads.`,
             5,
             2
           )

@@ -22,8 +22,9 @@ export interface PlanStepImpactLabels {
 
 function estimateQualifier(
   confidence: PlanStep["context"]["projectionConfidence"]
-): "model est." | "est." {
+): "model est." | "early signal est." | "est." {
   if (confidence === "high" || confidence === "medium") return "est.";
+  if (confidence === "low") return "early signal est.";
   return "model est.";
 }
 
@@ -51,7 +52,7 @@ export function formatPlanStepImpactLabel(
 function revenueLabel(
   amount: number,
   currency: string,
-  qualifier: "model est." | "est."
+  qualifier: "model est." | "early signal est." | "est."
 ): string {
   return `+${formatCurrency(amount, currency)}/mo ${qualifier}`;
 }

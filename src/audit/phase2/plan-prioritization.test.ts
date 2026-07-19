@@ -159,4 +159,33 @@ describe("planStepPriorityScore", () => {
     assert.ok(planStepPriorityScore(posts, { calibration }) < planStepPriorityScore(links, { calibration }));
     assert.equal(stepConfidenceMultiplier(8, calibration), 0.85);
   });
+
+  it("uses 0.75 confidence multiplier for a single attribution sample", () => {
+    const calibration = buildAttributionCalibration([
+      {
+        id: "a1",
+        executionTaskId: "t1",
+        businessId: "b1",
+        taskType: "gbp_place_action",
+        actionItemId: "gbp-step-15",
+        title: "Links",
+        publishedAt: "2026-06-01T00:00:00.000Z",
+        windowDays: 14,
+        primaryKeyword: "plumber dallas",
+        rankBefore: null,
+        rankAfter: null,
+        rankDelta: null,
+        keywordsImproved: 0,
+        callsDelta: 20,
+        directionsDelta: 10,
+        websiteClicksDelta: 5,
+        impressionsDelta: 0,
+        estimatedRevenue: null,
+        narrative: "",
+        preliminary: false,
+        computedAt: "2026-06-15T00:00:00.000Z",
+      },
+    ]);
+    assert.equal(stepConfidenceMultiplier(15, calibration), 0.75);
+  });
 });
