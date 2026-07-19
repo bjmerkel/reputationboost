@@ -395,6 +395,7 @@ export default function AuditDashboard({
           audit={null}
           tasks={initialExecutionTasks}
           avgCustomerValue={avgCustomerValue}
+          industry={businessIndustry}
           onRunAudit={runAudit}
           onOpenReview={openBatchReview}
           onSetView={setView}
@@ -548,6 +549,7 @@ export default function AuditDashboard({
               audit={audit}
               clientId={clientId}
               businessId={businessId}
+              businessIndustry={businessIndustry}
               gbpConnected={gbpConnected}
               gbpGoogleUpdateAt={gbpGoogleUpdateAt}
               attributionByTaskId={attributionData.attributionByTaskId}
@@ -703,6 +705,7 @@ export default function AuditDashboard({
           audit={audit}
           tasks={tasks}
           avgCustomerValue={avgCustomerValue}
+          industry={businessIndustry}
           onRunAudit={runAudit}
           onOpenReview={openBatchReview}
           onSetView={setView}

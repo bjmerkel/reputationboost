@@ -38,6 +38,7 @@ import {
 import { shouldShowPlanAcvReminder } from "./plan-acv-reminder";
 import { useAcvEstimate } from "@/hooks/useAcvEstimate";
 import { parseLocationFromAddress } from "@/lib/llm/acv-estimate";
+import { resolveAcvCopyFromAudit } from "@/lib/business/acv-copy";
 import {
   markManualPlanSynced,
   readLastManualPlanSyncAt,
@@ -48,6 +49,7 @@ export default function PlanView({
   audit,
   clientId,
   businessId,
+  businessIndustry,
   gbpConnected = true,
   gbpGoogleUpdateAt,
   attributionByTaskId = {},
@@ -68,6 +70,7 @@ export default function PlanView({
   audit: FullAuditPayload;
   clientId: string;
   businessId?: string;
+  businessIndustry?: string;
   gbpConnected?: boolean;
   gbpGoogleUpdateAt?: string | null;
   attributionByTaskId?: Record<string, ActionAttribution>;
@@ -128,6 +131,10 @@ export default function PlanView({
 
   const effectiveAvgCustomerValue = savedAcv ?? avgCustomerValue ?? null;
   const acvMissing = effectiveAvgCustomerValue == null || effectiveAvgCustomerValue <= 0;
+  const acvCopy = useMemo(
+    () => resolveAcvCopyFromAudit(audit, businessIndustry),
+    [audit, businessIndustry]
+  );
   const location = useMemo(
     () => parseLocationFromAddress(audit.gbp.identity.address),
     [audit.gbp.identity.address]
@@ -473,6 +480,7 @@ export default function PlanView({
           revenuePreview={acvRevenuePreview}
           currency={currency}
           estimate={acvEstimate}
+          acvCopy={acvCopy}
           onOpenReminder={
             businessId
               ? () => {
@@ -492,6 +500,7 @@ export default function PlanView({
           estimate={acvEstimate}
           estimateLoading={acvEstimateLoading}
           revenuePreview={acvRevenuePreview}
+          acvCopy={acvCopy}
           onClose={() => {
             setAcvReminderOpen(false);
             setAcvReminderDismissed(true);

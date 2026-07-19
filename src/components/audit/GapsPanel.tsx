@@ -7,6 +7,7 @@ import {
   gapOutcomeScoreImpact,
   gapRevenueImpact,
 } from "@/audit/phase2/score-impact";
+import { resolveAcvCopyFromAudit } from "@/lib/business/acv-copy";
 
 const PRIORITY_STYLES: Record<string, string> = {
   P0: "bg-[#fce8e6] text-[#d93025]",
@@ -31,6 +32,7 @@ export default function GapsPanel({
   currency?: string;
   limit?: number;
 }) {
+  const acvCopy = resolveAcvCopyFromAudit(audit);
   const gaps = (audit.strategy?.gaps ?? [])
     .map((gap) => {
       const driver = gapDriverScoreImpact(gap, audit);
@@ -103,7 +105,7 @@ export default function GapsPanel({
 
       {!avgCustomerValue && gaps.some(({ revenue }) => revenue === 0) && (
         <p className="mt-3 text-xs text-[#80868b]">
-          Add your average job value in Settings to see revenue impact per gap.
+          {acvCopy.settingsPrompt}
         </p>
       )}
     </section>

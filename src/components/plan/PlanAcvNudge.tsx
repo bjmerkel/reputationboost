@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatCurrency } from "@/audit/attribution/roi";
 import { formatLeadGainSuffix } from "@/audit/phase3/plan-impact-label";
 import type { AcvEstimateResult } from "@/lib/llm/acv-estimate";
+import type { AcvCopy } from "@/lib/business/acv-copy";
 import type { AcvRevenuePreview } from "./plan-viewport";
 
 export default function PlanAcvNudge({
@@ -11,12 +12,14 @@ export default function PlanAcvNudge({
   revenuePreview = null,
   currency = "USD",
   estimate = null,
+  acvCopy,
   onOpenReminder,
 }: {
   variant?: "light" | "dark";
   revenuePreview?: AcvRevenuePreview | null;
   currency?: string;
   estimate?: AcvEstimateResult | null;
+  acvCopy: AcvCopy;
   onOpenReminder?: () => void;
 }) {
   const isLight = variant === "light";
@@ -30,11 +33,11 @@ export default function PlanAcvNudge({
       }`}
     >
       <p className={`font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
-        Add your average job value to turn leads into $/mo
+        {acvCopy.planNudgeTitle}
       </p>
       {revenuePreview?.projectedMonthlyRevenue != null && revenuePreview.projectedMonthlyRevenue > 0 ? (
         <p className={`mt-1 text-xs ${isLight ? "text-[#137333]" : "text-emerald-300"}`}>
-          At {formatCurrency(revenuePreview.defaultAcv, currency)} per customer
+          At {formatCurrency(revenuePreview.defaultAcv, currency)} {acvCopy.perUnit}
           {estimate?.source === "llm" ? " (estimated for your market)" : ""}, your top 3 actions
           could drive about{" "}
           <span className="font-semibold">
@@ -49,8 +52,7 @@ export default function PlanAcvNudge({
         </p>
       ) : (
         <p className={`mt-1 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-          Steps already show estimated leads/mo. Set average customer value to convert those into
-          dollar estimates.
+          Steps already show estimated leads/mo. {acvCopy.planNudgeBody}
         </p>
       )}
       <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -62,7 +64,7 @@ export default function PlanAcvNudge({
               isLight ? "text-[#1a73e8] hover:underline" : "text-sky-300 hover:underline"
             }`}
           >
-            Add average job value →
+            {acvCopy.addAction}
           </button>
         ) : null}
         <Link
@@ -71,7 +73,7 @@ export default function PlanAcvNudge({
             isLight ? "text-[#1a73e8] hover:underline" : "text-sky-300 hover:underline"
           }`}
         >
-          {onOpenReminder ? "Or open Settings" : "Set average job value in Settings →"}
+          {onOpenReminder ? "Or open Settings" : acvCopy.settingsLink}
         </Link>
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RankedGbpLocation } from "@/lib/google/gbp-onboarding-match";
 import GoogleBusinessAutocomplete, {
@@ -8,6 +8,7 @@ import GoogleBusinessAutocomplete, {
 } from "@/components/GoogleBusinessAutocomplete";
 import { KeywordSuggestions } from "@/components/KeywordSuggestions";
 import RankingMap from "@/components/platform/RankingMap";
+import { resolveAcvCopy } from "@/lib/business/acv-copy";
 
 interface OnboardingWizardProps {
   step: "business" | "connect" | "location";
@@ -51,6 +52,7 @@ export default function OnboardingWizard({
   const [keywords, setKeywords] = useState<string[]>([]);
   const [avgCustomerValue, setAvgCustomerValue] = useState("");
   const [isServiceAreaBusiness, setIsServiceAreaBusiness] = useState(false);
+  const acvCopy = useMemo(() => resolveAcvCopy(industry), [industry]);
 
   function handlePlaceSelect(place: BusinessPlaceSelection) {
     setPlaceSelected(true);
@@ -314,7 +316,7 @@ export default function OnboardingWizard({
                 <span
                   className={`text-sm font-medium ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}
                 >
-                  Average customer value{" "}
+                  {acvCopy.fieldLabel}{" "}
                   <span className={isLight ? "text-[#80868b]" : "text-slate-500"}>(optional)</span>
                 </span>
                 <div className="relative mt-1.5">

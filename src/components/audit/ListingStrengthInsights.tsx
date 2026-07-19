@@ -14,6 +14,7 @@ import GapsPanel from "@/components/audit/GapsPanel";
 import KeywordScoreCards from "@/components/audit/KeywordScoreCards";
 import PathToHealthyPanel from "@/components/audit/PathToHealthyPanel";
 import ProfileCommandCenter from "@/components/audit/ProfileCommandCenter";
+import { resolveAcvCopyFromAudit } from "@/lib/business/acv-copy";
 
 export default function ListingStrengthInsights({
   audit,
@@ -86,12 +87,13 @@ export default function ListingStrengthInsights({
     () => computeKeywordScores(audit, { avgCustomerValue, currency }),
     [audit, avgCustomerValue, currency]
   );
+  const acvCopy = useMemo(() => resolveAcvCopyFromAudit(audit), [audit]);
 
   if (!path) return null;
 
   return (
     <div className="space-y-4">
-      <PathToHealthyPanel path={path} currency={currency} />
+      <PathToHealthyPanel path={path} currency={currency} acvCopy={acvCopy} />
       <ProfileCommandCenter
         audit={audit}
         clientId={clientId}
@@ -114,9 +116,7 @@ export default function ListingStrengthInsights({
         />
       )}
       {!avgCustomerValue && keywordScores.some((k) => k.impressions != null) && (
-        <p className="text-xs text-[#80868b]">
-          Add your average job value in Settings to see revenue estimates per keyword.
-        </p>
+        <p className="text-xs text-[#80868b]">{acvCopy.settingsPrompt}</p>
       )}
     </div>
   );

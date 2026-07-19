@@ -47,6 +47,7 @@ interface ProductPlaybookWizardProps {
   audit: FullAuditPayload | null;
   tasks: ExecutionTask[];
   avgCustomerValue?: number | null;
+  industry?: string | null;
   onRunAudit: () => void;
   onOpenReview: () => void;
   onSetView: (view: AuditView) => void;
@@ -60,6 +61,7 @@ export default function ProductPlaybookWizard({
   audit,
   tasks,
   avgCustomerValue,
+  industry,
   onRunAudit,
   onOpenReview,
   onSetView,
@@ -85,9 +87,10 @@ export default function ProductPlaybookWizard({
         audit,
         tasks,
         avgCustomerValue,
+        industry,
         dismissedTips,
       }),
-    [gbpConnected, businessId, audit, tasks, avgCustomerValue, dismissedTips]
+    [gbpConnected, businessId, audit, tasks, avgCustomerValue, industry, dismissedTips]
   );
 
   useEffect(() => {

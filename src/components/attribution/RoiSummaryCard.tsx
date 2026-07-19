@@ -3,13 +3,16 @@
 import Link from "next/link";
 import type { AttributionSummary } from "@/audit/types/timeseries";
 import { buildRoiHeadline, formatCurrency } from "@/audit/attribution/roi";
+import { resolveAcvCopy, type AcvCopy } from "@/lib/business/acv-copy";
 
 export default function RoiSummaryCard({
   summary,
   loading = false,
+  acvCopy = resolveAcvCopy(),
 }: {
   summary: AttributionSummary | null;
   loading?: boolean;
+  acvCopy?: AcvCopy;
 }) {
   if (loading) {
     return (
@@ -30,14 +33,12 @@ export default function RoiSummaryCard({
         <p className="text-xs font-semibold uppercase tracking-widest text-[#1a73e8]">
           Estimated value
         </p>
-        <p className="mt-2 text-sm text-[#5f6368]">
-          Add your average customer value to see dollar estimates for your actions.
-        </p>
+        <p className="mt-2 text-sm text-[#5f6368]">{acvCopy.roiPrompt}</p>
         <Link
           href="/platform/settings"
           className="mt-3 inline-block text-sm font-semibold text-[#1a73e8] hover:underline"
         >
-          Set customer value in Settings →
+          {acvCopy.roiSettingsLink}
         </Link>
       </section>
     );

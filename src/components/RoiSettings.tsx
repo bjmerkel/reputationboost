@@ -2,20 +2,24 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { formatCurrency } from "@/audit/attribution/roi";
 import { markPlanRefreshAfterAcvSave } from "@/components/results/results-focus";
+import { resolveAcvCopy } from "@/lib/business/acv-copy";
 
 export default function RoiSettings({
   businessId,
   initialValue,
   currency = "USD",
+  industry,
 }: {
   businessId: string;
   initialValue: number | null;
   currency?: string;
+  industry?: string | null;
 }) {
   const router = useRouter();
+  const acvCopy = useMemo(() => resolveAcvCopy(industry), [industry]);
   const [value, setValue] = useState(initialValue != null ? String(initialValue) : "");
   const [savedValue, setSavedValue] = useState(initialValue);
   const [loading, setLoading] = useState(false);
@@ -67,7 +71,7 @@ export default function RoiSettings({
 
       <form onSubmit={handleSave} className="mt-4 space-y-4">
         <label className="block">
-          <span className="text-sm font-medium text-[#3c4043]">Average customer value</span>
+          <span className="text-sm font-medium text-[#3c4043]">{acvCopy.fieldLabel}</span>
           <div className="relative mt-1.5">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#5f6368]">
               $
@@ -85,7 +89,7 @@ export default function RoiSettings({
 
         {savedValue != null && savedValue > 0 && (
           <p className="text-sm text-[#137333]">
-            Currently using {formatCurrency(savedValue, currency)} per converted customer.
+            Currently using {formatCurrency(savedValue, currency)} {acvCopy.perConvertedUnit}.
           </p>
         )}
 
@@ -111,7 +115,7 @@ export default function RoiSettings({
           disabled={loading}
           className="btn-primary rounded-full px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {loading ? "Saving…" : "Save customer value"}
+          {loading ? "Saving…" : acvCopy.saveButton}
         </button>
       </form>
     </div>
