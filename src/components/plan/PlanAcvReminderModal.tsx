@@ -134,7 +134,6 @@ export default function PlanAcvReminderModal({
           <div className="mt-4 rounded-lg border border-[#dadce0] bg-[#f8f9fa] px-3 py-2.5 text-sm text-[#3c4043]">
             <p className="font-medium text-[#202124]">
               Suggested: {formatCurrency(estimate.avgCustomerValue, currency)}
-              {estimate.source === "llm" ? " (AI estimate)" : " (category default)"}
             </p>
             <p className="mt-1 text-xs text-[#5f6368]">{estimate.rationale}</p>
           </div>
