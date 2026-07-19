@@ -178,6 +178,40 @@ export function isRetiredGbpPlanStep(stepNumber: number, title?: string): boolea
   return false;
 }
 
+function retiredTitleInText(text: string): boolean {
+  for (const retired of RETIRED_GBP_PLAN_STEP_TITLES) {
+    if (text.includes(retired)) return true;
+  }
+  return false;
+}
+
+/** Legacy execution tasks for retired checklist steps (Messaging, Booking Feature, etc.). */
+export function isRetiredGbpPlanTask(task: {
+  title?: string;
+  description?: string;
+  draftContent?: string;
+  payload?: Record<string, unknown>;
+}): boolean {
+  const stepTitle =
+    typeof task.payload?.gbpStepTitle === "string" ? task.payload.gbpStepTitle : "";
+  if (stepTitle && RETIRED_GBP_PLAN_STEP_TITLES.has(stepTitle)) return true;
+
+  const title = task.title ?? "";
+  if (retiredTitleInText(title)) return true;
+
+  const body = `${task.description ?? ""}\n${task.draftContent ?? ""}`;
+  if (body.includes("Turn on GBP chat/messages")) return true;
+  if (body.includes("Enable messaging with fast response times")) return true;
+
+  return false;
+}
+
+export function filterActiveGbpPlanTasks<T extends { title?: string; description?: string; draftContent?: string; payload?: Record<string, unknown> }>(
+  tasks: T[]
+): T[] {
+  return tasks.filter((task) => !isRetiredGbpPlanTask(task));
+}
+
 /** Gap-driven steps for API-managed alerts and place action links (replacing Messaging / Booking Feature). */
 export const NOTIFICATIONS_PLAN_STEP = 14;
 export const PLACE_ACTIONS_PLAN_STEP = 15;

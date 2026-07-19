@@ -31,6 +31,7 @@ import {
 } from "@/lib/google/gbp-attribute-recommendations";
 import {
   buildTemplateGbpPlan,
+  isRetiredGbpPlanStep,
   NOTIFICATIONS_PLAN_STEP,
   PLACE_ACTIONS_PLAN_STEP,
   planStepImpactScore,
@@ -835,6 +836,7 @@ export function tasksFromGbpPlan(
 
   const tasks: ExecutionTask[] = [];
   for (const step of plan.steps) {
+    if (isRetiredGbpPlanStep(step.stepNumber, step.title)) continue;
     const stepTasks = tasksFromGbpPlanStep(audit, step, content);
     const priority = resolveStepActionPriority(audit, step, options);
     for (const task of stepTasks) {
