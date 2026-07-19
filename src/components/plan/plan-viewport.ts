@@ -56,6 +56,7 @@ export function defaultAcvPreviewHint(audit: FullAuditPayload): number {
 
 export interface AcvRevenuePreview {
   defaultAcv: number;
+  projectedMonthlyLeads?: number | null;
   projectedMonthlyRevenue: number | null;
   leadGain: number | null;
 }
@@ -68,6 +69,7 @@ export function buildAcvRevenuePreview(
     nextThreeEstimatedMonthlyLeads?: number | null;
     projectedMonthlyLeads?: number | null;
     estimatedMonthlyLeads?: number | null;
+    estimatedAcv?: number | null;
   }
 ): AcvRevenuePreview | null {
   const projected =
@@ -81,12 +83,16 @@ export function buildAcvRevenuePreview(
 
   if (projected == null || projected <= 0) return null;
 
-  const defaultAcv = defaultAcvPreviewHint(audit);
+  const defaultAcv =
+    options?.estimatedAcv != null && options.estimatedAcv > 0
+      ? options.estimatedAcv
+      : defaultAcvPreviewHint(audit);
   const leadGain =
     estimated != null && projected > estimated ? projected - estimated : projected;
 
   return {
     defaultAcv,
+    projectedMonthlyLeads: projected,
     projectedMonthlyRevenue: Math.round(projected * defaultAcv),
     leadGain: leadGain > 0 ? leadGain : null,
   };
