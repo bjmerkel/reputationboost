@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { formatCurrency } from "@/audit/attribution/roi";
+import { formatLeadGainSuffix } from "@/audit/phase3/plan-impact-label";
 import { markPlanRefreshAfterAcvSave } from "@/components/results/results-focus";
 import type { AcvEstimateResult } from "@/lib/llm/acv-estimate";
 import type { AcvRevenuePreview } from "./plan-viewport";
@@ -141,7 +142,7 @@ export default function PlanAcvReminderModal({
             At {formatCurrency(previewAcv, currency)} per customer, your top actions could drive
             about{" "}
             <span className="font-semibold">{formatCurrency(projectedRevenue, currency)}/mo</span>
-            {revenuePreview?.leadGain != null ? ` (+${revenuePreview.leadGain} leads/mo)` : ""}.
+            {formatLeadGainSuffix(revenuePreview?.leadGain)}.
           </p>
         ) : null}
 

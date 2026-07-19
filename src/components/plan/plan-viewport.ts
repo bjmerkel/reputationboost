@@ -1,8 +1,11 @@
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
+import { roundLeadCount } from "@/audit/phase3/plan-impact-label";
 import {
   getGoogleDiffFields,
   getGooglePendingFields,
 } from "@/lib/google/gbp-update-helpers";
+
+const MIN_LEAD_GAIN = 0.05;
 
 export function countGoogleConflictTasks(tasks: ExecutionTask[]): number {
   return tasks.filter(
@@ -87,13 +90,18 @@ export function buildAcvRevenuePreview(
     options?.estimatedAcv != null && options.estimatedAcv > 0
       ? options.estimatedAcv
       : defaultAcvPreviewHint(audit);
-  const leadGain =
-    estimated != null && projected > estimated ? projected - estimated : projected;
+  const rawLeadGain =
+    estimated != null && projected > estimated + MIN_LEAD_GAIN
+      ? projected - estimated
+      : estimated == null
+        ? projected
+        : null;
+  const leadGain = rawLeadGain != null ? roundLeadCount(rawLeadGain) : null;
 
   return {
     defaultAcv,
     projectedMonthlyLeads: projected,
     projectedMonthlyRevenue: Math.round(projected * defaultAcv),
-    leadGain: leadGain > 0 ? leadGain : null,
+    leadGain: leadGain != null && leadGain > 0 ? leadGain : null,
   };
 }
