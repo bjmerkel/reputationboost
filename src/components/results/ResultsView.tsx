@@ -8,6 +8,7 @@ import { buildRollingEngagementHeadline } from "@/audit/engagement-period";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { buildPlan } from "@/audit/phase3/build-plan";
 import { buildPlanTimeline } from "@/audit/phase3/build-timeline";
+import { resolveAcvCopyFromAudit } from "@/lib/business/acv-copy";
 import ProfilePerformanceTrends from "@/components/audit/ProfilePerformanceTrends";
 import EngagementPeriodCard from "@/components/engagement/EngagementPeriodCard";
 import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
@@ -59,6 +60,7 @@ export default function ResultsView({
   );
 
   const rollingHeadline = engagement ? buildRollingEngagementHeadline(engagement) : null;
+  const acvCopy = useMemo(() => resolveAcvCopyFromAudit(audit), [audit]);
 
   return (
     <div className="space-y-6">
@@ -70,7 +72,7 @@ export default function ResultsView({
         headline={rollingHeadline}
       />
 
-      <RoiSummaryCard summary={summary} loading={attributionLoading} />
+      <RoiSummaryCard summary={summary} loading={attributionLoading} acvCopy={acvCopy} />
 
       <ProfilePerformanceTrends
         clientId={clientId}

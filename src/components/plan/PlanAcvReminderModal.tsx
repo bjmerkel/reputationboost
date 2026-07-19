@@ -7,6 +7,7 @@ import { formatCurrency } from "@/audit/attribution/roi";
 import { formatLeadGainSuffix } from "@/audit/phase3/plan-impact-label";
 import { markPlanRefreshAfterAcvSave } from "@/components/results/results-focus";
 import type { AcvEstimateResult } from "@/lib/llm/acv-estimate";
+import type { AcvCopy } from "@/lib/business/acv-copy";
 import type { AcvRevenuePreview } from "./plan-viewport";
 import {
   dismissPlanAcvReminderForSession,
@@ -20,6 +21,7 @@ export default function PlanAcvReminderModal({
   estimate,
   estimateLoading = false,
   revenuePreview = null,
+  acvCopy,
   onClose,
   onSaved,
 }: {
@@ -29,6 +31,7 @@ export default function PlanAcvReminderModal({
   estimate: AcvEstimateResult | null;
   estimateLoading?: boolean;
   revenuePreview?: AcvRevenuePreview | null;
+  acvCopy: AcvCopy;
   onClose: () => void;
   onSaved?: (value: number) => void;
 }) {
@@ -108,7 +111,7 @@ export default function PlanAcvReminderModal({
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id="plan-acv-reminder-title" className="text-lg font-bold text-[#202124]">
-            Add your average job value to turn leads into $/mo
+            {acvCopy.planNudgeTitle}
           </h2>
           <button
             type="button"
@@ -121,8 +124,8 @@ export default function PlanAcvReminderModal({
         </div>
 
         <p className="mt-2 text-sm text-[#5f6368]">
-          Plan steps already show estimated leads per month. Set your typical job or customer value
-          so we can rank actions by revenue impact.
+          Plan steps already show estimated leads per month. Set your typical {acvCopy.shortLabel} so
+          we can rank actions by revenue impact.
         </p>
 
         {estimateLoading ? (
@@ -139,7 +142,7 @@ export default function PlanAcvReminderModal({
 
         {projectedRevenue != null && projectedRevenue > 0 && previewAcv != null ? (
           <p className="mt-3 text-sm text-[#137333]">
-            At {formatCurrency(previewAcv, currency)} per customer, your top actions could drive
+            At {formatCurrency(previewAcv, currency)} {acvCopy.perUnit}, your top actions could drive
             about{" "}
             <span className="font-semibold">{formatCurrency(projectedRevenue, currency)}/mo</span>
             {formatLeadGainSuffix(revenuePreview?.leadGain)}.
@@ -147,7 +150,7 @@ export default function PlanAcvReminderModal({
         ) : null}
 
         <label className="mt-4 block">
-          <span className="text-sm font-medium text-[#3c4043]">Average customer value</span>
+          <span className="text-sm font-medium text-[#3c4043]">{acvCopy.fieldLabel}</span>
           <div className="relative mt-1.5">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#5f6368]">
               $

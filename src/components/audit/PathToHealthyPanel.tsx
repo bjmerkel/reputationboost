@@ -7,13 +7,17 @@ import {
   formatPathStepImpact,
   optimizationModeHint,
 } from "./path-impact-display";
+import type { AcvCopy } from "@/lib/business/acv-copy";
+import { resolveAcvCopy } from "@/lib/business/acv-copy";
 
 export default function PathToHealthyPanel({
   path,
   currency = "USD",
+  acvCopy = resolveAcvCopy(),
 }: {
   path: PathToHealthy;
   currency?: string;
+  acvCopy?: AcvCopy;
 }) {
   if (path.alreadyHealthy) {
     return (
@@ -129,9 +133,7 @@ export default function PathToHealthyPanel({
       )}
 
       {!hasMonthlyRevenue && path.steps.some((s) => (s.revenueImpact ?? 0) > 0) && (
-        <p className="mt-2 text-xs text-[#80868b]">
-          Add your average job value in Settings to see monthly revenue projections.
-        </p>
+        <p className="mt-2 text-xs text-[#80868b]">{acvCopy.settingsPrompt}</p>
       )}
     </section>
   );

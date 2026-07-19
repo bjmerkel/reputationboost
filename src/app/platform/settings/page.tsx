@@ -102,6 +102,7 @@ export default async function SettingsPage() {
             businessId={business.businessId ?? record?.id ?? ""}
             initialValue={record?.avg_customer_value != null ? Number(record.avg_customer_value) : null}
             currency={record?.avg_customer_value_currency ?? "USD"}
+            industry={business.industry}
           />
 
           {isConnected && business.businessId ? (

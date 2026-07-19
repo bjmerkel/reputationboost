@@ -159,4 +159,15 @@ describe("buildProductPlaybook", () => {
     assert.equal(workPhotos?.planStepNumber, 6);
     assert.equal(workPhotos?.status, "pending");
   });
+
+  it("uses category-appropriate ROI playbook title", () => {
+    const playbook = buildProductPlaybook({
+      gbpConnected: true,
+      audit: null,
+      tasks: [],
+      industry: "Dog groomer",
+    });
+    const roiItem = playbook.items.find((item) => item.id === "set-roi");
+    assert.match(roiItem?.title ?? "", /visit value/i);
+  });
 });

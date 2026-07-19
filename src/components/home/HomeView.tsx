@@ -14,6 +14,7 @@ import HomeApprovalCTA from "@/components/home/HomeApprovalCTA";
 import HomeHealthSummary from "@/components/home/HomeHealthSummary";
 import HomeReviewInbox from "@/components/home/HomeReviewInbox";
 import { getPendingApprovalCounts, planApprovalBadgeCount } from "@/lib/execution/pending-counts";
+import { resolveAcvCopyFromAudit } from "@/lib/business/acv-copy";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 
 export default function HomeView({
@@ -74,6 +75,7 @@ export default function HomeView({
     () => listUntrackedGbpSearchTerms(audit),
     [audit]
   );
+  const acvCopy = useMemo(() => resolveAcvCopyFromAudit(audit), [audit]);
   return (
     <div className="space-y-6 min-w-0">
       <HomeHealthSummary
@@ -111,7 +113,7 @@ export default function HomeView({
         onNavigateToPlan={() => onNavigateToPlan?.(11)}
       />
 
-      <RoiSummaryCard summary={summary} loading={attributionLoading} />
+      <RoiSummaryCard summary={summary} loading={attributionLoading} acvCopy={acvCopy} />
 
       <ListingStrengthInsights
         audit={audit}

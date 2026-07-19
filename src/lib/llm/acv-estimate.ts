@@ -1,5 +1,6 @@
 import type { FullAuditPayload } from "@/audit/types";
 import { defaultAcvPreviewHint } from "@/components/plan/plan-viewport";
+import { acvEstimateRationale, resolveAcvCopy } from "@/lib/business/acv-copy";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
 
@@ -61,12 +62,13 @@ export function buildAcvEstimateContext(
 }
 
 function templateAcvEstimate(context: AcvEstimateContext): AcvEstimateResult {
-  const category = (context.primaryCategory || context.businessName || "").toLowerCase();
+  const category = context.primaryCategory || context.businessName || "local business";
   const auditLike = {
     gbp: { identity: { primaryCategory: context.primaryCategory } },
     clientName: context.businessName,
   } as FullAuditPayload;
   const avgCustomerValue = defaultAcvPreviewHint(auditLike);
+  const copy = resolveAcvCopy(context.primaryCategory || context.industry);
 
   const locationLabel =
     context.city && context.state
@@ -78,7 +80,7 @@ function templateAcvEstimate(context: AcvEstimateContext): AcvEstimateResult {
   return {
     avgCustomerValue,
     confidence: "low",
-    rationale: `Typical ${category || "local business"} jobs${locationLabel} often run around $${avgCustomerValue}.`,
+    rationale: acvEstimateRationale(copy, category, locationLabel, avgCustomerValue),
     source: "template",
   };
 }

@@ -8,6 +8,7 @@ import {
   AT_WORK_PHOTO_GAP_TITLE,
   AT_WORK_PHOTO_PLAN_STEP,
 } from "@/lib/google/gbp-media-coverage";
+import { resolveAcvCopy } from "@/lib/business/acv-copy";
 
 export type PlaybookStage = "setup" | "launch" | "execute" | "grow" | "maintain";
 
@@ -54,6 +55,7 @@ export interface PlaybookInput {
   audit: FullAuditPayload | null;
   tasks: ExecutionTask[];
   avgCustomerValue?: number | null;
+  industry?: string | null;
   dismissedTips?: string[];
 }
 
@@ -166,7 +168,9 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
   items.push({
     id: "set-roi",
     stage: "setup",
-    title: "Set your average customer value",
+    title: resolveAcvCopy(
+      input.industry ?? input.audit?.gbp.identity.primaryCategory
+    ).playbookTitle,
     description: "Helps estimate revenue impact for each improvement on your plan.",
     why: "ROI estimates make it easier to prioritize high-value actions.",
     priority: PRIORITY.medium,
