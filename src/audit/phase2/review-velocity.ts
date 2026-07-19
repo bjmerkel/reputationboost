@@ -17,9 +17,11 @@ export function keywordFromReviewVelocityGapId(gapId: string): string | null {
 }
 
 export function medianSearchKeywordImpressions(
-  searchKeywords: Array<{ impressions: number }>
+  searchKeywords: Array<{ impressions: number | null }>
 ): number {
-  const values = searchKeywords.map((row) => row.impressions).filter((value) => value > 0);
+  const values = searchKeywords
+    .map((row) => row.impressions)
+    .filter((value): value is number => value != null && value > 0);
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
@@ -34,7 +36,7 @@ export function keywordReviewGap(kw: KeywordRankSnapshot): number {
 
 export function keywordImpressions(
   keyword: string,
-  searchKeywords: Array<{ keyword: string; impressions: number }>
+  searchKeywords: Array<{ keyword: string; impressions: number | null }>
 ): number {
   const row = searchKeywords.find(
     (item) => item.keyword.toLowerCase() === keyword.toLowerCase()
@@ -48,7 +50,7 @@ export function keywordImpressions(
  */
 export function keywordQualifiesForReviewVelocityGap(
   kw: KeywordRankSnapshot,
-  searchKeywords: Array<{ keyword: string; impressions: number }>
+  searchKeywords: Array<{ keyword: string; impressions: number | null }>
 ): boolean {
   if (kw.inLocalPack) return false;
   if (kw.packLeaderReviewCount <= 0) return false;
