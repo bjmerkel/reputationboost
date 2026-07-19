@@ -296,6 +296,22 @@ describe("negativeEvidencePenalty", () => {
     assert.equal(negativeEvidencePenalty(8, calibration), 0.3);
     assert.equal(negativeEvidencePenalty(15, calibration), 1);
   });
+
+  it("applies mild demotion when a single publish shows zero engagement", () => {
+    const calibration = buildAttributionCalibration([
+      attribution({
+        actionItemId: "gbp-step-8",
+        callsDelta: 0,
+        directionsDelta: 0,
+        websiteClicksDelta: 0,
+        rankBefore: 5,
+        rankAfter: 6,
+        rankDelta: 1,
+      }),
+    ]);
+
+    assert.equal(negativeEvidencePenalty(8, calibration), 0.7);
+  });
 });
 
 describe("mergeCalibrations", () => {
@@ -344,6 +360,53 @@ describe("mergeCalibrations", () => {
     assert.equal(merged?.[8]?.medianCallsDelta, 0);
     assert.equal(merged?.[8]?.medianDirectionsDelta, 0);
     assert.equal(merged?.[8]?.medianWebsiteClicksDelta, 0);
+  });
+
+  it("blends business n=1 calibration with global priors", () => {
+    const merged = mergeCalibrations(
+      {
+        15: {
+          sampleSize: 1,
+          medianRankDelta: null,
+          medianCallsDelta: 4,
+          medianDirectionsDelta: 0,
+          medianWebsiteClicksDelta: 0,
+          estimatedScoreImpact: 3,
+          projectionSampleSize: 0,
+          medianProjectedDriverImpact: null,
+          medianObservedDriverImpact: null,
+          medianObservedOutcomeImpact: null,
+          medianObservedRevenueGain: null,
+          medianProjectedRevenueGain: null,
+          revenueProjectionSampleSize: 0,
+          revenueProjectionScale: 1,
+          confidence: "low",
+        },
+      },
+      {
+        15: {
+          sampleSize: 20,
+          medianRankDelta: 2,
+          medianCallsDelta: 8,
+          medianDirectionsDelta: 6,
+          medianWebsiteClicksDelta: 2,
+          estimatedScoreImpact: 5,
+          projectionSampleSize: 0,
+          medianProjectedDriverImpact: null,
+          medianObservedDriverImpact: null,
+          medianObservedOutcomeImpact: null,
+          medianObservedRevenueGain: null,
+          medianProjectedRevenueGain: null,
+          revenueProjectionSampleSize: 0,
+          revenueProjectionScale: 1,
+          confidence: "high",
+        },
+      }
+    );
+
+    assert.equal(merged?.[15]?.sampleSize, 1);
+    assert.equal(merged?.[15]?.medianCallsDelta, 4);
+    assert.equal(merged?.[15]?.confidence, "low");
   });
 });
 

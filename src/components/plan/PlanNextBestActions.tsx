@@ -4,6 +4,7 @@ import type { Plan } from "@/audit/types";
 import { formatPlanStepImpactLabel } from "@/audit/phase3/plan-impact-label";
 import { selectNextBestPlanSteps } from "@/audit/phase3/plan-next-actions";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
+import { trackPlanEvent } from "@/lib/analytics/plan-events";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 
 export default function PlanNextBestActions({
@@ -15,6 +16,8 @@ export default function PlanNextBestActions({
   reviewVelocityBoost = false,
   calibration,
   onFocusStep,
+  auditId,
+  businessId,
 }: {
   plan: Plan;
   currency?: string;
@@ -27,6 +30,8 @@ export default function PlanNextBestActions({
   reviewVelocityBoost?: boolean;
   calibration?: AttributionCalibration;
   onFocusStep?: (stepNumber: number) => void;
+  auditId?: string;
+  businessId?: string;
 }) {
   const isLight = variant === "light";
   const nextSteps = selectNextBestPlanSteps(plan, 3, {
@@ -67,6 +72,13 @@ export default function PlanNextBestActions({
               <button
                 type="button"
                 onClick={() => {
+                  trackPlanEvent({
+                    name: "plan_nba_click",
+                    stepNumber: step.stepNumber,
+                    auditId: auditId ?? null,
+                    businessId: businessId ?? null,
+                    meta: { rank: index + 1 },
+                  });
                   onFocusStep?.(step.stepNumber);
                   const el = document.getElementById(planScrollElementId(step.stepNumber));
                   el?.scrollIntoView({ behavior: "smooth", block: "start" });

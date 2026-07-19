@@ -5,6 +5,7 @@ import type { FullAuditPayload, Plan } from "@/audit/types";
 import { formatCurrency } from "@/audit/attribution/roi";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { buildKeywordPlaybooks } from "@/audit/phase2/keyword-action-binding";
+import { trackPlanEvent } from "@/lib/analytics/plan-events";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 
 export default function PlanKeywordPlaybooks({
@@ -15,6 +16,8 @@ export default function PlanKeywordPlaybooks({
   currency = "USD",
   variant = "light",
   onFocusKeyword,
+  auditId,
+  businessId,
 }: {
   audit: FullAuditPayload;
   plan: Plan;
@@ -23,6 +26,8 @@ export default function PlanKeywordPlaybooks({
   currency?: string;
   variant?: "light" | "dark";
   onFocusKeyword?: (keyword: string, stepNumber?: number) => void;
+  auditId?: string;
+  businessId?: string;
 }) {
   const isLight = variant === "light";
   const [expandedKeyword, setExpandedKeyword] = useState<string | null>(null);
@@ -135,6 +140,13 @@ export default function PlanKeywordPlaybooks({
                   <button
                     type="button"
                     onClick={() => {
+                      trackPlanEvent({
+                        name: "plan_keyword_playbook_cta",
+                        keyword: playbook.keyword,
+                        stepNumber: playbook.primaryStep,
+                        auditId: auditId ?? null,
+                        businessId: businessId ?? null,
+                      });
                       onFocusKeyword?.(playbook.keyword, playbook.primaryStep!);
                       const el = document.getElementById(
                         planScrollElementId(playbook.primaryStep!)

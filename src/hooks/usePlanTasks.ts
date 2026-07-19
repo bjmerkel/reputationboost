@@ -16,6 +16,7 @@ import {
   reconcilePlan,
 } from "@/lib/execution/client-actions";
 import { executionTasksEqual } from "@/lib/execution/task-equality";
+import { trackPlanEvent } from "@/lib/analytics/plan-events";
 
 interface UsePlanTasksOptions {
   clientId: string;
@@ -267,6 +268,16 @@ export function usePlanTasks({
       const result = await reconcilePlan(clientId, auditId, options);
       if (result.planReconciledAt) {
         setPlanReconciledAt(result.planReconciledAt);
+      }
+      if (options?.live) {
+        trackPlanEvent({
+          name: "plan_reconcile_live",
+          auditId,
+          meta: {
+            completedTasks: result.completedTasks ?? 0,
+            createdTasks: result.createdTasks ?? 0,
+          },
+        });
       }
       await refresh();
       return result;

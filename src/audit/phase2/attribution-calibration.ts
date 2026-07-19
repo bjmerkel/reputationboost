@@ -381,7 +381,7 @@ export function negativeEvidencePenalty(
   calibration?: AttributionCalibration
 ): number {
   const cal = calibration?.[stepNumber];
-  if (!cal || cal.sampleSize < 2) return 1;
+  if (!cal || cal.sampleSize < 1) return 1;
 
   const hasNegativeRank =
     cal.medianRankDelta != null && cal.medianRankDelta <= 0;
@@ -390,8 +390,9 @@ export function negativeEvidencePenalty(
     cal.medianDirectionsDelta <= 0 &&
     cal.medianWebsiteClicksDelta <= 0;
 
-  if (hasNegativeRank || hasZeroEngagement) return 0.3;
-  return 1;
+  if (!hasNegativeRank && !hasZeroEngagement) return 1;
+  // Mild demotion on a single negative publish; stronger when n ≥ 2.
+  return cal.sampleSize === 1 ? 0.7 : 0.3;
 }
 
 export function calibratedStepImpact(
@@ -597,7 +598,47 @@ export function mergeCalibrations(
   for (const [step, cal] of Object.entries(business ?? {})) {
     const stepNum = Number(step);
     const globalCal = global?.[stepNum];
-    if (!cal || cal.sampleSize < 2) continue;
+    if (!cal || cal.sampleSize < 1) continue;
+
+    // n=1 early signal: blend lightly with global when available.
+    if (cal.sampleSize === 1) {
+      if (!globalCal) {
+        merged[stepNum] = cal;
+        continue;
+      }
+      merged[stepNum] = {
+        sampleSize: cal.sampleSize,
+        medianRankDelta: cal.medianRankDelta ?? globalCal.medianRankDelta,
+        medianCallsDelta:
+          cal.medianCallsDelta !== 0 ? cal.medianCallsDelta : globalCal.medianCallsDelta * 0.5,
+        medianDirectionsDelta:
+          cal.medianDirectionsDelta !== 0
+            ? cal.medianDirectionsDelta
+            : globalCal.medianDirectionsDelta * 0.5,
+        medianWebsiteClicksDelta:
+          cal.medianWebsiteClicksDelta !== 0
+            ? cal.medianWebsiteClicksDelta
+            : globalCal.medianWebsiteClicksDelta * 0.5,
+        projectionSampleSize: cal.projectionSampleSize,
+        medianProjectedDriverImpact:
+          cal.medianProjectedDriverImpact ?? globalCal.medianProjectedDriverImpact,
+        medianObservedDriverImpact:
+          cal.medianObservedDriverImpact ?? globalCal.medianObservedDriverImpact,
+        medianObservedOutcomeImpact:
+          cal.medianObservedOutcomeImpact ?? globalCal.medianObservedOutcomeImpact,
+        medianObservedRevenueGain:
+          cal.medianObservedRevenueGain ?? globalCal.medianObservedRevenueGain,
+        medianProjectedRevenueGain:
+          cal.medianProjectedRevenueGain ?? globalCal.medianProjectedRevenueGain,
+        revenueProjectionSampleSize: cal.revenueProjectionSampleSize,
+        revenueProjectionScale: cal.revenueProjectionScale,
+        estimatedScoreImpact: clampImpact(
+          cal.estimatedScoreImpact * 0.6 + globalCal.estimatedScoreImpact * 0.4
+        ),
+        confidence: "low",
+      };
+      continue;
+    }
 
     if (!globalCal || globalCal.sampleSize < 5) {
       merged[stepNum] = cal;

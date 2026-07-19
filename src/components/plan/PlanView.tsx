@@ -10,6 +10,7 @@ import {
   type AttributionCalibration,
 } from "@/audit/phase2/attribution-calibration";
 import { auditNeedsSoftConversionBoost, auditNeedsReviewVelocityBoost, auditPrefersConversionOverRank } from "@/audit/phase2/conversion-boost";
+import { PLAN_TAB_FLAGS } from "@/lib/feature-flags";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
@@ -519,7 +520,11 @@ export default function PlanView({
         calibration={calibration}
         preferConversionSteps={auditPrefersConversionOverRank(audit)}
         softConversionBoost={auditNeedsSoftConversionBoost(audit)}
-        reviewVelocityBoost={auditNeedsReviewVelocityBoost(audit)}
+        reviewVelocityBoost={
+          PLAN_TAB_FLAGS.reviewVelocityGap && auditNeedsReviewVelocityBoost(audit)
+        }
+        auditId={audit.auditId}
+        businessId={businessId}
         onFocusStep={(stepNumber) => setLocalFocusStep(stepNumber)}
       />
 
@@ -530,6 +535,8 @@ export default function PlanView({
         calibration={calibration}
         currency={currency}
         variant={variant}
+        auditId={audit.auditId}
+        businessId={businessId}
         onFocusKeyword={(_keyword, stepNumber) => {
           if (stepNumber == null) return;
           setLocalFocusStep(stepNumber);

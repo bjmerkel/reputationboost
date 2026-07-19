@@ -6,6 +6,20 @@ export const PLAN_RECONCILE_FLAGS = {
   enabled: true,
 } as const;
 
+/** Plan tab 9.5 rollout flags — env overrides for gradual enablement. */
+export const PLAN_TAB_FLAGS = {
+  /** Phase 6: peer-relative weak conversion thresholds and keyword ordering. */
+  peerBenchmarks: process.env.PLAN_PEER_BENCHMARKS !== "0",
+  /** Phase 7: n=1 partial calibration in ordering and impact labels. */
+  n1Calibration: process.env.PLAN_N1_CALIBRATION !== "0",
+  /** Phase 8: review-velocity gap detection and NBA boost (on by default). */
+  reviewVelocityGap: process.env.PLAN_REVIEW_VELOCITY_GAP !== "0",
+  /** Phase 9: compact Google Updates banner above revenue header. */
+  compactGoogleUpdates: process.env.PLAN_COMPACT_GOOGLE_UPDATES !== "0",
+  /** Phase 5: product analytics events for soak and monitoring. */
+  analytics: process.env.PLAN_ANALYTICS !== "0",
+} as const;
+
 /** GBP demand-guided Places rank scan scheduling. */
 export const GBP_RANK_SCAN_FLAGS = {
   enabled: true,

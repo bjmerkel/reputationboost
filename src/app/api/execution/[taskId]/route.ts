@@ -3,6 +3,7 @@ import { getPrimaryBusiness } from "@/audit/businesses";
 import { executeTask } from "@/audit/phase3/executor";
 import { getExecutionTask, updateExecutionTask } from "@/audit/storage-execution";
 import { computeAttributionAfterTaskCompletion } from "@/audit/attribution";
+import { logPlanEvent } from "@/lib/analytics/plan-events";
 import { getValidGbpConnection } from "@/lib/google/token-store";
 import { getUser } from "@/lib/supabase/server";
 
@@ -99,6 +100,14 @@ export async function POST(
   });
 
   if (saved?.status === "completed") {
+    const stepMatch = saved.actionItemId?.match(/^gbp-step-(\d+)$/);
+    logPlanEvent({
+      name: "plan_publish_success",
+      businessId: business?.businessId ?? null,
+      taskId: saved.id,
+      taskType: saved.type,
+      stepNumber: stepMatch ? Number(stepMatch[1]) : null,
+    });
     void computeAttributionAfterTaskCompletion(user.id, taskId);
   }
 
