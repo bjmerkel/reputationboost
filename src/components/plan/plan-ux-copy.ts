@@ -60,7 +60,7 @@ export function planGbpBannerMessage(plan: Plan, gbpConnected: boolean): string 
   }
   if (hasManual) {
     parts.push(
-      "Manual items must be completed in Google first, then use Done in Google — sync & refresh on the step card."
+      "Manual items are completed in Google first — we check Google automatically when you open the Plan tab."
     );
   }
   return parts.join(" ");
@@ -84,11 +84,9 @@ export function reconcileFeedbackMessage(options: {
 }
 
 export const MANUAL_STEP_HELPER =
-  "Manual step — complete this in Google Business Profile, then sync & refresh to update your plan.";
+  "Complete this in Google Business Profile — we check Google automatically and update your plan.";
 
-export const MANUAL_STEP_SYNC_LABEL = "Done in Google — sync & refresh";
-
-export const MANUAL_STEP_SYNCING_LABEL = "Syncing from Google…";
+export const MANUAL_STEP_SYNCING_LABEL = "Checking Google for updates…";
 
 export function liveSyncFeedbackMessage(options: {
   gbpRefreshed: boolean;

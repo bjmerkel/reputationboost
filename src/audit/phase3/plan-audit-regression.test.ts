@@ -125,7 +125,7 @@ describe("plan audit regression pack", () => {
       },
       true
     );
-    assert.match(banner ?? "", /sync/i);
+    assert.match(banner ?? "", /automatically/i);
     assert.doesNotMatch(reconcileFeedbackMessage({ completedTasks: 0, createdTasks: 0 }), /Google/i);
   });
 

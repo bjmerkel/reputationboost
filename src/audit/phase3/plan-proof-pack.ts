@@ -92,6 +92,7 @@ export const PLAN_SOAK_CHECKLIST = [
   "First Plan viewport reads: progress → NBA → keyword playbooks (checklist below)",
   "Reject one review reply → sibling replies on the same step stay visible",
   "Use Refresh profile data in the toolbar for a full Google sync and plan reconcile",
+  "Manual plan steps sync automatically from Google when the Plan tab opens (no button click)",
   "Google conflict panel shows context only; accept/reject actions live in plan step 0",
   "Without ACV, keyword playbooks show leads/mo — not dollar amounts for lead counts",
   "Completed step shows Measuring or Early signal while attribution window is open",

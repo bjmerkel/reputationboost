@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ExecutionTask, Plan, PlanStep } from "@/audit/types";
 import {
-  MANUAL_STEP_SYNC_LABEL,
   liveSyncFeedbackMessage,
   planGbpBannerMessage,
   planHasManualSteps,
@@ -10,6 +9,8 @@ import {
   reconcileFeedbackMessage,
   taskPrimaryActionLabel,
   taskUsesLocalCompletion,
+  MANUAL_STEP_HELPER,
+  MANUAL_STEP_SYNCING_LABEL,
 } from "./plan-ux-copy";
 
 function stubTask(type: ExecutionTask["type"], status: ExecutionTask["status"] = "pending_approval"): ExecutionTask {
@@ -76,7 +77,7 @@ describe("planGbpBannerMessage", () => {
     assert.equal(planGbpBannerMessage(stubPlan([]), false), null);
   });
 
-  it("mentions publish and manual sync when both apply", () => {
+  it("mentions publish and automatic manual sync when both apply", () => {
     const plan = stubPlan([
       stubStep({
         stepNumber: 3,
@@ -91,7 +92,7 @@ describe("planGbpBannerMessage", () => {
     ]);
     const message = planGbpBannerMessage(plan, true);
     assert.ok(message?.includes("approved and published"));
-    assert.ok(message?.toLowerCase().includes("sync"));
+    assert.ok(message?.toLowerCase().includes("automatically"));
   });
 
   it("hides banner when plan has only completed steps", () => {
@@ -130,13 +131,14 @@ describe("reconcileFeedbackMessage", () => {
   });
 });
 
-describe("MANUAL_STEP_SYNC_LABEL", () => {
-  it("does not promise instant mark done", () => {
-    assert.ok(!MANUAL_STEP_SYNC_LABEL.toLowerCase().includes("mark done"));
+describe("manual step copy", () => {
+  it("explains automatic Google checks", () => {
+    assert.match(MANUAL_STEP_HELPER.toLowerCase(), /automatically/);
+    assert.ok(!MANUAL_STEP_HELPER.toLowerCase().includes("mark done"));
   });
 
-  it("mentions sync for live Google pull", () => {
-    assert.match(MANUAL_STEP_SYNC_LABEL.toLowerCase(), /sync/);
+  it("uses a checking label while sync runs", () => {
+    assert.match(MANUAL_STEP_SYNCING_LABEL.toLowerCase(), /checking google/);
   });
 });
 

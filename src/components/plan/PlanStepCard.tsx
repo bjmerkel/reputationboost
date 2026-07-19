@@ -21,9 +21,7 @@ import ReviewDisputePanel from "@/components/review-disputes/ReviewDisputePanel"
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
 import {
   MANUAL_STEP_HELPER,
-  MANUAL_STEP_SYNC_LABEL,
   MANUAL_STEP_SYNCING_LABEL,
-  liveSyncFeedbackMessage,
 } from "./plan-ux-copy";
 import { formatStepAttributionTrackingLabel } from "./plan-display";
 
@@ -100,8 +98,6 @@ export default function PlanStepCard({
           reviewRequestTask != null ||
           reviewDisputeTasks.length > 0))
   );
-  const [manualSyncNotice, setManualSyncNotice] = useState<string | null>(null);
-
   useEffect(() => {
     if (defaultExpanded) setExpanded(true);
   }, [defaultExpanded]);
@@ -449,36 +445,9 @@ export default function PlanStepCard({
               <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
                 {MANUAL_STEP_HELPER}
               </p>
-              {actions.reconcilePlanNow && (
-                <button
-                  type="button"
-                  disabled={actions.reconciling}
-                  onClick={() => {
-                    setManualSyncNotice(null);
-                    void actions.reconcilePlanNow?.({ live: true })
-                      .then((result) => {
-                        setManualSyncNotice(
-                          liveSyncFeedbackMessage({
-                            gbpRefreshed: result.gbpRefreshed === true,
-                            completedTasks: result.completedTasks,
-                            createdTasks: result.createdTasks,
-                          })
-                        );
-                      })
-                      .catch(() => undefined);
-                  }}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${
-                    isLight
-                      ? "border-[#1a73e8] bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc]"
-                      : "border-sky-400/40 bg-sky-400/15 text-sky-300 hover:bg-sky-400/25"
-                  }`}
-                >
-                  {actions.reconciling ? MANUAL_STEP_SYNCING_LABEL : MANUAL_STEP_SYNC_LABEL}
-                </button>
-              )}
-              {manualSyncNotice && (
-                <p className={`text-xs ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>
-                  {manualSyncNotice}
+              {actions.reconciling && (
+                <p className={`text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                  {MANUAL_STEP_SYNCING_LABEL}
                 </p>
               )}
             </div>

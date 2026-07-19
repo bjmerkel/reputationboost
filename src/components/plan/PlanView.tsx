@@ -26,7 +26,12 @@ import PlanMaintenanceCadence from "./PlanMaintenanceCadence";
 import PlanNextBestActions from "./PlanNextBestActions";
 import PlanPhaseSection from "./PlanPhaseSection";
 import PlanProgressHeader from "./PlanProgressHeader";
-import { planGbpBannerMessage, reconcileFeedbackMessage } from "./plan-ux-copy";
+import { planGbpBannerMessage, reconcileFeedbackMessage, liveSyncFeedbackMessage, planHasManualSteps } from "./plan-ux-copy";
+import {
+  markManualPlanSynced,
+  readLastManualPlanSyncAt,
+  shouldAutoLiveSyncManualPlan,
+} from "./plan-manual-sync";
 
 export default function PlanView({
   audit,
@@ -72,6 +77,7 @@ export default function PlanView({
   const [localFocusStep, setLocalFocusStep] = useState<number | null>(null);
   const [reconcileNotice, setReconcileNotice] = useState<string | null>(null);
   const acvRefreshStartedRef = useRef(false);
+  const manualLiveSyncInFlightRef = useRef(false);
   const internalPlanTasks = usePlanTasks({
     clientId,
     auditId: audit.auditId,
@@ -156,6 +162,64 @@ export default function PlanView({
       setSyncingGoogleUpdates(false);
     }
   }, [onAuditUpdated, syncGoogleUpdates]);
+
+  const runManualLiveSync = useCallback(() => {
+    if (loading || reconciling || manualLiveSyncInFlightRef.current || !plan || !gbpConnected) {
+      return;
+    }
+    if (!planHasManualSteps(plan)) return;
+    if (
+      !shouldAutoLiveSyncManualPlan({
+        gbpConnected,
+        hasManualSteps: true,
+        lastSyncAt: readLastManualPlanSyncAt(audit.auditId),
+      })
+    ) {
+      return;
+    }
+
+    manualLiveSyncInFlightRef.current = true;
+    void reconcilePlanNow({ live: true })
+      .then((result) => {
+        markManualPlanSynced(audit.auditId);
+        setReconcileNotice(
+          liveSyncFeedbackMessage({
+            gbpRefreshed: result.gbpRefreshed === true,
+            completedTasks: result.completedTasks,
+            createdTasks: result.createdTasks,
+          })
+        );
+        if (result.audit) onAuditUpdated?.(result.audit);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        manualLiveSyncInFlightRef.current = false;
+      });
+  }, [
+    audit.auditId,
+    gbpConnected,
+    loading,
+    onAuditUpdated,
+    plan,
+    reconcilePlanNow,
+    reconciling,
+  ]);
+
+  useEffect(() => {
+    runManualLiveSync();
+  }, [runManualLiveSync]);
+
+  useEffect(() => {
+    if (!plan || !gbpConnected || !planHasManualSteps(plan)) return;
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      runManualLiveSync();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [gbpConnected, plan, runManualLiveSync]);
 
   const pendingApprovalCount = planApprovalBadgeCount(tasks);
 
