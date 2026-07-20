@@ -6,6 +6,7 @@ describe("resolveAcvUnitKind", () => {
   it("uses job language for home-service categories", () => {
     assert.equal(resolveAcvUnitKind("HVAC contractor"), "job");
     assert.equal(resolveAcvUnitKind("Plumber"), "job");
+    assert.equal(resolveAcvUnitKind("Freedom Pool Services"), "job");
   });
 
   it("uses visit language for grooming and personal care", () => {

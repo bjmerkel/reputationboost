@@ -9,6 +9,7 @@ import type {
 } from "./types";
 import { collectGbpFromPlaceDetails } from "./collectors/gbp";
 import { ensureStrategy } from "./ensure-strategy";
+import { estimateTemplateAcv } from "@/lib/business/acv-defaults";
 import { computeHealthScores } from "./phase2/scoring";
 import { detectGaps } from "./phase2/gaps";
 import { buildPathToHealthy } from "./phase2/path-to-healthy";
@@ -27,8 +28,6 @@ import { summarizeRadialRanks } from "@/lib/google/radial-rankings";
 
 const PREVIEW_KEYWORD_COUNT = 3;
 const HEALTHY_TARGET = 70;
-/** Default job value for preview revenue estimates when the user has not set ACV. */
-const PREVIEW_AVG_CUSTOMER_VALUE = 350;
 
 export interface PreviewAuditInput {
   placeId: string;
@@ -323,8 +322,16 @@ export async function runPreviewAudit(input: PreviewAuditInput): Promise<Preview
   const scores = computeHealthScores(audit);
   const gaps = detectGaps(audit).filter((g) => isPreviewRelevantGap(g.id));
   const platformAudit = ensureStrategy({ ...audit } as FullAuditPayload);
+  const avgCustomerValue = estimateTemplateAcv({
+    businessName: input.name,
+    primaryCategory: gbp.identity.primaryCategory || industry,
+    industry,
+    city: input.city,
+    state: input.state,
+    keywords,
+  });
   const path = buildPathToHealthy(platformAudit, null, {
-    avgCustomerValue: PREVIEW_AVG_CUSTOMER_VALUE,
+    avgCustomerValue,
     currency: "USD",
   });
 

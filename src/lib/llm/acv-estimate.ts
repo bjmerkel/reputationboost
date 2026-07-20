@@ -1,8 +1,14 @@
 import type { FullAuditPayload } from "@/audit/types";
-import { defaultAcvPreviewHint } from "@/components/plan/plan-viewport";
+import {
+  acvDefaultInputFromAudit,
+  estimateTemplateAcv,
+  parseLocationFromAddress,
+} from "@/lib/business/acv-defaults";
 import { acvEstimateRationale, resolveAcvCopy } from "@/lib/business/acv-copy";
 import { completeJson } from "./client";
 import { isLlmConfigured } from "./config";
+
+export { parseLocationFromAddress };
 
 const ACV_ESTIMATE_SYSTEM = `You estimate typical average customer value (ACV) for local businesses in the United States.
 
@@ -11,9 +17,20 @@ ACV means the average revenue from one converted customer or completed job — n
 Rules:
 - Return a single typical transaction/job value in USD (whole dollars)
 - Adjust for the business category and local market (city/state cost of living when known)
-- Use realistic ranges: retail/cafes often $25–150, salons $60–200, home services $200–800, legal/dental/medical often $300–2000+
-- If location is unknown, use national averages for the category
-- Be conservative — a rough estimate the owner can edit is better than an inflated number
+- Use business name, category, industry, and keywords together — generic categories like "Services" should be inferred from the name and keywords
+- Use realistic national benchmarks, then adjust for market:
+  • Pool service/repair: $600–950
+  • Plumber/HVAC/electrician: $350–800
+  • Roofing/remodeling: $5,000–15,000
+  • Restaurant/cafe: $35–70 per order
+  • Salon/spa/grooming: $60–160 per visit
+  • Dentist/medical: $250–650 per visit
+  • Legal: $1,200–3,000 per case
+  • Retail: $50–250 per sale
+  • Generic local services: $400–700 unless clearly lower-ticket
+- In high-cost metros (SF Bay Area, NYC, LA, Boston, Seattle), add roughly 10–25%
+- In lower-cost states (MS, AL, AR, WV, OK, LA), subtract roughly 5–10%
+- Be realistic — owners can edit the number, but avoid systematically low defaults for trades and home services
 - Do not invent business-specific facts
 
 Return valid JSON only:
@@ -31,6 +48,7 @@ export interface AcvEstimateContext {
   industry?: string | null;
   city: string;
   state: string;
+  keywords?: string[];
 }
 
 export interface AcvEstimateResult {
@@ -40,35 +58,32 @@ export interface AcvEstimateResult {
   source: "llm" | "template";
 }
 
-export function parseLocationFromAddress(address: string): { city: string; state: string } {
-  const addressParts = address.split(",").map((part) => part.trim());
-  const city = addressParts[1] ?? "";
-  const state = addressParts[2]?.split(/\s+/)[0] ?? "";
-  return { city, state };
-}
-
 export function buildAcvEstimateContext(
   audit: FullAuditPayload,
   industry?: string | null
 ): AcvEstimateContext {
-  const { city, state } = parseLocationFromAddress(audit.gbp.identity.address);
+  const input = acvDefaultInputFromAudit(audit, industry);
   return {
-    businessName: audit.clientName,
-    primaryCategory: audit.gbp.identity.primaryCategory || industry || "local business",
-    industry: industry ?? audit.gbp.identity.primaryCategory ?? null,
-    city,
-    state,
+    businessName: input.businessName ?? audit.clientName,
+    primaryCategory: input.primaryCategory || industry || "local business",
+    industry: input.industry ?? input.primaryCategory ?? null,
+    city: input.city ?? "",
+    state: input.state ?? "",
+    keywords: input.keywords ?? [],
   };
 }
 
 function templateAcvEstimate(context: AcvEstimateContext): AcvEstimateResult {
   const category = context.primaryCategory || context.businessName || "local business";
-  const auditLike = {
-    gbp: { identity: { primaryCategory: context.primaryCategory } },
-    clientName: context.businessName,
-  } as FullAuditPayload;
-  const avgCustomerValue = defaultAcvPreviewHint(auditLike);
-  const copy = resolveAcvCopy(context.primaryCategory || context.industry);
+  const avgCustomerValue = estimateTemplateAcv({
+    businessName: context.businessName,
+    primaryCategory: context.primaryCategory,
+    industry: context.industry,
+    city: context.city,
+    state: context.state,
+    keywords: context.keywords,
+  });
+  const copy = resolveAcvCopy(context.primaryCategory || context.industry || context.businessName);
 
   const locationLabel =
     context.city && context.state
@@ -125,6 +140,11 @@ export async function estimateAverageCustomerValue(
       ? `Location: ${[context.city, context.state].filter(Boolean).join(", ")}`
       : "Location: unknown (use national category averages)";
 
+  const keywordLine =
+    context.keywords && context.keywords.length > 0
+      ? `Tracked keywords: ${context.keywords.slice(0, 8).join(", ")}`
+      : "Tracked keywords: none";
+
   try {
     const llm = await completeJson<{
       avgCustomerValue?: unknown;
@@ -141,6 +161,7 @@ Business: ${context.businessName}
 Primary category: ${context.primaryCategory}
 Industry: ${context.industry || context.primaryCategory}
 ${locationLine}
+${keywordLine}
 
 Return JSON with avgCustomerValue (USD whole dollars), confidence, and rationale.`,
         },

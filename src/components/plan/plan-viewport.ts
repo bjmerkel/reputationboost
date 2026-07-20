@@ -1,4 +1,7 @@
 import type { ExecutionTask, FullAuditPayload } from "@/audit/types";
+import {
+  defaultAcvPreviewHint,
+} from "@/lib/business/acv-defaults";
 import { roundLeadCount } from "@/audit/phase3/plan-impact-label";
 import {
   getGoogleDiffFields,
@@ -44,18 +47,7 @@ export function resolveGoogleUpdatesPresentation(
   return { mode: "compact", pendingCount, diffCount, conflictCount };
 }
 
-/** Category-default ACV for revenue preview when the user has not set ACV yet. */
-export function defaultAcvPreviewHint(audit: FullAuditPayload): number {
-  const category = (audit.gbp.identity.primaryCategory || audit.clientName || "").toLowerCase();
-  if (/dentist|lawyer|attorney|clinic|doctor/.test(category)) return 500;
-  if (/plumber|hvac|electric|roof|contractor|repair|mechanic|landscap/.test(category)) {
-    return 350;
-  }
-  if (/restaurant|retail|store|shop|salon|spa|cafe|bakery|boutique/.test(category)) {
-    return 75;
-  }
-  return 300;
-}
+export { defaultAcvPreviewHint } from "@/lib/business/acv-defaults";
 
 export interface AcvRevenuePreview {
   defaultAcv: number;

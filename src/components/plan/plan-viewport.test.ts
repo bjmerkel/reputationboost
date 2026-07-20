@@ -56,15 +56,16 @@ describe("buildAcvRevenuePreview", () => {
       nextThreeEstimatedMonthlyLeads: 2,
     });
     assert.ok(preview);
-    assert.equal(preview!.defaultAcv, 350);
-    assert.equal(preview!.projectedMonthlyRevenue, 1400);
+    assert.equal(preview!.defaultAcv, 450);
+    assert.equal(preview!.projectedMonthlyRevenue, 1800);
     assert.equal(preview!.leadGain, 2);
   });
 
-  it("uses retail-default ACV for low-ticket categories", () => {
+  it("does not let the business name override a specific category", () => {
     const audit = createTestAudit();
+    audit.clientName = "Dallas Pro Plumbing";
     audit.gbp.identity.primaryCategory = "Retail store";
-    assert.equal(defaultAcvPreviewHint(audit), 75);
+    assert.equal(defaultAcvPreviewHint(audit), 80);
   });
 
   it("prefers an LLM/template estimated ACV when provided", () => {

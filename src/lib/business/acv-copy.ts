@@ -129,7 +129,7 @@ export function resolveAcvUnitKind(category?: string | null): AcvUnitKind {
     return "order";
   }
   if (
-    /plumb|hvac|electric|roof|contractor|repair|mechanic|landscap|handyman|pest|remodel|paint|flooring|window|garage door|appliance|septic|pool service|tree service|junk removal|moving company/.test(
+    /plumb|hvac|electric|roof|contractor|repair|mechanic|landscap|handyman|pest|remodel|paint|flooring|window|garage door|appliance|septic|\bpool\b|swimming pool|pool clean|pool mainten|tree service|junk removal|moving company/.test(
       c
     )
   ) {

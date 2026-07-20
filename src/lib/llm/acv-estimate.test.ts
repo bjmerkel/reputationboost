@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createTestAudit } from "@/audit/phase3/test-fixtures";
+import { parseLocationFromAddress } from "@/lib/business/acv-defaults";
 import {
   buildAcvEstimateContext,
   estimateAverageCustomerValue,
-  parseLocationFromAddress,
 } from "@/lib/llm/acv-estimate";
 
 describe("parseLocationFromAddress", () => {
@@ -41,7 +41,21 @@ describe("estimateAverageCustomerValue", () => {
     });
 
     assert.equal(estimate.source, "template");
-    assert.equal(estimate.avgCustomerValue, 350);
+    assert.equal(estimate.avgCustomerValue, 450);
     assert.match(estimate.rationale, /plumber/i);
+  });
+
+  it("infers pool value from business name when category is generic", async () => {
+    const estimate = await estimateAverageCustomerValue({
+      businessName: "Freedom Pool Services",
+      primaryCategory: "Services",
+      industry: "Services",
+      city: "Santa Clara",
+      state: "CA",
+      keywords: ["best pool maintenance Santa Clara"],
+    });
+
+    assert.equal(estimate.source, "template");
+    assert.equal(estimate.avgCustomerValue, 850);
   });
 });
