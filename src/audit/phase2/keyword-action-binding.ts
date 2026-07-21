@@ -13,6 +13,10 @@ import {
 import { planStepPriorityScore } from "./plan-prioritization";
 import { keywordQualifiesForReviewVelocityGap } from "./review-velocity";
 import { keywordReviewOpportunityScore } from "./peer-benchmarks";
+import {
+  findTopLeaderDeltaForKeyword,
+  formatLeaderDeltaSummary,
+} from "@/audit/autopilot/leader-delta-engine";
 
 const CONVERSION_GAP_ID_SET = new Set<string>(CONVERSION_GAP_IDS);
 
@@ -332,6 +336,8 @@ export interface KeywordPlaybook {
   primaryStepTitle: string | null;
   ctaLabel: string;
   rationale: string;
+  /** Per-cell beat-the-leader insight when geo grid data exists. */
+  leaderInsight: string | null;
   supportingSteps: KeywordPlaybookSupportingStep[];
 }
 
@@ -471,6 +477,9 @@ export function buildKeywordPlaybooks(
       score?.positionLabel ??
       (inLocalPack ? "In 3-Pack" : "Outside 3-Pack");
 
+    const leaderDelta = findTopLeaderDeltaForKeyword(audit, keyword);
+    const leaderInsight = leaderDelta ? formatLeaderDeltaSummary(leaderDelta) : null;
+
     playbooks.push({
       keyword,
       rank: playbooks.length + 1,
@@ -495,6 +504,7 @@ export function buildKeywordPlaybooks(
         binding?.rationale ??
         priorities.find((item) => item.keyword.toLowerCase() === key)?.reason ??
         `Win “${keyword}” for more profile views, calls, and directions.`,
+      leaderInsight,
       supportingSteps,
     });
 

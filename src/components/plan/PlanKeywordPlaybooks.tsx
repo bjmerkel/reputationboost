@@ -115,6 +115,15 @@ export default function PlanKeywordPlaybooks({
                       ? ` · ${playbook.impressions.toLocaleString()} impressions/mo`
                       : ""}
                   </p>
+                  {playbook.leaderInsight && (
+                    <p
+                      className={`mt-1 text-xs ${
+                        isLight ? "text-[#1a73e8]" : "text-sky-300"
+                      }`}
+                    >
+                      Cell leader gap: {playbook.leaderInsight}
+                    </p>
+                  )}
                   {playbook.revenueGap != null && playbook.revenueGap > 0 && (
                     <p
                       className={`mt-0.5 text-xs font-semibold ${

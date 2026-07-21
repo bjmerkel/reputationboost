@@ -229,6 +229,18 @@ async function persistAudit(
       audit.rankings,
       audit.completedAt.slice(0, 10)
     );
+    try {
+      const { upsertCompetitorProfileSnapshots } = await import(
+        "@/audit/storage-competitor-profiles"
+      );
+      await upsertCompetitorProfileSnapshots({
+        businessId,
+        snapshots: audit.competitors,
+        source: "audit",
+      });
+    } catch {
+      // Non-fatal until migration 034 is applied
+    }
     const { refreshCellWeaknessScoresAfterAuditGrids } = await import(
       "@/lib/review-velocity/refresh-cell-weakness"
     );

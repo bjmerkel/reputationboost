@@ -8,7 +8,16 @@ import type { VisibilitySummary } from "@/audit/geo/types";
 import { serviceAreaFromGrid } from "@/audit/geo/service-area";
 import type { GridDiff } from "@/audit/geo/grid-diff";
 import { diffCellColor } from "@/audit/geo/grid-diff";
-import type { CompetitorProfile, GeoGridPoint, KeywordRankSnapshot } from "@/audit/types";
+import type { CompetitorProfile, GeoGridPoint, GbpSnapshot, KeywordRankSnapshot } from "@/audit/types";
+import {
+  buildClientProfileSnapshot,
+  computeLeaderDelta,
+} from "@/audit/autopilot/leader-delta-engine";
+import { isLosingCell } from "@/audit/autopilot/cell-loss-classifier";
+import {
+  buildCompetitorProfileIndex,
+  resolveCompetitorProfile,
+} from "@/audit/autopilot/competitor-profile-index";
 import CellDetailModal from "@/components/platform/heatmap/CellDetailModal";
 import CoverageBadge from "@/components/platform/heatmap/CoverageBadge";
 import GridDiffControls from "@/components/platform/heatmap/GridDiffControls";
@@ -61,6 +70,8 @@ interface RankingMapProps {
   businessName: string;
   keywordRank?: KeywordRankSnapshot;
   competitors?: CompetitorProfile[];
+  /** Client GBP snapshot for beat-the-leader diffs in cell detail. */
+  gbp?: GbpSnapshot;
   activeKeyword?: string;
   /** Skip authenticated grid fetches (marketing preview). */
   disableGridFetch?: boolean;
@@ -86,6 +97,7 @@ export default function RankingMap({
   businessName,
   keywordRank,
   competitors = [],
+  gbp,
   activeKeyword,
   disableGridFetch = false,
   allowLivePlacesGrid = false,
@@ -128,6 +140,37 @@ export default function RankingMap({
   const [gbpServiceAreaRing, setGbpServiceAreaRing] = useState<
     Array<{ lat: number; lng: number }> | null
   >(null);
+
+  const competitorIndex = useMemo(() => {
+    if (!activeKeyword || competitors.length === 0) return null;
+    return buildCompetitorProfileIndex([
+      {
+        collectedAt: new Date().toISOString(),
+        keyword: activeKeyword,
+        localPack: competitors,
+        widerRadius: [],
+        textSearchFallback: [],
+        nearbyHasResults: true,
+        competitors,
+      },
+    ]);
+  }, [activeKeyword, competitors]);
+
+  const selectedLeaderDelta = useMemo(() => {
+    if (!selectedCell || !gbp || !activeKeyword || !isLosingCell(selectedCell)) {
+      return null;
+    }
+    const leaderPlaceId = selectedCell.localPack?.[0]?.placeId;
+    const leaderProfile = leaderPlaceId
+      ? resolveCompetitorProfile(competitorIndex ?? new Map(), activeKeyword, leaderPlaceId)
+      : null;
+    return computeLeaderDelta({
+      keyword: activeKeyword,
+      cell: selectedCell,
+      client: buildClientProfileSnapshot(gbp),
+      leaderProfile,
+    });
+  }, [selectedCell, gbp, activeKeyword, competitorIndex]);
 
   const competitorTerritories = useMemo(() => {
     if (!gridPoints?.length || !HEATMAP_FLAGS.competitorTerritories) return [];
@@ -682,6 +725,7 @@ export default function RankingMap({
         keyword={activeKeyword ?? keywordRank?.keyword ?? ""}
         clientRating={keywordRank?.clientRating}
         clientReviewCount={keywordRank?.clientReviewCount}
+        leaderDelta={selectedLeaderDelta}
         open={selectedCell != null}
         onClose={() => setSelectedCell(null)}
       />

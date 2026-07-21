@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+import type { LeaderDelta } from "@/audit/autopilot/types";
 import type { GeoGridPoint } from "@/audit/types";
+import BeatTheLeaderPanel from "@/components/platform/heatmap/BeatTheLeaderPanel";
 import { rankColor } from "@/components/platform/heatmap/rank-colors";
 import { formatStarRating } from "@/lib/format-star-rating";
 
@@ -10,6 +12,7 @@ export default function CellDetailModal({
   keyword,
   clientRating,
   clientReviewCount,
+  leaderDelta,
   open,
   onClose,
 }: {
@@ -17,6 +20,7 @@ export default function CellDetailModal({
   keyword: string;
   clientRating?: number;
   clientReviewCount?: number;
+  leaderDelta?: LeaderDelta | null;
   open: boolean;
   onClose: () => void;
 }) {
@@ -43,6 +47,8 @@ export default function CellDetailModal({
     leader && clientReviewCount != null
       ? Math.max(0, leader.reviewCount - clientReviewCount)
       : null;
+  const showLegacyReviewGap =
+    leaderDelta == null && leader && reviewGap != null && reviewGap > 0;
 
   return (
     <div
@@ -76,7 +82,7 @@ export default function CellDetailModal({
           </button>
         </div>
 
-        <div className="space-y-3 px-4 py-3">
+        <div className="max-h-[min(70vh,520px)] space-y-3 overflow-y-auto px-4 py-3">
           <p className="text-xs text-[#5f6368]">
             Keyword: <span className="font-medium text-[#202124]">&ldquo;{keyword}&rdquo;</span>
           </p>
@@ -92,37 +98,49 @@ export default function CellDetailModal({
             </p>
           </div>
 
-          {cell.localPack && cell.localPack.length > 0 ? (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#80868b]">
-                Top sampled results
-              </p>
-              <ul className="space-y-2">
-                {cell.localPack.map((entry) => (
-                  <li
-                    key={`${entry.placeId}-${entry.position}`}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-[#e8eaed] px-3 py-2 text-xs"
-                  >
-                    <span className="font-medium text-[#202124]">
-                      #{entry.position} {entry.name}
-                    </span>
-                    <span className="text-[#5f6368]">
-                      {entry.rating != null ? `${formatStarRating(entry.rating)}★` : "—"} · {entry.reviewCount} reviews
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {leaderDelta ? (
+            <BeatTheLeaderPanel delta={leaderDelta} />
           ) : (
-            <p className="text-xs text-[#5f6368]">No competitor details stored for this sample.</p>
-          )}
+            <>
+              {cell.localPack && cell.localPack.length > 0 ? (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#80868b]">
+                    Top sampled results
+                  </p>
+                  <ul className="space-y-2">
+                    {cell.localPack.map((entry) => (
+                      <li
+                        key={`${entry.placeId}-${entry.position}`}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-[#e8eaed] px-3 py-2 text-xs"
+                      >
+                        <span className="font-medium text-[#202124]">
+                          #{entry.position} {entry.name}
+                        </span>
+                        <span className="text-[#5f6368]">
+                          {entry.rating != null ? `${formatStarRating(entry.rating)}★` : "—"} ·{" "}
+                          {entry.reviewCount} reviews
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-xs text-[#5f6368]">
+                  No competitor details stored for this sample.
+                </p>
+              )}
 
-          {leader && reviewGap != null && reviewGap > 0 && (
-            <p className="rounded-lg border border-[#fce8e6] bg-[#fef7f0] px-3 py-2 text-xs text-[#c5221f]">
-              <span className="font-medium">{leader.name}</span> leads here with {reviewGap} more
-              reviews than you
-              {clientReviewCount != null ? ` (${leader.reviewCount} vs ${clientReviewCount})` : ""}.
-            </p>
+              {showLegacyReviewGap && (
+                <p className="rounded-lg border border-[#fce8e6] bg-[#fef7f0] px-3 py-2 text-xs text-[#c5221f]">
+                  <span className="font-medium">{leader!.name}</span> leads here with {reviewGap}{" "}
+                  more reviews than you
+                  {clientReviewCount != null
+                    ? ` (${leader!.reviewCount} vs ${clientReviewCount})`
+                    : ""}
+                  .
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>
