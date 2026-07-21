@@ -1,5 +1,10 @@
 export const marketingFaqs = [
   {
+    question: "Do you send text messages to customers for reviews?",
+    answer:
+      "Yes — on plans that include review outreach. Requests go to recent happy customers, can be targeted to areas where your map shows weak rankings, include opt-out language, and you approve what gets sent. We attribute reviews back to the request and measure ranking impact over time.",
+  },
+  {
     question: "How does the score keep improving over time?",
     answer:
       "We analyze your Google Business Profile every night, update your Reputation Boost Score, and recommend the next improvements that can move it higher. When you complete a step on your plan, we measure results in 14-day before/after windows — rank movement, calls, directions, and estimated revenue. The more you use it, the smarter your plan gets: what works for your business moves to the top of the list. Not just once at signup — every day.",

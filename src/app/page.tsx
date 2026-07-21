@@ -4,6 +4,7 @@ import Hero from "@/components/Hero";
 import MarketingHome from "@/components/marketing/MarketingHome";
 import PlatformExplorer from "@/components/marketing/PlatformExplorer";
 import ProofNarrative from "@/components/marketing/ProofNarrative";
+import GeoReviewVelocity from "@/components/marketing/GeoReviewVelocity";
 import NightlyScoreLoop from "@/components/marketing/NightlyScoreLoop";
 import WhatWeTrack from "@/components/marketing/WhatWeTrack";
 import RoiCalculator from "@/components/marketing/RoiCalculator";
@@ -36,6 +37,7 @@ export default function Home() {
           <Hero />
           <PlatformExplorer />
           <ProofNarrative />
+          <GeoReviewVelocity />
           <RoiCalculator />
           <WhatWeTrack />
           <NightlyScoreLoop />
