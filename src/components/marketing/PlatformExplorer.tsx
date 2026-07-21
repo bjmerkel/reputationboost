@@ -18,6 +18,10 @@ export default function PlatformExplorer() {
     preview,
   } = usePreviewAudit();
 
+  const aiMentionSummary =
+    platformAudit.aiVisibility &&
+    `${platformAudit.aiVisibility.keywordsMentioned} mentioned by AI`;
+
   if (!loading && !isLive) {
     return null;
   }
@@ -39,8 +43,15 @@ export default function PlatformExplorer() {
           <div className="border-t border-[#dadce0] bg-white px-4 py-4">
             <div className="mx-auto flex max-w-4xl flex-col items-center justify-between gap-3 sm:flex-row">
               <p className="text-center text-sm text-[#5f6368] sm:text-left">
-                {preview.keywords.length} keywords tracked ·{" "}
-                {preview.pathToHealthy.topActions.length} fixes ready ·{" "}
+                {preview.keywords.length} keywords tracked
+                {aiMentionSummary && (
+                  <>
+                    {" "}
+                    · <span className="font-medium text-[#3c4043]">{aiMentionSummary}</span>
+                  </>
+                )}
+                {" "}
+                · {preview.pathToHealthy.topActions.length} fixes ready ·{" "}
                 {preview.pathToHealthy.estimatedRevenueGain != null && (
                   <>
                     up to{" "}

@@ -4,7 +4,7 @@ const loopSteps = [
   {
     title: "We analyze every night",
     description:
-      "While you sleep, we pull your latest Google Business Profile data, check where you rank across your service area, and update your Reputation Boost Score.",
+      "While you sleep, we pull your latest Google Business Profile data, check where you rank across your service area, probe whether AI assistants recommend you, and update your Reputation Boost Score.",
   },
   {
     title: "We show you what worked",

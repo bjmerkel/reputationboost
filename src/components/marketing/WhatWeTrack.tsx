@@ -4,6 +4,7 @@ import { SUPPORT_EMAIL } from "@/lib/constants";
 const dashboardMetrics = [
   { label: "Reputation Boost Score", hint: "One number for listing + rankings" },
   { label: "Google Maps Rankings", hint: "Where you show up across your area" },
+  { label: "AI Discovery", hint: "Whether ChatGPT & AI Overviews mention you" },
   { label: "Reviews", hint: "Count, rating, response rate" },
   { label: "Photos", hint: "Listing strength vs competitors" },
   { label: "Calls", hint: "Tracked from your Google listing" },

@@ -25,6 +25,11 @@ export const marketingFaqs = [
       "We check where you rank from multiple spots across your service area — at the business pin and 1, 3, and 5 miles out. Lightweight rank pulses run twice monthly, with a deeper service-area and competitor snapshot each month.",
   },
   {
+    question: "Do you track AI search visibility?",
+    answer:
+      "Yes — every plan includes weekly monitoring of whether ChatGPT and Google AI Overviews mention or recommend your business for your target keywords. It's a sampled visibility estimate, like our Maps rank tracking — not a guarantee of what any individual user will see.",
+  },
+  {
     question: "Do you guarantee #1 rankings?",
     answer:
       "No ethical company can guarantee a specific position on Google Maps. What we do guarantee: a clear plan with estimated score impact per step, daily profile outcome tracking, and scheduled market observations showing which changes moved your rankings and revenue.",

@@ -25,6 +25,7 @@ import { collectKeywordGeoGrid } from "@/lib/google/geo-grid";
 import { milesToMeters, searchPlaces, type PlaceResult } from "@/lib/google/places";
 import { primaryCategoryFromTypes } from "@/lib/google/place-details";
 import { summarizeRadialRanks } from "@/lib/google/radial-rankings";
+import { collectAiVisibilitySnapshot } from "./collectors/ai-visibility";
 
 const PREVIEW_KEYWORD_COUNT = 3;
 const HEALTHY_TARGET = 70;
@@ -231,7 +232,8 @@ function buildPreviewAuditPayload(
   client: ClientConfig,
   gbp: Awaited<ReturnType<typeof collectGbpFromPlaceDetails>>,
   rankings: KeywordRankSnapshot[],
-  competitors: CompetitorSnapshot[]
+  competitors: CompetitorSnapshot[],
+  aiVisibility?: Phase1AuditPayload["aiVisibility"]
 ): Phase1AuditPayload {
   const now = new Date().toISOString();
   const keywordsInPack = rankings.filter((k) => k.inLocalPack).length;
@@ -263,6 +265,7 @@ function buildPreviewAuditPayload(
     competitors,
     reviews: emptyReviewsSnapshot(),
     offGoogle: neutralOffGoogleSnapshot(),
+    aiVisibility,
   };
 }
 
@@ -318,7 +321,9 @@ export async function runPreviewAudit(input: PreviewAuditInput): Promise<Preview
     matchOptions
   );
 
-  const audit = buildPreviewAuditPayload(client, gbp, rankings, competitors);
+  const aiVisibility = await collectAiVisibilitySnapshot(client).catch(() => undefined);
+
+  const audit = buildPreviewAuditPayload(client, gbp, rankings, competitors, aiVisibility);
   const scores = computeHealthScores(audit);
   const gaps = detectGaps(audit).filter((g) => isPreviewRelevantGap(g.id));
   const platformAudit = ensureStrategy({ ...audit } as FullAuditPayload);

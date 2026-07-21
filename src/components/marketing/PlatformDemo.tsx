@@ -165,8 +165,17 @@ function PlatformDemoResults({
                 <span className="text-sm font-medium text-[#202124]">{card.keyword}</span>
                 <span className="text-xs font-semibold text-[#5f6368]">
                   Vis {card.visibilityScore}
+                  {card.aiVisibilityScore != null && (
+                    <>
+                      {" "}
+                      · AI {card.aiVisibilityScore}
+                    </>
+                  )}
                 </span>
               </div>
+              {card.aiMentionLabel && (
+                <p className="mt-1 text-[11px] text-[#80868b]">{card.aiMentionLabel}</p>
+              )}
               {card.potentialAtRank1 != null && (
                 <p className="mt-1 text-xs text-[#188038]">
                   ${card.potentialAtRank1.toLocaleString()}/mo at #1
