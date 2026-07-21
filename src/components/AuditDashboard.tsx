@@ -662,6 +662,7 @@ export default function AuditDashboard({
             businessName={businessName}
             keywordRank={keywordRank}
             competitors={activeCompetitors}
+            gbp={audit.gbp}
             activeKeyword={activeKeyword}
             visibilitySummary={visibilitySummary}
             selectedZoneId={selectedZoneId}

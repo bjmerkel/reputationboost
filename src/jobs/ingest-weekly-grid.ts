@@ -224,6 +224,18 @@ async function ingestGridForBusiness(
       row.id,
       competitorSnapshots
     );
+    try {
+      const { upsertCompetitorProfileSnapshots } = await import(
+        "@/audit/storage-competitor-profiles"
+      );
+      await upsertCompetitorProfileSnapshots({
+        businessId: row.id,
+        snapshots: competitorSnapshots,
+        source: "grid",
+      });
+    } catch {
+      // Non-fatal until migration 034 is applied
+    }
     await buildAndPersistLiveAuditForBusiness(row, targetDate);
   } catch (error) {
     result.errors.push({
