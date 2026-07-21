@@ -6,8 +6,14 @@ import {
 } from "@/audit/autopilot/leader-delta-engine";
 import { buildCompetitorProfileIndex, resolveCompetitorProfile } from "@/audit/autopilot/competitor-profile-index";
 import { deriveMarketKey } from "@/audit/autopilot/market-key";
-import { proposeExperimentFromDelta } from "@/audit/autopilot/plan-experiments";
-import { listRankingExperimentsForUser } from "@/audit/storage-experiments";
+import {
+  activateSuggestedExperiment,
+  proposeExperimentFromDelta,
+} from "@/audit/autopilot/plan-experiments";
+import {
+  dismissSuggestedExperimentAdmin,
+  listRankingExperimentsForUser,
+} from "@/audit/storage-experiments";
 import { loadMarketCalibrationForMarketKey } from "@/audit/storage-calibration-market";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
@@ -45,6 +51,7 @@ export async function POST(request: Request) {
     keyword?: string;
     gridNorth?: number;
     gridEast?: number;
+    actionIndex?: number;
   };
 
   if (!body.clientId || !body.keyword || body.gridNorth == null || body.gridEast == null) {
@@ -107,11 +114,64 @@ export async function POST(request: Request) {
       userId: user.id,
       businessId,
       client,
+      origin: "manual",
+      actionIndex: body.actionIndex,
+      marketIndex,
     });
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to propose experiment" },
+      { status: 409 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = (await request.json()) as {
+    clientId?: string;
+    experimentId?: string;
+    action?: "activate" | "dismiss";
+  };
+
+  if (!body.clientId || !body.experimentId || !body.action) {
+    return NextResponse.json(
+      { error: "clientId, experimentId, and action are required" },
+      { status: 400 }
+    );
+  }
+
+  const audit = await loadLatestAuditFromSupabase(user.id, body.clientId);
+  if (!audit) {
+    return NextResponse.json({ error: "Audit not found" }, { status: 404 });
+  }
+
+  const client = await loadBusinessConfig(user.id, body.clientId);
+
+  if (body.action === "dismiss") {
+    const experiment = await dismissSuggestedExperimentAdmin(body.experimentId);
+    if (!experiment) {
+      return NextResponse.json({ error: "Experiment not found" }, { status: 404 });
+    }
+    return NextResponse.json({ experiment });
+  }
+
+  try {
+    const result = await activateSuggestedExperiment({
+      experimentId: body.experimentId,
+      audit,
+      client,
+      userId: user.id,
+    });
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to activate suggestion" },
       { status: 409 }
     );
   }

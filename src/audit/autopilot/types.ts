@@ -85,6 +85,20 @@ export type RankingExperimentStatus =
   | "inconclusive"
   | "cancelled";
 
+export interface BanditMetadata {
+  selectedIndex: number;
+  ucbScore: number;
+  explorationReason: string;
+  alternatives: Array<{
+    actionType: ExecutionType;
+    planStepNumber: number;
+    score: number;
+    rank: number;
+    ucbBonus?: number;
+    meanReward?: number;
+  }>;
+}
+
 export interface RankingExperiment {
   id: string;
   businessId: string;
@@ -100,6 +114,8 @@ export interface RankingExperiment {
   hypothesis: string;
   leaderDelta: LeaderDelta;
   marketKey: string;
+  origin: import("./modes").ExperimentOrigin;
+  banditMetadata: BanditMetadata | null;
   status: RankingExperimentStatus;
   executionTaskId: string | null;
   baselineSnapshotDate: string;

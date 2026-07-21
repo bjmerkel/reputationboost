@@ -3,6 +3,7 @@ import type {
   GbpConnection,
   GbpPersistedServiceArea,
 } from "@/audit/types";
+import { parseAutopilotMode, type AutopilotMode } from "@/audit/autopilot/modes";
 import type { GridProfileKey } from "@/lib/google/geo-grid";
 import { createClient } from "@/lib/supabase/server";
 
@@ -40,6 +41,7 @@ export interface BusinessRecord {
   webhook_trigger_events: string[];
   gbp_google_update_at: string | null;
   last_manual_rank_refresh_at: string | null;
+  autopilot_mode: string;
   created_at: string;
   updated_at: string;
 }
@@ -103,6 +105,7 @@ export function businessRecordToClientConfig(row: BusinessRecord): ClientConfig 
     heatmapProfile: (row.heatmap_profile as GridProfileKey) ?? "standard",
     privateFeedbackUrl: row.private_feedback_url ?? undefined,
     gbpGoogleUpdateAt: row.gbp_google_update_at ?? null,
+    autopilotMode: parseAutopilotMode(row.autopilot_mode),
   };
 }
 
@@ -439,4 +442,25 @@ export async function getBusinessIdForSlug(
     .eq("slug", slug)
     .maybeSingle();
   return data?.id ?? null;
+}
+
+export async function updateAutopilotMode(
+  userId: string,
+  businessId: string,
+  mode: AutopilotMode
+): Promise<ClientConfig> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("businesses")
+    .update({
+      autopilot_mode: mode,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("id", businessId)
+    .select("*")
+    .single();
+
+  if (error) throw new Error(`Failed to update autopilot mode: ${error.message}`);
+  return businessRecordToClientConfig(data as BusinessRecord);
 }

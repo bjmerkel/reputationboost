@@ -4,11 +4,21 @@ import type {
   FullAuditPayload,
   Phase1AuditPayload,
 } from "@/audit/types";
-import type { LeaderDelta, LeaderDeltaAction, RankingExperiment } from "@/audit/autopilot/types";
+import type {
+  BanditMetadata,
+  LeaderDelta,
+  LeaderDeltaAction,
+  RankingExperiment,
+} from "@/audit/autopilot/types";
+import type { BanditSelection } from "@/audit/autopilot/bandit";
+import { selectActionWithBandit } from "@/audit/autopilot/bandit";
 import { deriveMarketKey } from "@/audit/autopilot/market-key";
+import type { ExperimentOrigin } from "@/audit/autopilot/modes";
 import { formatCellDirection } from "@/audit/autopilot/leader-delta-engine";
+import type { MarketCalibrationIndex } from "@/audit/autopilot/market-calibration";
 import {
   getActiveExperimentForCellAdmin,
+  getRankingExperimentByIdAdmin,
   insertRankingExperiment,
   updateRankingExperimentAdmin,
 } from "@/audit/storage-experiments";
@@ -17,6 +27,15 @@ import { RANK_ATTRIBUTION_WINDOW_DAYS } from "@/audit/attribution/window";
 
 function requiresApproval(type: ExecutionTask["type"]): boolean {
   return !["checklist", "manual"].includes(type);
+}
+
+function banditMetadataFromSelection(selection: BanditSelection): BanditMetadata {
+  return {
+    selectedIndex: selection.actionIndex,
+    ucbScore: selection.ucbScore,
+    explorationReason: selection.explorationReason,
+    alternatives: selection.alternatives,
+  };
 }
 
 function draftContentForAction(
@@ -76,7 +95,12 @@ export function buildExecutionTaskForExperiment(params: {
       `Beat-the-leader test for “${experiment.keyword}” from ${location}.`,
       action.hypothesis,
       `Cell leader: ${experiment.leaderName}.`,
-    ].join("\n\n"),
+      experiment.banditMetadata?.explorationReason
+        ? `Selection: ${experiment.banditMetadata.explorationReason}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
     priority: "P1",
     status: needsApproval ? "pending_approval" : "approved",
     draftContent: draftContentForAction(audit, experiment.leaderDelta, action),
@@ -105,35 +129,19 @@ export function buildExecutionTaskForExperiment(params: {
   };
 }
 
-export async function proposeExperimentFromDelta(params: {
+function buildExperimentRecord(params: {
   audit: FullAuditPayload;
   delta: LeaderDelta;
   userId: string;
   businessId: string;
-  client: import("@/audit/types").ClientConfig;
+  action: LeaderDeltaAction;
+  origin: ExperimentOrigin;
+  banditMetadata: BanditMetadata | null;
   baselineSnapshotDate?: string;
-}): Promise<{ experiment: RankingExperiment; task: ExecutionTask }> {
-  const existing = await getActiveExperimentForCellAdmin(
-    params.businessId,
-    params.delta.keyword,
-    params.delta.gridNorth,
-    params.delta.gridEast
-  );
-  if (existing) {
-    throw new Error(
-      `An experiment is already active for this cell (${existing.status}).`
-    );
-  }
-
-  const topAction = params.delta.rankedActions[0];
-  if (!topAction) {
-    throw new Error("No actionable hypothesis for this cell.");
-  }
-
+}): RankingExperiment {
   const now = new Date().toISOString();
-  const experimentId = createId();
-  const experiment: RankingExperiment = {
-    id: experimentId,
+  return {
+    id: createId(),
     businessId: params.businessId,
     userId: params.userId,
     auditId: params.audit.auditId,
@@ -142,11 +150,13 @@ export async function proposeExperimentFromDelta(params: {
     gridEast: params.delta.gridEast,
     leaderPlaceId: params.delta.leaderPlaceId,
     leaderName: params.delta.leaderName,
-    actionType: topAction.actionType,
-    planStepNumber: topAction.planStepNumber,
-    hypothesis: topAction.hypothesis,
+    actionType: params.action.actionType,
+    planStepNumber: params.action.planStepNumber,
+    hypothesis: params.action.hypothesis,
     leaderDelta: params.delta,
     marketKey: deriveMarketKey(params.audit),
+    origin: params.origin,
+    banditMetadata: params.banditMetadata,
     status: "proposed",
     executionTaskId: null,
     baselineSnapshotDate:
@@ -161,11 +171,72 @@ export async function proposeExperimentFromDelta(params: {
     createdAt: now,
     updatedAt: now,
   };
+}
+
+function resolveSelection(params: {
+  delta: LeaderDelta;
+  audit: FullAuditPayload;
+  marketIndex?: MarketCalibrationIndex;
+  banditSelection?: BanditSelection;
+  actionIndex?: number;
+  origin?: ExperimentOrigin;
+}): BanditSelection | null {
+  if (params.banditSelection) return params.banditSelection;
+
+  const marketKey = deriveMarketKey(params.audit);
+  return selectActionWithBandit({
+    actions: params.delta.rankedActions,
+    marketKey,
+    marketIndex: params.marketIndex ?? new Map(),
+    mode: params.origin === "manual" ? "manual" : "suggest",
+    actionIndex: params.actionIndex,
+  });
+}
+
+export async function proposeExperimentFromDelta(params: {
+  audit: FullAuditPayload;
+  delta: LeaderDelta;
+  userId: string;
+  businessId: string;
+  client: import("@/audit/types").ClientConfig;
+  baselineSnapshotDate?: string;
+  origin?: ExperimentOrigin;
+  banditSelection?: BanditSelection;
+  actionIndex?: number;
+  marketIndex?: MarketCalibrationIndex;
+}): Promise<{ experiment: RankingExperiment; task: ExecutionTask }> {
+  const existing = await getActiveExperimentForCellAdmin(
+    params.businessId,
+    params.delta.keyword,
+    params.delta.gridNorth,
+    params.delta.gridEast
+  );
+  if (existing) {
+    throw new Error(
+      `An experiment is already active for this cell (${existing.status}).`
+    );
+  }
+
+  const selection = resolveSelection(params);
+  if (!selection) {
+    throw new Error("No actionable hypothesis for this cell.");
+  }
+
+  const experiment = buildExperimentRecord({
+    audit: params.audit,
+    delta: params.delta,
+    userId: params.userId,
+    businessId: params.businessId,
+    action: selection.action,
+    origin: params.origin ?? "manual",
+    banditMetadata: banditMetadataFromSelection(selection),
+    baselineSnapshotDate: params.baselineSnapshotDate,
+  });
 
   const task = buildExecutionTaskForExperiment({
     audit: params.audit,
     experiment,
-    action: topAction,
+    action: selection.action,
   });
 
   const saved = await insertRankingExperiment(experiment);
@@ -178,6 +249,87 @@ export async function proposeExperimentFromDelta(params: {
 
   return {
     experiment: linked ?? { ...saved, status: "pending_approval", executionTaskId: task.id },
+    task,
+  };
+}
+
+export async function proposeSuggestedExperiment(params: {
+  audit: FullAuditPayload;
+  delta: LeaderDelta;
+  userId: string;
+  businessId: string;
+  origin: ExperimentOrigin;
+  banditSelection: BanditSelection;
+  baselineSnapshotDate?: string;
+}): Promise<RankingExperiment> {
+  const existing = await getActiveExperimentForCellAdmin(
+    params.businessId,
+    params.delta.keyword,
+    params.delta.gridNorth,
+    params.delta.gridEast
+  );
+  if (existing) {
+    throw new Error(
+      `An experiment is already active for this cell (${existing.status}).`
+    );
+  }
+
+  const experiment = buildExperimentRecord({
+    audit: params.audit,
+    delta: params.delta,
+    userId: params.userId,
+    businessId: params.businessId,
+    action: params.banditSelection.action,
+    origin: params.origin,
+    banditMetadata: banditMetadataFromSelection(params.banditSelection),
+    baselineSnapshotDate: params.baselineSnapshotDate,
+  });
+
+  return insertRankingExperiment(experiment);
+}
+
+export async function activateSuggestedExperiment(params: {
+  experimentId: string;
+  audit: FullAuditPayload;
+  client: import("@/audit/types").ClientConfig;
+  userId: string;
+}): Promise<{ experiment: RankingExperiment; task: ExecutionTask }> {
+  const experiment = await getRankingExperimentByIdAdmin(params.experimentId);
+  if (!experiment) {
+    throw new Error("Experiment not found.");
+  }
+  if (experiment.status !== "proposed" || experiment.origin !== "suggested") {
+    throw new Error("Only suggested experiments can be activated.");
+  }
+
+  const action =
+    experiment.leaderDelta.rankedActions[experiment.banditMetadata?.selectedIndex ?? 0] ??
+    experiment.leaderDelta.rankedActions.find(
+      (row) => row.actionType === experiment.actionType
+    );
+  if (!action) {
+    throw new Error("Experiment action is no longer available.");
+  }
+
+  const task = buildExecutionTaskForExperiment({
+    audit: params.audit,
+    experiment,
+    action,
+  });
+
+  await appendExecutionTasks(params.userId, params.client, [task]);
+
+  const linked = await updateRankingExperimentAdmin(experiment.id, {
+    status: "pending_approval",
+    executionTaskId: task.id,
+  });
+
+  return {
+    experiment: linked ?? {
+      ...experiment,
+      status: "pending_approval",
+      executionTaskId: task.id,
+    },
     task,
   };
 }

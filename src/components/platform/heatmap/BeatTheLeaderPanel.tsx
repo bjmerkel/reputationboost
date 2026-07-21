@@ -17,13 +17,14 @@ export default function BeatTheLeaderPanel({
   onExperimentCreated?: () => void;
 }) {
   const gaps = summarizeLeaderGaps(delta, 4);
-  const topAction = delta.rankedActions[0];
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const selectedAction = delta.rankedActions[selectedIndex] ?? delta.rankedActions[0];
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function runExperiment() {
-    if (!clientId || !topAction) return;
+    if (!clientId || !selectedAction) return;
     setSubmitting(true);
     setError(null);
     setMessage(null);
@@ -36,6 +37,7 @@ export default function BeatTheLeaderPanel({
           keyword: delta.keyword,
           gridNorth: delta.gridNorth,
           gridEast: delta.gridEast,
+          actionIndex: selectedIndex,
         }),
       });
       const data = (await res.json()) as { error?: string };
@@ -86,13 +88,34 @@ export default function BeatTheLeaderPanel({
         </div>
       )}
 
-      {topAction && (
+      {delta.rankedActions.length > 0 && (
         <div className="rounded-lg border border-[#e6f4ea] bg-[#f6fff8] px-3 py-2">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-[#137333]">
-            Recommended next move
+            Recommended actions
           </p>
-          <p className="mt-1 text-xs text-[#3c4043]">{topAction.hypothesis}</p>
-          {clientId && (
+          {delta.rankedActions.length > 1 && (
+            <ul className="mt-2 space-y-1.5">
+              {delta.rankedActions.slice(0, 4).map((action, index) => (
+                <li key={`${action.actionType}-${index}`}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIndex(index)}
+                    className={`w-full rounded-lg border px-2.5 py-2 text-left text-xs transition ${
+                      selectedIndex === index
+                        ? "border-[#1a73e8] bg-[#e8f0fe] text-[#202124]"
+                        : "border-[#e8eaed] bg-white text-[#5f6368]"
+                    }`}
+                  >
+                    <span className="font-semibold">#{index + 1}</span> {action.hypothesis}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {delta.rankedActions.length === 1 && selectedAction && (
+            <p className="mt-1 text-xs text-[#3c4043]">{selectedAction.hypothesis}</p>
+          )}
+          {clientId && selectedAction && (
             <button
               type="button"
               onClick={() => void runExperiment()}

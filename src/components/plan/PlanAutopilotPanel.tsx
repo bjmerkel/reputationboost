@@ -2,11 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { RankingExperiment } from "@/audit/autopilot/types";
+import {
+  AUTOPILOT_MODE_DESCRIPTIONS,
+  AUTOPILOT_MODE_LABELS,
+  type AutopilotMode,
+} from "@/audit/autopilot/modes";
 import { formatCellDirection } from "@/audit/autopilot/leader-delta-engine";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 
 const STATUS_LABELS: Record<RankingExperiment["status"], string> = {
-  proposed: "Proposed",
+  proposed: "Suggested",
   pending_approval: "Needs approval",
   running: "Approved",
   measuring: "Measuring",
@@ -15,6 +20,8 @@ const STATUS_LABELS: Record<RankingExperiment["status"], string> = {
   inconclusive: "Inconclusive",
   cancelled: "Cancelled",
 };
+
+const MODES: AutopilotMode[] = ["off", "manual", "suggest", "auto"];
 
 export default function PlanAutopilotPanel({
   clientId,
@@ -27,15 +34,26 @@ export default function PlanAutopilotPanel({
 }) {
   const isLight = variant === "light";
   const [experiments, setExperiments] = useState<RankingExperiment[]>([]);
+  const [autopilotMode, setAutopilotMode] = useState<AutopilotMode>("manual");
   const [loading, setLoading] = useState(true);
+  const [savingMode, setSavingMode] = useState(false);
+  const [actionId, setActionId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/autopilot/experiments?clientId=${encodeURIComponent(clientId)}`);
-      if (!res.ok) return;
-      const data = (await res.json()) as { experiments?: RankingExperiment[] };
-      setExperiments(data.experiments ?? []);
+      const [experimentsRes, settingsRes] = await Promise.all([
+        fetch(`/api/autopilot/experiments?clientId=${encodeURIComponent(clientId)}`),
+        fetch(`/api/autopilot/settings?clientId=${encodeURIComponent(clientId)}`),
+      ]);
+      if (experimentsRes.ok) {
+        const data = (await experimentsRes.json()) as { experiments?: RankingExperiment[] };
+        setExperiments(data.experiments ?? []);
+      }
+      if (settingsRes.ok) {
+        const data = (await settingsRes.json()) as { autopilotMode?: AutopilotMode };
+        if (data.autopilotMode) setAutopilotMode(data.autopilotMode);
+      }
     } finally {
       setLoading(false);
     }
@@ -45,6 +63,57 @@ export default function PlanAutopilotPanel({
     void load();
   }, [load]);
 
+  async function updateMode(mode: AutopilotMode) {
+    setSavingMode(true);
+    try {
+      const res = await fetch("/api/autopilot/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, autopilotMode: mode }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { autopilotMode?: AutopilotMode };
+        setAutopilotMode(data.autopilotMode ?? mode);
+      }
+    } finally {
+      setSavingMode(false);
+    }
+  }
+
+  async function activateSuggestion(experimentId: string) {
+    setActionId(experimentId);
+    try {
+      const res = await fetch("/api/autopilot/experiments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, experimentId, action: "activate" }),
+      });
+      if (res.ok) await load();
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function dismissSuggestion(experimentId: string) {
+    setActionId(experimentId);
+    try {
+      const res = await fetch("/api/autopilot/experiments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, experimentId, action: "dismiss" }),
+      });
+      if (res.ok) await load();
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  if (loading) return null;
+  if (autopilotMode === "off" && experiments.length === 0) return null;
+
+  const suggested = experiments.filter(
+    (exp) => exp.status === "proposed" && exp.origin === "suggested"
+  );
   const active = experiments.filter((exp) =>
     ["pending_approval", "running", "measuring"].includes(exp.status)
   );
@@ -52,25 +121,99 @@ export default function PlanAutopilotPanel({
     ["won", "lost", "inconclusive"].includes(exp.status)
   );
 
-  if (loading) return null;
-  if (experiments.length === 0) return null;
-
   return (
     <section
       className={`rounded-xl border p-4 ${
         isLight ? "border-[#dadce0] bg-white" : "border-white/10 bg-slate-900"
       }`}
     >
-      <p
-        className={`text-xs font-semibold uppercase tracking-wider ${
-          isLight ? "text-[#80868b]" : "text-slate-500"
-        }`}
-      >
-        Ranking autopilot
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p
+            className={`text-xs font-semibold uppercase tracking-wider ${
+              isLight ? "text-[#80868b]" : "text-slate-500"
+            }`}
+          >
+            Ranking autopilot
+          </p>
+          <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+            Per-cell experiments run through your approval queue and measure grid movement.
+          </p>
+        </div>
+        <label className={`text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+          Mode
+          <select
+            value={autopilotMode}
+            disabled={savingMode}
+            onChange={(event) => void updateMode(event.target.value as AutopilotMode)}
+            className={`mt-1 block rounded-lg border px-2 py-1.5 text-xs font-medium ${
+              isLight
+                ? "border-[#dadce0] bg-white text-[#202124]"
+                : "border-white/10 bg-slate-950 text-white"
+            }`}
+          >
+            {MODES.map((mode) => (
+              <option key={mode} value={mode}>
+                {AUTOPILOT_MODE_LABELS[mode]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <p className={`mt-2 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+        {AUTOPILOT_MODE_DESCRIPTIONS[autopilotMode]}
       </p>
-      <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-        Per-cell experiments run through your approval queue and measure grid movement.
-      </p>
+
+      {suggested.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {suggested.map((experiment) => (
+            <li
+              key={experiment.id}
+              className={`rounded-lg border px-3 py-3 ${
+                isLight ? "border-[#d2e3fc] bg-[#f8fbff]" : "border-sky-400/20 bg-sky-400/10"
+              }`}
+            >
+              <p className={`text-sm font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+                Suggested: {experiment.keyword}
+              </p>
+              <p className={`mt-0.5 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                {formatCellDirection(experiment.gridNorth, experiment.gridEast)} · beat{" "}
+                {experiment.leaderName}
+              </p>
+              <p className={`mt-1 text-xs ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
+                {experiment.hypothesis}
+              </p>
+              {experiment.banditMetadata?.explorationReason && (
+                <p className={`mt-1 text-xs ${isLight ? "text-[#1a73e8]" : "text-sky-300"}`}>
+                  {experiment.banditMetadata.explorationReason}
+                </p>
+              )}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={actionId === experiment.id}
+                  onClick={() => void activateSuggestion(experiment.id)}
+                  className="rounded-full bg-[#1a73e8] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  Queue for approval
+                </button>
+                <button
+                  type="button"
+                  disabled={actionId === experiment.id}
+                  onClick={() => void dismissSuggestion(experiment.id)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                    isLight
+                      ? "border-[#dadce0] text-[#5f6368]"
+                      : "border-white/10 text-slate-400"
+                  }`}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {active.length > 0 && (
         <ul className="mt-3 space-y-2">
@@ -85,6 +228,11 @@ export default function PlanAutopilotPanel({
                 <div className="min-w-0">
                   <p className={`text-sm font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
                     {experiment.keyword}
+                    {experiment.origin === "auto" && (
+                      <span className={`ml-2 text-[10px] font-medium ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                        auto
+                      </span>
+                    )}
                   </p>
                   <p className={`mt-0.5 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
                     {formatCellDirection(experiment.gridNorth, experiment.gridEast)} · beat{" "}
@@ -93,6 +241,11 @@ export default function PlanAutopilotPanel({
                   <p className={`mt-1 text-xs ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
                     {experiment.hypothesis}
                   </p>
+                  {experiment.banditMetadata?.explorationReason && (
+                    <p className={`mt-1 text-xs ${isLight ? "text-[#1a73e8]" : "text-sky-300"}`}>
+                      {experiment.banditMetadata.explorationReason}
+                    </p>
+                  )}
                   {(experiment.targetRankBefore != null ||
                     experiment.targetRankAfter != null) && (
                     <p className={`mt-1 text-xs ${isLight ? "text-[#137333]" : "text-emerald-300"}`}>
@@ -168,6 +321,12 @@ export default function PlanAutopilotPanel({
             ))}
           </ul>
         </div>
+      )}
+
+      {experiments.length === 0 && autopilotMode !== "off" && (
+        <p className={`mt-3 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+          No experiments yet. Use the map&apos;s beat-the-leader panel or enable Suggest/Auto mode.
+        </p>
       )}
     </section>
   );
