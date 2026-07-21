@@ -24,6 +24,10 @@ import {
 } from "@/audit/storage-experiments";
 import { appendExecutionTasks } from "@/audit/storage-execution";
 import { RANK_ATTRIBUTION_WINDOW_DAYS } from "@/audit/attribution/window";
+import {
+  notifyExperimentQueued,
+  notifyExperimentSuggested,
+} from "@/audit/autopilot/notification-events";
 
 function requiresApproval(type: ExecutionTask["type"]): boolean {
   return !["checklist", "manual"].includes(type);
@@ -247,8 +251,15 @@ export async function proposeExperimentFromDelta(params: {
     executionTaskId: task.id,
   });
 
+  const resultExperiment =
+    linked ?? { ...saved, status: "pending_approval" as const, executionTaskId: task.id };
+
+  if (params.origin === "auto") {
+    await notifyExperimentQueued(resultExperiment).catch(() => undefined);
+  }
+
   return {
-    experiment: linked ?? { ...saved, status: "pending_approval", executionTaskId: task.id },
+    experiment: resultExperiment,
     task,
   };
 }
@@ -285,7 +296,10 @@ export async function proposeSuggestedExperiment(params: {
     baselineSnapshotDate: params.baselineSnapshotDate,
   });
 
-  return insertRankingExperiment(experiment);
+  return insertRankingExperiment(experiment).then(async (saved) => {
+    await notifyExperimentSuggested(saved).catch(() => undefined);
+    return saved;
+  });
 }
 
 export async function activateSuggestedExperiment(params: {

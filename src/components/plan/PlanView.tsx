@@ -14,6 +14,7 @@ import {
   marketCalibrationToStepCalibration,
   mergeMarketCalibrations,
 } from "@/audit/autopilot/market-calibration";
+import { mergeExperimentCalibrations } from "@/audit/autopilot/experiment-step-calibration";
 import { auditNeedsSoftConversionBoost, auditNeedsReviewVelocityBoost, auditPrefersConversionOverRank } from "@/audit/phase2/conversion-boost";
 import { PLAN_TAB_FLAGS, AUTOPILOT_FLAGS } from "@/lib/feature-flags";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
@@ -33,6 +34,7 @@ import PlanAcvNudge from "./PlanAcvNudge";
 import PlanAcvReminderModal from "./PlanAcvReminderModal";
 import PlanKeywordPlaybooks from "./PlanKeywordPlaybooks";
 import PlanAutopilotPanel from "./PlanAutopilotPanel";
+import CellPortfolioPanel from "./CellPortfolioPanel";
 import PlanMaintenanceCadence from "./PlanMaintenanceCadence";
 import PlanNextBestActions from "./PlanNextBestActions";
 import PlanPhaseSection from "./PlanPhaseSection";
@@ -116,6 +118,9 @@ export default function PlanView({
     plan,
     planReconciledAt,
     marketActionCalibration = [],
+    experimentStepCalibration = {},
+    winningStepsByKeyword = {},
+    unreadNotifications = [],
     loading,
     reconciling,
     error,
@@ -361,6 +366,10 @@ export default function PlanView({
     () => buildGapAttributionCalibration(attributions),
     [attributions]
   );
+  const winningStepsMap = useMemo(
+    () => new Map(Object.entries(winningStepsByKeyword)),
+    [winningStepsByKeyword]
+  );
   const marketIndex = useMemo(
     () => buildMarketCalibrationIndex(marketActionCalibration),
     [marketActionCalibration]
@@ -371,11 +380,19 @@ export default function PlanView({
   );
   const calibration = useMemo(
     () =>
-      mergeMarketCalibrations(
-        mergeCalibrations(businessCalibration, globalCalibration),
-        marketStepCalibration
+      mergeExperimentCalibrations(
+        mergeMarketCalibrations(
+          mergeCalibrations(businessCalibration, globalCalibration),
+          marketStepCalibration
+        ),
+        experimentStepCalibration
       ),
-    [businessCalibration, globalCalibration, marketStepCalibration]
+    [
+      businessCalibration,
+      globalCalibration,
+      marketStepCalibration,
+      experimentStepCalibration,
+    ]
   );
   const path = useMemo(
     () =>
@@ -553,6 +570,7 @@ export default function PlanView({
         avgCustomerValue={effectiveAvgCustomerValue}
         calibration={calibration}
         marketIndex={marketIndex}
+        winningStepsByKeyword={winningStepsMap}
         currency={currency}
         variant={variant}
         auditId={audit.auditId}
@@ -567,10 +585,15 @@ export default function PlanView({
         <PlanAutopilotPanel
           clientId={clientId}
           variant={variant}
+          unreadNotifications={unreadNotifications}
           onOpenTask={(_taskId, stepNumber) => {
             if (stepNumber != null) setLocalFocusStep(stepNumber);
           }}
         />
+      )}
+
+      {AUTOPILOT_FLAGS.enabled && (
+        <CellPortfolioPanel clientId={clientId} variant={variant} />
       )}
 
       {(plan.planRationale || plan.objective) && (

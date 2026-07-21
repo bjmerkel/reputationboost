@@ -8,6 +8,7 @@ import {
   type AutopilotMode,
 } from "@/audit/autopilot/modes";
 import { formatCellDirection } from "@/audit/autopilot/leader-delta-engine";
+import type { UserNotification } from "@/audit/storage-notifications";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 
 const STATUS_LABELS: Record<RankingExperiment["status"], string> = {
@@ -26,10 +27,12 @@ const MODES: AutopilotMode[] = ["off", "manual", "suggest", "auto"];
 export default function PlanAutopilotPanel({
   clientId,
   variant = "light",
+  unreadNotifications = [],
   onOpenTask,
 }: {
   clientId: string;
   variant?: "light" | "dark";
+  unreadNotifications?: UserNotification[];
   onOpenTask?: (taskId: string, stepNumber?: number | null) => void;
 }) {
   const isLight = variant === "light";
@@ -163,6 +166,29 @@ export default function PlanAutopilotPanel({
       <p className={`mt-2 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
         {AUTOPILOT_MODE_DESCRIPTIONS[autopilotMode]}
       </p>
+
+      {unreadNotifications.length > 0 && (
+        <div
+          className={`mt-3 rounded-lg border px-3 py-2 ${
+            isLight ? "border-[#d2e3fc] bg-[#e8f0fe]" : "border-sky-400/20 bg-sky-400/10"
+          }`}
+        >
+          <p className={`text-xs font-semibold ${isLight ? "text-[#1a73e8]" : "text-sky-300"}`}>
+            {unreadNotifications.length} new update
+            {unreadNotifications.length === 1 ? "" : "s"}
+          </p>
+          <ul className="mt-1 space-y-1">
+            {unreadNotifications.slice(0, 3).map((notification) => (
+              <li
+                key={notification.id}
+                className={`text-xs ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}
+              >
+                {notification.title} — {notification.body}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {suggested.length > 0 && (
         <ul className="mt-3 space-y-2">

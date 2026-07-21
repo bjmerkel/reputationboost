@@ -15,3 +15,17 @@ export async function listOnboardedBusinesses(): Promise<BusinessRecord[]> {
   if (error) throw new Error(`Failed to list onboarded businesses: ${error.message}`);
   return (data ?? []) as BusinessRecord[];
 }
+
+export async function getBusinessRecordByIdAdmin(
+  businessId: string
+): Promise<BusinessRecord | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("id", businessId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as BusinessRecord;
+}

@@ -51,6 +51,8 @@ import { isMutableByReconcile } from "./task-identity";
 import { PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
 import { refreshAuditGbpFromGoogle } from "@/audit/live-audit";
 import { buildAttributionCalibration } from "@/audit/phase2/attribution-calibration";
+import { buildExperimentStepCalibration, mergeExperimentCalibrations } from "@/audit/autopilot/experiment-step-calibration";
+import { listConcludedExperimentsForBusinessAdmin } from "@/audit/storage-experiments";
 import { listActionAttributionsForBusinessAdmin, listActionAttributionsForUser } from "@/audit/storage-attribution";
 import {
   categoryLabelsMatch,
@@ -714,8 +716,14 @@ export async function reconcilePlanForBusiness(
   const content = await resolveReconcileContent(refreshedAudit, existing, options.content);
   let calibration: ReturnType<typeof buildAttributionCalibration> | undefined;
   try {
-    const attributions = await listActionAttributionsForBusinessAdmin(row.id, 50);
-    calibration = buildAttributionCalibration(attributions);
+    const [attributions, concludedExperiments] = await Promise.all([
+      listActionAttributionsForBusinessAdmin(row.id, 50),
+      listConcludedExperimentsForBusinessAdmin(row.id),
+    ]);
+    calibration = mergeExperimentCalibrations(
+      buildAttributionCalibration(attributions),
+      buildExperimentStepCalibration(concludedExperiments)
+    );
   } catch {
     // Attribution load is best-effort — plan still reconciles with model estimates.
   }
@@ -797,8 +805,17 @@ export async function reconcilePlanForUser(
   const content = await resolveReconcileContent(refreshedAudit, existing, options.content);
   let calibration: ReturnType<typeof buildAttributionCalibration> | undefined;
   try {
-    const attributions = await listActionAttributionsForUser(userId, client.id, 50);
-    calibration = buildAttributionCalibration(attributions);
+    const businessId = client.businessId;
+    const [attributions, concludedExperiments] = await Promise.all([
+      listActionAttributionsForUser(userId, client.id, 50),
+      businessId
+        ? listConcludedExperimentsForBusinessAdmin(businessId)
+        : Promise.resolve([]),
+    ]);
+    calibration = mergeExperimentCalibrations(
+      buildAttributionCalibration(attributions),
+      buildExperimentStepCalibration(concludedExperiments)
+    );
   } catch {
     // Attribution load is best-effort — plan still reconciles with model estimates.
   }

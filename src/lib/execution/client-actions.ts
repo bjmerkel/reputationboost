@@ -1,5 +1,7 @@
 import type { ExecutionTask, FullAuditPayload, Plan } from "@/audit/types";
+import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import type { MarketActionCalibration } from "@/audit/autopilot/market-calibration";
+import type { UserNotification } from "@/audit/storage-notifications";
 import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
 import { needsGbpDescriptionRepublish } from "@/lib/google/gbp-description";
 import { pendingRoutineTasks } from "./pending-tasks";
@@ -9,6 +11,9 @@ type ExecutionState = {
   plan: Plan | null;
   planReconciledAt: string | null;
   marketActionCalibration: MarketActionCalibration[];
+  experimentStepCalibration: AttributionCalibration;
+  winningStepsByKeyword: Record<string, number>;
+  unreadNotifications: UserNotification[];
 };
 
 const inflightExecutionFetches = new Map<string, Promise<ExecutionState>>();
@@ -42,6 +47,9 @@ export async function fetchExecutionState(
       plan: data.plan ?? null,
       planReconciledAt: data.planReconciledAt ?? null,
       marketActionCalibration: data.marketActionCalibration ?? [],
+      experimentStepCalibration: data.experimentStepCalibration ?? {},
+      winningStepsByKeyword: data.winningStepsByKeyword ?? {},
+      unreadNotifications: data.unreadNotifications ?? [],
     };
   })();
 

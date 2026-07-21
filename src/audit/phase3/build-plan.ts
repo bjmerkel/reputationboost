@@ -13,6 +13,10 @@ import { isCustomPlanStep } from "./plan-custom-steps";
 import { resolvePlanStepNumber } from "./plan-task-utils";
 import { buildAttributionCalibration, mergeCalibrations } from "../phase2/attribution-calibration";
 import type { AttributionCalibration } from "../phase2/attribution-calibration";
+import {
+  buildExperimentStepCalibration,
+  mergeExperimentCalibrations,
+} from "../autopilot/experiment-step-calibration";
 import { mergeMarketCalibrations } from "../autopilot/market-calibration";
 import { projectHealthScoresFromStepNumbers, isStepSatisfied } from "../phase2/counterfactual";
 import { syncReviewEngagementMetrics } from "@/audit/review-engagement";
@@ -150,7 +154,8 @@ export function buildPlan(
   attributions: ActionAttribution[] = [],
   globalCalibration?: AttributionCalibration,
   avgCustomerValue?: number | null,
-  marketCalibration?: AttributionCalibration
+  marketCalibration?: AttributionCalibration,
+  experimentCalibration?: AttributionCalibration
 ): Plan | null {
   const gbpPlan = audit.strategy?.gbpPlan;
   if (!gbpPlan) return null;
@@ -158,9 +163,12 @@ export function buildPlan(
   syncReviewEngagementMetrics(audit);
 
   const tasksByStep = groupTasksByStep(tasks);
-  const calibration = mergeMarketCalibrations(
-    mergeCalibrations(buildAttributionCalibration(attributions), globalCalibration),
-    marketCalibration
+  const calibration = mergeExperimentCalibrations(
+    mergeMarketCalibrations(
+      mergeCalibrations(buildAttributionCalibration(attributions), globalCalibration),
+      marketCalibration
+    ),
+    experimentCalibration
   );
   const planSteps = gbpPlan.steps
     .filter((step) => !isRetiredGbpPlanStep(step.stepNumber, step.title))

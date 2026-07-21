@@ -15,6 +15,7 @@ export default function PlanKeywordPlaybooks({
   avgCustomerValue,
   calibration,
   marketIndex,
+  winningStepsByKeyword,
   currency = "USD",
   variant = "light",
   onFocusKeyword,
@@ -26,6 +27,7 @@ export default function PlanKeywordPlaybooks({
   avgCustomerValue?: number | null;
   calibration?: AttributionCalibration;
   marketIndex?: MarketCalibrationIndex;
+  winningStepsByKeyword?: Map<string, number>;
   currency?: string;
   variant?: "light" | "dark";
   onFocusKeyword?: (keyword: string, stepNumber?: number) => void;
@@ -41,10 +43,11 @@ export default function PlanKeywordPlaybooks({
         avgCustomerValue,
         calibration,
         marketIndex,
+        winningStepsByKeyword,
         currency,
         limit: 5,
       }),
-    [audit, plan, avgCustomerValue, calibration, marketIndex, currency]
+    [audit, plan, avgCustomerValue, calibration, marketIndex, winningStepsByKeyword, currency]
   );
 
   if (playbooks.length === 0) return null;

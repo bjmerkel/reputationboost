@@ -53,6 +53,8 @@ export interface KeywordBindingOptions {
   unfinishedStepNumbers?: ReadonlySet<number>;
   /** Cross-client market priors for beat-the-leader ranking (Phase D). */
   marketIndex?: MarketCalibrationIndex;
+  /** Winning experiment steps per keyword (Phase F). */
+  winningStepsByKeyword?: ReadonlyMap<string, number> | Map<string, number>;
 }
 
 function uniqueSteps(steps: number[]): number[] {
@@ -307,7 +309,10 @@ export function resolveBestPlanStepForKeyword(
   );
 
   if (binding) {
-    const primary = unfinished.find((s) => s.stepNumber === binding.primaryStep);
+    const winningStep = options.winningStepsByKeyword?.get(keyword.toLowerCase());
+    const primary = winningStep != null
+      ? unfinished.find((s) => s.stepNumber === winningStep)
+      : unfinished.find((s) => s.stepNumber === binding.primaryStep);
     if (primary) return primary.stepNumber;
     for (const stepNumber of binding.supportingSteps) {
       const hit = unfinished.find((s) => s.stepNumber === stepNumber);

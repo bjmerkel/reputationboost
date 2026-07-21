@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import type { RankingExperiment } from "@/audit/autopilot/types";
 import { formatCellDirection } from "@/audit/autopilot/leader-delta-engine";
+import {
+  buildExperimentNextStepHint,
+  buildExperimentPeriodSummary,
+  buildExperimentResultNarrative,
+} from "@/audit/autopilot/experiment-narrative";
+import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 
 const STATUS_LABELS: Record<RankingExperiment["status"], string> = {
   proposed: "Proposed",
@@ -16,18 +22,14 @@ const STATUS_LABELS: Record<RankingExperiment["status"], string> = {
   cancelled: "Cancelled",
 };
 
-function formatRank(rank: number | null | undefined): string {
-  if (rank == null) return "not visible";
-  if (rank > 20) return "#20+";
-  return `#${rank}`;
-}
-
 export default function ExperimentResultsPanel({
   clientId,
   attributions,
+  onFocusStep,
 }: {
   clientId: string;
   attributions: ActionAttribution[];
+  onFocusStep?: (stepNumber: number) => void;
 }) {
   const [experiments, setExperiments] = useState<RankingExperiment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +63,7 @@ export default function ExperimentResultsPanel({
   const visible = experiments.filter((exp) =>
     ["measuring", "won", "lost", "inconclusive"].includes(exp.status)
   );
+  const periodSummary = buildExperimentPeriodSummary(experiments);
 
   if (loading || visible.length === 0) return null;
 
@@ -70,19 +73,17 @@ export default function ExperimentResultsPanel({
         Ranking experiments
       </p>
       <p className="mt-1 text-sm text-[#5f6368]">
-        Per-cell rank movement from autopilot tests.
+        Per-cell rank movement from beat-the-leader tests.
       </p>
+      {periodSummary && (
+        <p className="mt-2 text-xs font-medium text-[#1a73e8]">{periodSummary}</p>
+      )}
 
       <ul className="mt-3 space-y-3">
         {visible.map((experiment) => {
           const attribution = attributionByExperimentId.get(experiment.id);
-          const rankBefore =
-            attribution?.targetCellRankBefore ?? experiment.targetRankBefore;
-          const rankAfter =
-            attribution?.targetCellRankAfter ?? experiment.targetRankAfter;
-          const cellDelta =
-            attribution?.targetCellRankDelta ??
-            (rankBefore != null && rankAfter != null ? rankAfter - rankBefore : null);
+          const narrative = buildExperimentResultNarrative({ experiment, attribution });
+          const nextStep = buildExperimentNextStepHint(experiment);
 
           return (
             <li
@@ -112,24 +113,25 @@ export default function ExperimentResultsPanel({
                 </span>
               </div>
 
-              <p className="mt-2 text-xs text-[#3c4043]">{experiment.hypothesis}</p>
+              <p className="mt-2 text-xs leading-relaxed text-[#3c4043]">{narrative}</p>
 
-              <div className="mt-2 flex flex-wrap gap-3 text-xs text-[#5f6368]">
-                <span>
-                  Target cell: {formatRank(rankBefore)} → {formatRank(rankAfter)}
-                </span>
-                {cellDelta != null && cellDelta < 0 && (
-                  <span className="font-medium text-[#137333]">
-                    {Math.abs(cellDelta)} position{Math.abs(cellDelta) === 1 ? "" : "s"} gained
-                  </span>
-                )}
-              </div>
-
-              {experiment.conclusionReason && (
-                <p className="mt-1 text-xs text-[#5f6368]">{experiment.conclusionReason}</p>
+              {nextStep && (
+                <p className="mt-2 text-xs text-[#1a73e8]">Next: {nextStep}</p>
               )}
-              {attribution?.narrative && (
-                <p className="mt-1 text-xs text-[#80868b]">{attribution.narrative}</p>
+
+              {experiment.planStepNumber != null && onFocusStep && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onFocusStep(experiment.planStepNumber!);
+                    document
+                      .getElementById(planScrollElementId(experiment.planStepNumber!))
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="mt-2 text-xs font-semibold text-[#1a73e8]"
+                >
+                  Open plan step {experiment.planStepNumber} →
+                </button>
               )}
             </li>
           );
