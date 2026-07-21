@@ -156,6 +156,25 @@
           "optedOut": {
             "type": "boolean",
             "description": "Set true for opt-out events"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Invoice or job total for revenue attribution"
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD"
+          },
+          "paidAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the invoice was paid"
+          },
+          "jobLat": { "type": "number" },
+          "jobLng": { "type": "number" },
+          "leadSource": {
+            "type": "string",
+            "description": "CRM lead source, e.g. google or gbp"
           }
         }
       },
@@ -174,7 +193,9 @@
           "reviewRequestSkippedReason": { "type": "string" },
           "optedOut": { "type": "boolean" },
           "optOutApplied": { "type": "boolean" },
-          "optInApplied": { "type": "boolean" }
+          "optInApplied": { "type": "boolean" },
+          "revenueTransactionId": { "type": "string", "format": "uuid" },
+          "revenueAmount": { "type": "number" }
         }
       },
       "ErrorResponse": {

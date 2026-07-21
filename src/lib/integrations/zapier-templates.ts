@@ -14,7 +14,7 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
     description: "Send a review request when a Jobber job is marked complete.",
     templateUrl: "https://zapier.com/apps/jobber/integrations/reputation-boost",
     eventType: "job.completed",
-    sampleFields: ["phone", "firstName", "lastName", "jobType", "service", "jobAddress", "jobCity", "jobZip", "lineItems", "externalId"],
+    sampleFields: ["phone", "firstName", "lastName", "jobType", "service", "jobAddress", "jobCity", "jobZip", "lineItems", "externalId", "amount", "currency"],
   },
   {
     id: "hcp-job-completed",
@@ -22,7 +22,7 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
     description: "Trigger outreach when a Housecall Pro job finishes.",
     templateUrl: "https://zapier.com/apps/housecall-pro/integrations/reputation-boost",
     eventType: "job.completed",
-    sampleFields: ["phone", "name", "service", "jobAddress", "jobCity", "jobZip", "externalId"],
+    sampleFields: ["phone", "name", "service", "jobAddress", "jobCity", "jobZip", "externalId", "amount", "currency"],
   },
   {
     id: "quickbooks-invoice-paid",
@@ -30,7 +30,7 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
     description: "Request a review after a QuickBooks invoice is paid.",
     templateUrl: "https://zapier.com/apps/quickbooks-online/integrations/reputation-boost",
     eventType: "invoice.paid",
-    sampleFields: ["phone", "name", "service", "externalId"],
+    sampleFields: ["phone", "name", "service", "externalId", "amount", "currency", "paidAt"],
   },
   {
     id: "customer-opt-out",
@@ -46,6 +46,7 @@ export const ZAPIER_SETUP_STEPS = [
   "Pick a Zapier template below (or build your own with Webhooks by Zapier → POST).",
   "Paste your Reputation Boost webhook URL into the Zap action.",
   "Map customer phone, name, and Jobber job type / line item into service or jobType fields.",
+  "Map invoice or job total into amount (and currency when available) for revenue attribution.",
   "Map the job site address into jobAddress, jobCity, and jobZip so review requests can target weak map areas.",
   "Set event to job.completed or invoice.paid for review requests.",
   "Use customer.opted_out with optedOut: true to honor unsubscribe requests.",

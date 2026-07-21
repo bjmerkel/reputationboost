@@ -329,6 +329,19 @@ async function ingestBusiness(
     }
   }
 
+  try {
+    const { rollupRevenueForOnboardedBusiness } = await import(
+      "@/jobs/revenue-rollup-daily"
+    );
+    await rollupRevenueForOnboardedBusiness(row);
+  } catch (error) {
+    result.errors.push({
+      businessId: row.id,
+      step: "revenue_rollup",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   result.businessesProcessed += 1;
 }
 

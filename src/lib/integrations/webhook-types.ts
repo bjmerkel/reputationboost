@@ -27,6 +27,13 @@ export interface WebhookPayload {
   jobZip?: string;
   jobLat?: number;
   jobLng?: number;
+  amount?: number;
+  currency?: string;
+  amountType?: "invoice" | "job" | "estimate";
+  paidAt?: string;
+  bookedAt?: string;
+  leadSource?: string;
+  trackingNumber?: string;
 }
 
 export interface WebhookBusinessSettings {
@@ -52,6 +59,8 @@ export interface WebhookProcessResult {
   optedOut?: boolean;
   optOutApplied?: boolean;
   optInApplied?: boolean;
+  revenueTransactionId?: string;
+  revenueAmount?: number;
   geoRouting?: {
     focusKeyword: string;
     targetZone: string;

@@ -12,6 +12,11 @@ function rankSeverity(rank: number | null): number {
   return 1;
 }
 
+function revenueWeight(monthlyRevenue: number | null | undefined): number {
+  if (!monthlyRevenue || monthlyRevenue <= 0) return 1;
+  return 1 + Math.log10(monthlyRevenue + 100) / 2;
+}
+
 /** True when the client is outside the local 3-pack in this cell. */
 export function isLosingCell(cell: GeoGridPoint): boolean {
   return cell.rank === null || cell.rank > 3;
@@ -20,7 +25,8 @@ export function isLosingCell(cell: GeoGridPoint): boolean {
 /** Collect losing cells with a simple severity-based priority score. */
 export function classifyLosingCells(
   grid: GeoGridPoint[],
-  impressionsWeight = 1
+  impressionsWeight = 1,
+  cellRevenueByOffset?: Map<string, number>
 ): LosingCell[] {
   const losing: LosingCell[] = [];
 
@@ -29,13 +35,19 @@ export function classifyLosingCells(
     const leader = cellLeader(cell);
     if (!leader) continue;
 
+    const cellKey = `${cell.offsetNorthMiles}|${cell.offsetEastMiles}`;
+    const cellRevenue = cellRevenueByOffset?.get(cellKey) ?? null;
+
     losing.push({
       gridNorth: cell.offsetNorthMiles,
       gridEast: cell.offsetEastMiles,
       rank: cell.rank,
       leaderPlaceId: leader.placeId,
       leaderName: leader.name,
-      priority: rankSeverity(cell.rank) * impressionsWeight,
+      priority:
+        rankSeverity(cell.rank) *
+        impressionsWeight *
+        revenueWeight(cellRevenue),
     });
   }
 

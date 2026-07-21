@@ -57,6 +57,28 @@ describe("stepExpectedValue", () => {
       200
     );
   });
+
+  it("prefers observed CRM revenue when sample size is sufficient", () => {
+    const step = stubStep({
+      stepNumber: 8,
+      title: "Posts",
+      context: {
+        targetKeywords: ["emergency plumber"],
+        expectedEffect: "Post",
+        revenueImpact: 400,
+      },
+    });
+
+    const value = stepExpectedValue(step, {
+      observedJobCount: 8,
+      observedRevenueTotal: 4200,
+      observedAcv: 700,
+      keywordObservedRevenue: new Map([["emergency plumber", 4200]]),
+      cellObservedRevenue: new Map(),
+    });
+
+    assert.equal(value, 4200);
+  });
 });
 
 describe("planStepPriorityScore", () => {

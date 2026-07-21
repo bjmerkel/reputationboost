@@ -29,6 +29,7 @@ export interface NextBestPlanStepsOptions {
   reviewVelocityBoost?: boolean;
   calibration?: AttributionCalibration;
   preferredConversionChannel?: ConversionChannelBias;
+  revenueContext?: import("../revenue-attribution/types").RevenueContext;
 }
 
 function stepRank(step: PlanStep): number {
@@ -95,6 +96,7 @@ export function selectNextBestPlanSteps(
     const priorityDiff =
       planStepPriorityScore(b, {
         calibration: options.calibration,
+        revenueContext: options.revenueContext,
         conversionBoost: conversionBoostForStep(
           b,
           preferConversionSteps,
@@ -105,6 +107,7 @@ export function selectNextBestPlanSteps(
       }) -
       planStepPriorityScore(a, {
         calibration: options.calibration,
+        revenueContext: options.revenueContext,
         conversionBoost: conversionBoostForStep(
           a,
           preferConversionSteps,
@@ -129,6 +132,7 @@ export function selectNextBestPlanSteps(
         (a, b) =>
           planStepPriorityScore(b, {
             calibration: options.calibration,
+            revenueContext: options.revenueContext,
             conversionBoost: conversionBoostForStep(
               b,
               preferConversionSteps,
@@ -139,6 +143,7 @@ export function selectNextBestPlanSteps(
           }) -
           planStepPriorityScore(a, {
             calibration: options.calibration,
+            revenueContext: options.revenueContext,
             conversionBoost: conversionBoostForStep(
               a,
               preferConversionSteps,

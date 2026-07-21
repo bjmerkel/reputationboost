@@ -55,6 +55,19 @@ describe("normalizeWebhookPayload", () => {
     });
     assert.equal(payload.optedOut, true);
   });
+
+  it("normalizes invoice amount and paidAt fields", () => {
+    const payload = normalizeWebhookPayload({
+      event: "invoice.paid",
+      phone: "214-555-0100",
+      total_amount: "1250.50",
+      paid_at: "2026-07-05T18:00:00.000Z",
+      source: "quickbooks",
+    });
+
+    assert.equal(payload.amount, 1250.5);
+    assert.equal(payload.paidAt, "2026-07-05T18:00:00.000Z");
+  });
 });
 
 describe("isTriggerEvent", () => {

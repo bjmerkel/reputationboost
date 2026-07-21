@@ -5,9 +5,19 @@ import {
   type AttributionCalibration,
 } from "./attribution-calibration";
 import { PLAN_STEP_EFFORT } from "./gbp-plan";
+import type { RevenueContext } from "../revenue-attribution/types";
+import { observedRevenueForKeyword } from "../revenue-attribution/context";
 
 /** Composite expected value from plan step context (revenue > leads > engagement > scores). */
-export function stepExpectedValue(step: PlanStep): number {
+export function stepExpectedValue(
+  step: PlanStep,
+  revenueContext?: RevenueContext
+): number {
+  const observedRevenue = resolveObservedRevenueImpact(step, revenueContext);
+  if (observedRevenue > 0 && (revenueContext?.observedJobCount ?? 0) >= 5) {
+    return observedRevenue;
+  }
+
   const revenue = step.context.revenueImpact ?? 0;
   if (revenue > 0) return revenue;
 
@@ -20,6 +30,22 @@ export function stepExpectedValue(step: PlanStep): number {
   return (
     (step.context.outcomeScoreImpact ?? 0) * 10 + (step.context.healthScoreImpact ?? 0)
   );
+}
+
+function resolveObservedRevenueImpact(
+  step: PlanStep,
+  revenueContext?: RevenueContext
+): number {
+  if (!revenueContext || revenueContext.observedJobCount < 5) return 0;
+
+  const keywords = step.context.targetKeywords ?? [];
+  if (keywords.length === 0) return 0;
+
+  let total = 0;
+  for (const keyword of keywords) {
+    total += observedRevenueForKeyword(revenueContext, keyword);
+  }
+  return total;
 }
 
 /** Confidence discount from per-step attribution sample size. */
@@ -56,9 +82,10 @@ export function planStepPriorityScore(
   options?: {
     calibration?: AttributionCalibration;
     conversionBoost?: number;
+    revenueContext?: RevenueContext;
   }
 ): number {
-  const expected = stepExpectedValue(step);
+  const expected = stepExpectedValue(step, options?.revenueContext);
   if (expected <= 0) return 0;
 
   const confidence = stepConfidenceMultiplier(step.stepNumber, options?.calibration);

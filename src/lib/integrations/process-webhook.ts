@@ -1,3 +1,4 @@
+import { ingestRevenueTransactionFromWebhook } from "@/audit/revenue-attribution/ingest-transaction";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin";
 import { upsertCustomerAdmin } from "@/lib/customers/storage-admin";
@@ -331,6 +332,26 @@ export async function processInboundWebhook(
     reviewRequestScheduled,
   });
 
+  let revenueTransactionId: string | undefined;
+  let revenueAmount: number | undefined;
+  try {
+    const revenueTxn = await ingestRevenueTransactionFromWebhook({
+      businessId: settings.businessId,
+      userId: settings.userId,
+      customerId: customer.id,
+      customerEventId: eventId,
+      payload,
+      audit: audit ? ensureStrategy(audit) : null,
+      business,
+    });
+    if (revenueTxn) {
+      revenueTransactionId = revenueTxn.id;
+      revenueAmount = revenueTxn.amount;
+    }
+  } catch {
+    // Revenue ingest is best-effort and must not block review workflow.
+  }
+
   return {
     ok: true,
     customerId: customer.id,
@@ -345,6 +366,8 @@ export async function processInboundWebhook(
     optedOut: customer.opted_out,
     optOutApplied,
     optInApplied,
+    revenueTransactionId,
+    revenueAmount,
     geoRouting: geoRouting
       ? {
           focusKeyword: geoRouting.focusKeyword,

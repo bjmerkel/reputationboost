@@ -121,6 +121,32 @@ export function normalizeWebhookPayload(data: unknown): WebhookPayload {
     jobZip: readString(record, ["jobZip", "job_zip", "zip", "postalCode", "postal_code"]),
     jobLat: readNumber(record, ["jobLat", "job_lat", "latitude", "lat"]),
     jobLng: readNumber(record, ["jobLng", "job_lng", "longitude", "lng"]),
+    amount: readNumber(record, [
+      "amount",
+      "total",
+      "totalAmount",
+      "total_amount",
+      "invoiceTotal",
+      "invoice_total",
+      "jobTotal",
+      "job_total",
+      "TotalAmt",
+    ]),
+    currency: readString(record, ["currency", "currencyCode", "currency_code"]),
+    amountType: readString(record, ["amountType", "amount_type"]) as
+      | "invoice"
+      | "job"
+      | "estimate"
+      | undefined,
+    paidAt: readString(record, ["paidAt", "paid_at", "paymentDate", "payment_date"]),
+    bookedAt: readString(record, ["bookedAt", "booked_at", "scheduledAt", "scheduled_at"]),
+    leadSource: readString(record, ["leadSource", "lead_source", "sourceChannel", "source_channel"]),
+    trackingNumber: readString(record, [
+      "trackingNumber",
+      "tracking_number",
+      "callTrackingNumber",
+      "call_tracking_number",
+    ]),
   };
 }
 
