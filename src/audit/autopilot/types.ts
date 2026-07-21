@@ -74,3 +74,42 @@ export interface LosingCell {
   leaderName: string;
   priority: number;
 }
+
+export type RankingExperimentStatus =
+  | "proposed"
+  | "pending_approval"
+  | "running"
+  | "measuring"
+  | "won"
+  | "lost"
+  | "inconclusive"
+  | "cancelled";
+
+export interface RankingExperiment {
+  id: string;
+  businessId: string;
+  userId: string;
+  auditId: string;
+  keyword: string;
+  gridNorth: number;
+  gridEast: number;
+  leaderPlaceId: string;
+  leaderName: string;
+  actionType: ExecutionType;
+  planStepNumber: number | null;
+  hypothesis: string;
+  leaderDelta: LeaderDelta;
+  marketKey: string;
+  status: RankingExperimentStatus;
+  executionTaskId: string | null;
+  baselineSnapshotDate: string;
+  targetRankBefore: number | null;
+  targetRankAfter: number | null;
+  targetCellImproved: boolean | null;
+  attributionWindowDays: number;
+  startedAt: string | null;
+  concludedAt: string | null;
+  conclusionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

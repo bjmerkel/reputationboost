@@ -3,6 +3,7 @@ import { buildAttributionNarrative } from "./narrative";
 import { estimateAttributionRevenue, formatCurrency } from "./roi";
 import { taskCanAffectLocalRank } from "@/audit/market/gbp-change-detector";
 import { enqueueEventRankPulse } from "@/audit/market/refresh-queue";
+import { experimentPayloadKeyword } from "@/audit/autopilot/experiment-lifecycle";
 import type { CompletedTaskRecord } from "@/audit/storage-attribution";
 import { computeGridDiff } from "@/audit/geo/grid-diff";
 import { refreshGridAfterTaskIfNeeded } from "@/audit/geo/grid-refresh";
@@ -498,12 +499,14 @@ export async function computeAttributionAfterTaskCompletion(
     completedAt.setUTCDate(
       completedAt.getUTCDate() + MARKET_REFRESH_FLAGS.eventDelayDays
     );
+    const scopedKeyword = experimentPayloadKeyword(context.task);
     await enqueueEventRankPulse({
       businessId: context.businessId,
       triggerSource: "task_completion",
       triggerRef: taskId,
       runAfter: completedAt.toISOString(),
-      callsEstimated: context.keywords.length,
+      keywordScope: scopedKeyword ?? "__all__",
+      callsEstimated: scopedKeyword ? 1 : context.keywords.length,
     }).catch((error) => {
       console.warn(
         `[attribution] delayed rank pulse scheduling failed for ${taskId}:`,

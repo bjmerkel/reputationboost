@@ -10,7 +10,7 @@ import {
   type AttributionCalibration,
 } from "@/audit/phase2/attribution-calibration";
 import { auditNeedsSoftConversionBoost, auditNeedsReviewVelocityBoost, auditPrefersConversionOverRank } from "@/audit/phase2/conversion-boost";
-import { PLAN_TAB_FLAGS } from "@/lib/feature-flags";
+import { PLAN_TAB_FLAGS, AUTOPILOT_FLAGS } from "@/lib/feature-flags";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
@@ -27,6 +27,7 @@ import GoogleUpdatesCompactBanner, {
 import PlanAcvNudge from "./PlanAcvNudge";
 import PlanAcvReminderModal from "./PlanAcvReminderModal";
 import PlanKeywordPlaybooks from "./PlanKeywordPlaybooks";
+import PlanAutopilotPanel from "./PlanAutopilotPanel";
 import PlanMaintenanceCadence from "./PlanMaintenanceCadence";
 import PlanNextBestActions from "./PlanNextBestActions";
 import PlanPhaseSection from "./PlanPhaseSection";
@@ -542,6 +543,16 @@ export default function PlanView({
           setLocalFocusStep(stepNumber);
         }}
       />
+
+      {AUTOPILOT_FLAGS.enabled && (
+        <PlanAutopilotPanel
+          clientId={clientId}
+          variant={variant}
+          onOpenTask={(_taskId, stepNumber) => {
+            if (stepNumber != null) setLocalFocusStep(stepNumber);
+          }}
+        />
+      )}
 
       {(plan.planRationale || plan.objective) && (
         <aside

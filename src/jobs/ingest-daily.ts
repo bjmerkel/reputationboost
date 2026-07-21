@@ -225,6 +225,19 @@ async function ingestBusiness(
   }
 
   try {
+    const { concludeMeasuringExperimentsForBusiness } = await import(
+      "@/audit/autopilot/experiment-lifecycle"
+    );
+    await concludeMeasuringExperimentsForBusiness(row.id);
+  } catch (error) {
+    result.errors.push({
+      businessId: row.id,
+      step: "autopilot_experiments",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  try {
     const saved = await ingestScoreDailyForBusiness(row.id, targetDate);
     if (saved) {
       result.scoreRowsUpserted += 1;

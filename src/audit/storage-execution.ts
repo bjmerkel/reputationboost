@@ -79,7 +79,8 @@ export async function saveExecutionTasks(
     .eq("user_id", userId)
     .eq("business_id", businessId)
     .eq("audit_id", auditId)
-    .in("status", ["pending_approval", "approved"]);
+    .in("status", ["pending_approval", "approved"])
+    .not("action_item_id", "like", "autopilot-exp-%");
 
   if (tasks.length === 0) return;
 

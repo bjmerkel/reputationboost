@@ -13,6 +13,7 @@ export default function CellDetailModal({
   clientRating,
   clientReviewCount,
   leaderDelta,
+  clientId,
   open,
   onClose,
 }: {
@@ -21,6 +22,7 @@ export default function CellDetailModal({
   clientRating?: number;
   clientReviewCount?: number;
   leaderDelta?: LeaderDelta | null;
+  clientId?: string;
   open: boolean;
   onClose: () => void;
 }) {
@@ -99,7 +101,10 @@ export default function CellDetailModal({
           </div>
 
           {leaderDelta ? (
-            <BeatTheLeaderPanel delta={leaderDelta} />
+            <BeatTheLeaderPanel
+              delta={leaderDelta}
+              clientId={clientId}
+            />
           ) : (
             <>
               {cell.localPack && cell.localPack.length > 0 ? (

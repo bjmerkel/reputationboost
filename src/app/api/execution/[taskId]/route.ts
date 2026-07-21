@@ -3,6 +3,10 @@ import { getPrimaryBusiness } from "@/audit/businesses";
 import { executeTask } from "@/audit/phase3/executor";
 import { getExecutionTask, updateExecutionTask } from "@/audit/storage-execution";
 import { computeAttributionAfterTaskCompletion } from "@/audit/attribution";
+import {
+  onExperimentTaskApproved,
+  onExperimentTaskCompleted,
+} from "@/audit/autopilot/experiment-lifecycle";
 import { logPlanEvent } from "@/lib/analytics/plan-events";
 import { getValidGbpConnection } from "@/lib/google/token-store";
 import { getUser } from "@/lib/supabase/server";
@@ -38,6 +42,10 @@ export async function PATCH(
     payload: body.payload ? mergedPayload : undefined,
     scheduledFor: body.status === "approved" ? new Date().toISOString() : task.scheduledFor,
   });
+
+  if (updated?.status === "approved" && task.payload.experimentId) {
+    void onExperimentTaskApproved(updated);
+  }
 
   return NextResponse.json({ task: updated });
 }
@@ -108,6 +116,9 @@ export async function POST(
       taskType: saved.type,
       stepNumber: stepMatch ? Number(stepMatch[1]) : null,
     });
+    if (business?.businessId && saved.payload.experimentId) {
+      void onExperimentTaskCompleted(saved, business.businessId);
+    }
     void computeAttributionAfterTaskCompletion(user.id, taskId);
   }
 
