@@ -14,7 +14,7 @@ const loopSteps = [
   {
     title: "Your plan gets smarter",
     description:
-      "The more you use it, the better we know what works for your business — and we put those actions at the top of your list.",
+      "When a map cell is weak, we compare you to the Local 3-Pack leader there and suggest a targeted test. You approve before anything goes live — then we measure whether rank moves in that neighborhood and prioritize what works.",
   },
 ];
 

@@ -6,6 +6,7 @@ import { estimateStepHealthImpact } from "@/audit/phase2/score-impact";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
 import { computeKeywordScores } from "@/audit/phase2/keyword-scores";
 import { buildPlan } from "@/audit/phase3/build-plan";
+import { findTopLeaderDeltaForKeyword, formatLeaderDeltaSummary } from "@/audit/autopilot/leader-delta-engine";
 import ListingStrengthInsights from "@/components/audit/ListingStrengthInsights";
 import AuditDataView from "@/components/audit/AuditDataView";
 import { normalizeAuditView, type AuditView } from "@/components/audit/types";
@@ -32,6 +33,12 @@ interface PlatformDemoProps {
 function PlatformDemoPlan({ audit }: { audit: FullAuditPayload }) {
   const steps = audit.strategy?.gbpPlan?.steps ?? [];
   const pendingCount = audit.execution?.tasks.filter((t) => t.status === "pending_approval").length ?? 0;
+  const leaderInsight = useMemo(() => {
+    const keyword = audit.rankings.keywords[0]?.keyword;
+    if (!keyword) return null;
+    const delta = findTopLeaderDeltaForKeyword(audit, keyword);
+    return delta ? formatLeaderDeltaSummary(delta) : null;
+  }, [audit]);
 
   if (steps.length === 0) {
     return <p className="text-sm text-[#5f6368]">Your personalized plan will appear after audit.</p>;
@@ -46,6 +53,17 @@ function PlatformDemoPlan({ audit }: { audit: FullAuditPayload }) {
 
   return (
     <div className="space-y-5">
+      {leaderInsight && (
+        <div className="rounded-lg border border-[#d2e3fc] bg-[#e8f0fe] px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-[#1a73e8]">
+            Beat the leader
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-[#3c4043]">{leaderInsight}</p>
+          <p className="mt-2 text-[10px] text-[#80868b]">
+            Queue a cell test from your approval list — sign up to run experiments.
+          </p>
+        </div>
+      )}
       <div className="rounded-lg border border-[#d2e3fc] bg-[#e8f0fe] px-4 py-3 text-sm text-[#1a73e8]">
         {pendingCount > 0
           ? `${pendingCount} actions ready for your approval — sign up to publish to Google.`

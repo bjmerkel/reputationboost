@@ -7,7 +7,7 @@ export const marketingFaqs = [
   {
     question: "How does the score keep improving over time?",
     answer:
-      "We analyze your Google Business Profile every night, update your Reputation Boost Score, and recommend the next improvements that can move it higher. When you complete a step on your plan, we measure results in 14-day before/after windows — rank movement, calls, directions, and estimated revenue. The more you use it, the smarter your plan gets: what works for your business moves to the top of the list. Not just once at signup — every day.",
+      "We analyze your Google Business Profile every night, update your Reputation Boost Score, and recommend the next improvements that can move it higher. When you complete a step on your plan, we measure results in 14-day before/after windows — rank movement in specific map cells, calls, directions, and estimated revenue. For weak neighborhoods, we compare you to the Local 3-Pack leader there and suggest targeted tests you approve before anything goes live. The more you use it, the smarter your plan gets: what works for your business moves to the top of the list. Not just once at signup — every day.",
   },
   {
     question: "What is the Reputation Boost Score?",
@@ -28,6 +28,11 @@ export const marketingFaqs = [
     question: "Do you guarantee #1 rankings?",
     answer:
       "No ethical company can guarantee a specific position on Google Maps. What we do guarantee: a clear plan with estimated score impact per step, daily profile outcome tracking, and scheduled market observations showing which changes moved your rankings and revenue.",
+  },
+  {
+    question: "What are beat-the-leader tests?",
+    answer:
+      "When part of your service area sits outside the Local 3-Pack, we look at who ranks #1 in that specific map cell and show the exact gaps — reviews, photos, categories, posts. We suggest a targeted experiment, queue it in your approval list, and measure whether your rank moves there over the next two weeks. You stay in control: nothing publishes without your OK.",
   },
   {
     question: "What does 'Get Your Free Score' include?",

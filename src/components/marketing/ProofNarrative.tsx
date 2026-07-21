@@ -28,7 +28,7 @@ const howItWorks = [
     step: "03",
     title: "Execute & Prove",
     description:
-      "You approve changes, we publish them — including geo-targeted review requests when your map shows weak areas. Track calls, rankings, and dollars every day.",
+      "You approve changes, we publish them — including geo-targeted review requests and beat-the-leader tests on weak map cells. Track calls, rankings, and dollars every day.",
   },
 ];
 
