@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ExecutionTask, FullAuditPayload, Plan } from "@/audit/types";
 import type { MarketActionCalibration } from "@/audit/autopilot/market-calibration";
+import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
+import type { UserNotification } from "@/audit/storage-notifications";
 import {
   approveAllRoutineTasks,
   approveAndPublishTask,
@@ -51,6 +53,13 @@ export function usePlanTasks({
   const [marketActionCalibration, setMarketActionCalibration] = useState<
     MarketActionCalibration[]
   >([]);
+  const [experimentStepCalibration, setExperimentStepCalibration] = useState<
+    AttributionCalibration
+  >({});
+  const [winningStepsByKeyword, setWinningStepsByKeyword] = useState<Record<string, number>>(
+    {}
+  );
+  const [unreadNotifications, setUnreadNotifications] = useState<UserNotification[]>([]);
   const [loading, setLoading] = useState(!initialPlan && initialTasks.length === 0);
   const [reconciling, setReconciling] = useState(false);
   const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null);
@@ -69,6 +78,9 @@ export function usePlanTasks({
     if (includePlan) {
       setPlan(data.plan);
       setMarketActionCalibration(data.marketActionCalibration ?? []);
+      setExperimentStepCalibration(data.experimentStepCalibration ?? {});
+      setWinningStepsByKeyword(data.winningStepsByKeyword ?? {});
+      setUnreadNotifications(data.unreadNotifications ?? []);
     }
     setPlanReconciledAt(data.planReconciledAt);
     return data;
@@ -300,6 +312,9 @@ export function usePlanTasks({
     plan,
     planReconciledAt,
     marketActionCalibration,
+    experimentStepCalibration,
+    winningStepsByKeyword,
+    unreadNotifications,
     loading,
     reconciling,
     loadingTaskId,

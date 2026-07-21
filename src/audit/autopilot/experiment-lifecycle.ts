@@ -1,5 +1,8 @@
 import type { ExecutionTask } from "@/audit/types";
 import type { RankingExperiment, RankingExperimentStatus } from "@/audit/autopilot/types";
+import { notifyExperimentConcluded } from "@/audit/autopilot/notification-events";
+import { reconcilePlanForBusiness } from "@/audit/phase3/reconcile-plan";
+import { getBusinessRecordByIdAdmin } from "@/audit/businesses-admin";
 import { enqueueEventRankPulse } from "@/audit/market/refresh-queue";
 import { MARKET_REFRESH_FLAGS } from "@/lib/feature-flags";
 import { taskCanAffectLocalRank } from "@/audit/market/gbp-change-detector";
@@ -135,7 +138,7 @@ export async function concludeExperimentIfReady(
     rankAfter,
   });
 
-  return updateRankingExperimentAdmin(experiment.id, {
+  const updated = await updateRankingExperimentAdmin(experiment.id, {
     status: outcome.status,
     targetRankBefore: rankBefore,
     targetRankAfter: rankAfter,
@@ -143,6 +146,16 @@ export async function concludeExperimentIfReady(
     concludedAt: new Date().toISOString(),
     conclusionReason: outcome.reason,
   });
+
+  if (updated && ["won", "lost", "inconclusive"].includes(updated.status)) {
+    await notifyExperimentConcluded(updated).catch(() => undefined);
+    const business = await getBusinessRecordByIdAdmin(updated.businessId);
+    if (business) {
+      await reconcilePlanForBusiness(business).catch(() => undefined);
+    }
+  }
+
+  return updated;
 }
 
 export async function concludeMeasuringExperimentsForBusiness(

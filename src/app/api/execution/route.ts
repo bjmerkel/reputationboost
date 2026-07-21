@@ -4,10 +4,14 @@ import type { ClientConfig } from "@/audit/types";
 import { attachExecutionTasks } from "@/audit/attach-execution-tasks";
 import { deriveMarketKey } from "@/audit/autopilot/market-key";
 import { marketCalibrationToStepCalibration } from "@/audit/autopilot/market-calibration";
+import { buildExperimentStepCalibration, winningExperimentStepsByKeyword } from "@/audit/autopilot/experiment-step-calibration";
 import { buildPlan } from "@/audit/phase3/build-plan";
 import { listActionAttributionsForUser } from "@/audit/storage-attribution";
 import { loadGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import { loadMarketCalibrationForMarketKey } from "@/audit/storage-calibration-market";
+import { listConcludedExperimentsForBusinessAdmin } from "@/audit/storage-experiments";
+import { listUnreadNotificationsForUser } from "@/audit/storage-notifications";
+import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 import { listExecutionTasks } from "@/audit/storage-execution";
 import {
   loadAuditByIdFromSupabase,
@@ -63,20 +67,34 @@ export async function GET(request: Request) {
 
   const audit = ensureStrategy(attachExecutionTasks(rawAudit, tasks));
   const marketKey = deriveMarketKey(audit);
-  const [attributions, globalCalibration, marketIndex] = await Promise.all([
-    listActionAttributionsForUser(user.id, clientId, 100),
-    loadGlobalScoreCalibration(),
-    loadMarketCalibrationForMarketKey(marketKey),
-  ]);
+  const businessId =
+    client?.businessId ?? (await getBusinessIdForSlug(user.id, clientId));
+  const [attributions, globalCalibration, marketIndex, concludedExperiments, notifications] =
+    await Promise.all([
+      listActionAttributionsForUser(user.id, clientId, 100),
+      loadGlobalScoreCalibration(),
+      loadMarketCalibrationForMarketKey(marketKey),
+      businessId
+        ? listConcludedExperimentsForBusinessAdmin(businessId)
+        : Promise.resolve([]),
+      businessId
+        ? listUnreadNotificationsForUser(user.id, businessId)
+        : Promise.resolve([]),
+    ]);
   const marketRows = Array.from(marketIndex.values());
   const marketCalibration = marketCalibrationToStepCalibration(marketRows);
+  const experimentStepCalibration = buildExperimentStepCalibration(concludedExperiments);
+  const winningStepsByKeyword = Object.fromEntries(
+    winningExperimentStepsByKeyword(concludedExperiments)
+  );
   const plan = buildPlan(
     audit,
     tasks,
     attributions,
     globalCalibration,
     client?.avgCustomerValue,
-    marketCalibration
+    marketCalibration,
+    experimentStepCalibration
   );
 
   return NextResponse.json({
@@ -84,5 +102,8 @@ export async function GET(request: Request) {
     plan,
     planReconciledAt: audit.strategy.planReconciledAt ?? null,
     marketActionCalibration: marketRows,
+    experimentStepCalibration,
+    winningStepsByKeyword,
+    unreadNotifications: notifications,
   });
 }
