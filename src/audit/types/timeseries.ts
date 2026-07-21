@@ -98,6 +98,12 @@ export interface ActionAttribution {
   gridCoverageBefore?: number | null;
   gridCoverageAfter?: number | null;
   cellsImproved?: number | null;
+  experimentId?: string | null;
+  gridNorth?: number | null;
+  gridEast?: number | null;
+  targetCellRankBefore?: number | null;
+  targetCellRankAfter?: number | null;
+  targetCellRankDelta?: number | null;
   projectedDriverImpact?: number | null;
   observedDriverImpact?: number | null;
   driverScoreBefore?: number | null;

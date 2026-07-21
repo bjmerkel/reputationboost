@@ -91,6 +91,8 @@ export function buildExecutionTaskForExperiment(params: {
       leaderName: experiment.leaderName,
       hypothesis: action.hypothesis,
       targetKeywords: [experiment.keyword],
+      baselineSnapshotDate: experiment.baselineSnapshotDate,
+      targetRankBefore: experiment.targetRankBefore,
       autopilot: true,
     },
     requiresApproval: needsApproval,

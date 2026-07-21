@@ -9,17 +9,7 @@ import {
   updateRankingExperimentAdmin,
 } from "@/audit/storage-experiments";
 import { loadGridForDateAdmin } from "@/audit/storage-grid-snapshots";
-
-function rankAtCell(
-  grid: Awaited<ReturnType<typeof loadGridForDateAdmin>>,
-  north: number,
-  east: number
-): number | null {
-  const point = grid.find(
-    (cell) => cell.offsetNorthMiles === north && cell.offsetEastMiles === east
-  );
-  return point?.rank ?? null;
-}
+import { rankAtCell } from "@/audit/autopilot/cell-attribution";
 
 export function evaluateExperimentOutcome(params: {
   rankBefore: number | null;
