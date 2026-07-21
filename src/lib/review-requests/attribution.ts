@@ -2,6 +2,7 @@ import type { BusinessRecord } from "@/audit/businesses";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { reviewTextMentionsKeyword } from "@/lib/review-requests/campaign-plan";
 import { incrementCampaignAttributedReviews } from "@/lib/review-requests/campaign-storage";
+import { handleAttributedReviewLift } from "@/lib/review-velocity/lift-storage";
 
 export const ATTRIBUTION_WINDOW_DAYS = 14;
 
@@ -298,6 +299,30 @@ export async function attributeReviewToRecentOutreach(
 
   if (focusKeyword) {
     await incrementCampaignAttributedReviews(input.businessId, focusKeyword);
+  }
+
+  if (
+    focusKeyword &&
+    candidate.target_grid_north != null &&
+    candidate.target_grid_east != null &&
+    candidate.sent_at
+  ) {
+    try {
+      await handleAttributedReviewLift({
+        businessId: input.businessId,
+        attributionId: data.id as string,
+        smsMessageId: candidate.id,
+        reviewId: input.reviewId ?? null,
+        keyword: focusKeyword,
+        gridNorth: Number(candidate.target_grid_north),
+        gridEast: Number(candidate.target_grid_east),
+        targetZone: candidate.target_zone ?? null,
+        sentAt: candidate.sent_at,
+        reviewDetectedAt: detectedAt,
+      });
+    } catch (error) {
+      console.warn("[attribution] review velocity lift baseline failed:", error);
+    }
   }
 
   return data as OutreachAttributionRecord;

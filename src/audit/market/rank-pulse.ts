@@ -1,5 +1,6 @@
 import { businessRecordToClientConfig, type BusinessRecord } from "@/audit/businesses";
 import { planKeywordRankScans } from "@/audit/phase2/rank-scan-plan";
+import { parseKeywordScope } from "@/lib/review-velocity/lift";
 import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin";
 import { upsertRankSnapshots } from "@/audit/storage-timeseries";
 import { GBP_RANK_SCAN_FLAGS } from "@/lib/feature-flags";
@@ -39,6 +40,7 @@ export async function runRankPulseForBusiness(options: {
   observationDate: string;
   collectionDate: string;
   collectionType: Exclude<MarketCollectionType, "monthly_market">;
+  keywordScope?: string;
 }): Promise<RankPulseResult> {
   if (!isGoogleMapsConfigured()) {
     return {
@@ -80,10 +82,22 @@ export async function runRankPulseForBusiness(options: {
     enabled: GBP_RANK_SCAN_FLAGS.enabled,
     minLiveScans: GBP_RANK_SCAN_FLAGS.minDailyLiveScans,
   });
+  const scopedKeyword = parseKeywordScope(options.keywordScope);
+  const liveScan = scopedKeyword
+    ? scanPlan.liveScan.filter(
+        (keyword) => keyword.trim().toLowerCase() === scopedKeyword.trim().toLowerCase()
+      )
+    : scanPlan.liveScan;
+  const resolvedLiveScan =
+    liveScan.length > 0
+      ? liveScan
+      : scopedKeyword && keywords.some((k) => k.toLowerCase() === scopedKeyword.toLowerCase())
+        ? [scopedKeyword]
+        : scanPlan.liveScan;
   const claim: MarketCollectionClaim = {
     businessId: options.row.id,
     collectionType: options.collectionType,
-    keyword: "__all__",
+    keyword: scopedKeyword ?? "__all__",
     periodStart: options.collectionDate,
   };
   if (!(await claimMarketCollection(claim))) {
@@ -102,7 +116,7 @@ export async function runRankPulseForBusiness(options: {
     };
   }
 
-  const callsReserved = scanPlan.liveScan.length;
+  const callsReserved = resolvedLiveScan.length;
   if (
     !(await reservePlacesApiCalls(
       options.row.id,
@@ -144,7 +158,7 @@ export async function runRankPulseForBusiness(options: {
     };
     const rows = [];
 
-    for (const keyword of scanPlan.liveScan) {
+    for (const keyword of resolvedLiveScan) {
       const { rank, inLocalPack, localPackPosition } =
         await searchKeywordAtOneMile(keyword, location, matchOptions);
       rows.push({

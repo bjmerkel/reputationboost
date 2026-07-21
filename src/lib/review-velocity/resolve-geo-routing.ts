@@ -5,6 +5,7 @@ import {
   loadKeywordGridsForAuditKeywords,
 } from "@/lib/review-velocity/storage";
 import { routeGeoReviewRequest, type GeoRoutingDecision } from "@/lib/review-velocity/geo-router";
+import { loadCellLiftAggregatesAdmin } from "@/lib/review-velocity/lift-storage";
 import type { GeoGridPoint } from "@/audit/types";
 
 export interface CustomerGeoRoutingResult {
@@ -41,6 +42,8 @@ export async function routeCustomerGeoReview(input: {
     return { geoRouting: null, deferred: false };
   }
 
+  const liftAggregates = await loadCellLiftAggregatesAdmin(input.businessId);
+
   const geoRouting = routeGeoReviewRequest({
     audit: input.audit,
     customer: input.customer,
@@ -50,6 +53,7 @@ export async function routeCustomerGeoReview(input: {
       city: input.business.location.city,
       state: input.business.location.state,
     },
+    liftAggregates,
   });
 
   if (!geoRouting) {

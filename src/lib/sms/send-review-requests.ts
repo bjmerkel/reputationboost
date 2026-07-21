@@ -26,6 +26,7 @@ import {
 } from "@/lib/review-requests/eligibility";
 import type { GeoRoutingDecision } from "@/lib/review-velocity/geo-router";
 import { selectCustomersForGeoCampaign } from "@/lib/review-velocity/geo-router";
+import { loadCellLiftAggregatesAdmin, loadCellLiftAggregatesForUser } from "@/lib/review-velocity/lift-storage";
 import {
   loadKeywordGridsForAudit,
   routeCustomerGeoReview,
@@ -140,12 +141,16 @@ async function resolveCustomers(input: {
     input.keywordGrids &&
     input.keywordGrids.size > 0
   ) {
+    const liftAggregates = input.serviceRole
+      ? await loadCellLiftAggregatesAdmin(input.businessId)
+      : await loadCellLiftAggregatesForUser(input.businessId);
     const geoSelected = selectCustomersForGeoCampaign({
       customers: pool,
       audit: input.audit,
       keywordGrids: input.keywordGrids,
       batchSize: input.batchSize,
       focusKeyword: input.focusKeyword,
+      liftAggregates,
     });
     if (geoSelected.geoFilterApplied) {
       return {
