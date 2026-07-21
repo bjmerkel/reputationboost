@@ -14,6 +14,7 @@ import { getEligibleCustomers, listCustomers } from "@/lib/customers/storage";
 import { getCustomerGeoCoverageForUser } from "@/lib/customers/geo-stats";
 import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
 import { selectCustomersForGeoCampaign } from "@/lib/review-velocity/geo-router";
+import { loadCellLiftAggregatesForUser } from "@/lib/review-velocity/lift-storage";
 import { loadKeywordGridsForAudit } from "@/lib/review-velocity/resolve-geo-routing";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { previewReviewRequestSms } from "@/lib/sms/personalize";
@@ -94,12 +95,14 @@ export async function POST(request: Request) {
     if (audit) {
       keywordGrids = await loadKeywordGridsForAudit(business.businessId, audit);
       if (keywordGrids.size > 0) {
+        const liftAggregates = await loadCellLiftAggregatesForUser(business.businessId);
         const geoSelected = selectCustomersForGeoCampaign({
           customers: eligibleCustomers,
           audit,
           keywordGrids,
           batchSize,
           focusKeyword,
+          liftAggregates,
         });
         geoFilterApplied = geoSelected.geoFilterApplied;
       }

@@ -10,8 +10,10 @@ import {
   buildKeywordWeaknessIndex,
   isCellStrongEnoughToSkip,
   weaknessScoresForCell,
+  applyLiftAggregatesToScores,
   type CellWeaknessScore,
 } from "./cell-weakness";
+import type { CellLiftAggregate } from "@/lib/review-velocity/lift-storage";
 
 export interface GeoRoutingDecision {
   focusKeyword: string;
@@ -32,6 +34,7 @@ export interface GeoRoutingInput {
   keywordGrids: Map<string, GeoGridPoint[]>;
   neighborhoodLabel?: string;
   location?: ServicePhraseLocation;
+  liftAggregates?: Map<string, CellLiftAggregate>;
 }
 
 function reviewGapByKeyword(audit: FullAuditPayload): Map<string, number> {
@@ -84,9 +87,12 @@ export function routeGeoReviewRequest(input: GeoRoutingInput): GeoRoutingDecisio
   if (gridNorth == null || gridEast == null) return null;
   if (input.keywordGrids.size === 0) return null;
 
-  const weaknessIndex = buildKeywordWeaknessIndex(
-    input.keywordGrids,
-    reviewGapByKeyword(input.audit)
+  const weaknessIndex = applyLiftAggregatesToScores(
+    buildKeywordWeaknessIndex(
+      input.keywordGrids,
+      reviewGapByKeyword(input.audit)
+    ),
+    input.liftAggregates ?? new Map()
   );
   const cellScores = weaknessScoresForCell(weaknessIndex, Number(gridNorth), Number(gridEast));
   if (cellScores.length === 0 || isCellStrongEnoughToSkip(cellScores)) {
@@ -121,10 +127,14 @@ export function selectCustomersForGeoCampaign<
   keywordGrids: Map<string, GeoGridPoint[]>;
   batchSize: number;
   focusKeyword?: string | null;
+  liftAggregates?: Map<string, CellLiftAggregate>;
 }): { customers: T[]; geoFilterApplied: boolean } {
-  const weaknessIndex = buildKeywordWeaknessIndex(
-    input.keywordGrids,
-    reviewGapByKeyword(input.audit)
+  const weaknessIndex = applyLiftAggregatesToScores(
+    buildKeywordWeaknessIndex(
+      input.keywordGrids,
+      reviewGapByKeyword(input.audit)
+    ),
+    input.liftAggregates ?? new Map()
   );
 
   const scored = input.customers

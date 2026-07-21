@@ -6,6 +6,7 @@ export interface MarketRefreshQueueItem {
   runAfter: string;
   triggerSource: "task_completion" | "gbp_event" | "gbp_identity_change";
   triggerRef: string | null;
+  keywordScope: string;
   callsEstimated: number;
 }
 
@@ -14,12 +15,14 @@ export async function enqueueEventRankPulse(input: {
   triggerSource: MarketRefreshQueueItem["triggerSource"];
   triggerRef?: string | null;
   runAfter: string;
+  keywordScope?: string;
   callsEstimated?: number;
 }): Promise<string> {
+  const keywordScope = input.keywordScope?.trim() || "__all__";
   const supabase = createAdminClient();
   const { data: pending, error: readError } = await supabase
     .from("market_refresh_queue")
-    .select("id,run_after")
+    .select("id,run_after,keyword_scope")
     .eq("business_id", input.businessId)
     .eq("status", "pending")
     .maybeSingle();
@@ -30,12 +33,15 @@ export async function enqueueEventRankPulse(input: {
       new Date(input.runAfter).getTime() > new Date(pending.run_after as string).getTime()
         ? input.runAfter
         : (pending.run_after as string);
+    const resolvedScope =
+      keywordScope !== "__all__" ? keywordScope : ((pending.keyword_scope as string) ?? "__all__");
     const { error } = await supabase
       .from("market_refresh_queue")
       .update({
         run_after: runAfter,
         trigger_source: input.triggerSource,
         trigger_ref: input.triggerRef ?? null,
+        keyword_scope: resolvedScope,
         calls_estimated: input.callsEstimated ?? 0,
       })
       .eq("id", pending.id);
@@ -50,6 +56,7 @@ export async function enqueueEventRankPulse(input: {
       collection_type: "event_rank_pulse",
       trigger_source: input.triggerSource,
       trigger_ref: input.triggerRef ?? null,
+      keyword_scope: keywordScope,
       run_after: input.runAfter,
       calls_estimated: input.callsEstimated ?? 0,
     })
@@ -66,7 +73,7 @@ export async function listDueMarketRefreshes(
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("market_refresh_queue")
-    .select("id,business_id,run_after,trigger_source,trigger_ref,calls_estimated")
+    .select("id,business_id,run_after,trigger_source,trigger_ref,keyword_scope,calls_estimated")
     .eq("status", "pending")
     .lte("run_after", now.toISOString())
     .order("run_after", { ascending: true })
@@ -78,6 +85,7 @@ export async function listDueMarketRefreshes(
     runAfter: row.run_after as string,
     triggerSource: row.trigger_source as MarketRefreshQueueItem["triggerSource"],
     triggerRef: (row.trigger_ref as string | null) ?? null,
+    keywordScope: (row.keyword_scope as string | null) ?? "__all__",
     callsEstimated: Number(row.calls_estimated ?? 0),
   }));
 }

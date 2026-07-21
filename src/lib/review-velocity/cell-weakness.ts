@@ -1,6 +1,7 @@
 import type { GeoGridPoint } from "@/audit/types";
 import type { ZoneDirection } from "@/audit/geo/types";
 import { classifyCellZone } from "@/lib/geo/customer-to-cell";
+import { adjustWeaknessScoreForLift, cellLiftKey } from "@/lib/review-velocity/lift";
 
 export interface CellWeaknessScore {
   keyword: string;
@@ -82,4 +83,26 @@ export function isCellStrongEnoughToSkip(scores: CellWeaknessScore[]): boolean {
   if (scores.length === 0) return false;
   const best = scores[0];
   return best.inLocalPack && best.weaknessScore < 30;
+}
+
+export function applyLiftAggregatesToScores(
+  scores: CellWeaknessScore[],
+  aggregates: Map<
+    string,
+    {
+      sampleCount: number;
+      avgLiftScore: number;
+      resistanceFlag: boolean;
+    }
+  >
+): CellWeaknessScore[] {
+  return scores.map((score) => {
+    const key = cellLiftKey(score.keyword, score.gridNorth, score.gridEast);
+    const aggregate = aggregates.get(key) ?? null;
+    const adjustedScore = adjustWeaknessScoreForLift(score.weaknessScore, aggregate);
+    return {
+      ...score,
+      weaknessScore: adjustedScore,
+    };
+  });
 }

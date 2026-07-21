@@ -5,18 +5,20 @@ import {
   markMarketRefreshQueueItem,
 } from "@/audit/market/refresh-queue";
 import { runRankPulseForBusiness } from "@/audit/market/rank-pulse";
+import { finalizeDueReviewVelocityLifts } from "@/lib/review-velocity/lift-storage";
 
 export interface ProcessMarketRefreshResult {
   processed: number;
   completed: number;
   skipped: number;
   failed: number;
+  liftsFinalized: number;
 }
 
 export async function processDueMarketRefreshes(
   now = new Date()
 ): Promise<ProcessMarketRefreshResult> {
-  const result = { processed: 0, completed: 0, skipped: 0, failed: 0 };
+  const result = { processed: 0, completed: 0, skipped: 0, failed: 0, liftsFinalized: 0 };
   const [due, businesses] = await Promise.all([
     listDueMarketRefreshes(now),
     listOnboardedBusinesses(),
@@ -44,6 +46,7 @@ export async function processDueMarketRefreshes(
         observationDate: date,
         collectionDate: date,
         collectionType: "event_rank_pulse",
+        keywordScope: item.keywordScope,
       });
       if (pulse.skipped) {
         await markMarketRefreshQueueItem(
@@ -57,6 +60,7 @@ export async function processDueMarketRefreshes(
       await buildAndPersistLiveAuditForBusiness(row, date);
       await markMarketRefreshQueueItem(item.id, "completed");
       result.completed += 1;
+      result.liftsFinalized += await finalizeDueReviewVelocityLifts(item.businessId);
     } catch (error) {
       await markMarketRefreshQueueItem(
         item.id,
@@ -65,6 +69,10 @@ export async function processDueMarketRefreshes(
       );
       result.failed += 1;
     }
+  }
+
+  if (due.length === 0) {
+    result.liftsFinalized = await finalizeDueReviewVelocityLifts();
   }
 
   return result;
