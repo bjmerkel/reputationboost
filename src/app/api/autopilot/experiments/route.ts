@@ -5,8 +5,10 @@ import {
   computeLeaderDelta,
 } from "@/audit/autopilot/leader-delta-engine";
 import { buildCompetitorProfileIndex, resolveCompetitorProfile } from "@/audit/autopilot/competitor-profile-index";
+import { deriveMarketKey } from "@/audit/autopilot/market-key";
 import { proposeExperimentFromDelta } from "@/audit/autopilot/plan-experiments";
 import { listRankingExperimentsForUser } from "@/audit/storage-experiments";
+import { loadMarketCalibrationForMarketKey } from "@/audit/storage-calibration-market";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 import { getUser } from "@/lib/supabase/server";
@@ -70,6 +72,8 @@ export async function POST(request: Request) {
   }
 
   const index = buildCompetitorProfileIndex(audit.competitors);
+  const marketKey = deriveMarketKey(audit);
+  const marketIndex = await loadMarketCalibrationForMarketKey(marketKey);
   const leaderPlaceId = cell.localPack?.[0]?.placeId;
   const leaderProfile = leaderPlaceId
     ? resolveCompetitorProfile(index, body.keyword, leaderPlaceId)
@@ -80,6 +84,8 @@ export async function POST(request: Request) {
     cell,
     client: buildClientProfileSnapshot(audit.gbp),
     leaderProfile,
+    marketKey,
+    marketIndex,
   });
   if (!delta || delta.rankedActions.length === 0) {
     return NextResponse.json(

@@ -9,6 +9,11 @@ import {
   mergeCalibrations,
   type AttributionCalibration,
 } from "@/audit/phase2/attribution-calibration";
+import {
+  buildMarketCalibrationIndex,
+  marketCalibrationToStepCalibration,
+  mergeMarketCalibrations,
+} from "@/audit/autopilot/market-calibration";
 import { auditNeedsSoftConversionBoost, auditNeedsReviewVelocityBoost, auditPrefersConversionOverRank } from "@/audit/phase2/conversion-boost";
 import { PLAN_TAB_FLAGS, AUTOPILOT_FLAGS } from "@/lib/feature-flags";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
@@ -110,6 +115,7 @@ export default function PlanView({
     tasks,
     plan,
     planReconciledAt,
+    marketActionCalibration = [],
     loading,
     reconciling,
     error,
@@ -355,9 +361,21 @@ export default function PlanView({
     () => buildGapAttributionCalibration(attributions),
     [attributions]
   );
+  const marketIndex = useMemo(
+    () => buildMarketCalibrationIndex(marketActionCalibration),
+    [marketActionCalibration]
+  );
+  const marketStepCalibration = useMemo(
+    () => marketCalibrationToStepCalibration(marketActionCalibration),
+    [marketActionCalibration]
+  );
   const calibration = useMemo(
-    () => mergeCalibrations(businessCalibration, globalCalibration),
-    [businessCalibration, globalCalibration]
+    () =>
+      mergeMarketCalibrations(
+        mergeCalibrations(businessCalibration, globalCalibration),
+        marketStepCalibration
+      ),
+    [businessCalibration, globalCalibration, marketStepCalibration]
   );
   const path = useMemo(
     () =>
@@ -534,6 +552,7 @@ export default function PlanView({
         plan={plan}
         avgCustomerValue={effectiveAvgCustomerValue}
         calibration={calibration}
+        marketIndex={marketIndex}
         currency={currency}
         variant={variant}
         auditId={audit.auditId}

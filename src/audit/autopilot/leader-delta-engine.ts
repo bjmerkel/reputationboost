@@ -6,6 +6,9 @@ import type {
 } from "@/audit/types";
 import { resolveCalibrationConfidence } from "@/audit/phase2/attribution-calibration";
 import { uncalibratedRankPriorForStep } from "@/audit/phase2/rank-priors";
+import type { MarketCalibrationIndex } from "@/audit/autopilot/market-calibration";
+import { resolveMarketActionPrior } from "@/audit/autopilot/market-calibration";
+import { deriveMarketKey } from "@/audit/autopilot/market-key";
 import { missingServiceKeywords } from "@/lib/google/gbp-service-descriptions";
 import { classifyLosingCells } from "./cell-loss-classifier";
 import {
@@ -125,15 +128,42 @@ function stepEffort(stepNumber: number): number {
   }
 }
 
+function priorForAction(
+  actionType: import("@/audit/types").ExecutionType,
+  planStepNumber: number,
+  marketKey: string | undefined,
+  marketIndex: MarketCalibrationIndex | undefined
+): Pick<LeaderDeltaAction, "marketPriorRankDelta" | "confidence"> {
+  if (marketKey && marketIndex) {
+    const prior = resolveMarketActionPrior({
+      marketKey,
+      actionType,
+      planStepNumber,
+      index: marketIndex,
+    });
+    return {
+      marketPriorRankDelta: prior.marketPriorRankDelta,
+      confidence: prior.confidence,
+    };
+  }
+  return {
+    marketPriorRankDelta: uncalibratedRankPriorForStep(planStepNumber),
+    confidence: "default",
+  };
+}
+
 function buildRankedActions(params: {
   keyword: string;
   leaderName: string;
   client: ClientProfileSnapshot;
   leader: ReturnType<typeof leaderProfileState>;
   missingServices: string[];
+  marketKey?: string;
+  marketIndex?: MarketCalibrationIndex;
 }): LeaderDeltaAction[] {
   const actions: LeaderDeltaAction[] = [];
-  const { keyword, leaderName, client, leader, missingServices } = params;
+  const { keyword, leaderName, client, leader, missingServices, marketKey, marketIndex } =
+    params;
 
   if (
     leader.primaryCategory &&
@@ -143,8 +173,7 @@ function buildRankedActions(params: {
       actionType: "gbp_primary_category",
       planStepNumber: 5,
       hypothesis: `Switch primary category to “${leader.primaryCategory}” — ${leaderName} ranks #1 here with that category; yours is “${client.primaryCategory || "not set"}”.`,
-      marketPriorRankDelta: uncalibratedRankPriorForStep(5),
-      confidence: "default",
+      ...priorForAction("gbp_primary_category", 5, marketKey, marketIndex),
       effort: stepEffort(5),
     });
   }
@@ -158,8 +187,7 @@ function buildRankedActions(params: {
         actionType: "gbp_secondary_categories",
         planStepNumber: 5,
         hypothesis: `Add secondary category “${secondary}” — ${leaderName} lists it and you do not.`,
-        marketPriorRankDelta: uncalibratedRankPriorForStep(2),
-        confidence: "default",
+        ...priorForAction("gbp_secondary_categories", 5, marketKey, marketIndex),
         effort: stepEffort(5),
       });
       break;
@@ -176,8 +204,7 @@ function buildRankedActions(params: {
       actionType: "review_request",
       planStepNumber: 10,
       hypothesis: `Close a ${gap}-review gap${velocityNote} — ${leaderName} has ${leader.reviewCount} vs your ${client.reviewCount}.`,
-      marketPriorRankDelta: uncalibratedRankPriorForStep(10),
-      confidence: "default",
+      ...priorForAction("review_request", 10, marketKey, marketIndex),
       effort: stepEffort(10),
     });
   }
@@ -187,8 +214,7 @@ function buildRankedActions(params: {
       actionType: "gbp_photo",
       planStepNumber: 6,
       hypothesis: `Add photos — ${leaderName} shows ${leader.photoCount} vs your ${client.photoCount}.`,
-      marketPriorRankDelta: 0,
-      confidence: "default",
+      ...priorForAction("gbp_photo", 6, marketKey, marketIndex),
       effort: stepEffort(6),
     });
   }
@@ -210,8 +236,7 @@ function buildRankedActions(params: {
       actionType: "google_post",
       planStepNumber: 8,
       hypothesis: `Match post cadence — ${leaderName} ${leaderCadence}; ${clientCadence}.`,
-      marketPriorRankDelta: 0,
-      confidence: "default",
+      ...priorForAction("google_post", 8, marketKey, marketIndex),
       effort: stepEffort(8),
     });
   }
@@ -222,8 +247,7 @@ function buildRankedActions(params: {
       actionType: "gbp_services",
       planStepNumber: 4,
       hypothesis: `Add ${listed} to GBP services — not listed on your profile for “${keyword}”.`,
-      marketPriorRankDelta: uncalibratedRankPriorForStep(4),
-      confidence: "default",
+      ...priorForAction("gbp_services", 4, marketKey, marketIndex),
       effort: stepEffort(4),
     });
   }
@@ -236,8 +260,7 @@ function buildRankedActions(params: {
       actionType: "gbp_description",
       planStepNumber: 3,
       hypothesis: `Expand description — ${leaderName}'s profile copy is ~${leader.descriptionLength} chars vs your ${client.descriptionLength}.`,
-      marketPriorRankDelta: uncalibratedRankPriorForStep(3),
-      confidence: "default",
+      ...priorForAction("gbp_description", 3, marketKey, marketIndex),
       effort: stepEffort(3),
     });
   }
@@ -247,8 +270,7 @@ function buildRankedActions(params: {
       actionType: "gbp_attributes",
       planStepNumber: 13,
       hypothesis: `Enable more GBP attributes — ${leaderName} shows ${leader.attributeCount} vs your ${client.attributeCount}.`,
-      marketPriorRankDelta: 0,
-      confidence: "default",
+      ...priorForAction("gbp_attributes", 13, marketKey, marketIndex),
       effort: stepEffort(13),
     });
   }
@@ -261,7 +283,9 @@ function buildRankedActions(params: {
     })
     .map((action) => ({
       ...action,
-      confidence: resolveCalibrationConfidence(0),
+      confidence: resolveCalibrationConfidence(
+        action.confidence === "default" ? 0 : action.confidence === "low" ? 1 : 2
+      ),
     }));
 }
 
@@ -271,6 +295,8 @@ export function computeLeaderDelta(params: {
   client: ClientProfileSnapshot;
   leaderProfile?: CompetitorProfile | null;
   missingServices?: string[];
+  marketKey?: string;
+  marketIndex?: MarketCalibrationIndex;
 }): LeaderDelta | null {
   const cellLeader = leaderFromCell(params.cell);
   if (!cellLeader) return null;
@@ -390,6 +416,8 @@ export function computeLeaderDelta(params: {
       client,
       leader,
       missingServices,
+      marketKey: params.marketKey,
+      marketIndex: params.marketIndex,
     }),
   };
 
@@ -418,6 +446,7 @@ export function findTopLeaderDeltaForKeyword(
   options: {
     competitorIndex?: CompetitorProfileIndex;
     impressions?: number;
+    marketIndex?: MarketCalibrationIndex;
   } = {}
 ): LeaderDelta | null {
   const snapshot = audit.rankings.keywords.find(
@@ -435,6 +464,7 @@ export function findTopLeaderDeltaForKeyword(
     )?.impressions ??
     0;
   const impressionsWeight = impressions > 0 ? Math.log10(impressions + 10) : 1;
+  const marketKey = deriveMarketKey(audit);
   const losing = classifyLosingCells(snapshot.geoGrid, impressionsWeight);
   if (losing.length === 0) return null;
 
@@ -456,6 +486,8 @@ export function findTopLeaderDeltaForKeyword(
       cell,
       client,
       leaderProfile,
+      marketKey,
+      marketIndex: options.marketIndex,
     });
     if (delta) return delta;
   }

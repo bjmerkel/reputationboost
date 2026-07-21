@@ -3,6 +3,7 @@ export * from "./cell-loss-classifier";
 export * from "./competitor-profile-index";
 export * from "./leader-delta-engine";
 export * from "./market-key";
+export * from "./market-calibration";
 export * from "./plan-experiments";
 export * from "./experiment-lifecycle";
 export * from "./cell-attribution";

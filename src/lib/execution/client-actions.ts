@@ -1,4 +1,5 @@
 import type { ExecutionTask, FullAuditPayload, Plan } from "@/audit/types";
+import type { MarketActionCalibration } from "@/audit/autopilot/market-calibration";
 import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
 import { needsGbpDescriptionRepublish } from "@/lib/google/gbp-description";
 import { pendingRoutineTasks } from "./pending-tasks";
@@ -7,6 +8,7 @@ type ExecutionState = {
   tasks: ExecutionTask[];
   plan: Plan | null;
   planReconciledAt: string | null;
+  marketActionCalibration: MarketActionCalibration[];
 };
 
 const inflightExecutionFetches = new Map<string, Promise<ExecutionState>>();
@@ -39,6 +41,7 @@ export async function fetchExecutionState(
       tasks: data.tasks ?? [],
       plan: data.plan ?? null,
       planReconciledAt: data.planReconciledAt ?? null,
+      marketActionCalibration: data.marketActionCalibration ?? [],
     };
   })();
 

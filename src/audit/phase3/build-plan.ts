@@ -13,6 +13,7 @@ import { isCustomPlanStep } from "./plan-custom-steps";
 import { resolvePlanStepNumber } from "./plan-task-utils";
 import { buildAttributionCalibration, mergeCalibrations } from "../phase2/attribution-calibration";
 import type { AttributionCalibration } from "../phase2/attribution-calibration";
+import { mergeMarketCalibrations } from "../autopilot/market-calibration";
 import { projectHealthScoresFromStepNumbers, isStepSatisfied } from "../phase2/counterfactual";
 import { syncReviewEngagementMetrics } from "@/audit/review-engagement";
 import { buildStepContext } from "./step-context";
@@ -148,7 +149,8 @@ export function buildPlan(
   tasks: ExecutionTask[],
   attributions: ActionAttribution[] = [],
   globalCalibration?: AttributionCalibration,
-  avgCustomerValue?: number | null
+  avgCustomerValue?: number | null,
+  marketCalibration?: AttributionCalibration
 ): Plan | null {
   const gbpPlan = audit.strategy?.gbpPlan;
   if (!gbpPlan) return null;
@@ -156,9 +158,9 @@ export function buildPlan(
   syncReviewEngagementMetrics(audit);
 
   const tasksByStep = groupTasksByStep(tasks);
-  const calibration = mergeCalibrations(
-    buildAttributionCalibration(attributions),
-    globalCalibration
+  const calibration = mergeMarketCalibrations(
+    mergeCalibrations(buildAttributionCalibration(attributions), globalCalibration),
+    marketCalibration
   );
   const planSteps = gbpPlan.steps
     .filter((step) => !isRetiredGbpPlanStep(step.stepNumber, step.title))
