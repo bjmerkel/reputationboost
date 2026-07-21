@@ -1,14 +1,56 @@
 "use client";
 
+import { useState } from "react";
 import type { LeaderDelta } from "@/audit/autopilot/types";
 import {
   formatCellDirection,
   summarizeLeaderGaps,
 } from "@/audit/autopilot/leader-delta-engine";
 
-export default function BeatTheLeaderPanel({ delta }: { delta: LeaderDelta }) {
+export default function BeatTheLeaderPanel({
+  delta,
+  clientId,
+  onExperimentCreated,
+}: {
+  delta: LeaderDelta;
+  clientId?: string;
+  onExperimentCreated?: () => void;
+}) {
   const gaps = summarizeLeaderGaps(delta, 4);
   const topAction = delta.rankedActions[0];
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function runExperiment() {
+    if (!clientId || !topAction) return;
+    setSubmitting(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/autopilot/experiments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          keyword: delta.keyword,
+          gridNorth: delta.gridNorth,
+          gridEast: delta.gridEast,
+        }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Could not create experiment");
+        return;
+      }
+      setMessage("Experiment queued for approval in Plan.");
+      onExperimentCreated?.();
+    } catch {
+      setError("Could not create experiment");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -50,6 +92,22 @@ export default function BeatTheLeaderPanel({ delta }: { delta: LeaderDelta }) {
             Recommended next move
           </p>
           <p className="mt-1 text-xs text-[#3c4043]">{topAction.hypothesis}</p>
+          {clientId && (
+            <button
+              type="button"
+              onClick={() => void runExperiment()}
+              disabled={submitting || Boolean(message)}
+              className="mt-2 rounded-full bg-[#1a73e8] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              {submitting
+                ? "Creating…"
+                : message
+                  ? "Queued for approval"
+                  : "Run experiment"}
+            </button>
+          )}
+          {error && <p className="mt-2 text-xs text-[#c5221f]">{error}</p>}
+          {message && <p className="mt-2 text-xs text-[#137333]">{message}</p>}
         </div>
       )}
     </div>

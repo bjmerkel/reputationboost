@@ -38,6 +38,10 @@ export const MARKET_REFRESH_FLAGS = {
   taskTriggeredGridEnabled: process.env.TASK_TRIGGERED_GRID === "1",
 } as const;
 
+export const AUTOPILOT_FLAGS = {
+  enabled: process.env.RANKING_AUTOPILOT !== "0",
+} as const;
+
 export const HEATMAP_FLAGS = {
   insightPanel: true,
   zoneHighlights: true,

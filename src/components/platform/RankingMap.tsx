@@ -726,6 +726,7 @@ export default function RankingMap({
         clientRating={keywordRank?.clientRating}
         clientReviewCount={keywordRank?.clientReviewCount}
         leaderDelta={selectedLeaderDelta}
+        clientId={clientId}
         open={selectedCell != null}
         onClose={() => setSelectedCell(null)}
       />
