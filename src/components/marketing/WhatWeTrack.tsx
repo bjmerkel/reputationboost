@@ -12,6 +12,7 @@ const dashboardMetrics = [
   { label: "Estimated Revenue", hint: "Dollars tied to ranking gains" },
   { label: "Top Keyword", hint: "Your highest-value search term" },
   { label: "Biggest Opportunity", hint: "The fix that moves the needle most" },
+  { label: "Cell experiments", hint: "Per-neighborhood tests vs local leaders" },
 ];
 
 const illustrativeProof = {

@@ -14,7 +14,7 @@ const loopSteps = [
   {
     title: "Prove it worked",
     description:
-      "We track rank before and after, so your plan focuses on actions that actually move the needle.",
+      "We track rank before and after in each map cell — so your plan focuses on actions that actually move the needle, not generic checklists.",
   },
 ];
 
@@ -109,6 +109,17 @@ export default function GeoReviewVelocity() {
               Illustrative example — after geo-targeted review requests, rank movement is measured
               in each map area.
             </p>
+
+            <div className="mt-4 rounded-xl border border-[#d2e3fc] bg-[#e8f0fe] px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#1a73e8]">
+                Beat the leader
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-[#3c4043]">
+                For weak cells, we diff your profile against whoever ranks #1 there — reviews,
+                photos, categories — and queue a test through your approval list. Nothing publishes
+                without you.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-4">
