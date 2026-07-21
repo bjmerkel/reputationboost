@@ -1,6 +1,6 @@
 # AI Answer Visibility — Comprehensive Plan
 
-**Purpose:** Product and engineering plan for tracking whether AI assistants (ChatGPT, Gemini, Google AI Overviews / AI Mode) recommend the customer's business for high-intent local queries ("best X near me"), sold as a differentiated add-on to Maps rank tracking.
+**Purpose:** Product and engineering plan for tracking whether AI assistants (ChatGPT, Gemini, Google AI Overviews / AI Mode) recommend the customer's business for high-intent local queries ("best X near me"), shipped as a core capability of the platform alongside Maps rank tracking — included for every business, no add-on gating.
 
 **Audience:** Engineering, product, QA
 **Companion docs:** [`plan-tab-comprehensive-roadmap.md`](./plan-tab-comprehensive-roadmap.md), [`plan-tab-path-to-9.md`](./plan-tab-path-to-9.md)
@@ -19,9 +19,8 @@ A second discovery channel is emerging: **AI answers**. When a consumer asks Cha
 3. **Stores** results in snapshot tables mirroring the rank-tracking data model, with the same cost-governance patterns (monthly budgets, idempotent claims, caching).
 4. **Surfaces** trends in the platform UI (Results + Audit Data + Home tile) as a distinct "AI Visibility" metric — parallel to, not blended into, the existing score.
 5. **Feeds** remediation into the existing Plan pipeline as new gaps/steps, because the levers that move AI answers (reviews, categories, services, description keywords, website/schema, third-party mentions) largely overlap with GBP work we already automate.
-6. **Gates** the whole capability behind an add-on entitlement — the first real entitlement in the product.
 
-Strategic framing: this is an **add-on, not a fourth score input** (initially). The score → rank → calls → revenue path stays primary; AI visibility is a differentiated retention/expansion feature that reuses ~80% of existing infrastructure patterns (keyword source of truth, cron + budget governance, snapshot → rollup → UI, Plan gaps/steps).
+Strategic framing: this ships as **core product for every business** — a fourth pillar of the platform's visibility story, not a gated upsell. It is still **not a fourth score input** (initially): the score → rank → calls → revenue path stays primary, the overall score formula is untouched, and AI visibility is a parallel metric until attribution data justifies blending. It reuses ~80% of existing infrastructure patterns (keyword source of truth, cron + budget governance, snapshot → rollup → UI, Plan gaps/steps). Marginal cost is ~$1–1.50/business/month (§7), small enough to absorb into every tier as a differentiation and retention lever.
 
 ---
 
@@ -170,7 +169,7 @@ Row-level security follows the existing per-business policies; service-role writ
 - **Cadence:** twice monthly, UTC days **2 and 16** (`AI_VISIBILITY_FLAGS.probeDaysUtc = [2, 16]`) — one day after the rank pulse so AI results can be cross-referenced against fresh Maps ranks, and so the two systems never contend for the same cron window. New `vercel.json` entry: `/api/cron/ai-visibility-probe`, `0 8 2,16 * *`.
 - **Volume per business per run:** 3 keywords × 2 prompts × 3 surfaces (ChatGPT, Gemini, AIO; AI Mode optional) × 2 samples = **36 probes/run, 72/month**. (AIO probes don't need 2 samples — SERPs are more stable — so realistic steady state is ~60/month.)
 - **Budget:** `DEFAULT_AI_PROBE_MONTHLY_BUDGET = 80` per business, reserved/released through the claims pattern so serverless retries never double-spend (exactly like `market_collection_claims` + `reserve_places_api_calls`).
-- **Estimated marginal cost per business per month** (to validate in Phase 0): OpenAI ~24 searches ≈ $0.30–0.70 incl. tokens; Gemini ~24 grounded prompts ≈ $0.60 (or free-tier while volume is low); DataForSEO ~12 SERPs ≈ $0.05–0.15. **Total ≈ $1–1.50/business/month** — comfortably below an add-on price point ($49/mo, see §7).
+- **Estimated marginal cost per business per month** (to validate in Phase 0): OpenAI ~24 searches ≈ $0.30–0.70 incl. tokens; Gemini ~24 grounded prompts ≈ $0.60 (or free-tier while volume is low); DataForSEO ~12 SERPs ≈ $0.05–0.15. **Total ≈ $1–1.50/business/month** — small enough to include in every tier without a price change (see §7). Because it's on for everyone, aggregate cost scales linearly with the customer base, so the hard per-business budget below is the primary cost control.
 - **Caching:** 6-hour response cache keyed by `(surface, prompt_text, location)` in a `ai_probe_cache` table or by extending `places_search_cache`'s pattern, so retries and audit views share responses.
 - **Manual refresh:** budget-aware, 7-day cooldown, same UX contract as the market refresh button.
 - **Kill switches:** `AI_VISIBILITY=0` disables everything; per-surface flags (`AI_VISIBILITY_SURFACES=openai,gemini,aio`) allow degrading gracefully when one provider misbehaves.
@@ -185,7 +184,7 @@ Row-level security follows the existing per-business policies; service-role writ
 ### 3.5 Scoring integration — deliberately parallel, not blended
 
 - New **AI Visibility Score (0–100)**: keyword-value-weighted mention rate with a position bonus, computed in `rollup.ts`, snapshotted per run (and optionally mirrored into a nullable `score_daily.ai_visibility` column for the changelog UI).
-- The **overall Reputation Boost Score formula does not change** (driver 70% / outcome 30% stays). Rationale: (a) the add-on is optional — the score must stay comparable across customers; (b) we have no calibration data yet linking AI mentions to calls/revenue. Revisit blending only after Phase 7 attribution data exists, via the existing learned-model machinery (`score_model_global`), never hardcoded.
+- The **overall Reputation Boost Score formula does not change** (driver 70% / outcome 30% stays). Rationale: (a) the score must stay stable and comparable across the existing customer base while the new metric matures; (b) we have no calibration data yet linking AI mentions to calls/revenue. Revisit blending only after Phase 7 attribution data exists, via the existing learned-model machinery (`score_model_global`), never hardcoded.
 
 ---
 
@@ -199,9 +198,9 @@ No fifth tab initially — slot into existing surfaces (per current tab architec
 | **Audit Data tab** (`AuditDataView.tsx`) | Raw probe table (prompt, surface, mentioned?, position, citations, timestamp) next to the rankings tables — the "show me the receipts" view. |
 | **Home tab** (`HomeView.tsx`) | One tile: "AI recommends you for X of Y searches" with delta, linking to Results. |
 | **Plan tab** | AI-visibility gap steps appear through the normal pipeline (§5) — no bespoke UI. |
-| **Marketing** | Homepage section + pricing add-on row + FAQ entry (update `marketing-faq.ts`, which currently implies citations are out of scope — reword to distinguish NAP citations from AI answer citations). |
+| **Marketing** | Homepage section ("Who does AI recommend?") + feature row on all pricing tiers + FAQ entry (update `marketing-faq.ts`, which currently implies citations are out of scope — reword to distinguish NAP citations from AI answer citations). Candidate for the free preview audit funnel later (out of scope here — probes cost real money per anonymous visitor). |
 
-Empty/locked states: businesses without the add-on see the section with a blurred preview + upgrade CTA (soft-gate pattern already used for Spectrum copy in `ExecutionAutomation.tsx`).
+Empty states: before the first probe run completes, the section shows a "first AI answer check runs on {date}" placeholder (same contract as businesses awaiting their first monthly grid).
 
 Gemini attribution compliance: when showing Gemini-grounded content, display the required "Google Maps" source attribution per the grounding usage requirements (do not restyle/translate the string).
 
@@ -225,7 +224,7 @@ The levers that influence AI answers for local queries are mostly levers we alre
 
 ## 6. Rollout phases
 
-Recommended order: **0 → 1 → 2 → 3 → 4 → 6 → 5 → 7** (ship the tracker + gating before deep Plan integration; Plan work depends on observing real gap distributions).
+Recommended order: **0 → 1 → 2 → 3 → 4 → 5 → 6 → 7** (ship the tracker end-to-end before deep Plan integration; Plan work depends on observing real gap distributions). Rollout mechanism: `AI_VISIBILITY` master flag (default off) plus a temporary `AI_VISIBILITY_PILOT_BUSINESS_IDS` allowlist env var used during Phases 1–4; at Phase 4 exit the allowlist is removed and the flag is on for everyone. No per-business entitlement machinery is ever built.
 
 ### Phase 0 — Spike & validation (de-risk before any schema)
 
@@ -249,20 +248,21 @@ Recommended order: **0 → 1 → 2 → 3 → 4 → 6 → 5 → 7** (ship the tra
 - `providers/serp.ts` (DataForSEO creds), `load_async_ai_overview: true`, presence + `references` parsing, per-locale `location_name` from business city/state.
 - Tests: AIO present/absent/async fixtures, reference domain matching.
 
-### Phase 4 — Rollups, UI, manual refresh
+### Phase 4 — Rollups, UI, manual refresh, general availability
 
 - Results panel, Audit Data table, Home tile, `/api/ai-visibility/*` routes, manual refresh with cooldown, trend + confirmation logic, disclaimers.
 - Acceptance: pilot businesses see populated UI; empty/loading/error states covered; no layout regressions in the four-tab shell.
+- Exit: flip `AI_VISIBILITY` on globally — every business's next scheduled run (days 2/16) begins populating data. Backfill is not needed; the first run is the baseline.
 
 ### Phase 5 — Plan integration + notifications
 
 - Gap IDs, step routing + copy context, custom steps (schema/FAQ, cited-domain outreach), mention-change notifications.
 - Tests: gap detection fixtures (mentioned vs not vs AIO-absent), step ordering doesn't starve conversion-first NBA (respect existing prioritization invariants in `plan-prioritization.ts` tests).
 
-### Phase 6 — Add-on entitlement + marketing
+### Phase 6 — Marketing & positioning
 
-- First real entitlement: `businesses.addons text[] default '{}'` (migration `042`), `hasAddon(business, "ai_visibility")` helper, enforced in cron (skip un-entitled businesses before reserving budget), API routes (403), and UI (locked preview). Manual grant via settings/admin for now; Stripe wiring is explicitly out of scope.
-- Pricing page add-on row (`src/lib/pricing.ts`), homepage marketing section, FAQ update, onboarding upsell mention.
+- Homepage section, pricing-page feature row across all tiers (`src/lib/pricing.ts`), FAQ update in `marketing-faq.ts`, onboarding copy mention ("we also check who ChatGPT and Google AI recommend").
+- Optional: "AI visibility" teaser line in the free preview audit (static copy only — no live probes for anonymous visitors).
 
 ### Phase 7 — Closed loop (stretch)
 
@@ -270,9 +270,10 @@ Recommended order: **0 → 1 → 2 → 3 → 4 → 6 → 5 → 7** (ship the tra
 
 ---
 
-## 7. Pricing & packaging (proposal)
+## 7. Pricing & packaging
 
-- **Add-on: “AI Answer Visibility” — $49/mo** on top of any tier, or bundled free into **Spectrum ($399)**. Marginal cost ~$1–1.50/business/month leaves wide margin and undercuts standalone AI-visibility tools ($99–300/mo) that don't have the GBP execution loop.
+- **Included in every tier** (Keyword $150, Omni $199, Spectrum $399) at no price change. Marginal cost is ~$1–1.50/business/month — negligible against tier prices — and standalone AI-visibility tools charge $99–300/mo for tracking alone, so bundling it is a strong competitive moat rather than lost revenue.
+- No entitlement infrastructure is built; the only gate is the global `AI_VISIBILITY` env flag used for rollout. If packaging strategy changes later, gating can be added then — nothing in this design assumes it.
 - Positioning line for marketing: *"Google Maps tells you where you rank. We also tell you who AI recommends — and fix both from one plan."*
 
 ---
@@ -288,13 +289,14 @@ Recommended order: **0 → 1 → 2 → 3 → 4 → 6 → 5 → 7** (ship the tra
 | AIO simply doesn't trigger for many local queries | Medium (perceived value) | Report trigger rate honestly; lean on ChatGPT/Gemini surfaces where an answer always exists |
 | Cost creep as keyword panels grow | Medium | Hard monthly budget + claims (proven pattern); panel capped at top-value keywords |
 | Name-match false positives/negatives (franchises, common names) | Medium | Gemini placeId anchor + alias dictionary; LLM extraction fallback; surface confidence in Audit Data |
-| Entitlement gating is new surface area | Low | Simple `addons[]` column, checked in three choke points (cron, API, UI); no billing integration yet |
+| Fleet-wide cost since every business is included | Medium | Hard per-business monthly budget + claims; per-surface kill switches; global `AI_VISIBILITY` flag as emergency stop; monitor aggregate spend during pilot before GA |
 | Gemini Maps attribution compliance | Low | Required "Google Maps" attribution component baked into the transcript UI |
 
 ## 9. Out of scope (this plan)
 
 - Perplexity / Claude / DeepSeek surfaces (add later behind the same provider interface if customers ask).
-- Stripe/billing automation for the add-on (manual grants first).
+- Per-business entitlement or billing gating (feature is core; the global env flag is the only switch).
+- Live AI probes in the anonymous free preview audit (cost per visitor is unbounded; static teaser copy only).
 - Blending AI visibility into the overall score (Phase 7 decision, data-driven).
 - Multi-location/franchise orchestration (consistent with Plan roadmap out-of-scope).
 - Content-publishing automation on third-party domains (we surface outreach targets; we don't do outreach).
@@ -302,7 +304,8 @@ Recommended order: **0 → 1 → 2 → 3 → 4 → 6 → 5 → 7** (ship the tra
 ## 10. New environment variables
 
 ```
-AI_VISIBILITY=                      # master flag, default off
+AI_VISIBILITY=                      # master flag, default off until GA at Phase 4 exit
+AI_VISIBILITY_PILOT_BUSINESS_IDS=   # temporary pilot allowlist, removed at GA
 AI_VISIBILITY_SURFACES=             # e.g. "openai,gemini,aio" (default all)
 GEMINI_API_KEY=
 DATAFORSEO_LOGIN=
