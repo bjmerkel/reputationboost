@@ -112,7 +112,7 @@ function KeywordCard({
         </div>
       )}
 
-      <div className={`mt-2 grid grid-cols-3 gap-2 ${compact ? "text-[10px]" : "text-xs"}`}>
+      <div className={`mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4 ${compact ? "text-[10px]" : "text-xs"}`}>
         <Metric label="Visibility" value={`${kw.visibilityScore}/100`} tooltip={SCORE_TOOLTIPS.visibility} />
         <Metric label="Relevance" value={`${kw.relevanceScore}/100`} tooltip={SCORE_TOOLTIPS.relevance} />
         <Metric
@@ -120,7 +120,21 @@ function KeywordCard({
           value={`${kw.revenueCaptureScore}/100`}
           tooltip={SCORE_TOOLTIPS.revenueCapture}
         />
+        <Metric
+          label="AI discovery"
+          value={kw.aiVisibilityScore != null ? `${kw.aiVisibilityScore}/100` : "—"}
+          tooltip={SCORE_TOOLTIPS.aiVisibility}
+        />
       </div>
+
+      {kw.aiMentionLabel && (
+        <p className={`mt-1.5 text-[#5f6368] ${compact ? "text-[10px]" : "text-xs"}`}>
+          {kw.aiMentionLabel}
+          {kw.aiSurfacesMentioned && kw.aiSurfacesMentioned.length > 0 && (
+            <span> · {kw.aiSurfacesMentioned.join(", ")}</span>
+          )}
+        </p>
+      )}
 
       <p className={`mt-1.5 text-[#80868b] ${compact ? "text-[10px]" : "text-xs"}`}>
         {kw.impressionsLabel}

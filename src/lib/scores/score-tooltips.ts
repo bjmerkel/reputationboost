@@ -46,6 +46,13 @@ export const SCORE_TOOLTIPS = {
     importance:
       "Google favors listings that clearly match the search. Low relevance means profile edits may help even before rank changes.",
   },
+  aiVisibility: {
+    title: "AI discovery",
+    calculation:
+      "Weekly sampled probes across ChatGPT and Google AI Overviews for your target keywords — mention rate, recommendation rate, position among named businesses, and citation quality.",
+    importance:
+      "More customers are asking AI assistants for local recommendations. This shows whether those tools mention your business for high-intent searches.",
+  },
   grade: {
     title: "Score grade",
     calculation: "Based on your Reputation Boost Score: Healthy 70–100, At risk 40–69, Urgent 0–39.",

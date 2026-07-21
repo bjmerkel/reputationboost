@@ -15,6 +15,10 @@ export default function AuditSummaryStrip({ audit }: AuditSummaryStripProps) {
   const score = scores?.overall ?? 0;
   const grade = scores?.grade ?? "at_risk";
   const outcomes = scores?.engagementOutcomes;
+  const aiVisibility = audit.aiVisibility;
+  const aiHint = aiVisibility
+    ? `${aiVisibility.keywordsMentioned}/${aiVisibility.totalKeywords} keywords mentioned by AI`
+    : `${rankings.keywordsInPack}/${rankings.totalKeywords} in 3-Pack`;
 
   const gradeColor =
     grade === "healthy"
@@ -24,7 +28,7 @@ export default function AuditSummaryStrip({ audit }: AuditSummaryStripProps) {
         : "text-amber-400";
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className={`grid grid-cols-2 gap-3 ${audit.aiVisibility ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
       <SummaryCard
         label="Reputation Boost Score"
         value={`${score}/100`}
@@ -35,9 +39,17 @@ export default function AuditSummaryStrip({ audit }: AuditSummaryStripProps) {
       <SummaryCard
         label="Visibility"
         value={`${scores?.visibility ?? rankings.shareOfVoice}/100`}
-        hint={`${rankings.keywordsInPack}/${rankings.totalKeywords} in 3-Pack`}
+        hint={aiVisibility ? aiHint : `${rankings.keywordsInPack}/${rankings.totalKeywords} in 3-Pack`}
         tooltip={SCORE_TOOLTIPS.visibility}
       />
+      {aiVisibility && (
+        <SummaryCard
+          label="AI discovery"
+          value={`${aiVisibility.overallScore}/100`}
+          hint={aiHint}
+          tooltip={SCORE_TOOLTIPS.aiVisibility}
+        />
+      )}
       <SummaryCard
         label="Conversion"
         value={`${scores?.conversion ?? "—"}/100`}

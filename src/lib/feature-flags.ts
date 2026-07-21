@@ -44,6 +44,15 @@ export const AUTOPILOT_FLAGS = {
   autoPropose: process.env.RANKING_AUTOPILOT_AUTO_PROPOSE !== "0",
 } as const;
 
+/** AI answer visibility — ChatGPT, Gemini, and Google AI Overviews mention tracking. */
+export const AI_VISIBILITY_FLAGS = {
+  enabled: process.env.AI_VISIBILITY !== "0",
+  weeklyProbeDayUtc: 0,
+  maxKeywords: 3,
+  maxManualRefreshDays: 7,
+  surfaces: ["google_ai_overview", "chatgpt"] as const,
+} as const;
+
 export const HEATMAP_FLAGS = {
   insightPanel: true,
   zoneHighlights: true,

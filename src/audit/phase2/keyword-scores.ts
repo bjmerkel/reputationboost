@@ -1,5 +1,6 @@
 import { DEFAULT_ROI_CONFIG } from "../attribution/roi";
 import type { KeywordScoreCard, KeywordRankSnapshot, Phase1AuditPayload } from "../types";
+import { keywordSnapshotFromVisibility, aiMentionLabel, formatAiSurface } from "../collectors/ai-visibility/helpers";
 import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 import type { LearnedScoreModel } from "./score-learning";
 import { DEFAULT_LEARNED_SCORE_MODEL, effectiveScoreModel } from "./score-learning";
@@ -219,6 +220,10 @@ export function computeKeywordScores(
       const potentialAtRank1 = impressions
         ? estimateKeywordRevenueAtRank1(impressions, kw, audit, options.avgCustomerValue, model)
         : null;
+      const aiKeyword = keywordSnapshotFromVisibility(audit.aiVisibility, kw.keyword);
+      const aiSurfacesMentioned = (aiKeyword?.surfaces ?? [])
+        .filter((surface) => surface.mentioned)
+        .map((surface) => formatAiSurface(surface.surface));
 
       return {
         keyword: kw.keyword,
@@ -248,6 +253,11 @@ export function computeKeywordScores(
         radiusProfileLabel: profileLabel,
         packFragile: fragility.fragile,
         weakestRadiusMiles: fragility.weakestRadiusMiles,
+        aiVisibilityScore: aiKeyword?.score ?? null,
+        aiMentionLabel: aiKeyword
+          ? aiMentionLabel(aiKeyword.score, aiKeyword.mentionRate)
+          : null,
+        aiSurfacesMentioned,
       };
     })
     .sort((a, b) => {

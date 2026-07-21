@@ -131,6 +131,33 @@ const features = [
     ),
   },
   {
+    id: "ai-discovery",
+    title: "AI Discovery Tracking",
+    description:
+      "See whether ChatGPT and Google AI Overviews recommend your business for \"best service near me\" — and who they recommend instead.",
+    gradient: "from-sky-500 to-indigo-500",
+    preview: (
+      <div className="space-y-1.5">
+        {[
+          { surface: "ChatGPT", status: "Mentioned #2", good: true },
+          { surface: "AI Overviews", status: "Not mentioned", good: false },
+        ].map((row) => (
+          <div key={row.surface} className="flex items-center justify-between rounded-md bg-white/5 px-2.5 py-1.5 text-xs">
+            <span className="text-slate-300">{row.surface}</span>
+            <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${row.good ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+              {row.status}
+            </span>
+          </div>
+        ))}
+      </div>
+    ),
+    icon: (
+      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+      </svg>
+    ),
+  },
+  {
     id: "impressions",
     title: "Search Impressions",
     description:
@@ -226,7 +253,7 @@ export default function Features() {
               <span className="gradient-text">what to fix</span>
             </>
           }
-          subtitle="Eight data layers that power your Reputation Boost Score — from keyword discovery to scheduled rank tracking and revenue projections."
+          subtitle="Nine data layers that power your Reputation Boost Score — from keyword discovery to Maps rank tracking, AI answer visibility, and revenue projections."
         />
 
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

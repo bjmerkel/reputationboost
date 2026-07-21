@@ -25,6 +25,9 @@ import {
 } from "./storage-supabase";
 import { saveExecutionTasks } from "./storage-execution";
 import { loadOutcomesForStrategy } from "./outcomes/load-outcomes";
+import { collectAiVisibilitySnapshot } from "./collectors/ai-visibility";
+import { loadLatestAiVisibilityForBusiness } from "./storage-ai-visibility";
+import { AI_VISIBILITY_FLAGS } from "@/lib/feature-flags";
 import type {
   AuditRunResult,
   AuditTrigger,
@@ -61,6 +64,31 @@ async function loadPriorForDiff(
 
 async function resolveClient(options: RunAuditOptions): Promise<ClientConfig> {
   return loadBusinessConfig(options.userId, options.clientId);
+}
+
+async function resolveAiVisibility(client: ClientConfig) {
+  if (!AI_VISIBILITY_FLAGS.enabled || client.keywords.length === 0) {
+    return undefined;
+  }
+
+  const businessId = client.businessId ?? client.id;
+  let cached;
+
+  try {
+    cached = await loadLatestAiVisibilityForBusiness(businessId, client.keywords);
+    if (cached) {
+      const ageMs = Date.now() - new Date(cached.collectedAt).getTime();
+      const maxAgeMs = AI_VISIBILITY_FLAGS.maxManualRefreshDays * 24 * 60 * 60 * 1000;
+      if (ageMs <= maxAgeMs) {
+        return cached;
+      }
+    }
+
+    return await collectAiVisibilitySnapshot(client);
+  } catch (error) {
+    console.warn(`[audit] AI visibility collection failed for ${client.id}:`, error);
+    return cached ?? undefined;
+  }
 }
 
 /**
@@ -112,6 +140,8 @@ export async function runPhase1Audit(
     ]);
   }
 
+  const aiVisibility = await resolveAiVisibility(client);
+
   const completedAt = new Date();
 
   const phase1: Phase1AuditPayload = {
@@ -138,6 +168,7 @@ export async function runPhase1Audit(
     competitors: competitors!,
     reviews,
     offGoogle,
+    aiVisibility,
   };
 
   const priorAudit = await loadPriorForDiff(

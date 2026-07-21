@@ -659,6 +659,8 @@ export interface Phase1AuditPayload {
   competitors: CompetitorSnapshot[];
   reviews: ReviewSnapshot;
   offGoogle: OffGoogleSnapshot;
+  /** Whether AI assistants recommend this business for target keywords. */
+  aiVisibility?: import("./types/ai-visibility").AiVisibilitySnapshot;
   /** Per-keyword profile relevance signals (LLM + heuristic), cached on audit payload. */
   keywordRelevance?: KeywordRelevanceFeatures[];
   /** Demand vs rank alignment analysis — drives intelligent keyword rotation. */
@@ -790,6 +792,12 @@ export interface KeywordScoreCard {
   radiusProfileLabel: string;
   packFragile: boolean;
   weakestRadiusMiles: number | null;
+  /** How often AI assistants mention or recommend this business (0–100). */
+  aiVisibilityScore?: number | null;
+  /** Human-readable AI discovery status for this keyword. */
+  aiMentionLabel?: string | null;
+  /** Surfaces where the business was mentioned this week. */
+  aiSurfacesMentioned?: string[];
 }
 
 export type PathOptimizationMode = "driver" | "outcome" | "revenue" | "balanced";
