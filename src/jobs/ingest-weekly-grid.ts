@@ -249,6 +249,19 @@ async function ingestGridForBusiness(
   }
 
   result.businessesProcessed += 1;
+
+  try {
+    const { refreshCellWeaknessScoresForBusinessAdmin } = await import(
+      "@/lib/review-velocity/refresh-cell-weakness"
+    );
+    await refreshCellWeaknessScoresForBusinessAdmin(row.id);
+  } catch (error) {
+    result.errors.push({
+      businessId: row.id,
+      step: "cell_weakness_refresh",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 export interface IngestWeeklyGridOptions {

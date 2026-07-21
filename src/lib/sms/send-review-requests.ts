@@ -1,10 +1,9 @@
-import type { ClientConfig } from "@/audit/types";
+import type { ClientConfig, FullAuditPayload } from "@/audit/types";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import {
   getCustomersByIds,
   getEligibleCustomers,
-  listCustomers,
   logSmsMessage,
   markCustomersReviewRequested,
 } from "@/lib/customers/storage";
@@ -26,9 +25,15 @@ import {
   ineligibilityMessage,
 } from "@/lib/review-requests/eligibility";
 import type { GeoRoutingDecision } from "@/lib/review-velocity/geo-router";
+import { selectCustomersForGeoCampaign } from "@/lib/review-velocity/geo-router";
+import {
+  loadKeywordGridsForAudit,
+  routeCustomerGeoReview,
+} from "@/lib/review-velocity/resolve-geo-routing";
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isTwilioConfigured, sendSms } from "@/lib/sms/twilio";
+import type { GeoGridPoint } from "@/audit/types";
 
 export interface SendReviewRequestsInput {
   userId: string;
@@ -46,8 +51,10 @@ export interface SendReviewRequestsInput {
   focusKeyword?: string | null;
   auditHasReviewGap?: boolean;
   reviewUrlOverride?: string;
-  /** Geo-targeted routing metadata for cell/keyword seeding. */
+  /** Geo-targeted routing metadata for a single-customer webhook send. */
   geoRouting?: GeoRoutingDecision | null;
+  /** When true (default for batch sends), prioritize customers in weak grid cells. */
+  enableGeoRouting?: boolean;
 }
 
 export interface SendReviewRequestsResult {
@@ -56,6 +63,7 @@ export interface SendReviewRequestsResult {
   skipped: number;
   simulated: boolean;
   keywordFilterApplied: boolean;
+  geoFilterApplied: boolean;
   reviewUrl: string | null;
   messages: Array<{
     customerId: string;
@@ -64,6 +72,8 @@ export interface SendReviewRequestsResult {
     status: "sent" | "failed" | "skipped" | "simulated";
     error?: string;
     skipReason?: string;
+    geoTargeted?: boolean;
+    targetZone?: string | null;
   }>;
 }
 
@@ -85,31 +95,77 @@ function resolveReviewUrl(business: ClientConfig): string | null {
   });
 }
 
-async function resolveCustomers(
+async function loadAuditForSend(
   userId: string,
-  businessId: string,
-  customerIds: string[] | undefined,
-  batchSize: number,
-  serviceRole: boolean,
-  focusKeyword?: string | null
-): Promise<{ customers: CustomerRecord[]; keywordFilterApplied: boolean }> {
-  if (customerIds && customerIds.length > 0) {
-    const customers = serviceRole
-      ? await getCustomersByIdsAdmin(businessId, customerIds)
-      : await getCustomersByIds(userId, businessId, customerIds);
-    return { customers, keywordFilterApplied: false };
+  business: ClientConfig
+): Promise<FullAuditPayload | null> {
+  if (!business.businessId) return null;
+  const rawAudit = await loadLatestAuditFromSupabase(userId, business.id, {
+    businessName: business.name,
+    businessUuid: business.businessId,
+  });
+  return rawAudit ? ensureStrategy(rawAudit) : null;
+}
+
+async function resolveCustomers(input: {
+  userId: string;
+  businessId: string;
+  customerIds?: string[];
+  batchSize: number;
+  serviceRole: boolean;
+  focusKeyword?: string | null;
+  audit?: FullAuditPayload | null;
+  keywordGrids?: Map<string, GeoGridPoint[]>;
+  enableGeoRouting?: boolean;
+}): Promise<{
+  customers: CustomerRecord[];
+  keywordFilterApplied: boolean;
+  geoFilterApplied: boolean;
+}> {
+  if (input.customerIds && input.customerIds.length > 0) {
+    const customers = input.serviceRole
+      ? await getCustomersByIdsAdmin(input.businessId, input.customerIds)
+      : await getCustomersByIds(input.userId, input.businessId, input.customerIds);
+    return { customers, keywordFilterApplied: false, geoFilterApplied: false };
   }
 
-  const poolSize = focusKeyword?.trim() ? Math.max(batchSize * 4, 100) : batchSize;
-  const pool = serviceRole
-    ? await getEligibleCustomersAdmin(businessId, poolSize)
-    : await getEligibleCustomers(userId, businessId, poolSize);
+  const poolSize = input.focusKeyword?.trim() ? Math.max(input.batchSize * 4, 100) : input.batchSize;
+  const pool = input.serviceRole
+    ? await getEligibleCustomersAdmin(input.businessId, poolSize)
+    : await getEligibleCustomers(input.userId, input.businessId, poolSize);
 
-  if (!focusKeyword?.trim()) {
-    return { customers: pool.slice(0, batchSize), keywordFilterApplied: false };
+  if (
+    input.enableGeoRouting &&
+    input.audit &&
+    input.keywordGrids &&
+    input.keywordGrids.size > 0
+  ) {
+    const geoSelected = selectCustomersForGeoCampaign({
+      customers: pool,
+      audit: input.audit,
+      keywordGrids: input.keywordGrids,
+      batchSize: input.batchSize,
+      focusKeyword: input.focusKeyword,
+    });
+    if (geoSelected.geoFilterApplied) {
+      return {
+        customers: geoSelected.customers,
+        keywordFilterApplied: false,
+        geoFilterApplied: true,
+      };
+    }
   }
 
-  return selectCustomersForCampaign(pool, focusKeyword, batchSize);
+  if (!input.focusKeyword?.trim()) {
+    return { customers: pool.slice(0, input.batchSize), keywordFilterApplied: false, geoFilterApplied: false };
+  }
+
+  const keywordSelected = selectCustomersForCampaign(pool, input.focusKeyword, input.batchSize);
+  return {
+    customers: keywordSelected.customers,
+    keywordFilterApplied: keywordSelected.keywordFilterApplied,
+    geoFilterApplied: false,
+  };
 }
 
 async function startCampaignIfNeeded(input: {
@@ -165,14 +221,30 @@ export async function sendReviewRequests(
   }
 
   const batchSize = input.batchSize ?? 15;
-  const { customers, keywordFilterApplied } = await resolveCustomers(
-    input.userId,
+  const enableGeoRouting =
+    input.enableGeoRouting !== false && !input.geoRouting && !(input.customerIds?.length === 1);
+
+  let audit: FullAuditPayload | null = null;
+  let keywordGrids: Map<string, GeoGridPoint[]> | undefined;
+
+  if (enableGeoRouting || input.geoRouting) {
+    audit = await loadAuditForSend(input.userId, input.business);
+    if (audit && enableGeoRouting) {
+      keywordGrids = await loadKeywordGridsForAudit(businessId, audit);
+    }
+  }
+
+  const { customers, keywordFilterApplied, geoFilterApplied } = await resolveCustomers({
+    userId: input.userId,
     businessId,
-    input.customerIds,
+    customerIds: input.customerIds,
     batchSize,
-    input.serviceRole ?? false,
-    input.focusKeyword
-  );
+    serviceRole: input.serviceRole ?? false,
+    focusKeyword: input.focusKeyword,
+    audit,
+    keywordGrids,
+    enableGeoRouting,
+  });
 
   const result: SendReviewRequestsResult = {
     sent: 0,
@@ -180,20 +252,54 @@ export async function sendReviewRequests(
     skipped: 0,
     simulated: !isTwilioConfigured() && !input.dryRun,
     keywordFilterApplied,
+    geoFilterApplied,
     reviewUrl,
     messages: [],
   };
 
   const sentCustomerIds: string[] = [];
+  const sentFocusKeywords = new Set<string>();
   const manualSend = input.manualSend !== false;
   const hasReviewGap = input.auditHasReviewGap ?? true;
-  const focusKeyword =
-    input.geoRouting?.focusKeyword?.trim() ||
-    input.focusKeyword?.trim() ||
-    null;
-  const neighborhoodLabel = input.geoRouting?.neighborhoodLabel ?? null;
+  const defaultFocusKeyword = input.focusKeyword?.trim() || null;
 
   for (const customer of customers) {
+    let customerGeoRouting = input.geoRouting ?? null;
+    let customerFocusKeyword = defaultFocusKeyword;
+
+    if (!customerGeoRouting && enableGeoRouting && audit && keywordGrids && keywordGrids.size > 0) {
+      const routed = await routeCustomerGeoReview({
+        businessId,
+        business: input.business,
+        customer,
+        audit,
+        keywordGrids,
+        checkCellCap: true,
+      });
+
+      if (routed.deferred) {
+        result.skipped++;
+        result.messages.push({
+          customerId: customer.id,
+          phone: customer.phone,
+          body: "",
+          status: "skipped",
+          error: "Weekly review request cap reached for this map area.",
+          skipReason: routed.deferReason,
+          geoTargeted: true,
+          targetZone: routed.geoRouting?.targetZone ?? null,
+        });
+        continue;
+      }
+
+      customerGeoRouting = routed.geoRouting;
+      customerFocusKeyword = routed.geoRouting?.focusKeyword ?? customerFocusKeyword;
+    } else if (input.geoRouting) {
+      customerFocusKeyword = input.geoRouting.focusKeyword ?? customerFocusKeyword;
+    }
+
+    const neighborhoodLabel = customerGeoRouting?.neighborhoodLabel ?? null;
+
     const eligibility = evaluateReviewRequestEligibility({
       customer,
       manualSend,
@@ -209,6 +315,8 @@ export async function sendReviewRequests(
         status: "skipped",
         error: eligibility.reason ? ineligibilityMessage(eligibility.reason) : "Not eligible",
         skipReason: eligibility.reason,
+        geoTargeted: customerGeoRouting?.geoTargeted ?? false,
+        targetZone: customerGeoRouting?.targetZone ?? null,
       });
       continue;
     }
@@ -218,7 +326,7 @@ export async function sendReviewRequests(
       customer,
       businessName: input.business.name,
       reviewUrl,
-      focusKeyword,
+      focusKeyword: customerFocusKeyword,
       neighborhoodLabel,
       location: {
         city: input.business.location.city,
@@ -232,6 +340,8 @@ export async function sendReviewRequests(
         phone: customer.phone,
         body,
         status: "simulated",
+        geoTargeted: customerGeoRouting?.geoTargeted ?? false,
+        targetZone: customerGeoRouting?.targetZone ?? null,
       });
       continue;
     }
@@ -242,22 +352,25 @@ export async function sendReviewRequests(
         businessId,
         customerId: customer.id,
         executionTaskId: input.executionTaskId,
-        focusKeyword,
-        targetGridNorth: input.geoRouting?.targetCell.gridNorth ?? null,
-        targetGridEast: input.geoRouting?.targetCell.gridEast ?? null,
-        targetZone: input.geoRouting?.targetZone ?? null,
+        focusKeyword: customerFocusKeyword,
+        targetGridNorth: customerGeoRouting?.targetCell.gridNorth ?? null,
+        targetGridEast: customerGeoRouting?.targetCell.gridEast ?? null,
+        targetZone: customerGeoRouting?.targetZone ?? null,
         neighborhoodLabel,
         toPhone: customer.phone,
         body,
         status: "simulated",
       });
       sentCustomerIds.push(customer.id);
+      if (customerFocusKeyword) sentFocusKeywords.add(customerFocusKeyword);
       result.sent++;
       result.messages.push({
         customerId: customer.id,
         phone: customer.phone,
         body,
         status: "simulated",
+        geoTargeted: customerGeoRouting?.geoTargeted ?? false,
+        targetZone: customerGeoRouting?.targetZone ?? null,
       });
       continue;
     }
@@ -270,10 +383,10 @@ export async function sendReviewRequests(
         businessId,
         customerId: customer.id,
         executionTaskId: input.executionTaskId,
-        focusKeyword,
-        targetGridNorth: input.geoRouting?.targetCell.gridNorth ?? null,
-        targetGridEast: input.geoRouting?.targetCell.gridEast ?? null,
-        targetZone: input.geoRouting?.targetZone ?? null,
+        focusKeyword: customerFocusKeyword,
+        targetGridNorth: customerGeoRouting?.targetCell.gridNorth ?? null,
+        targetGridEast: customerGeoRouting?.targetCell.gridEast ?? null,
+        targetZone: customerGeoRouting?.targetZone ?? null,
         neighborhoodLabel,
         toPhone: sms.to,
         body,
@@ -281,12 +394,15 @@ export async function sendReviewRequests(
         providerSid: sms.sid,
       });
       sentCustomerIds.push(customer.id);
+      if (customerFocusKeyword) sentFocusKeywords.add(customerFocusKeyword);
       result.sent++;
       result.messages.push({
         customerId: customer.id,
         phone: sms.to,
         body,
         status: "sent",
+        geoTargeted: customerGeoRouting?.geoTargeted ?? false,
+        targetZone: customerGeoRouting?.targetZone ?? null,
       });
     } else {
       const logMessage = input.serviceRole ? logSmsMessageAdmin : logSmsMessage;
@@ -294,10 +410,10 @@ export async function sendReviewRequests(
         businessId,
         customerId: customer.id,
         executionTaskId: input.executionTaskId,
-        focusKeyword,
-        targetGridNorth: input.geoRouting?.targetCell.gridNorth ?? null,
-        targetGridEast: input.geoRouting?.targetCell.gridEast ?? null,
-        targetZone: input.geoRouting?.targetZone ?? null,
+        focusKeyword: customerFocusKeyword,
+        targetGridNorth: customerGeoRouting?.targetCell.gridNorth ?? null,
+        targetGridEast: customerGeoRouting?.targetCell.gridEast ?? null,
+        targetZone: customerGeoRouting?.targetZone ?? null,
         neighborhoodLabel,
         toPhone: customer.phone,
         body,
@@ -311,6 +427,8 @@ export async function sendReviewRequests(
         body,
         status: "failed",
         error: sms.error,
+        geoTargeted: customerGeoRouting?.geoTargeted ?? false,
+        targetZone: customerGeoRouting?.targetZone ?? null,
       });
     }
   }
@@ -322,13 +440,22 @@ export async function sendReviewRequests(
       await markCustomersReviewRequested(input.userId, businessId, sentCustomerIds);
     }
 
-    await startCampaignIfNeeded({
-      userId: input.userId,
-      business: input.business,
-      focusKeyword,
-      serviceRole: input.serviceRole,
-      sentCount: result.sent,
-    });
+    const keywordsToStart =
+      sentFocusKeywords.size > 0
+        ? [...sentFocusKeywords]
+        : defaultFocusKeyword
+          ? [defaultFocusKeyword]
+          : [];
+
+    for (const keyword of keywordsToStart) {
+      await startCampaignIfNeeded({
+        userId: input.userId,
+        business: input.business,
+        focusKeyword: keyword,
+        serviceRole: input.serviceRole,
+        sentCount: result.sent,
+      });
+    }
   }
 
   return result;

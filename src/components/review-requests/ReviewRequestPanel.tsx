@@ -37,6 +37,9 @@ export default function ReviewRequestPanel({
   const [campaignPlan, setCampaignPlan] = useState<ReviewCampaignPlan | null>(null);
   const [focusKeyword, setFocusKeyword] = useState<string | null>(null);
   const [keywordFilterApplied, setKeywordFilterApplied] = useState(false);
+  const [geoFilterApplied, setGeoFilterApplied] = useState(false);
+  const [customersWithGeo, setCustomersWithGeo] = useState(0);
+  const [geoCoveragePercent, setGeoCoveragePercent] = useState(0);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,8 +63,11 @@ export default function ReviewRequestPanel({
           preview: string;
           eligibleCount: number;
           matchedCustomers: number;
+          customersWithGeo?: number;
+          geoCoveragePercent?: number;
           batchSize: number;
           keywordFilterApplied?: boolean;
+          geoFilterApplied?: boolean;
           focusKeyword: string | null;
           campaignPlan: ReviewCampaignPlan | null;
           error?: string;
@@ -74,6 +80,9 @@ export default function ReviewRequestPanel({
         setBatchSize(data.batchSize);
         setFocusKeyword(data.focusKeyword);
         setKeywordFilterApplied(data.keywordFilterApplied ?? false);
+        setGeoFilterApplied(data.geoFilterApplied ?? false);
+        setCustomersWithGeo(data.customersWithGeo ?? 0);
+        setGeoCoveragePercent(data.geoCoveragePercent ?? 0);
         setCampaignPlan(data.campaignPlan);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to generate message");
@@ -110,6 +119,7 @@ export default function ReviewRequestPanel({
         failed: number;
         simulated: boolean;
         keywordFilterApplied?: boolean;
+        geoFilterApplied?: boolean;
         twilioConfigured?: boolean;
         error?: string;
       }>(res);
@@ -117,8 +127,13 @@ export default function ReviewRequestPanel({
 
       setTwilioConfigured(data.twilioConfigured ?? true);
       setKeywordFilterApplied(data.keywordFilterApplied ?? keywordFilterApplied);
+      setGeoFilterApplied(data.geoFilterApplied ?? geoFilterApplied);
 
-      const filterNote = data.keywordFilterApplied ? " (keyword-matched customers only)" : "";
+      const filterNote = data.geoFilterApplied
+        ? " (prioritized by weak map areas)"
+        : data.keywordFilterApplied
+          ? " (keyword-matched customers only)"
+          : "";
       const summary = data.simulated
         ? `Simulated ${data.sent} message${data.sent === 1 ? "" : "s"}${filterNote}. Add Twilio credentials to send real texts.`
         : `Sent ${data.sent} review request${data.sent === 1 ? "" : "s"}${data.failed ? ` (${data.failed} failed)` : ""}${filterNote}.`;
@@ -193,8 +208,13 @@ export default function ReviewRequestPanel({
           Personalized per customer with{" "}
           <code className="text-xs">[FIRST_NAME]</code>,{" "}
           <code className="text-xs">[BUSINESS]</code>,{" "}
-          <code className="text-xs">[SERVICE]</code> (short program name on each customer — not the full SEO keyword), and{" "}
-          <code className="text-xs">[REVIEW_LINK]</code>.
+          <code className="text-xs">[SERVICE]</code> (short program name on each customer — not the full SEO keyword),{" "}
+          {geoFilterApplied ? (
+            <>
+              <code className="text-xs">[NEIGHBORHOOD]</code>,{" "}
+            </>
+          ) : null}
+          and <code className="text-xs">[REVIEW_LINK]</code>.
           {focusKeyword ? (
             <>
               {" "}
@@ -261,7 +281,7 @@ export default function ReviewRequestPanel({
             >
               {sending
                 ? "Sending…"
-                : `Send batch of ${sendCount} SMS${focusKeyword ? ` · ${focusKeyword}` : ""}${keywordFilterApplied ? " · matched only" : ""}`}
+                : `Send batch of ${sendCount} SMS${focusKeyword ? ` · ${focusKeyword}` : ""}${geoFilterApplied ? " · weak map areas first" : keywordFilterApplied ? " · matched only" : ""}`}
             </button>
             <button
               type="button"
@@ -288,6 +308,9 @@ export default function ReviewRequestPanel({
             <strong>{businessName}</strong>
             {matchedCustomers > 0 && focusKeyword
               ? ` · ${matchedCustomers} tagged for "${focusKeyword}"`
+              : ""}
+            {customersWithGeo > 0
+              ? ` · ${customersWithGeo} with job location (${geoCoveragePercent}% geo coverage)`
               : ""}
             . Repeat weekly until you hit the monthly target
             {campaignPlan ? ` of ${campaignPlan.monthlyReviewTarget} reviews` : ""}.

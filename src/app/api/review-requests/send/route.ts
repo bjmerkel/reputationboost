@@ -69,6 +69,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ...result,
       twilioConfigured: isTwilioConfigured(),
+      geoFilterApplied: result.geoFilterApplied,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to send review requests";

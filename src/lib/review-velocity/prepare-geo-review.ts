@@ -6,11 +6,11 @@ import {
   type CustomerGeoInput,
 } from "@/lib/geo/resolve-customer-location";
 import { resolveFocusKeywordForCustomer } from "@/lib/review-requests/campaign-plan";
+import type { GeoRoutingDecision } from "@/lib/review-velocity/geo-router";
 import {
-  isCellSendCapReachedAdmin,
-  loadKeywordGridsForAuditKeywords,
-} from "@/lib/review-velocity/storage";
-import { routeGeoReviewRequest, type GeoRoutingDecision } from "@/lib/review-velocity/geo-router";
+  loadKeywordGridsForAudit,
+  routeCustomerGeoReview,
+} from "@/lib/review-velocity/resolve-geo-routing";
 
 export interface PreparedGeoReviewContext {
   customer: CustomerRecord;
@@ -29,9 +29,6 @@ export async function prepareGeoReviewContext(input: {
   webhookGeo?: CustomerGeoInput;
 }): Promise<PreparedGeoReviewContext> {
   let customer = input.customer;
-  let geoRouting: GeoRoutingDecision | null = null;
-  let geoDeferred = false;
-  let geoDeferReason: string | undefined;
 
   const hasGeoInput =
     input.webhookGeo &&
@@ -80,18 +77,7 @@ export async function prepareGeoReviewContext(input: {
     };
   }
 
-  const keywords =
-    input.audit.strategy.gbpPlan?.keywordRankings?.map((row) => row.keyword) ?? [];
-  if (keywords.length === 0) {
-    return {
-      customer,
-      focusKeyword: focusKeywordFallback,
-      geoRouting: null,
-      geoDeferred: false,
-    };
-  }
-
-  const keywordGrids = await loadKeywordGridsForAuditKeywords(input.businessId, keywords);
+  const keywordGrids = await loadKeywordGridsForAudit(input.businessId, input.audit);
   if (keywordGrids.size === 0) {
     return {
       customer,
@@ -101,48 +87,29 @@ export async function prepareGeoReviewContext(input: {
     };
   }
 
-  geoRouting = routeGeoReviewRequest({
-    audit: input.audit,
+  const routed = await routeCustomerGeoReview({
+    businessId: input.businessId,
+    business: input.business,
     customer,
+    audit: input.audit,
     keywordGrids,
-    neighborhoodLabel: customer.service_city ?? undefined,
-    location: {
-      city: input.business.location.city,
-      state: input.business.location.state,
-    },
+    checkCellCap: true,
   });
 
-  if (!geoRouting) {
+  if (routed.deferred) {
     return {
       customer,
-      focusKeyword: focusKeywordFallback,
-      geoRouting: null,
-      geoDeferred: false,
-    };
-  }
-
-  const capReached = await isCellSendCapReachedAdmin(
-    input.businessId,
-    geoRouting.targetCell.gridNorth,
-    geoRouting.targetCell.gridEast
-  );
-
-  if (capReached) {
-    geoDeferred = true;
-    geoDeferReason = "cell_weekly_cap_reached";
-    return {
-      customer,
-      focusKeyword: geoRouting.focusKeyword,
-      geoRouting,
-      geoDeferred,
-      geoDeferReason,
+      focusKeyword: routed.geoRouting?.focusKeyword ?? focusKeywordFallback,
+      geoRouting: routed.geoRouting,
+      geoDeferred: true,
+      geoDeferReason: routed.deferReason,
     };
   }
 
   return {
     customer,
-    focusKeyword: geoRouting.focusKeyword,
-    geoRouting,
+    focusKeyword: routed.geoRouting?.focusKeyword ?? focusKeywordFallback,
+    geoRouting: routed.geoRouting,
     geoDeferred: false,
   };
 }

@@ -229,6 +229,14 @@ async function persistAudit(
       audit.rankings,
       audit.completedAt.slice(0, 10)
     );
+    const { refreshCellWeaknessScoresAfterAuditGrids } = await import(
+      "@/lib/review-velocity/refresh-cell-weakness"
+    );
+    await refreshCellWeaknessScoresAfterAuditGrids(
+      businessId,
+      audit,
+      audit.completedAt.slice(0, 10)
+    );
   } catch {
     // Non-fatal until migration 015 is applied
   }

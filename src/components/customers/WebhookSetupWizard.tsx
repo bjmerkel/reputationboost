@@ -34,6 +34,11 @@ interface WebhookSettings {
   delayHours: number;
   triggerEvents: string[];
   auditHasReviewGap?: boolean;
+  customerGeoCoverage?: {
+    totalCustomers: number;
+    customersWithGeo: number;
+    coveragePercent: number;
+  };
   zapierSteps?: string[];
   zapierTemplates?: ZapierTemplate[];
   zapierEmbed?: ZapierEmbedConfig;
@@ -50,7 +55,7 @@ const CUSTOM_TEMPLATE: ZapierTemplate = {
   description: "Build your own automation with Webhooks by Zapier or Make.",
   templateUrl: "https://zapier.com/webintent/create-zap?utm_source=reputation_boost&utm_medium=wizard&utm_campaign=zapier_setup",
   eventType: "job.completed",
-  sampleFields: ["phone", "firstName", "lastName", "service", "externalId"],
+  sampleFields: ["phone", "firstName", "lastName", "service", "jobAddress", "jobCity", "jobZip", "externalId"],
 };
 
 const STEPS = [
@@ -86,9 +91,9 @@ function getNativeZapierSteps(template: ZapierTemplate): string[] {
 function getManualZapierSteps(template: ZapierTemplate, webhookUrl: string): string[] {
   const fieldHint =
     template.id === "jobber-job-completed"
-      ? "Map Jobber customer phone, first/last name, and job type or line items into phone, firstName, lastName, and service."
+      ? "Map Jobber customer phone, first/last name, job type or line items into phone, firstName, lastName, and service. Include property address as jobAddress, jobCity, and jobZip for geo-targeted review routing."
       : template.id === "hcp-job-completed"
-        ? "Map Housecall Pro customer phone, name, and job description into phone, firstName/lastName, and service."
+        ? "Map Housecall Pro customer phone, name, job description, and job site address into phone, firstName/lastName, service, jobAddress, jobCity, and jobZip."
         : template.id === "quickbooks-invoice-paid"
           ? "Map QuickBooks customer phone, name, and line item description into phone, name fields, and service."
           : "Map customer phone, name, and job or service description into the matching JSON fields.";
@@ -133,6 +138,9 @@ function buildSamplePayload(
       source: "housecall_pro",
       firstName: "Jane",
       lastName: "Doe",
+      jobAddress: "123 Oak Street",
+      jobCity: "Maple Grove",
+      jobZip: "55311",
     };
   }
   if (template.id === "customer-opt-out") {
@@ -452,6 +460,27 @@ export default function WebhookSetupWizard() {
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
                 Your audit recommends more Google reviews — enabling auto-send is a strong fit
                 when jobs complete.
+              </div>
+            )}
+
+            {settings.customerGeoCoverage && (
+              <div
+                className={`rounded-lg border px-4 py-3 text-sm ${
+                  settings.customerGeoCoverage.coveragePercent >= 80
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : "border-[#fdd663] bg-[#fef7e0] text-[#3c4043]"
+                }`}
+              >
+                <p className="font-semibold">Customer location coverage</p>
+                <p className="mt-1">
+                  {settings.customerGeoCoverage.customersWithGeo} of{" "}
+                  {settings.customerGeoCoverage.totalCustomers} customers have a mapped job location (
+                  {settings.customerGeoCoverage.coveragePercent}%). Map{" "}
+                  <code className="text-xs">jobAddress</code>,{" "}
+                  <code className="text-xs">jobCity</code>, and{" "}
+                  <code className="text-xs">jobZip</code> in your Zap to unlock geo-targeted review
+                  routing.
+                </p>
               </div>
             )}
 

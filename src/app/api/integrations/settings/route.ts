@@ -7,6 +7,7 @@ import {
   getWebhookSettings,
   updateWebhookSettings,
 } from "@/lib/integrations/webhook-storage";
+import { getCustomerGeoCoverageForUser } from "@/lib/customers/geo-stats";
 import { auditHasReviewGap } from "@/lib/review-requests/eligibility";
 import { ZAPIER_SETUP_STEPS, ZAPIER_TEMPLATES } from "@/lib/integrations/zapier-templates";
 import { getZapierEmbedConfig } from "@/lib/integrations/zapier-embed";
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
     });
     const audit = rawAudit ? ensureStrategy(rawAudit) : null;
     const hasReviewGap = auditHasReviewGap(audit);
+    const geoCoverage = await getCustomerGeoCoverageForUser(user.id, business.businessId);
     const webhookUrl = buildWebhookUrl(request, settings.webhookToken);
     const zapierEmbed = getZapierEmbedConfig(webhookUrl);
 
@@ -46,6 +48,7 @@ export async function GET(request: Request) {
       delayHours: settings.delayHours,
       triggerEvents: settings.triggerEvents,
       auditHasReviewGap: hasReviewGap,
+      customerGeoCoverage: geoCoverage,
       privateFeedbackUrl: record?.private_feedback_url ?? null,
       zapierTemplates: ZAPIER_TEMPLATES,
       zapierSteps: ZAPIER_SETUP_STEPS,
@@ -56,6 +59,9 @@ export async function GET(request: Request) {
         firstName: "Jane",
         lastName: "Doe",
         service: "water heater install",
+        jobAddress: "123 Oak Street",
+        jobCity: "Maple Grove",
+        jobZip: "55311",
         serviceDate: "2026-07-05",
         externalId: "job-12345",
         source: "jobber",

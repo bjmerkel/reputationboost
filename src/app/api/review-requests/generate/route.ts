@@ -11,7 +11,10 @@ import {
 import { getActiveKeywordCampaigns } from "@/lib/review-requests/campaign-storage";
 import { refreshCampaignCompletionsForBusiness } from "@/lib/review-requests/campaign-dashboard";
 import { getEligibleCustomers, listCustomers } from "@/lib/customers/storage";
+import { getCustomerGeoCoverageForUser } from "@/lib/customers/geo-stats";
 import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
+import { selectCustomersForGeoCampaign } from "@/lib/review-velocity/geo-router";
+import { loadKeywordGridsForAudit } from "@/lib/review-velocity/resolve-geo-routing";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { previewReviewRequestSms } from "@/lib/sms/personalize";
 import { getUser } from "@/lib/supabase/server";
@@ -80,11 +83,38 @@ export async function POST(request: Request) {
     const focusKeyword = body.focusKeyword ?? draftPlan?.focusKeyword ?? null;
     const matchedCustomers = countCustomersMatchingKeyword(eligibleCustomers, focusKeyword);
     const batchSize = draftPlan?.batchSize ?? 15;
-    const { keywordFilterApplied } = selectCustomersForCampaign(
-      eligibleCustomers,
-      focusKeyword,
-      batchSize
-    );
+
+    let keywordFilterApplied = false;
+    let geoFilterApplied = false;
+    let customersWithGeo = eligibleCustomers.filter(
+      (customer) => customer.grid_north != null && customer.grid_east != null
+    ).length;
+
+    let keywordGrids: Awaited<ReturnType<typeof loadKeywordGridsForAudit>> | undefined;
+    if (audit) {
+      keywordGrids = await loadKeywordGridsForAudit(business.businessId, audit);
+      if (keywordGrids.size > 0) {
+        const geoSelected = selectCustomersForGeoCampaign({
+          customers: eligibleCustomers,
+          audit,
+          keywordGrids,
+          batchSize,
+          focusKeyword,
+        });
+        geoFilterApplied = geoSelected.geoFilterApplied;
+      }
+    }
+
+    if (!geoFilterApplied) {
+      const keywordSelected = selectCustomersForCampaign(
+        eligibleCustomers,
+        focusKeyword,
+        batchSize
+      );
+      keywordFilterApplied = keywordSelected.keywordFilterApplied;
+    }
+
+    const geoCoverage = await getCustomerGeoCoverageForUser(user.id, business.businessId);
 
     const campaignPlan = audit
       ? buildReviewCampaignPlan(audit, {
@@ -101,21 +131,40 @@ export async function POST(request: Request) {
         ? eligible.find((c) => customerMatchesKeyword(c, focusKeyword)) ?? sampleCustomer
         : sampleCustomer;
 
+    const geoSample =
+      eligible.find((customer) => customer.grid_north != null && customer.grid_east != null) ??
+      keywordMatchedSample;
+
+    const useGeoTemplate = geoFilterApplied && customersWithGeo > 0;
     let template: string;
     if (audit) {
-      template = await generateReviewRequestMessage(audit, keywordMatchedSample ?? undefined, focusKeyword);
+      template = await generateReviewRequestMessage(
+        audit,
+        geoSample ?? keywordMatchedSample ?? undefined,
+        focusKeyword,
+        useGeoTemplate
+          ? {
+              geoTargeted: true,
+              neighborhoodLabel:
+                geoSample?.service_city?.trim() || business.location.city || undefined,
+              promptSeed: focusKeyword ?? undefined,
+            }
+          : undefined
+      );
     } else {
       const firstName = keywordMatchedSample?.first_name?.trim() || "[FIRST_NAME]";
       template = `Hi ${firstName}! Thanks for choosing [BUSINESS] for [SERVICE]. If your experience was great, a quick Google review would mean a lot: [REVIEW_LINK]`;
     }
 
-    const previewCustomer = keywordMatchedSample ?? sampleCustomer;
+    const previewCustomer = geoSample ?? keywordMatchedSample ?? sampleCustomer;
     const preview = previewReviewRequestSms({
       template,
       businessName: business.name,
       reviewUrl: reviewUrl ?? "https://example.com/review",
       customer: previewCustomer,
       focusKeyword,
+      neighborhoodLabel:
+        previewCustomer?.service_city?.trim() || business.location.city || null,
       location: {
         city: business.location.city,
         state: business.location.state,
@@ -128,11 +177,16 @@ export async function POST(request: Request) {
       reviewUrl,
       eligibleCount,
       matchedCustomers,
+      customersWithGeo,
+      geoCoveragePercent: geoCoverage.coveragePercent,
       focusKeyword,
       batchSize: campaignPlan?.batchSize ?? batchSize,
       keywordFilterApplied,
+      geoFilterApplied,
       campaignPlan,
-      placeholders: ["[FIRST_NAME]", "[NAME]", "[SERVICE]", "[BUSINESS]", "[REVIEW_LINK]"],
+      placeholders: useGeoTemplate
+        ? ["[FIRST_NAME]", "[NAME]", "[SERVICE]", "[NEIGHBORHOOD]", "[BUSINESS]", "[REVIEW_LINK]"]
+        : ["[FIRST_NAME]", "[NAME]", "[SERVICE]", "[BUSINESS]", "[REVIEW_LINK]"],
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to generate message";
