@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ExecutionTask, FullAuditPayload, Plan } from "@/audit/types";
+import type { MarketActionCalibration } from "@/audit/autopilot/market-calibration";
 import {
   approveAllRoutineTasks,
   approveAndPublishTask,
@@ -47,6 +48,9 @@ export function usePlanTasks({
   const [planReconciledAt, setPlanReconciledAt] = useState<string | null>(
     initialPlanReconciledAt
   );
+  const [marketActionCalibration, setMarketActionCalibration] = useState<
+    MarketActionCalibration[]
+  >([]);
   const [loading, setLoading] = useState(!initialPlan && initialTasks.length === 0);
   const [reconciling, setReconciling] = useState(false);
   const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null);
@@ -64,6 +68,7 @@ export function usePlanTasks({
     setTasks((prev) => (executionTasksEqual(prev, data.tasks) ? prev : data.tasks));
     if (includePlan) {
       setPlan(data.plan);
+      setMarketActionCalibration(data.marketActionCalibration ?? []);
     }
     setPlanReconciledAt(data.planReconciledAt);
     return data;
@@ -104,6 +109,7 @@ export function usePlanTasks({
           setTasks((prev) => (executionTasksEqual(prev, data.tasks) ? prev : data.tasks));
           if (includePlan) {
             setPlan(data.plan);
+            setMarketActionCalibration(data.marketActionCalibration ?? []);
           }
           setPlanReconciledAt(data.planReconciledAt);
         }
@@ -293,6 +299,7 @@ export function usePlanTasks({
     tasks,
     plan,
     planReconciledAt,
+    marketActionCalibration,
     loading,
     reconciling,
     loadingTaskId,

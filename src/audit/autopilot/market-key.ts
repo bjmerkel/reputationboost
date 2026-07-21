@@ -21,3 +21,15 @@ export function deriveMarketKey(audit: Phase1AuditPayload): string {
   const state = cityMatch?.[2]?.toUpperCase() ?? "unknown_state";
   return `${category}|${state}|${city}`;
 }
+
+/** Fallback keys from specific metro → state vertical → category. */
+export function deriveVerticalMarketKeys(marketKey: string): string[] {
+  const parts = marketKey.split("|").filter(Boolean);
+  if (parts.length >= 3) {
+    return [marketKey, `${parts[0]}|${parts[1]}`, parts[0]!];
+  }
+  if (parts.length === 2) {
+    return [marketKey, parts[0]!];
+  }
+  return [marketKey];
+}

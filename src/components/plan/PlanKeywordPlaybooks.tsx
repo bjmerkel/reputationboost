@@ -5,6 +5,7 @@ import type { FullAuditPayload, Plan } from "@/audit/types";
 import { formatCurrency } from "@/audit/attribution/roi";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { buildKeywordPlaybooks } from "@/audit/phase2/keyword-action-binding";
+import type { MarketCalibrationIndex } from "@/audit/autopilot/market-calibration";
 import { trackPlanEvent } from "@/lib/analytics/plan-events";
 import { planScrollElementId } from "@/lib/google/gbp-field-plan-links";
 
@@ -13,6 +14,7 @@ export default function PlanKeywordPlaybooks({
   plan,
   avgCustomerValue,
   calibration,
+  marketIndex,
   currency = "USD",
   variant = "light",
   onFocusKeyword,
@@ -23,6 +25,7 @@ export default function PlanKeywordPlaybooks({
   plan: Plan;
   avgCustomerValue?: number | null;
   calibration?: AttributionCalibration;
+  marketIndex?: MarketCalibrationIndex;
   currency?: string;
   variant?: "light" | "dark";
   onFocusKeyword?: (keyword: string, stepNumber?: number) => void;
@@ -37,10 +40,11 @@ export default function PlanKeywordPlaybooks({
       buildKeywordPlaybooks(audit, plan, {
         avgCustomerValue,
         calibration,
+        marketIndex,
         currency,
         limit: 5,
       }),
-    [audit, plan, avgCustomerValue, calibration, currency]
+    [audit, plan, avgCustomerValue, calibration, marketIndex, currency]
   );
 
   if (playbooks.length === 0) return null;

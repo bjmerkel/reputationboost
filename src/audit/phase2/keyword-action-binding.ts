@@ -17,6 +17,7 @@ import {
   findTopLeaderDeltaForKeyword,
   formatLeaderDeltaSummary,
 } from "@/audit/autopilot/leader-delta-engine";
+import type { MarketCalibrationIndex } from "@/audit/autopilot/market-calibration";
 
 const CONVERSION_GAP_ID_SET = new Set<string>(CONVERSION_GAP_IDS);
 
@@ -50,6 +51,8 @@ export interface KeywordBindingOptions {
   preferredConversionChannel?: import("./conversion-channel").ConversionChannelBias;
   /** When set, prefer primary steps that appear in this unfinished set. */
   unfinishedStepNumbers?: ReadonlySet<number>;
+  /** Cross-client market priors for beat-the-leader ranking (Phase D). */
+  marketIndex?: MarketCalibrationIndex;
 }
 
 function uniqueSteps(steps: number[]): number[] {
@@ -477,7 +480,9 @@ export function buildKeywordPlaybooks(
       score?.positionLabel ??
       (inLocalPack ? "In 3-Pack" : "Outside 3-Pack");
 
-    const leaderDelta = findTopLeaderDeltaForKeyword(audit, keyword);
+    const leaderDelta = findTopLeaderDeltaForKeyword(audit, keyword, {
+      marketIndex: options.marketIndex,
+    });
     const leaderInsight = leaderDelta ? formatLeaderDeltaSummary(leaderDelta) : null;
 
     playbooks.push({

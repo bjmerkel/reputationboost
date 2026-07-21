@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { getPrimaryBusiness, loadBusinessConfig } from "@/audit/businesses";
 import type { ClientConfig } from "@/audit/types";
 import { attachExecutionTasks } from "@/audit/attach-execution-tasks";
+import { deriveMarketKey } from "@/audit/autopilot/market-key";
+import { marketCalibrationToStepCalibration } from "@/audit/autopilot/market-calibration";
 import { buildPlan } from "@/audit/phase3/build-plan";
 import { listActionAttributionsForUser } from "@/audit/storage-attribution";
 import { loadGlobalScoreCalibration } from "@/audit/storage-calibration-global";
+import { loadMarketCalibrationForMarketKey } from "@/audit/storage-calibration-market";
 import { listExecutionTasks } from "@/audit/storage-execution";
 import {
   loadAuditByIdFromSupabase,
@@ -59,21 +62,27 @@ export async function GET(request: Request) {
   }
 
   const audit = ensureStrategy(attachExecutionTasks(rawAudit, tasks));
-  const [attributions, globalCalibration] = await Promise.all([
+  const marketKey = deriveMarketKey(audit);
+  const [attributions, globalCalibration, marketIndex] = await Promise.all([
     listActionAttributionsForUser(user.id, clientId, 100),
     loadGlobalScoreCalibration(),
+    loadMarketCalibrationForMarketKey(marketKey),
   ]);
+  const marketRows = Array.from(marketIndex.values());
+  const marketCalibration = marketCalibrationToStepCalibration(marketRows);
   const plan = buildPlan(
     audit,
     tasks,
     attributions,
     globalCalibration,
-    client?.avgCustomerValue
+    client?.avgCustomerValue,
+    marketCalibration
   );
 
   return NextResponse.json({
     tasks,
     plan,
     planReconciledAt: audit.strategy.planReconciledAt ?? null,
+    marketActionCalibration: marketRows,
   });
 }

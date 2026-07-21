@@ -8,6 +8,7 @@ import {
 import { runRankPulseForBusiness } from "@/audit/market/rank-pulse";
 import { reconcilePlanForBusiness } from "@/audit/phase3/reconcile-plan";
 import { refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
+import { refreshMarketScoreCalibration } from "@/audit/storage-calibration-market";
 import { refreshGlobalScoreModel } from "@/audit/storage-score-model";
 import type { BusinessRecord } from "@/audit/businesses";
 import {
@@ -335,6 +336,16 @@ export async function ingestDailyMetrics(
       result.errors.push({
         businessId: "",
         step: "calibration",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      await refreshMarketScoreCalibration();
+    } catch (error) {
+      result.errors.push({
+        businessId: "",
+        step: "market_calibration",
         message: error instanceof Error ? error.message : String(error),
       });
     }
