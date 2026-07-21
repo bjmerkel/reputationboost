@@ -48,6 +48,8 @@ export interface ClientConfig {
   privateFeedbackUrl?: string;
   /** Set when Google sends GOOGLE_UPDATE Pub/Sub notifications. */
   gbpGoogleUpdateAt?: string | null;
+  /** Ranking autopilot mode for this business (Phase E). */
+  autopilotMode?: import("@/audit/autopilot/modes").AutopilotMode;
 }
 
 export interface GbpConnection {

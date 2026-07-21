@@ -1,5 +1,5 @@
 import type { RankingExperiment, RankingExperimentStatus } from "@/audit/autopilot/types";
-import type { LeaderDelta } from "@/audit/autopilot/types";
+import type { BanditMetadata, LeaderDelta } from "@/audit/autopilot/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,6 +20,8 @@ function rowToExperiment(row: Record<string, unknown>): RankingExperiment {
     hypothesis: row.hypothesis as string,
     leaderDelta: row.leader_delta as LeaderDelta,
     marketKey: row.market_key as string,
+    origin: (row.origin as RankingExperiment["origin"]) ?? "manual",
+    banditMetadata: (row.bandit_metadata as BanditMetadata | null) ?? null,
     status: row.status as RankingExperimentStatus,
     executionTaskId: (row.execution_task_id as string) ?? null,
     baselineSnapshotDate: row.baseline_snapshot_date as string,
@@ -58,6 +60,8 @@ function experimentToRow(
     hypothesis: experiment.hypothesis,
     leader_delta: experiment.leaderDelta,
     market_key: experiment.marketKey,
+    origin: experiment.origin,
+    bandit_metadata: experiment.banditMetadata,
     status: experiment.status,
     execution_task_id: experiment.executionTaskId,
     baseline_snapshot_date: experiment.baselineSnapshotDate,
@@ -172,6 +176,65 @@ export async function getRankingExperimentByTaskIdAdmin(
 
   if (error || !data) return null;
   return rowToExperiment(data);
+}
+
+export async function listRankingExperimentsForBusinessAdmin(
+  businessId: string,
+  limit = 20
+): Promise<RankingExperiment[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("ranking_experiments")
+    .select("*")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) return [];
+  return data.map((row) => rowToExperiment(row));
+}
+
+export async function listConcludedExperimentsForBusinessAdmin(
+  businessId: string,
+  limit = 100
+): Promise<RankingExperiment[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("ranking_experiments")
+    .select("*")
+    .eq("business_id", businessId)
+    .in("status", ["won", "lost", "inconclusive"])
+    .order("concluded_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) return [];
+  return data.map((row) => rowToExperiment(row));
+}
+
+export async function listProposedSuggestionsForBusinessAdmin(
+  businessId: string
+): Promise<RankingExperiment[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("ranking_experiments")
+    .select("*")
+    .eq("business_id", businessId)
+    .eq("status", "proposed")
+    .eq("origin", "suggested")
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return [];
+  return data.map((row) => rowToExperiment(row));
+}
+
+export async function dismissSuggestedExperimentAdmin(
+  experimentId: string
+): Promise<RankingExperiment | null> {
+  return updateRankingExperimentAdmin(experimentId, {
+    status: "cancelled",
+    concludedAt: new Date().toISOString(),
+    conclusionReason: "Suggestion dismissed by user.",
+  });
 }
 
 export async function listRankingExperimentsForUser(

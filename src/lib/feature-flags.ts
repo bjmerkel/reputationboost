@@ -40,6 +40,8 @@ export const MARKET_REFRESH_FLAGS = {
 
 export const AUTOPILOT_FLAGS = {
   enabled: process.env.RANKING_AUTOPILOT !== "0",
+  bandit: process.env.RANKING_AUTOPILOT_BANDIT !== "0",
+  autoPropose: process.env.RANKING_AUTOPILOT_AUTO_PROPOSE !== "0",
 } as const;
 
 export const HEATMAP_FLAGS = {

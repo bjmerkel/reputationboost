@@ -10,6 +10,7 @@ import { reconcilePlanForBusiness } from "@/audit/phase3/reconcile-plan";
 import { refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import { refreshMarketScoreCalibration } from "@/audit/storage-calibration-market";
 import { refreshGlobalScoreModel } from "@/audit/storage-score-model";
+import { parseAutopilotMode, modeRunsNightlyProposals } from "@/audit/autopilot/modes";
 import type { BusinessRecord } from "@/audit/businesses";
 import {
   completeIngestRun,
@@ -18,7 +19,7 @@ import {
   upsertPerformanceDaily,
 } from "@/audit/storage-timeseries";
 import type { DailyMetricPoint, IngestRunResult } from "@/audit/types/timeseries";
-import { MARKET_DATA_FLAGS, PLAN_RECONCILE_FLAGS } from "@/lib/feature-flags";
+import { MARKET_DATA_FLAGS, PLAN_RECONCILE_FLAGS, AUTOPILOT_FLAGS } from "@/lib/feature-flags";
 import { fetchGbpPerformanceDailySeries } from "@/lib/google/gbp-performance";
 import { getValidGbpConnectionForRecord } from "@/lib/google/token-store";
 
@@ -288,6 +289,36 @@ async function ingestBusiness(
       result.errors.push({
         businessId: row.id,
         step: "plan_reconcile",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (
+    liveAuditPersisted &&
+    AUTOPILOT_FLAGS.enabled &&
+    AUTOPILOT_FLAGS.autoPropose &&
+    modeRunsNightlyProposals(parseAutopilotMode(row.autopilot_mode))
+  ) {
+    try {
+      const { loadLatestAuditForBusinessAdmin } = await import(
+        "@/audit/storage-supabase-admin"
+      );
+      const { autoProposeExperimentForBusiness } = await import(
+        "@/audit/autopilot/auto-propose"
+      );
+      const audit = await loadLatestAuditForBusinessAdmin(row.id);
+      if (audit) {
+        await autoProposeExperimentForBusiness({
+          audit,
+          row,
+          mode: parseAutopilotMode(row.autopilot_mode),
+        });
+      }
+    } catch (error) {
+      result.errors.push({
+        businessId: row.id,
+        step: "autopilot_propose",
         message: error instanceof Error ? error.message : String(error),
       });
     }
