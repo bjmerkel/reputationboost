@@ -13,6 +13,7 @@ import ProfilePerformanceTrends from "@/components/audit/ProfilePerformanceTrend
 import EngagementPeriodCard from "@/components/engagement/EngagementPeriodCard";
 import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
 import PlanResultsTimeline from "./PlanResultsTimeline";
+import ExperimentResultsPanel from "./ExperimentResultsPanel";
 
 export default function ResultsView({
   audit,
@@ -73,6 +74,8 @@ export default function ResultsView({
       />
 
       <RoiSummaryCard summary={summary} loading={attributionLoading} acvCopy={acvCopy} />
+
+      <ExperimentResultsPanel clientId={clientId} attributions={attributions} />
 
       <ProfilePerformanceTrends
         clientId={clientId}

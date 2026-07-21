@@ -69,6 +69,15 @@ function rowToAttribution(row: Record<string, unknown>, title = ""): ActionAttri
     gridCoverageAfter:
       row.grid_coverage_after != null ? Number(row.grid_coverage_after) : null,
     cellsImproved: row.cells_improved != null ? Number(row.cells_improved) : null,
+    experimentId: (row.experiment_id as string) ?? null,
+    gridNorth: row.grid_north != null ? Number(row.grid_north) : null,
+    gridEast: row.grid_east != null ? Number(row.grid_east) : null,
+    targetCellRankBefore:
+      row.target_cell_rank_before != null ? Number(row.target_cell_rank_before) : null,
+    targetCellRankAfter:
+      row.target_cell_rank_after != null ? Number(row.target_cell_rank_after) : null,
+    targetCellRankDelta:
+      row.target_cell_rank_delta != null ? Number(row.target_cell_rank_delta) : null,
   };
 }
 
@@ -103,6 +112,12 @@ export interface AttributionUpsertInput {
   gridCoverageBefore?: number | null;
   gridCoverageAfter?: number | null;
   cellsImproved?: number | null;
+  experimentId?: string | null;
+  gridNorth?: number | null;
+  gridEast?: number | null;
+  targetCellRankBefore?: number | null;
+  targetCellRankAfter?: number | null;
+  targetCellRankDelta?: number | null;
 }
 
 function isMissingColumnError(message: string): boolean {
@@ -150,6 +165,12 @@ function buildAttributionRow(
     grid_coverage_before: input.gridCoverageBefore ?? null,
     grid_coverage_after: input.gridCoverageAfter ?? null,
     cells_improved: input.cellsImproved ?? null,
+    experiment_id: input.experimentId ?? null,
+    grid_north: input.gridNorth ?? null,
+    grid_east: input.gridEast ?? null,
+    target_cell_rank_before: input.targetCellRankBefore ?? null,
+    target_cell_rank_after: input.targetCellRankAfter ?? null,
+    target_cell_rank_delta: input.targetCellRankDelta ?? null,
   };
 }
 

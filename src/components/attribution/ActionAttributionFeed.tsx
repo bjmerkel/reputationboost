@@ -67,9 +67,23 @@ export default function ActionAttributionFeed({
               {item.primaryKeyword && (
                 <span>Keyword: {item.primaryKeyword}</span>
               )}
-              {item.rankBefore !== item.rankAfter && item.rankAfter !== null && (
+                  {item.rankBefore !== item.rankAfter && item.rankAfter !== null && (
                 <span className="text-[#188038]">
                   1 mi: {formatRank(item.rankBefore)} → {formatRank(item.rankAfter)}
+                </span>
+              )}
+              {item.targetCellRankBefore != null || item.targetCellRankAfter != null ? (
+                <span className="text-[#1a73e8]">
+                  Cell: {formatRank(item.targetCellRankBefore ?? null)} →{" "}
+                  {formatRank(item.targetCellRankAfter ?? null)}
+                </span>
+              ) : null}
+              {item.gridNorth != null &&
+                item.gridEast != null &&
+                item.targetCellRankBefore == null &&
+                item.targetCellRankAfter == null && (
+                <span className="text-[#1a73e8]">
+                  Cell: {formatRank(item.rankBefore)} → {formatRank(item.rankAfter)}
                 </span>
               )}
               {highlights.serviceAreaVisibility && (

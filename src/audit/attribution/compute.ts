@@ -4,6 +4,11 @@ import { estimateAttributionRevenue, formatCurrency } from "./roi";
 import { taskCanAffectLocalRank } from "@/audit/market/gbp-change-detector";
 import { enqueueEventRankPulse } from "@/audit/market/refresh-queue";
 import { experimentPayloadKeyword } from "@/audit/autopilot/experiment-lifecycle";
+import {
+  computeTargetCellAttribution,
+  resolveTargetCellFromTask,
+  syncExperimentFromCellAttribution,
+} from "@/audit/autopilot/cell-attribution";
 import type { CompletedTaskRecord } from "@/audit/storage-attribution";
 import { computeGridDiff } from "@/audit/geo/grid-diff";
 import { refreshGridAfterTaskIfNeeded } from "@/audit/geo/grid-refresh";
@@ -250,6 +255,51 @@ export async function computeAttributionForTask(
   let gridCoverageBefore: number | null = null;
   let gridCoverageAfter: number | null = null;
   let cellsImproved: number | null = null;
+  let experimentId: string | null =
+    typeof task.payload.experimentId === "string" ? task.payload.experimentId : null;
+  let gridNorth: number | null = null;
+  let gridEast: number | null = null;
+  let targetCellRankDelta: number | null = null;
+  let targetCellRankBefore: number | null = null;
+  let targetCellRankAfter: number | null = null;
+
+  const targetCell = resolveTargetCellFromTask(task);
+  const experimentKeyword = experimentPayloadKeyword(task) ?? primaryKeyword;
+
+  if (targetCell && experimentKeyword) {
+    const cellAttribution = await computeTargetCellAttribution({
+      businessId,
+      keyword: experimentKeyword,
+      cell: targetCell,
+      publishedAt,
+      windowDays,
+      baselineSnapshotDate:
+        typeof task.payload.baselineSnapshotDate === "string"
+          ? task.payload.baselineSnapshotDate
+          : undefined,
+      fallbackRankBefore:
+        typeof task.payload.targetRankBefore === "number"
+          ? task.payload.targetRankBefore
+          : null,
+    });
+    gridNorth = cellAttribution.gridNorth;
+    gridEast = cellAttribution.gridEast;
+    targetCellRankBefore = cellAttribution.rankBefore;
+    targetCellRankAfter = cellAttribution.rankAfter;
+    targetCellRankDelta = cellAttribution.rankDelta;
+    if (experimentId) {
+      await syncExperimentFromCellAttribution({
+        experimentId,
+        cellAttribution,
+        preliminary,
+      }).catch((error) => {
+        console.warn(
+          `[attribution] experiment sync failed for ${task.id}:`,
+          error instanceof Error ? error.message : error
+        );
+      });
+    }
+  }
 
   if (primaryKeyword) {
     const publishedDate = formatDateYmd(publishedAt);
@@ -318,6 +368,10 @@ export async function computeAttributionForTask(
     gridCoverageBefore,
     gridCoverageAfter,
     cellsImproved,
+    targetCellRankBefore,
+    targetCellRankAfter,
+    targetCellGridNorth: gridNorth,
+    targetCellGridEast: gridEast,
   });
 
   const creditNote = formatAttributionCreditNote(overlapCount, canAffectRank);
@@ -415,6 +469,12 @@ export async function computeAttributionForTask(
     gridCoverageBefore,
     gridCoverageAfter,
     cellsImproved,
+    experimentId,
+    gridNorth,
+    gridEast,
+    targetCellRankBefore,
+    targetCellRankAfter,
+    targetCellRankDelta,
   });
 
   const rankImproved =

@@ -93,6 +93,19 @@ export default function PlanAutopilotPanel({
                   <p className={`mt-1 text-xs ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
                     {experiment.hypothesis}
                   </p>
+                  {(experiment.targetRankBefore != null ||
+                    experiment.targetRankAfter != null) && (
+                    <p className={`mt-1 text-xs ${isLight ? "text-[#137333]" : "text-emerald-300"}`}>
+                      Target cell:{" "}
+                      {experiment.targetRankBefore == null
+                        ? "not visible"
+                        : `#${experiment.targetRankBefore}`}{" "}
+                      →{" "}
+                      {experiment.targetRankAfter == null
+                        ? "not visible"
+                        : `#${experiment.targetRankAfter}`}
+                    </p>
+                  )}
                 </div>
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${

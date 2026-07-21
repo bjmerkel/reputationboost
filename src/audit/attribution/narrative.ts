@@ -45,6 +45,10 @@ export interface NarrativeInput {
   gridCoverageBefore?: number | null;
   gridCoverageAfter?: number | null;
   cellsImproved?: number | null;
+  targetCellRankBefore?: number | null;
+  targetCellRankAfter?: number | null;
+  targetCellGridNorth?: number | null;
+  targetCellGridEast?: number | null;
   keywordsMentioned?: string[];
 }
 
@@ -101,6 +105,17 @@ export function buildAttributionNarrative(input: NarrativeInput): string {
     if (input.cellsImproved != null && input.cellsImproved > 0) {
       parts.push(`+${input.cellsImproved} grid cells entered pack`);
     }
+  }
+
+  if (
+    input.targetCellRankBefore != null ||
+    input.targetCellRankAfter != null
+  ) {
+    const formatCellRank = (rank: number | null | undefined) =>
+      rank == null ? "not visible" : rank > 20 ? "#20+" : `#${rank}`;
+    parts.push(
+      `target cell ${formatCellRank(input.targetCellRankBefore ?? null)} → ${formatCellRank(input.targetCellRankAfter ?? null)}`
+    );
   }
 
   const engagement: string[] = [];
