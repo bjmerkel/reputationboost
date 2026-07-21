@@ -85,6 +85,15 @@ export type RankingExperimentStatus =
   | "inconclusive"
   | "cancelled";
 
+export type ConcludedRankingExperimentStatus = Extract<
+  RankingExperimentStatus,
+  "won" | "lost" | "inconclusive"
+>;
+
+export type ConcludedRankingExperiment = Omit<RankingExperiment, "status"> & {
+  status: ConcludedRankingExperimentStatus;
+};
+
 export interface BanditMetadata {
   selectedIndex: number;
   ucbScore: number;

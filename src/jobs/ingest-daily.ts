@@ -307,7 +307,12 @@ async function ingestBusiness(
       const { autoProposeExperimentForBusiness } = await import(
         "@/audit/autopilot/auto-propose"
       );
-      const audit = await loadLatestAuditForBusinessAdmin(row.id);
+      const audit = await loadLatestAuditForBusinessAdmin(
+        row.user_id,
+        row.id,
+        row.slug,
+        row.name
+      );
       if (audit) {
         await autoProposeExperimentForBusiness({
           audit,

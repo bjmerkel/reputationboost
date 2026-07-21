@@ -1,5 +1,5 @@
 import type { ExecutionType } from "@/audit/types";
-import type { LeaderDeltaAction } from "./types";
+import type { ConcludedRankingExperimentStatus, LeaderDeltaAction } from "./types";
 import type { MarketCalibrationIndex } from "./market-calibration";
 import { resolveMarketActionPrior } from "./market-calibration";
 import type { AutopilotMode } from "./modes";
@@ -177,7 +177,7 @@ export function selectActionWithBandit(params: {
 export function buildBusinessArmStatsFromExperiments(
   experiments: Array<{
     actionType: ExecutionType;
-    status: "won" | "lost" | "inconclusive";
+    status: ConcludedRankingExperimentStatus;
   }>
 ): BusinessArmStats[] {
   const grouped = new Map<string, BusinessArmStats>();
