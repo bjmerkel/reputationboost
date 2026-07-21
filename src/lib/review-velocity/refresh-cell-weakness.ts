@@ -2,7 +2,7 @@ import { ensureStrategy } from "@/audit/ensure-strategy";
 import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin";
 import type { FullAuditPayload, GeoGridPoint } from "@/audit/types";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildWeaknessScoresFromGrids, type CellWeaknessScore } from "@/lib/review-velocity/cell-weakness";
+import { buildKeywordWeaknessIndex, type CellWeaknessScore } from "@/lib/review-velocity/cell-weakness";
 import { loadKeywordGridsForAuditKeywords, upsertCellWeaknessScoresAdmin } from "@/lib/review-velocity/storage";
 
 function reviewGapsFromAudit(audit: FullAuditPayload | null): Map<string, number> {
@@ -50,7 +50,7 @@ export function buildWeaknessScoresForKeywordGrids(
   keywordGrids: Map<string, GeoGridPoint[]>,
   reviewGaps: Map<string, number>
 ): CellWeaknessScore[] {
-  return buildWeaknessScoresFromGrids(keywordGrids, reviewGaps);
+  return buildKeywordWeaknessIndex(keywordGrids, reviewGaps);
 }
 
 export async function refreshCellWeaknessScoresForBusinessAdmin(
