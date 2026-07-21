@@ -1,4 +1,8 @@
-import type { RankingExperiment, RankingExperimentStatus } from "@/audit/autopilot/types";
+import type {
+  ConcludedRankingExperiment,
+  RankingExperiment,
+  RankingExperimentStatus,
+} from "@/audit/autopilot/types";
 import type { BanditMetadata, LeaderDelta } from "@/audit/autopilot/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -197,7 +201,7 @@ export async function listRankingExperimentsForBusinessAdmin(
 export async function listConcludedExperimentsForBusinessAdmin(
   businessId: string,
   limit = 100
-): Promise<RankingExperiment[]> {
+): Promise<ConcludedRankingExperiment[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("ranking_experiments")
@@ -208,7 +212,7 @@ export async function listConcludedExperimentsForBusinessAdmin(
     .limit(limit);
 
   if (error || !data) return [];
-  return data.map((row) => rowToExperiment(row));
+  return data.map((row) => rowToExperiment(row) as ConcludedRankingExperiment);
 }
 
 export async function listProposedSuggestionsForBusinessAdmin(
