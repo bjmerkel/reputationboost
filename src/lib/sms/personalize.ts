@@ -12,6 +12,7 @@ export interface PersonalizeSmsOptions {
   reviewUrl: string;
   focusKeyword?: string | null;
   location?: ServicePhraseLocation;
+  neighborhoodLabel?: string | null;
 }
 
 export function customerDisplayName(
@@ -60,19 +61,25 @@ function prepareReviewRequestTemplate(template: string, businessName: string): s
 }
 
 export function personalizeReviewRequestSms(options: PersonalizeSmsOptions): string {
-  const { template, customer, businessName, reviewUrl, focusKeyword, location } = options;
+  const { template, customer, businessName, reviewUrl, focusKeyword, location, neighborhoodLabel } =
+    options;
   const firstName = customerFirstName(customer);
   const service = resolveServiceForSms({
     serviceNotes: customer.service_notes,
     focusKeyword,
     location,
   });
+  const neighborhood =
+    neighborhoodLabel?.trim() ||
+    location?.city?.trim() ||
+    "your neighborhood";
 
   const message = substituteReviewLink(prepareReviewRequestTemplate(template, businessName), reviewUrl, {
     FIRST_NAME: firstName,
     NAME: customerDisplayName(customer),
     BUSINESS: businessName,
     SERVICE: service,
+    NEIGHBORHOOD: neighborhood,
   });
 
   return stripRemainingPlaceholders(message);
@@ -104,9 +111,18 @@ export function previewReviewRequestSms(options: {
   serviceFallback?: string | null;
   focusKeyword?: string | null;
   location?: ServicePhraseLocation;
+  neighborhoodLabel?: string | null;
 }): string {
-  const { template, businessName, reviewUrl, customer, serviceFallback, focusKeyword, location } =
-    options;
+  const {
+    template,
+    businessName,
+    reviewUrl,
+    customer,
+    serviceFallback,
+    focusKeyword,
+    location,
+    neighborhoodLabel,
+  } = options;
   const resolvedTemplate = prepareReviewRequestTemplate(template, businessName);
 
   if (customer) {
@@ -117,6 +133,7 @@ export function previewReviewRequestSms(options: {
       reviewUrl,
       focusKeyword,
       location,
+      neighborhoodLabel,
     });
   }
 
@@ -124,6 +141,10 @@ export function previewReviewRequestSms(options: {
     focusKeyword: focusKeyword ?? serviceFallback,
     location,
   });
+  const neighborhood =
+    neighborhoodLabel?.trim() ||
+    location?.city?.trim() ||
+    "your neighborhood";
 
   return stripRemainingPlaceholders(
     substituteReviewLink(resolvedTemplate, reviewUrl, {
@@ -131,6 +152,7 @@ export function previewReviewRequestSms(options: {
       NAME: "[NAME]",
       BUSINESS: businessName,
       SERVICE: service,
+      NEIGHBORHOOD: neighborhood,
     })
   );
 }

@@ -212,6 +212,10 @@ export interface SmsMessageInput {
   customerId?: string;
   executionTaskId?: string;
   focusKeyword?: string | null;
+  targetGridNorth?: number | null;
+  targetGridEast?: number | null;
+  targetZone?: string | null;
+  neighborhoodLabel?: string | null;
   toPhone: string;
   body: string;
   status: "pending" | "sent" | "failed" | "simulated";
@@ -230,6 +234,10 @@ export async function logSmsMessage(
     customer_id: input.customerId ?? null,
     execution_task_id: input.executionTaskId ?? null,
     focus_keyword: input.focusKeyword ?? null,
+    target_grid_north: input.targetGridNorth ?? null,
+    target_grid_east: input.targetGridEast ?? null,
+    target_zone: input.targetZone ?? null,
+    neighborhood_label: input.neighborhoodLabel ?? null,
     to_phone: input.toPhone,
     body: input.body,
     status: input.status,

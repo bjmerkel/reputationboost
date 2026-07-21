@@ -11,6 +11,18 @@ export const OPT_OUT_EVENT_TYPES = new Set([
 
 export const OPT_IN_EVENT_TYPES = new Set(["customer.opted_in", "sms.opt_in"]);
 
+function readNumber(record: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
+}
+
 function readString(record: Record<string, unknown>, keys: string[]): string | undefined {
   for (const key of keys) {
     const value = record[key];
@@ -94,6 +106,21 @@ export function normalizeWebhookPayload(data: unknown): WebhookPayload {
     source: readString(record, ["source", "integration", "crm"]) ?? "webhook",
     sendReviewRequest: readBoolean(record, ["sendReviewRequest", "send_review_request"]),
     optedOut: resolveOptedOut(event, explicitOptedOut),
+    jobAddress: readString(record, [
+      "jobAddress",
+      "job_address",
+      "propertyAddress",
+      "property_address",
+      "serviceLocation",
+      "service_location",
+      "jobSiteAddress",
+      "job_site_address",
+      "address",
+    ]),
+    jobCity: readString(record, ["jobCity", "job_city", "city", "serviceCity", "service_city"]),
+    jobZip: readString(record, ["jobZip", "job_zip", "zip", "postalCode", "postal_code"]),
+    jobLat: readNumber(record, ["jobLat", "job_lat", "latitude", "lat"]),
+    jobLng: readNumber(record, ["jobLng", "job_lng", "longitude", "lng"]),
   };
 }
 

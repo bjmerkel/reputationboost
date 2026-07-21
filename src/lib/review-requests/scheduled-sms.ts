@@ -19,6 +19,7 @@ import {
   auditHasReviewGap,
   evaluateReviewRequestEligibility,
 } from "@/lib/review-requests/eligibility";
+import type { GeoRoutingDecision } from "@/lib/review-velocity/geo-router";
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isTwilioConfigured, sendSms } from "@/lib/sms/twilio";
@@ -49,6 +50,7 @@ export async function scheduleReviewRequestSms(input: {
   sendAt: Date;
   customerEventId?: string;
   focusKeyword?: string | null;
+  geoRouting?: GeoRoutingDecision | null;
 }): Promise<string> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -59,6 +61,10 @@ export async function scheduleReviewRequestSms(input: {
       customer_id: input.customerId,
       execution_task_id: input.customerEventId ?? null,
       focus_keyword: input.focusKeyword?.trim() || null,
+      target_grid_north: input.geoRouting?.targetCell.gridNorth ?? null,
+      target_grid_east: input.geoRouting?.targetCell.gridEast ?? null,
+      target_zone: input.geoRouting?.targetZone ?? null,
+      neighborhood_label: input.geoRouting?.neighborhoodLabel ?? null,
       to_phone: input.toPhone,
       body: input.body,
       status: "scheduled",
@@ -137,6 +143,7 @@ export async function scheduleReviewRequestForCustomer(input: {
   customerEventId?: string;
   reviewUrlOverride?: string;
   focusKeyword?: string | null;
+  geoRouting?: GeoRoutingDecision | null;
 }): Promise<{ scheduled: boolean; scheduledAt?: string; smsId?: string; reason?: string }> {
   const businessId = input.business.businessId;
   if (!businessId) throw new Error("Business ID is required");
@@ -168,7 +175,8 @@ export async function scheduleReviewRequestForCustomer(input: {
     customer: input.customer,
     businessName: input.business.name,
     reviewUrl,
-    focusKeyword: input.focusKeyword,
+    focusKeyword: input.geoRouting?.focusKeyword ?? input.focusKeyword,
+    neighborhoodLabel: input.geoRouting?.neighborhoodLabel ?? null,
     location: {
       city: input.business.location.city,
       state: input.business.location.state,
@@ -184,7 +192,8 @@ export async function scheduleReviewRequestForCustomer(input: {
     body,
     sendAt,
     customerEventId: input.customerEventId,
-    focusKeyword: input.focusKeyword,
+    focusKeyword: input.geoRouting?.focusKeyword ?? input.focusKeyword,
+    geoRouting: input.geoRouting,
   });
 
   return { scheduled: true, scheduledAt: sendAt.toISOString(), smsId };

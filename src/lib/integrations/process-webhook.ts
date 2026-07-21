@@ -3,13 +3,13 @@ import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin"
 import { upsertCustomerAdmin } from "@/lib/customers/storage-admin";
 import type { CustomerRecord } from "@/lib/customers/types";
 import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
-import { resolveFocusKeywordForCustomer } from "@/lib/review-requests/campaign-plan";
 import {
   auditHasReviewGap,
   evaluateReviewRequestEligibility,
   ineligibilityMessage,
 } from "@/lib/review-requests/eligibility";
 import { scheduleReviewRequestForCustomer } from "@/lib/review-requests/scheduled-sms";
+import { prepareGeoReviewContext } from "@/lib/review-velocity/prepare-geo-review";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildPrivateFeedbackTemplate } from "@/lib/sms/private-feedback";
 import { sendReviewRequests } from "@/lib/sms/send-review-requests";
@@ -205,6 +205,22 @@ export async function processInboundWebhook(
   const hasReviewGap = auditHasReviewGap(audit);
   const sentiment = readSentiment(payload as unknown as Record<string, unknown>);
 
+  const geoContext = await prepareGeoReviewContext({
+    userId: settings.userId,
+    businessId: settings.businessId,
+    business,
+    customer,
+    audit,
+    webhookGeo: {
+      jobAddress: payload.jobAddress,
+      jobCity: payload.jobCity,
+      jobZip: payload.jobZip,
+      jobLat: payload.jobLat,
+      jobLng: payload.jobLng,
+    },
+  });
+  customer = geoContext.customer;
+
   const eligibility = evaluateReviewRequestEligibility({
     customer,
     eventType: payload.event,
@@ -223,19 +239,25 @@ export async function processInboundWebhook(
   let reviewRequestSkippedReason = eligibility.reason
     ? ineligibilityMessage(eligibility.reason)
     : undefined;
+  let geoRouting = geoContext.geoRouting;
 
-  if (eligibility.eligible) {
+  if (eligibility.eligible && geoContext.geoDeferred) {
+    reviewRequestSkippedReason =
+      "Weekly review request cap reached for this map area. Will retry on the next eligible job.";
+  }
+
+  if (eligibility.eligible && !geoContext.geoDeferred) {
     const usePrivateFeedback = eligibility.usePrivateFeedback === true;
     const reviewUrlOverride = usePrivateFeedback ? business.privateFeedbackUrl : undefined;
 
     if (usePrivateFeedback && !reviewUrlOverride) {
       reviewRequestSkippedReason = "Private feedback URL is not configured.";
     } else {
-      const focusKeyword = audit ? resolveFocusKeywordForCustomer(audit, customer) : null;
+      const focusKeyword = geoContext.focusKeyword;
       const template = usePrivateFeedback
         ? buildPrivateFeedbackTemplate(business.name)
         : audit
-          ? await generateReviewRequestMessage(audit, customer, focusKeyword)
+          ? await generateReviewRequestMessage(audit, customer, focusKeyword, geoRouting ?? undefined)
           : buildDefaultTemplate(business.name);
 
       if (settings.delayHours > 0) {
@@ -247,6 +269,7 @@ export async function processInboundWebhook(
           delayHours: settings.delayHours,
           reviewUrlOverride,
           focusKeyword,
+          geoRouting,
         });
 
         if (scheduled.scheduled) {
@@ -264,6 +287,7 @@ export async function processInboundWebhook(
           template,
           customerIds: [customer.id],
           focusKeyword,
+          geoRouting,
           serviceRole: true,
           reviewUrlOverride,
         });
@@ -290,6 +314,17 @@ export async function processInboundWebhook(
       sentiment,
       usedPrivateFeedback: eligibility.usePrivateFeedback === true,
       optedOut: payload.optedOut ?? false,
+      geoRouting: geoRouting
+        ? {
+            focusKeyword: geoRouting.focusKeyword,
+            targetZone: geoRouting.targetZone,
+            neighborhoodLabel: geoRouting.neighborhoodLabel,
+            weaknessScore: geoRouting.weaknessScore,
+            geoTargeted: geoRouting.geoTargeted,
+            geoDeferred: geoContext.geoDeferred,
+            geoDeferReason: geoContext.geoDeferReason,
+          }
+        : null,
     },
     occurredAt: payload.serviceDate,
     reviewRequestSent,
@@ -310,5 +345,14 @@ export async function processInboundWebhook(
     optedOut: customer.opted_out,
     optOutApplied,
     optInApplied,
+    geoRouting: geoRouting
+      ? {
+          focusKeyword: geoRouting.focusKeyword,
+          targetZone: geoRouting.targetZone,
+          neighborhoodLabel: geoRouting.neighborhoodLabel,
+          weaknessScore: geoRouting.weaknessScore,
+          geoTargeted: geoRouting.geoTargeted,
+        }
+      : undefined,
   };
 }

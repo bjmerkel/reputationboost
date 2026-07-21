@@ -25,6 +25,7 @@ import {
   evaluateReviewRequestEligibility,
   ineligibilityMessage,
 } from "@/lib/review-requests/eligibility";
+import type { GeoRoutingDecision } from "@/lib/review-velocity/geo-router";
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isTwilioConfigured, sendSms } from "@/lib/sms/twilio";
@@ -45,6 +46,8 @@ export interface SendReviewRequestsInput {
   focusKeyword?: string | null;
   auditHasReviewGap?: boolean;
   reviewUrlOverride?: string;
+  /** Geo-targeted routing metadata for cell/keyword seeding. */
+  geoRouting?: GeoRoutingDecision | null;
 }
 
 export interface SendReviewRequestsResult {
@@ -184,7 +187,11 @@ export async function sendReviewRequests(
   const sentCustomerIds: string[] = [];
   const manualSend = input.manualSend !== false;
   const hasReviewGap = input.auditHasReviewGap ?? true;
-  const focusKeyword = input.focusKeyword?.trim() || null;
+  const focusKeyword =
+    input.geoRouting?.focusKeyword?.trim() ||
+    input.focusKeyword?.trim() ||
+    null;
+  const neighborhoodLabel = input.geoRouting?.neighborhoodLabel ?? null;
 
   for (const customer of customers) {
     const eligibility = evaluateReviewRequestEligibility({
@@ -212,6 +219,7 @@ export async function sendReviewRequests(
       businessName: input.business.name,
       reviewUrl,
       focusKeyword,
+      neighborhoodLabel,
       location: {
         city: input.business.location.city,
         state: input.business.location.state,
@@ -235,6 +243,10 @@ export async function sendReviewRequests(
         customerId: customer.id,
         executionTaskId: input.executionTaskId,
         focusKeyword,
+        targetGridNorth: input.geoRouting?.targetCell.gridNorth ?? null,
+        targetGridEast: input.geoRouting?.targetCell.gridEast ?? null,
+        targetZone: input.geoRouting?.targetZone ?? null,
+        neighborhoodLabel,
         toPhone: customer.phone,
         body,
         status: "simulated",
@@ -259,6 +271,10 @@ export async function sendReviewRequests(
         customerId: customer.id,
         executionTaskId: input.executionTaskId,
         focusKeyword,
+        targetGridNorth: input.geoRouting?.targetCell.gridNorth ?? null,
+        targetGridEast: input.geoRouting?.targetCell.gridEast ?? null,
+        targetZone: input.geoRouting?.targetZone ?? null,
+        neighborhoodLabel,
         toPhone: sms.to,
         body,
         status: "sent",
@@ -279,6 +295,10 @@ export async function sendReviewRequests(
         customerId: customer.id,
         executionTaskId: input.executionTaskId,
         focusKeyword,
+        targetGridNorth: input.geoRouting?.targetCell.gridNorth ?? null,
+        targetGridEast: input.geoRouting?.targetCell.gridEast ?? null,
+        targetZone: input.geoRouting?.targetZone ?? null,
+        neighborhoodLabel,
         toPhone: customer.phone,
         body,
         status: "failed",

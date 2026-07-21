@@ -16,23 +16,31 @@ export async function upsertCustomerAdmin(
   if (!phone) throw new Error("Invalid phone number");
 
   const supabase = createAdminClient();
+  const row: Record<string, unknown> = {
+    business_id: businessId,
+    user_id: userId,
+    first_name: input.firstName?.trim() ?? "",
+    last_name: input.lastName?.trim() ?? "",
+    phone,
+    email: input.email?.trim() || null,
+    service_notes: input.serviceNotes?.trim() || null,
+    last_service_date: input.lastServiceDate || null,
+    source: input.source ?? "webhook",
+    updated_at: new Date().toISOString(),
+  };
+
+  if (input.serviceAddress !== undefined) row.service_address = input.serviceAddress?.trim() || null;
+  if (input.serviceCity !== undefined) row.service_city = input.serviceCity?.trim() || null;
+  if (input.serviceZip !== undefined) row.service_zip = input.serviceZip?.trim() || null;
+  if (input.serviceLat !== undefined) row.service_lat = input.serviceLat ?? null;
+  if (input.serviceLng !== undefined) row.service_lng = input.serviceLng ?? null;
+  if (input.gridNorth !== undefined) row.grid_north = input.gridNorth ?? null;
+  if (input.gridEast !== undefined) row.grid_east = input.gridEast ?? null;
+  if (input.geoResolvedAt !== undefined) row.geo_resolved_at = input.geoResolvedAt ?? null;
+
   const { data, error } = await supabase
     .from("customers")
-    .upsert(
-      {
-        business_id: businessId,
-        user_id: userId,
-        first_name: input.firstName?.trim() ?? "",
-        last_name: input.lastName?.trim() ?? "",
-        phone,
-        email: input.email?.trim() || null,
-        service_notes: input.serviceNotes?.trim() || null,
-        last_service_date: input.lastServiceDate || null,
-        source: input.source ?? "webhook",
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "business_id,phone" }
-    )
+    .upsert(row, { onConflict: "business_id,phone" })
     .select("*")
     .single();
 
@@ -85,6 +93,10 @@ export async function logSmsMessageAdmin(
     customerId?: string;
     executionTaskId?: string;
     focusKeyword?: string | null;
+    targetGridNorth?: number | null;
+    targetGridEast?: number | null;
+    targetZone?: string | null;
+    neighborhoodLabel?: string | null;
     toPhone: string;
     body: string;
     status: "pending" | "sent" | "failed" | "simulated";
@@ -99,6 +111,10 @@ export async function logSmsMessageAdmin(
     customer_id: input.customerId ?? null,
     execution_task_id: input.executionTaskId ?? null,
     focus_keyword: input.focusKeyword ?? null,
+    target_grid_north: input.targetGridNorth ?? null,
+    target_grid_east: input.targetGridEast ?? null,
+    target_zone: input.targetZone ?? null,
+    neighborhood_label: input.neighborhoodLabel ?? null,
     to_phone: input.toPhone,
     body: input.body,
     status: input.status,

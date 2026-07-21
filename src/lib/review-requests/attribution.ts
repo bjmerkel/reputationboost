@@ -29,6 +29,10 @@ export interface OutreachAttributionRecord {
   review_id: string | null;
   review_text: string | null;
   review_mentions_keyword: boolean | null;
+  target_grid_north: number | null;
+  target_grid_east: number | null;
+  target_zone: string | null;
+  review_mentions_neighborhood: boolean | null;
 }
 
 interface SentSmsCandidate {
@@ -36,6 +40,10 @@ interface SentSmsCandidate {
   customer_id: string | null;
   sent_at: string;
   focus_keyword: string | null;
+  target_grid_north?: number | null;
+  target_grid_east?: number | null;
+  target_zone?: string | null;
+  neighborhood_label?: string | null;
   customers?: {
     first_name: string | null;
     last_name: string | null;
@@ -83,6 +91,19 @@ export function namesMatchForAttribution(
   if (first && reviewer.split(" ")[0] === first && last && reviewer.endsWith(last)) return true;
 
   return false;
+}
+
+export function reviewTextMentionsNeighborhood(
+  reviewText: string,
+  neighborhoodLabel: string | null | undefined
+): boolean {
+  const label = neighborhoodLabel?.trim().toLowerCase();
+  if (!label || label === "your neighborhood") return false;
+
+  const normalizedReview = reviewText.trim().toLowerCase();
+  if (!normalizedReview) return false;
+
+  return normalizedReview.includes(label);
 }
 
 export function pickAttributionCandidate(
@@ -176,7 +197,9 @@ export async function attributeReviewToRecentOutreach(
 
   const { data: sentMessages, error: smsError } = await supabase
     .from("sms_messages")
-    .select("id, customer_id, sent_at, focus_keyword, customers(first_name, last_name)")
+    .select(
+      "id, customer_id, sent_at, focus_keyword, target_grid_north, target_grid_east, target_zone, neighborhood_label, customers(first_name, last_name)"
+    )
     .eq("business_id", input.businessId)
     .in("status", ["sent", "simulated"])
     .gte("sent_at", windowStart.toISOString())
@@ -205,6 +228,10 @@ export async function attributeReviewToRecentOutreach(
       customer_id: record.customer_id as string | null,
       sent_at: record.sent_at as string,
       focus_keyword: (record.focus_keyword as string | null) ?? null,
+      target_grid_north: (record.target_grid_north as number | null) ?? null,
+      target_grid_east: (record.target_grid_east as number | null) ?? null,
+      target_zone: (record.target_zone as string | null) ?? null,
+      neighborhood_label: (record.neighborhood_label as string | null) ?? null,
       customers: Array.isArray(customer) ? (customer[0] ?? null) : (customer ?? null),
     };
   });
@@ -227,6 +254,10 @@ export async function attributeReviewToRecentOutreach(
   const reviewMentionsKeyword =
     input.reviewText && focusKeyword
       ? reviewTextMentionsKeyword(input.reviewText, focusKeyword)
+      : null;
+  const reviewMentionsNeighborhood =
+    input.reviewText && candidate.neighborhood_label
+      ? reviewTextMentionsNeighborhood(input.reviewText, candidate.neighborhood_label)
       : null;
 
   let customerEventId: string | null = null;
@@ -255,6 +286,10 @@ export async function attributeReviewToRecentOutreach(
       review_id: input.reviewId ?? null,
       review_text: input.reviewText ?? null,
       review_mentions_keyword: reviewMentionsKeyword,
+      target_grid_north: candidate.target_grid_north,
+      target_grid_east: candidate.target_grid_east,
+      target_zone: candidate.target_zone,
+      review_mentions_neighborhood: reviewMentionsNeighborhood,
     })
     .select("*")
     .single();

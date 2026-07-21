@@ -22,6 +22,11 @@ export interface WebhookPayload {
   source?: string;
   sendReviewRequest?: boolean;
   optedOut?: boolean;
+  jobAddress?: string;
+  jobCity?: string;
+  jobZip?: string;
+  jobLat?: number;
+  jobLng?: number;
 }
 
 export interface WebhookBusinessSettings {
@@ -47,4 +52,11 @@ export interface WebhookProcessResult {
   optedOut?: boolean;
   optOutApplied?: boolean;
   optInApplied?: boolean;
+  geoRouting?: {
+    focusKeyword: string;
+    targetZone: string;
+    neighborhoodLabel: string;
+    weaknessScore: number;
+    geoTargeted: boolean;
+  };
 }

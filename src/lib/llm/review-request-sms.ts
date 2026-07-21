@@ -29,6 +29,30 @@ Rules:
 
 Return valid JSON only: { "message": "the SMS text" }`;
 
+const GEO_REVIEW_REQUEST_SYSTEM = `You write short SMS messages asking happy customers to leave a Google review.
+
+Rules:
+- Under 300 characters (link placeholder counts as 25 chars)
+- Warm, personal, not salesy — like a text from the business owner
+- Always identify the business with [BUSINESS] so the customer knows who is texting
+- Reference the customer's first name with [FIRST_NAME] placeholder
+- Reference their service with [SERVICE] and neighborhood with [NEIGHBORHOOD] placeholders
+- Gently suggest mentioning what service was done — e.g. "mention water heater repair" — but keep it natural, not directive
+- Always include [REVIEW_LINK] exactly once — we substitute the real URL
+- Use ONLY these placeholders: [FIRST_NAME], [SERVICE], [NEIGHBORHOOD], [BUSINESS], [REVIEW_LINK]
+- One clear ask: leave a quick Google review
+- No emojis unless the business tone is very casual
+- Do not invent details not in the context
+- Never paste full SEO keyword phrases — [SERVICE] is substituted with a short natural phrase
+
+Return valid JSON only: { "message": "the SMS text" }`;
+
+export interface GeoReviewPromptOptions {
+  geoTargeted: boolean;
+  neighborhoodLabel?: string;
+  promptSeed?: string;
+}
+
 export interface ReviewRequestContext {
   businessName: string;
   industry: string;
@@ -64,10 +88,17 @@ export function buildReviewRequestContext(
   };
 }
 
-export function buildTemplateReviewRequestMessage(context: ReviewRequestContext): string {
+export function buildTemplateReviewRequestMessage(
+  context: ReviewRequestContext,
+  geo?: GeoReviewPromptOptions
+): string {
   const firstName = context.sampleCustomer
     ? customerFirstName(context.sampleCustomer)
     : "[FIRST_NAME]";
+
+  if (geo?.geoTargeted) {
+    return `Hi ${firstName}! Thanks for the great [SERVICE] work in [NEIGHBORHOOD]. If you loved it, a quick Google review mentioning what we did helps neighbors nearby find us: [REVIEW_LINK]`;
+  }
 
   if (context.focusKeyword) {
     return `Hi ${firstName}! Thanks for choosing [BUSINESS] for [SERVICE]. If your experience was great, a quick Google review about what we helped with would mean a lot: [REVIEW_LINK]`;
@@ -91,12 +122,13 @@ function finalizeReviewRequestTemplate(
 export async function generateReviewRequestMessage(
   audit: FullAuditPayload,
   sampleCustomer?: Pick<CustomerRecord, "first_name" | "last_name" | "service_notes">,
-  focusKeyword?: string | null
+  focusKeyword?: string | null,
+  geo?: GeoReviewPromptOptions
 ): Promise<string> {
   const context = buildReviewRequestContext(audit, sampleCustomer, focusKeyword);
   const fallback = templateReviewRequestSms(audit).includes("[FIRST_NAME]")
     ? templateReviewRequestSms(audit)
-    : buildTemplateReviewRequestMessage(context);
+    : buildTemplateReviewRequestMessage(context, geo);
 
   if (!isLlmConfigured()) {
     return finalizeReviewRequestTemplate(fallback, context);
@@ -107,12 +139,15 @@ export async function generateReviewRequestMessage(
       ? `Sample customer: ${customerFirstName(context.sampleCustomer)}, service: ${context.sampleCustomer.service_notes ?? "recent visit"}`
       : "Use [FIRST_NAME], [SERVICE], and [BUSINESS] placeholders for personalization.";
     const keywordLine = context.focusKeyword
-      ? `Priority SEO keyword: "${context.focusKeyword}" — reviews should eventually mention this topic, but the SMS must sound natural. Use only the [SERVICE] placeholder for the program name (e.g. "enrichment programs"); never paste the full keyword or "${context.city}" in the message.`
+      ? geo?.geoTargeted
+        ? `Priority topic: "${geo.promptSeed ?? context.focusKeyword}" — gently nudge the customer to mention what service was done and the area. Use [SERVICE] and [NEIGHBORHOOD] placeholders only.`
+        : `Priority SEO keyword: "${context.focusKeyword}" — reviews should eventually mention this topic, but the SMS must sound natural. Use only the [SERVICE] placeholder for the program name (e.g. "enrichment programs"); never paste the full keyword or "${context.city}" in the message.`
       : "";
+    const systemPrompt = geo?.geoTargeted ? GEO_REVIEW_REQUEST_SYSTEM : REVIEW_REQUEST_SYSTEM;
 
     const llm = await completeJson<{ message: unknown }>(
       [
-        { role: "system", content: REVIEW_REQUEST_SYSTEM },
+        { role: "system", content: systemPrompt },
         {
           role: "user",
           content: `Write an SMS review request for this business.
@@ -121,6 +156,7 @@ Business: ${context.businessName} (${context.industry}) in ${context.city}
 Rating: ${formatStarRating(context.averageRating)}★ from ${context.reviewCount} reviews
 Customers praise: ${context.positiveThemes.join(", ") || "quality work"}
 ${keywordLine}
+${geo?.geoTargeted ? `Neighborhood placeholder: [NEIGHBORHOOD] → ${geo.neighborhoodLabel ?? context.city}` : ""}
 ${sampleLine}
 
 Return JSON: { "message": "..." }`,
