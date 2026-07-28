@@ -6,6 +6,7 @@ import GbpPerformanceSetup from "@/components/GbpPerformanceSetup";
 import GbpDisconnect from "@/components/GbpDisconnect";
 import GbpLocationSwitcher from "@/components/GbpLocationSwitcher";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
+import ChangePasswordForm from "@/components/ChangePasswordForm";
 import RoiSettings from "@/components/RoiSettings";
 import { getUser } from "@/lib/supabase/server";
 
@@ -97,6 +98,8 @@ export default async function SettingsPage() {
               />
             </div>
           </div>
+
+          <ChangePasswordForm />
 
           <RoiSettings
             businessId={business.businessId ?? record?.id ?? ""}

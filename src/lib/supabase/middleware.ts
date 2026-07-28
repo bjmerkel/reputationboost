@@ -52,6 +52,7 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   const isLogin = pathname === "/login";
+  const isPasswordReset = pathname.startsWith("/login/reset-password");
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
@@ -60,7 +61,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isLogin) {
+  if (user && isLogin && !isPasswordReset) {
     const url = request.nextUrl.clone();
     url.pathname = request.nextUrl.searchParams.get("next") || "/platform/onboard";
     url.searchParams.delete("next");
