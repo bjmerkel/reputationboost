@@ -29,5 +29,7 @@ export const config = {
     "/api/google/gbp/performance",
     "/api/google/gbp/select-location",
     "/login",
+    "/login/forgot-password",
+    "/login/reset-password",
   ],
 };
