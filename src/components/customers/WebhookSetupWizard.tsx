@@ -77,7 +77,11 @@ const TOOL_ICONS: Record<string, string> = {
 function getNativeZapierSteps(template: ZapierTemplate): string[] {
   const toolName = template.label.split("—")[0]?.trim() ?? "your tool";
   const actionName =
-    template.eventType === "invoice.paid" ? "Invoice Paid" : "Job Completed";
+    template.eventType === "customer.opted_out"
+      ? "Update Customer"
+      : template.eventType === "invoice.paid"
+        ? "Create Customer From Invoice"
+        : "Create Customer From Job";
 
   return [
     `Click "Set up in Zapier" below — your webhook URL is copied automatically.`,

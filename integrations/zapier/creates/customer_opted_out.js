@@ -7,10 +7,11 @@ const inputFields = [
 
 module.exports = {
   key: "customer_opted_out",
-  noun: "Opt-Out",
+  noun: "Customer",
   display: {
-    label: "Mark Customer Opted Out",
-    description: "Honor STOP or unsubscribe replies — future review requests are skipped.",
+    label: "Update Customer",
+    description:
+      "Updates a customer to opted-out status. Future review requests are skipped.",
   },
   operation: {
     inputFields,
