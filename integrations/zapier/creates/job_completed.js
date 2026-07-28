@@ -24,10 +24,11 @@ const inputFields = [
 
 module.exports = {
   key: "job_completed",
-  noun: "Job",
+  noun: "Customer",
   display: {
-    label: "Job Completed",
-    description: "Add a customer and optionally send a review request when a job finishes.",
+    label: "Create Customer From Job",
+    description:
+      "Creates or updates a customer when a job is completed. Optionally queues an SMS review request.",
   },
   operation: {
     inputFields,

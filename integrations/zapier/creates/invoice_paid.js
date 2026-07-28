@@ -18,10 +18,11 @@ const inputFields = [
 
 module.exports = {
   key: "invoice_paid",
-  noun: "Invoice",
+  noun: "Customer",
   display: {
-    label: "Invoice Paid",
-    description: "Add a customer and optionally send a review request after payment.",
+    label: "Create Customer From Invoice",
+    description:
+      "Creates or updates a customer when an invoice is paid. Optionally queues an SMS review request.",
   },
   operation: {
     inputFields,

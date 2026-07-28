@@ -109,8 +109,10 @@ Content-Type: application/json`}
             <section>
               <h2 className="text-xl font-medium text-[#202124]">Zapier integration</h2>
               <p className="mt-3">
-                Use the Reputation Boost Zapier app actions <strong>Job Completed</strong>,{" "}
-                <strong>Invoice Paid</strong>, and <strong>Mark Customer Opted Out</strong>.
+                Use the Reputation Boost Zapier app actions{" "}
+                <strong>Create Customer From Job</strong>,{" "}
+                <strong>Create Customer From Invoice</strong>, and{" "}
+                <strong>Update Customer</strong>.
                 Authenticate with your full webhook URL from the Reputation Boost dashboard.
               </p>
             </section>
