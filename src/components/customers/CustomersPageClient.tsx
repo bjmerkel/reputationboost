@@ -77,8 +77,10 @@ export default function CustomersPageClient({
   const [sending, setSending] = useState(false);
   const [channel, setChannel] = useState<OutreachChannel>("auto");
   const [template, setTemplate] = useState("");
+  const [smsTemplate, setSmsTemplate] = useState("");
   const [subject, setSubject] = useState("");
   const [preview, setPreview] = useState("");
+  const [smsPreview, setSmsPreview] = useState("");
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [eligibleCount, setEligibleCount] = useState(0);
   const [emailEligibleCount, setEmailEligibleCount] = useState(0);
@@ -136,8 +138,10 @@ export default function CustomersPageClient({
         const data = await parseJsonResponse<{
           channel: OutreachChannel;
           template: string;
+          smsTemplate?: string;
           subject?: string;
           preview: string;
+          smsPreview?: string;
           previewHtml?: string | null;
           eligibleCount: number;
           emailEligibleCount?: number;
@@ -149,8 +153,10 @@ export default function CustomersPageClient({
         }>(res);
         if (!res.ok) throw new Error(data.error ?? "Failed to generate message");
         setTemplate(data.template);
+        setSmsTemplate(data.smsTemplate ?? "");
         setSubject(data.subject ?? "");
         setPreview(data.preview);
+        setSmsPreview(data.smsPreview ?? "");
         setPreviewHtml(data.previewHtml ?? null);
         setEligibleCount(data.eligibleCount);
         setEmailEligibleCount(data.emailEligibleCount ?? 0);
@@ -279,6 +285,7 @@ export default function CustomersPageClient({
         body: JSON.stringify({
           channel,
           template,
+          smsTemplate: channel === "auto" ? smsTemplate : undefined,
           subject: channel === "sms" ? undefined : subject,
           customerIds,
           batchSize: selectedIds.size > 0 ? selectedIds.size : batchSize,
@@ -325,7 +332,10 @@ export default function CustomersPageClient({
   }
 
   const showEmailEditor = channel === "email" || channel === "auto";
-  const showSmsEditor = channel === "sms";
+  const showSmsEditor = channel === "sms" || channel === "auto";
+  const messageReady =
+    template.trim() &&
+    (channel === "email" || (channel === "auto" ? smsTemplate.trim() : true));
   const demoMode =
     (channel === "sms" && !twilioConfigured) ||
     (channel === "email" && !resendConfigured) ||
@@ -488,22 +498,78 @@ export default function CustomersPageClient({
                 onChange={(e) => setSubject(e.target.value)}
                 className="mt-2 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
               />
+
+              <h3 className="mt-6 text-sm font-bold text-[#202124]">Email message</h3>
+              <p className="mt-2 text-sm text-[#5f6368]">
+                Personalized for <strong>{businessName}</strong>. Use{" "}
+                <code className="text-xs">[FIRST_NAME]</code>,{" "}
+                <code className="text-xs">[SERVICE]</code>,{" "}
+                <code className="text-xs">[BUSINESS]</code>, and{" "}
+                <code className="text-xs">[REVIEW_LINK]</code>.
+              </p>
+
+              <textarea
+                value={template}
+                onChange={(e) => setTemplate(e.target.value)}
+                rows={7}
+                className="mt-4 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm leading-relaxed"
+              />
+
+              {preview && (
+                <div className="mt-3 rounded-lg bg-[#f8f9fa] px-3 py-2 text-sm text-[#3c4043]">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">
+                    Email preview
+                  </span>
+                  {previewHtml ? (
+                    <iframe
+                      title="Email preview"
+                      srcDoc={previewHtml}
+                      className="mt-2 h-72 w-full rounded-lg border border-[#dadce0] bg-white"
+                      sandbox=""
+                    />
+                  ) : (
+                    <p className="mt-1 whitespace-pre-wrap">{preview}</p>
+                  )}
+                </div>
+              )}
             </>
           )}
 
-          <h3 className="mt-6 text-sm font-bold text-[#202124]">
-            {showSmsEditor ? "SMS message" : "Email message"}
-          </h3>
-          <p className="mt-2 text-sm text-[#5f6368]">
-            Personalized for <strong>{businessName}</strong>. Use{" "}
-            <code className="text-xs">[FIRST_NAME]</code>,{" "}
-            <code className="text-xs">[SERVICE]</code>,{" "}
-            <code className="text-xs">[BUSINESS]</code>, and{" "}
-            <code className="text-xs">[REVIEW_LINK]</code>.
-          </p>
+          {showSmsEditor && (
+            <>
+              <h3 className="mt-6 text-sm font-bold text-[#202124]">SMS message</h3>
+              <p className="mt-2 text-sm text-[#5f6368]">
+                Personalized for <strong>{businessName}</strong>. Use{" "}
+                <code className="text-xs">[FIRST_NAME]</code>,{" "}
+                <code className="text-xs">[SERVICE]</code>,{" "}
+                <code className="text-xs">[BUSINESS]</code>, and{" "}
+                <code className="text-xs">[REVIEW_LINK]</code>.
+              </p>
+
+              <textarea
+                value={channel === "sms" ? template : smsTemplate}
+                onChange={(e) =>
+                  channel === "sms" ? setTemplate(e.target.value) : setSmsTemplate(e.target.value)
+                }
+                rows={5}
+                className="mt-4 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm leading-relaxed"
+              />
+
+              {(channel === "sms" ? preview : smsPreview) && (
+                <div className="mt-3 rounded-lg bg-[#f8f9fa] px-3 py-2 text-sm text-[#3c4043]">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">
+                    SMS preview
+                  </span>
+                  <p className="mt-1 whitespace-pre-wrap">
+                    {channel === "sms" ? preview : smsPreview}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
 
           {reviewUrl && (
-            <p className="mt-2 truncate text-xs text-[#80868b]">
+            <p className="mt-4 truncate text-xs text-[#80868b]">
               Google review link:{" "}
               <a href={reviewUrl} target="_blank" rel="noopener noreferrer" className="text-[#1a73e8]">
                 {reviewUrl}
@@ -511,35 +577,10 @@ export default function CustomersPageClient({
             </p>
           )}
 
-          <textarea
-            value={template}
-            onChange={(e) => setTemplate(e.target.value)}
-            rows={showSmsEditor ? 5 : 7}
-            className="mt-4 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm leading-relaxed"
-          />
-
-          {preview && (
-            <div className="mt-3 rounded-lg bg-[#f8f9fa] px-3 py-2 text-sm text-[#3c4043]">
-              <span className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">
-                Sample preview
-              </span>
-              {previewHtml ? (
-                <iframe
-                  title="Email preview"
-                  srcDoc={previewHtml}
-                  className="mt-2 h-72 w-full rounded-lg border border-[#dadce0] bg-white"
-                  sandbox=""
-                />
-              ) : (
-                <p className="mt-1 whitespace-pre-wrap">{preview}</p>
-              )}
-            </div>
-          )}
-
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
-              disabled={sending || !template.trim() || eligibleCustomers.length === 0}
+              disabled={sending || !messageReady || eligibleCustomers.length === 0}
               onClick={() => void handleSend(false)}
               className="rounded-full bg-[#1a73e8] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1765cc] disabled:opacity-50"
             >
@@ -549,11 +590,11 @@ export default function CustomersPageClient({
             </button>
             <button
               type="button"
-              disabled={sending || !template.trim()}
+              disabled={sending || !messageReady}
               onClick={() => void loadMessageTemplate(focusKeyword)}
               className="rounded-full border border-[#dadce0] px-4 py-2 text-sm font-semibold text-[#3c4043] hover:bg-[#f8f9fa]"
             >
-              Regenerate {showSmsEditor ? "SMS" : "email"}
+              Regenerate {channel === "auto" ? "messages" : showSmsEditor ? "SMS" : "email"}
             </button>
           </div>
 

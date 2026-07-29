@@ -2,15 +2,14 @@ import type { FullAuditPayload } from "@/audit/types";
 import type { CustomerRecord } from "@/lib/customers/types";
 import { generateReviewRequestEmail } from "@/lib/llm/review-request-email";
 import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
-import type { OutreachChannel } from "@/lib/review-requests/channel";
 import type { GeoReviewPromptOptions } from "@/lib/llm/review-request-sms";
-import { normalizeEmail } from "@/lib/email/resend";
-import { normalizePhoneE164 } from "@/lib/sms/phone";
+import type { OutreachChannel } from "@/lib/review-requests/channel";
+import { getOutreachTargets } from "@/lib/customers/outreach-targets";
 
 export interface WebhookReviewRequestContent {
-  channel: OutreachChannel;
-  template: string;
-  subject?: string;
+  smsTemplate: string;
+  emailTemplate: string;
+  subject: string;
 }
 
 function buildDefaultSmsTemplate(_businessName: string): string {
@@ -24,25 +23,41 @@ function buildDefaultEmailContent(businessName: string): { subject: string; body
   };
 }
 
-export function resolveWebhookOutreachChannel(
-  channel: OutreachChannel,
-  customer: Pick<CustomerRecord, "phone" | "email">
-): OutreachChannel {
-  if (channel === "auto") {
-    if (normalizeEmail(customer.email ?? "")) return "email";
-    if (customer.phone && normalizePhoneE164(customer.phone)) return "sms";
-    return "sms";
+async function buildSmsTemplate(input: {
+  businessName: string;
+  audit: FullAuditPayload | null;
+  customer: CustomerRecord;
+  focusKeyword?: string | null;
+  geo?: GeoReviewPromptOptions;
+}): Promise<string> {
+  if (input.audit) {
+    return generateReviewRequestMessage(
+      input.audit,
+      input.customer,
+      input.focusKeyword,
+      input.geo
+    );
   }
-  return channel;
+  return buildDefaultSmsTemplate(input.businessName);
 }
 
-export function canDeliverWebhookOutreach(
-  channel: OutreachChannel,
-  customer: Pick<CustomerRecord, "phone" | "email">
-): boolean {
-  const resolved = resolveWebhookOutreachChannel(channel, customer);
-  if (resolved === "email") return Boolean(normalizeEmail(customer.email ?? ""));
-  return Boolean(customer.phone && normalizePhoneE164(customer.phone));
+async function buildEmailTemplate(input: {
+  businessName: string;
+  audit: FullAuditPayload | null;
+  customer: CustomerRecord;
+  focusKeyword?: string | null;
+  geo?: GeoReviewPromptOptions;
+}): Promise<{ subject: string; body: string }> {
+  if (input.audit) {
+    const draft = await generateReviewRequestEmail(
+      input.audit,
+      input.customer,
+      input.focusKeyword,
+      input.geo
+    );
+    return { subject: draft.subject, body: draft.body };
+  }
+  return buildDefaultEmailContent(input.businessName);
 }
 
 export async function generateWebhookReviewRequestContent(input: {
@@ -56,48 +71,40 @@ export async function generateWebhookReviewRequestContent(input: {
 }): Promise<WebhookReviewRequestContent> {
   if (input.usePrivateFeedback) {
     const { buildPrivateFeedbackTemplate } = await import("@/lib/sms/private-feedback");
+    const smsTemplate = buildPrivateFeedbackTemplate(input.businessName);
     return {
-      channel: "sms",
-      template: buildPrivateFeedbackTemplate(input.businessName),
+      smsTemplate,
+      emailTemplate: smsTemplate,
+      subject: `Message from ${input.businessName}`,
     };
   }
 
-  const resolvedChannel = resolveWebhookOutreachChannel(input.channel, input.customer);
+  const targets = getOutreachTargets(input.channel, input.customer);
+  const base = {
+    businessName: input.businessName,
+    audit: input.audit,
+    customer: input.customer,
+    focusKeyword: input.focusKeyword,
+    geo: input.geo,
+  };
 
-  if (resolvedChannel === "email") {
-    if (input.audit) {
-      const draft = await generateReviewRequestEmail(
-        input.audit,
-        input.customer,
-        input.focusKeyword,
-        input.geo
-      );
-      return {
-        channel: "email",
-        template: draft.body,
-        subject: draft.subject,
-      };
-    }
-
-    const fallback = buildDefaultEmailContent(input.businessName);
-    return {
-      channel: "email",
-      template: fallback.body,
-      subject: fallback.subject,
-    };
-  }
-
-  const template = input.audit
-    ? await generateReviewRequestMessage(
-        input.audit,
-        input.customer,
-        input.focusKeyword,
-        input.geo
-      )
-    : buildDefaultSmsTemplate(input.businessName);
+  const [smsTemplate, emailDraft] = await Promise.all([
+    targets.sms || input.channel === "sms" || input.channel === "auto"
+      ? buildSmsTemplate(base)
+      : Promise.resolve(buildDefaultSmsTemplate(input.businessName)),
+    targets.email || input.channel === "email" || input.channel === "auto"
+      ? buildEmailTemplate(base)
+      : Promise.resolve(buildDefaultEmailContent(input.businessName)),
+  ]);
 
   return {
-    channel: "sms",
-    template,
+    smsTemplate,
+    emailTemplate: emailDraft.body,
+    subject: emailDraft.subject,
   };
 }
+
+export {
+  canDeliverWebhookOutreach,
+  resolveWebhookOutreachChannel,
+} from "@/lib/customers/outreach-targets";

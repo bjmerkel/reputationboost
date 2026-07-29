@@ -507,8 +507,9 @@ export default function WebhookSetupWizard() {
             <div>
               <label className="text-sm font-semibold text-[#3c4043]">Outreach channel</label>
               <p className="mt-1 text-sm text-[#5f6368]">
-                Smart mode emails customers when Zapier provides an email address, otherwise sends
-                SMS. Map <code className="text-xs">email</code> in your Zap for best coverage.
+                Smart mode sends email and SMS when a customer has both on file. Map{" "}
+                <code className="text-xs">email</code> and <code className="text-xs">phone</code> in
+                your Zap for best coverage.
               </p>
               <select
                 value={settings.outreachChannel}
@@ -520,7 +521,7 @@ export default function WebhookSetupWizard() {
                 }
                 className="mt-2 w-full max-w-sm rounded-lg border border-[#dadce0] px-3 py-2.5 text-sm"
               >
-                <option value="auto">Smart — email when available, otherwise SMS</option>
+                <option value="auto">Smart — email and SMS when both are on file</option>
                 <option value="email">Email only</option>
                 <option value="sms">SMS only</option>
               </select>
@@ -740,7 +741,7 @@ export default function WebhookSetupWizard() {
                 <li>
                   Channel:{" "}
                   {settings.outreachChannel === "auto"
-                    ? "Smart (email when available)"
+                    ? "Smart (email + SMS when available)"
                     : settings.outreachChannel === "email"
                       ? "Email"
                       : "SMS"}
