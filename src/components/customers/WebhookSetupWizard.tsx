@@ -668,14 +668,6 @@ export default function WebhookSetupWizard() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-              <p className="font-semibold text-emerald-950">SMS opt-out is automatic</p>
-              <p className="mt-1 text-sm text-emerald-900">
-                When customers reply STOP or unsubscribe to review request texts, Reputation Boost
-                marks them opted out automatically. You do not need a second Zap for opt-outs.
-              </p>
-            </div>
-
             <button
               type="button"
               onClick={() => setShowManualZapier((v) => !v)}
