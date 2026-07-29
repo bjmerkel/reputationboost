@@ -6,6 +6,7 @@ import {
   applyKeywordPortfolioToAudit,
   applyTrackedKeywordsToAudit,
   buildOptimizedKeywordList,
+  buildPreliminaryAuditForPortfolio,
   computeKeywordPortfolio,
   findTrackedKeywordForGbpTerm,
   hasIndustryServiceIntent,
@@ -15,6 +16,8 @@ import {
   listUntrackedGbpSearchTerms,
   portfolioStepIsSatisfied,
   prioritizeKeywordsForGrid,
+  resolveKeywordsForRankCollection,
+  trackedKeywordsEqual,
 } from "./keyword-portfolio";
 import { simulateGapDriverImpact } from "./counterfactual";
 import { gapDriverScoreImpact, gapOutcomeScoreImpact } from "./score-impact";
@@ -411,5 +414,43 @@ describe("keyword-portfolio", () => {
 
     assert.equal(next.keywordPortfolio?.demandAlignmentScore, next.strategy.scores.demandAlignmentScore);
     assert.notEqual(next.strategy.scores.demandAlignmentScore, staleDemandAlignment);
+  });
+
+  it("resolves rank-collection keywords from a preliminary placeholder audit", () => {
+    const audit = wayneStyleAudit();
+    const preliminary = buildPreliminaryAuditForPortfolio({
+      client: {
+        id: audit.clientId,
+        name: audit.clientName,
+        keywords: audit.rankings.keywords.map((item) => item.keyword),
+      } as import("../types").ClientConfig,
+      trigger: "onboarding",
+      startedAt: audit.startedAt,
+      auditId: audit.auditId,
+      period: audit.period,
+      gbp: audit.gbp,
+      reviews: audit.reviews,
+      offGoogle: audit.offGoogle,
+    });
+
+    const resolved = resolveKeywordsForRankCollection(preliminary);
+
+    assert.ok(resolved.length >= 3);
+    assert.ok(
+      resolved.some((keyword) => keyword.includes("wayne") || keyword.includes("hvac")),
+      `expected demand-backed keywords, got: ${resolved.join(", ")}`
+    );
+    assert.ok(
+      !resolved.some((keyword) => keyword.includes("river street")),
+      "junk GBP terms should not be ranked"
+    );
+  });
+
+  it("compares tracked keyword lists order-insensitively", () => {
+    assert.equal(
+      trackedKeywordsEqual(["HVAC Wayne", "ac repair"], ["ac repair", "hvac wayne"]),
+      true
+    );
+    assert.equal(trackedKeywordsEqual(["hvac wayne"], ["hvac company wayne"]), false);
   });
 });

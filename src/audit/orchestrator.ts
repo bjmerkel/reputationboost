@@ -1,4 +1,4 @@
-import { loadBusinessConfig } from "./businesses";
+import { loadBusinessConfig, updateBusinessKeywords } from "./businesses";
 import { enrichLocationInventoryWithKeywords } from "@/lib/google/gbp-location-inventory";
 import {
   collectCompetitorSnapshots,
@@ -120,33 +120,85 @@ export async function runPhase1Audit(
   }
 
   const useGooglePlaces = isGoogleMapsConfigured();
+  const auditId = auditIdForDate(startedAt);
+  const period = periodLabel(startedAt);
 
-  const [gbp, reviews, offGoogle, placesData] = await Promise.all([
+  const [gbp, reviews, offGoogle] = await Promise.all([
     collectGbpSnapshot(client, connection, { userEmail: options.userEmail }),
     collectReviewSnapshot(client, connection),
     collectOffGoogleSnapshot(client),
-    useGooglePlaces
-      ? collectPlacesSnapshots(client).catch(() => null)
-      : Promise.resolve(null),
   ]);
 
-  let rankings = placesData?.rankings;
-  let competitors = placesData?.competitors;
+  const {
+    buildPreliminaryAuditForPortfolio,
+    resolveKeywordsForRankCollection,
+    trackedKeywordsEqual,
+  } = await import("@/audit/phase2/keyword-portfolio");
 
-  if (!placesData) {
+  const preliminaryAudit = buildPreliminaryAuditForPortfolio({
+    client,
+    userId: options.userId,
+    trigger: options.trigger ?? "manual",
+    startedAt: startedAt.toISOString(),
+    auditId,
+    period,
+    gbp,
+    reviews,
+    offGoogle,
+  });
+
+  const keywordsForRankCollection = resolveKeywordsForRankCollection(preliminaryAudit);
+  let rankingClient = client;
+
+  if (!trackedKeywordsEqual(client.keywords, keywordsForRankCollection)) {
+    rankingClient = { ...client, keywords: keywordsForRankCollection };
+    const businessId =
+      client.businessId ?? (await getBusinessIdForSlug(options.userId, client.id));
+    if (businessId) {
+      try {
+        const updated = await updateBusinessKeywords(
+          options.userId,
+          businessId,
+          keywordsForRankCollection
+        );
+        rankingClient = { ...rankingClient, keywords: updated.keywords };
+      } catch (error) {
+        console.warn(
+          `[audit] failed to persist portfolio-aligned keywords for ${client.id}:`,
+          error
+        );
+      }
+    }
+  }
+
+  let rankings = preliminaryAudit.rankings;
+  let competitors = preliminaryAudit.competitors;
+
+  if (useGooglePlaces) {
+    const placesData = await collectPlacesSnapshots(rankingClient).catch(() => null);
+    if (placesData) {
+      rankings = placesData.rankings;
+      competitors = placesData.competitors;
+    } else {
+      [rankings, competitors] = await Promise.all([
+        collectRankSnapshot(rankingClient),
+        collectCompetitorSnapshots(rankingClient),
+      ]);
+    }
+  } else {
     [rankings, competitors] = await Promise.all([
-      collectRankSnapshot(client),
-      collectCompetitorSnapshots(client),
+      collectRankSnapshot(rankingClient),
+      collectCompetitorSnapshots(rankingClient),
     ]);
   }
 
-  const aiVisibility = await resolveAiVisibility(client);
+  const aiVisibility = await resolveAiVisibility(rankingClient);
 
   const completedAt = new Date();
 
   const phase1: Phase1AuditPayload = {
-    clientId: client.id,
-    clientName: client.name,
+    clientId: rankingClient.id,
+    clientName: rankingClient.name,
     userId: options.userId,
     auditId: auditIdForDate(completedAt),
     trigger: options.trigger ?? "manual",
@@ -224,8 +276,8 @@ export async function runPhase1Audit(
     execution,
   };
 
-  const storagePath = await persistAudit(audit, options.userId, client);
-  await saveExecutionTasks(options.userId, client, audit.auditId, execution.tasks);
+  const storagePath = await persistAudit(audit, options.userId, rankingClient);
+  await saveExecutionTasks(options.userId, rankingClient, audit.auditId, execution.tasks);
 
   return {
     success: true,
