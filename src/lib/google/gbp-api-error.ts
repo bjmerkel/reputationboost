@@ -72,6 +72,20 @@ const ERROR_MESSAGES: Record<string, (metadata?: Record<string, string>) => stri
     () => "A service price is missing its currency. Add a currency (e.g. USD) or remove the price.",
   PRICE_CURRENCY_INVALID:
     () => "A service price has an invalid currency code. Use an ISO code like USD.",
+  INVALID_ATTRIBUTE_NAME: (metadata) => {
+    const names = metadata?.attribute_names;
+    return names
+      ? `Google does not support these attributes for your business category: ${names}. Remove them and try again, or set them manually in Google Business Profile.`
+      : "One or more attributes are not supported for your business category. Remove unsupported links and try again.";
+  },
+  INVALID_URL: () =>
+    "Google rejected one of the profile links. Use a full https:// URL to your page (for example https://www.facebook.com/your-page).",
+  ATTRIBUTE_PROVIDER_URL_NOT_ALLOWED: (metadata) => {
+    const name = metadata?.attribute_name;
+    return name
+      ? `Google does not allow editing the ${name.replace(/^attributes\//, "").replace(/_/g, " ")} link through the API. Add it manually in Google Business Profile.`
+      : "Google does not allow editing one of these profile links through the API. Add it manually in Google Business Profile.";
+  },
 };
 
 function extractErrorCode(detail: GbpErrorDetail): string | null {
@@ -81,7 +95,11 @@ function extractErrorCode(detail: GbpErrorDetail): string | null {
 }
 
 /** Turn a Google Business Information API error body into a user-facing message. */
-export function formatGbpApiError(data: GbpApiErrorBody, fallbackStatus?: number): string {
+export function formatGbpApiError(
+  data: GbpApiErrorBody,
+  fallbackStatus?: number,
+  context: "description" | "attributes" | "default" = "default"
+): string {
   const error = data.error;
   if (!error) {
     return fallbackStatus ? `GBP update failed (${fallbackStatus})` : "GBP update failed";
@@ -104,5 +122,13 @@ export function formatGbpApiError(data: GbpApiErrorBody, fallbackStatus?: number
     return message;
   }
 
-  return "Google rejected the update (invalid argument). Use plain text only — no URLs, HTML, or phone numbers — keep within the field's length limit, and resolve any pending conflicts in Take Action → Google Updates.";
+  if (context === "attributes") {
+    return "Google rejected the profile link update. Use a full https:// URL to your page, and confirm Google supports that platform for your business category.";
+  }
+
+  if (context === "description") {
+    return "Google rejected the update (invalid argument). Use plain text only — no URLs, HTML, or phone numbers — keep within the field's length limit, and resolve any pending conflicts in Take Action → Google Updates.";
+  }
+
+  return "Google rejected the update (invalid argument). Check your input and resolve any pending conflicts in Take Action → Google Updates.";
 }

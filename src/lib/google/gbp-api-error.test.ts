@@ -42,10 +42,43 @@ describe("gbp-api-error", () => {
     assert.match(message, /near me/);
   });
 
-  it("falls back when Google only returns the generic invalid argument message", () => {
+  it("maps INVALID_ATTRIBUTE_NAME to helpful profile-link guidance", () => {
+    const message = formatGbpApiError({
+      error: {
+        message: "Request contains an invalid argument.",
+        details: [
+          {
+            errorCode: "INVALID_ATTRIBUTE_NAME",
+            metadata: { attribute_names: "attributes/url_facebook" },
+          },
+        ],
+      },
+    }, undefined, "attributes");
+    assert.match(message, /does not support these attributes/i);
+    assert.match(message, /attributes\/url_facebook/);
+  });
+
+  it("maps INVALID_URL for profile links", () => {
+    const message = formatGbpApiError({
+      error: {
+        message: "Request contains an invalid argument.",
+        details: [{ errorCode: "INVALID_URL" }],
+      },
+    }, undefined, "attributes");
+    assert.match(message, /profile links/i);
+  });
+
+  it("falls back with attribute-specific guidance", () => {
     const message = formatGbpApiError({
       error: { message: "Request contains an invalid argument." },
-    });
+    }, undefined, "attributes");
+    assert.match(message, /profile link update/i);
+  });
+
+  it("falls back with description-specific guidance", () => {
+    const message = formatGbpApiError({
+      error: { message: "Request contains an invalid argument." },
+    }, undefined, "description");
     assert.match(message, /plain text only/i);
   });
 });
