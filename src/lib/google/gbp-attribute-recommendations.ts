@@ -102,14 +102,14 @@ function manualAttributeHaystack(
 
 /** Manual ENUM attributes we should not surface as plan checklist work (not API-writable). */
 export function isNonActionableManualAttribute(
-  item: Pick<GbpAttributeCoverageItem, "displayName" | "groupDisplayName" | "name" | "valueType">
+  item: Pick<GbpAttributeCoverageItem, "displayName" | "groupDisplayName" | "name">
 ): boolean {
   const haystack = manualAttributeHaystack(item);
   return /\b(chat|messaging|messages?)\b/.test(haystack);
 }
 
 export function isActionableManualAttribute(
-  item: Pick<GbpAttributeCoverageItem, "displayName" | "groupDisplayName" | "name" | "valueType">
+  item: Pick<GbpAttributeCoverageItem, "displayName" | "groupDisplayName" | "name">
 ): boolean {
   return !isNonActionableManualAttribute(item);
 }
