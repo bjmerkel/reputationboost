@@ -38,6 +38,7 @@ import {
   portfolioStepIsSatisfied,
 } from "./keyword-portfolio";
 import { buildGbpDescriptionDraft, cityFromAddress } from "@/lib/google/gbp-description-draft";
+import { getGbpPubsubTopic } from "@/lib/google/gbp-notifications";
 import { isNonActionableManualAttribute } from "@/lib/google/gbp-attribute-recommendations";
 import { resolveReviewResponseRate } from "@/audit/review-engagement";
 
@@ -601,11 +602,15 @@ export function buildAllGbpPlanSteps(audit: Phase1AuditPayload): GbpPlanStep[] {
       stepNumber: NOTIFICATIONS_PLAN_STEP,
       title: "Real-time GBP alerts",
       instruction:
-        "Subscribe to Pub/Sub alerts for new reviews and Google edits so you can respond before competitors do.",
+        "Real-time Pub/Sub alerts for new reviews and Google edits — enabled automatically when we sync your profile.",
       current: audit.gbp.notifications?.configured
         ? "Alerts partially configured"
-        : "No real-time GBP alerts configured",
-      recommended: "Enable review, Google update, and Voice of Merchant alerts",
+        : getGbpPubsubTopic()
+          ? "Alerts will enable on the next Google profile sync"
+          : "No real-time GBP alerts configured",
+      recommended: getGbpPubsubTopic()
+        ? "Sync from Google to subscribe review, Google update, and Voice of Merchant alerts"
+        : "Enable review, Google update, and Voice of Merchant alerts",
       gbpAction: "manual",
     });
   }

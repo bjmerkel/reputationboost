@@ -7,7 +7,7 @@ import { analyzeGbpReviewCoverage } from "@/lib/google/gbp-reviews-coverage";
 import { fetchGbpEnrichment } from "@/lib/google/business-profile";
 import { parseMediaViewCount } from "@/lib/google/gbp-media";
 import { analyzeGbpMediaCoverage } from "@/lib/google/gbp-media-coverage";
-import { getGbpNotificationSetting } from "@/lib/google/gbp-notifications";
+import { resolveGbpNotificationSetting } from "@/lib/google/gbp-notifications";
 import { analyzeGbpNotificationCoverage } from "@/lib/google/gbp-notifications-coverage";
 import {
   listGbpPlaceActionLinks,
@@ -139,7 +139,7 @@ async function collectGbpFromApi(
     getGbpLocationProfile(connection)
       .then((profile) => enrichGbpLocationProfile(connection, profile))
       .catch(() => null),
-    getGbpNotificationSetting(connection).catch(() => null),
+    resolveGbpNotificationSetting(connection),
     listGbpPlaceActionLinks(connection).catch(() => []),
     listGbpPlaceActionTypeMetadata(connection).catch(() => []),
   ]);

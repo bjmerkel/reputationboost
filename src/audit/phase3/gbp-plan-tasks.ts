@@ -133,7 +133,6 @@ function requiresApproval(type: ExecutionTask["type"]): boolean {
     "gbp_video",
     "gbp_media_recategorize",
     "gbp_media_delete",
-    "gbp_notifications",
     "gbp_attributes",
     "gbp_website",
     "gbp_phone",
@@ -1099,13 +1098,13 @@ export function tasksFromNotificationGaps(audit: FullAuditPayload): ExecutionTas
       "gbp_notifications",
       "Enable recommended GBP alerts",
       [
-        "Approve to subscribe your Google account to real-time Pub/Sub notifications.",
+        "We enable recommended Pub/Sub alerts automatically when your profile syncs from Google.",
         "",
         coverage.configured
-          ? `Missing alert types: ${missingLabels.join(", ") || "none"}`
-          : "No Pub/Sub topic is configured on your GBP account yet.",
+          ? `Still missing alert types: ${missingLabels.join(", ") || "none"}`
+          : "Subscribing review, Google update, customer media, and Voice of Merchant alerts.",
         "",
-        "Alerts cover new reviews, Google edits, customer media, and Voice of Merchant status.",
+        "If this step remains open after sync, use Settings → Real-time GBP alerts.",
       ].join("\n"),
       {
         syncNotifications: true,

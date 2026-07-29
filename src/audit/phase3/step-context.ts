@@ -218,7 +218,7 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
       return `Your profile is missing ${coverage.missingCount} of ${coverage.availableCount} available attributes — enabling them improves relevance and action rates.`;
     }
     case 14:
-      return "Subscribe to real-time GBP Pub/Sub alerts so you catch new reviews and Google edits quickly.";
+      return "Real-time GBP alerts enable automatically when we sync your profile from Google.";
     case 15:
       return "Add appointment, call, or directions links customers can tap directly from Google Maps to convert views into leads.";
     case 16:

@@ -183,6 +183,24 @@ export async function ensureGbpNotificationSetting(
   });
 }
 
+/**
+ * Load notification settings and auto-enable recommended subscriptions when the
+ * server Pub/Sub topic is configured (OAuth connect, audits, and Plan live sync).
+ */
+export async function resolveGbpNotificationSetting(
+  connection: GbpConnection
+): Promise<GbpNotificationSetting | null> {
+  if (getGbpPubsubTopic()) {
+    try {
+      await ensureGbpNotificationSetting(connection);
+    } catch (error) {
+      console.warn("[gbp-notifications] auto-enable skipped:", error);
+    }
+  }
+
+  return getGbpNotificationSetting(connection).catch(() => null);
+}
+
 /** Remove deprecated types and enable any missing recommended subscriptions. */
 export async function syncRecommendedGbpNotifications(
   connection: GbpConnection,
