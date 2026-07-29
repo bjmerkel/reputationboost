@@ -98,7 +98,7 @@ function getNativeZapierSteps(template: ZapierTemplate): string[] {
     return [
       `Click "Set up in Zapier" below — your webhook URL is copied automatically.`,
       `Set Square → ${triggerLabel} as the trigger.`,
-      "Map customer phone from the payment or customer record. If phone is missing, add Square → Find Customer and map phone from the customer profile.",
+      "Map buyer phone or email from the payment or customer record. If phone is missing, add Square → Find Customer and map phone or email from the customer profile.",
       `Add Reputation Boost → ${actionName}, paste your webhook URL, and map phone or email, name, service, amount, and currency.`,
       "Test the Zap with a real payment, then turn it on.",
     ];
@@ -120,7 +120,7 @@ function getManualZapierSteps(template: ZapierTemplate, webhookUrl: string): str
       : template.id === "hcp-job-completed"
         ? "Map Housecall Pro customer phone, email, name, job description, and job site address into phone, email, firstName/lastName, service, jobAddress, jobCity, and jobZip."
         : template.id === "square-payment-received"
-          ? "Use Square → New Payment as the trigger. Map buyer phone into phone, customer name into name, payment note or order line into service, and amount into amount."
+          ? "Use Square → New Payment as the trigger. Map buyer phone or email into phone/email, customer name into name, payment note or order line into service, and amount into amount."
           : "Map customer phone, email, name, and job or service description into the matching JSON fields.";
 
   return [
