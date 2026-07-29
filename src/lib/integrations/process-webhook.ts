@@ -276,14 +276,14 @@ export async function processInboundWebhook(
         geo: geoOptions,
         usePrivateFeedback,
       });
-      outreachChannel = content.channel;
 
       if (settings.delayHours > 0) {
         const scheduled = await scheduleReviewRequestForCustomer({
           userId: settings.userId,
           business,
           customer,
-          template: content.template,
+          smsTemplate: content.smsTemplate,
+          emailTemplate: content.emailTemplate,
           subjectTemplate: content.subject,
           channel: settings.outreachChannel,
           delayHours: settings.delayHours,
@@ -297,7 +297,7 @@ export async function processInboundWebhook(
           scheduledAt = scheduled.scheduledAt;
           scheduledSmsId = scheduled.smsId;
           scheduledEmailId = scheduled.emailId;
-          outreachChannel = scheduled.channel ?? outreachChannel;
+          outreachChannel = scheduled.channel ?? settings.outreachChannel;
           reviewRequestSkippedReason = undefined;
         } else {
           reviewRequestSkippedReason = scheduled.reason ?? "schedule_failed";
@@ -307,7 +307,8 @@ export async function processInboundWebhook(
           userId: settings.userId,
           business,
           channel: settings.outreachChannel,
-          template: content.template,
+          template: content.emailTemplate,
+          smsTemplate: content.smsTemplate,
           subjectTemplate: content.subject,
           customerIds: [customer.id],
           focusKeyword,

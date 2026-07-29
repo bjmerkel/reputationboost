@@ -165,11 +165,26 @@ export async function POST(request: Request) {
       previewCustomer?.service_city?.trim() || business.location.city || null;
 
     let template: string;
+    let smsTemplate: string | undefined;
     let subject = "How was your experience with [BUSINESS]?";
     let preview: string;
+    let smsPreview: string | undefined;
     let previewHtml: string | null = null;
 
-    if (channel === "email" || channel === "auto") {
+    const buildSmsDraft = async (): Promise<string> => {
+      if (audit) {
+        return generateReviewRequestMessage(
+          audit,
+          geoSample ?? keywordMatchedSample ?? undefined,
+          focusKeyword,
+          geoOptions
+        );
+      }
+      const firstName = keywordMatchedSample?.first_name?.trim() || "[FIRST_NAME]";
+      return `Hi ${firstName}! Thanks for choosing [BUSINESS] for [SERVICE]. If your experience was great, a quick Google review would mean a lot: [REVIEW_LINK]`;
+    };
+
+    const buildEmailDraft = async (): Promise<{ subject: string; body: string }> => {
       if (audit) {
         const emailDraft = await generateReviewRequestEmail(
           audit,
@@ -177,13 +192,46 @@ export async function POST(request: Request) {
           focusKeyword,
           geoOptions
         );
-        subject = emailDraft.subject;
-        template = emailDraft.body;
-      } else {
-        const firstName = keywordMatchedSample?.first_name?.trim() || "[FIRST_NAME]";
-        subject = "We'd love your feedback, [FIRST_NAME]";
-        template = `Hi ${firstName},\n\nThank you for choosing [BUSINESS] for [SERVICE]. If your experience was great, would you take a moment to leave us a quick Google review?\n\n[REVIEW_LINK]\n\nThank you,\n[BUSINESS]`;
+        return { subject: emailDraft.subject, body: emailDraft.body };
       }
+      const firstName = keywordMatchedSample?.first_name?.trim() || "[FIRST_NAME]";
+      return {
+        subject: "We'd love your feedback, [FIRST_NAME]",
+        body: `Hi ${firstName},\n\nThank you for choosing [BUSINESS] for [SERVICE]. If your experience was great, would you take a moment to leave us a quick Google review?\n\n[REVIEW_LINK]\n\nThank you,\n[BUSINESS]`,
+      };
+    };
+
+    if (channel === "auto") {
+      const [emailDraft, smsDraft] = await Promise.all([buildEmailDraft(), buildSmsDraft()]);
+      subject = emailDraft.subject;
+      template = emailDraft.body;
+      smsTemplate = smsDraft;
+
+      const emailPreview = previewReviewEmailContent({
+        subjectTemplate: subject,
+        bodyTemplate: template,
+        businessName: business.name,
+        reviewUrl: reviewUrl ?? "https://example.com/review",
+        customer: previewCustomer,
+        focusKeyword,
+        neighborhoodLabel: previewNeighborhood,
+        location: previewLocation,
+      });
+      preview = emailPreview.bodyText;
+      previewHtml = emailPreview.bodyHtml;
+      smsPreview = previewReviewRequestSms({
+        template: smsTemplate,
+        businessName: business.name,
+        reviewUrl: reviewUrl ?? "https://example.com/review",
+        customer: previewCustomer,
+        focusKeyword,
+        neighborhoodLabel: previewNeighborhood,
+        location: previewLocation,
+      });
+    } else if (channel === "email") {
+      const emailDraft = await buildEmailDraft();
+      subject = emailDraft.subject;
+      template = emailDraft.body;
 
       const emailPreview = previewReviewEmailContent({
         subjectTemplate: subject,
@@ -198,12 +246,7 @@ export async function POST(request: Request) {
       preview = emailPreview.bodyText;
       previewHtml = emailPreview.bodyHtml;
     } else if (audit) {
-      template = await generateReviewRequestMessage(
-        audit,
-        geoSample ?? keywordMatchedSample ?? undefined,
-        focusKeyword,
-        geoOptions
-      );
+      template = await buildSmsDraft();
       preview = previewReviewRequestSms({
         template,
         businessName: business.name,
@@ -214,8 +257,7 @@ export async function POST(request: Request) {
         location: previewLocation,
       });
     } else {
-      const firstName = keywordMatchedSample?.first_name?.trim() || "[FIRST_NAME]";
-      template = `Hi ${firstName}! Thanks for choosing [BUSINESS] for [SERVICE]. If your experience was great, a quick Google review would mean a lot: [REVIEW_LINK]`;
+      template = await buildSmsDraft();
       preview = previewReviewRequestSms({
         template,
         businessName: business.name,
@@ -232,8 +274,10 @@ export async function POST(request: Request) {
     return NextResponse.json({
       channel,
       template,
+      smsTemplate,
       subject,
       preview,
+      smsPreview,
       previewHtml,
       reviewUrl,
       emailEligibleCount,

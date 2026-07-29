@@ -37,7 +37,7 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
 export const ZAPIER_SETUP_STEPS = [
   "Pick a Zapier template below (or build your own with Webhooks by Zapier → POST).",
   "Paste your Reputation Boost webhook URL into the Zap action.",
-  "Map customer phone, name, and email when available — Smart mode emails customers with an address and texts everyone else.",
+  "Map customer phone, name, and email when available — Smart mode sends email and SMS when both are on file.",
   "Map Jobber job type / line item into service or jobType fields.",
   "Map invoice or job total into amount (and currency when available) for revenue attribution.",
   "Map the job site address into jobAddress, jobCity, and jobZip so review requests can target weak map areas.",

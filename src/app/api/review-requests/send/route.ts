@@ -25,6 +25,7 @@ export async function POST(request: Request) {
   try {
     const body = await parseJsonBody<{
       template?: string;
+      smsTemplate?: string;
       subject?: string;
       channel?: OutreachChannel;
       customerIds?: string[];
@@ -44,6 +45,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email subject is required" }, { status: 400 });
     }
 
+    if (channel === "auto" && !body.smsTemplate?.trim()) {
+      return NextResponse.json({ error: "SMS template is required for Smart mode" }, { status: 400 });
+    }
+
     const rawAudit = await loadLatestAuditFromSupabase(user.id, business.id, {
       businessName: business.name,
       businessUuid: business.businessId,
@@ -55,6 +60,7 @@ export async function POST(request: Request) {
       business,
       channel,
       template: body.template.trim(),
+      smsTemplate: body.smsTemplate?.trim(),
       subjectTemplate: body.subject?.trim(),
       customerIds: body.customerIds,
       batchSize: body.batchSize,

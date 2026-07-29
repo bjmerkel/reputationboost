@@ -6,13 +6,13 @@ import {
 } from "@/lib/integrations/webhook-outreach";
 
 describe("resolveWebhookOutreachChannel", () => {
-  it("prefers email in auto mode when email is present", () => {
+  it("uses auto when both email and phone are present", () => {
     assert.equal(
       resolveWebhookOutreachChannel("auto", {
         phone: "2145550100",
         email: "jane@example.com",
       }),
-      "email"
+      "auto"
     );
   });
 

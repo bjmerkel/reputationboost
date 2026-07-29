@@ -23,7 +23,7 @@ import type { GeoRoutingDecision } from "@/lib/review-velocity/geo-router";
 import { buildReviewEmailContent } from "@/lib/email/template";
 import { getResendFromAddress, isResendConfigured, sendEmail } from "@/lib/email/resend";
 import type { OutreachChannel } from "@/lib/review-requests/channel";
-import { resolveWebhookOutreachChannel } from "@/lib/integrations/webhook-outreach";
+import { getOutreachTargets } from "@/lib/customers/outreach-targets";
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isTwilioConfigured, sendSms } from "@/lib/sms/twilio";
@@ -213,7 +213,8 @@ export async function scheduleReviewRequestForCustomer(input: {
   userId: string;
   business: ClientConfig;
   customer: CustomerRecord;
-  template: string;
+  smsTemplate: string;
+  emailTemplate: string;
   subjectTemplate?: string;
   channel?: OutreachChannel;
   delayHours: number;
@@ -232,7 +233,7 @@ export async function scheduleReviewRequestForCustomer(input: {
   const businessId = input.business.businessId;
   if (!businessId) throw new Error("Business ID is required");
 
-  const channel = resolveWebhookOutreachChannel(input.channel ?? "auto", input.customer);
+  const targets = getOutreachTargets(input.channel ?? "auto", input.customer);
   const sendAt = addHours(new Date(), Math.max(0, input.delayHours));
 
   const address = [
@@ -257,7 +258,14 @@ export async function scheduleReviewRequestForCustomer(input: {
     return { scheduled: false, reason: "missing_review_url" };
   }
 
-  if (channel === "email") {
+  if (!targets.email && !targets.sms) {
+    return { scheduled: false, reason: "missing_contact" };
+  }
+
+  let smsId: string | undefined;
+  let emailId: string | undefined;
+
+  if (targets.email) {
     const { buildUnsubscribeUrl } = await import("@/lib/email/unsubscribe");
     const { normalizeEmail } = await import("@/lib/email/resend");
     const toEmail = normalizeEmail(input.customer.email ?? "");
@@ -267,7 +275,7 @@ export async function scheduleReviewRequestForCustomer(input: {
 
     const content = buildReviewEmailContent({
       subjectTemplate: input.subjectTemplate ?? "How was your experience with [BUSINESS]?",
-      bodyTemplate: input.template,
+      bodyTemplate: input.emailTemplate,
       customer: input.customer,
       businessName: input.business.name,
       reviewUrl,
@@ -280,7 +288,7 @@ export async function scheduleReviewRequestForCustomer(input: {
       },
     });
 
-    const emailId = await scheduleReviewRequestEmail({
+    emailId = await scheduleReviewRequestEmail({
       userId: input.userId,
       businessId,
       customerId: input.customer.id,
@@ -293,46 +301,50 @@ export async function scheduleReviewRequestForCustomer(input: {
       focusKeyword: input.geoRouting?.focusKeyword ?? input.focusKeyword,
       geoRouting: input.geoRouting,
     });
-
-    return {
-      scheduled: true,
-      scheduledAt: sendAt.toISOString(),
-      emailId,
-      channel: "email",
-    };
   }
 
-  const body = personalizeReviewRequestSms({
-    template: input.template,
-    customer: input.customer,
-    businessName: input.business.name,
-    reviewUrl,
-    focusKeyword: input.geoRouting?.focusKeyword ?? input.focusKeyword,
-    neighborhoodLabel: input.geoRouting?.neighborhoodLabel ?? null,
-    location: {
-      city: input.business.location.city,
-      state: input.business.location.state,
-    },
-  });
+  if (targets.sms) {
+    const body = personalizeReviewRequestSms({
+      template: input.smsTemplate,
+      customer: input.customer,
+      businessName: input.business.name,
+      reviewUrl,
+      focusKeyword: input.geoRouting?.focusKeyword ?? input.focusKeyword,
+      neighborhoodLabel: input.geoRouting?.neighborhoodLabel ?? null,
+      location: {
+        city: input.business.location.city,
+        state: input.business.location.state,
+      },
+    });
 
-  const normalizedPhone = input.customer.phone ? normalizePhoneE164(input.customer.phone) : null;
-  if (!normalizedPhone) {
-    return { scheduled: false, reason: "missing_phone" };
+    const normalizedPhone = input.customer.phone ? normalizePhoneE164(input.customer.phone) : null;
+    if (!normalizedPhone) {
+      if (!emailId) {
+        return { scheduled: false, reason: "missing_phone" };
+      }
+    } else {
+      smsId = await scheduleReviewRequestSms({
+        userId: input.userId,
+        businessId,
+        customerId: input.customer.id,
+        toPhone: normalizedPhone,
+        body,
+        sendAt,
+        customerEventId: input.customerEventId,
+        focusKeyword: input.geoRouting?.focusKeyword ?? input.focusKeyword,
+        geoRouting: input.geoRouting,
+      });
+    }
   }
 
-  const smsId = await scheduleReviewRequestSms({
-    userId: input.userId,
-    businessId,
-    customerId: input.customer.id,
-    toPhone: normalizedPhone,
-    body,
-    sendAt,
-    customerEventId: input.customerEventId,
-    focusKeyword: input.geoRouting?.focusKeyword ?? input.focusKeyword,
-    geoRouting: input.geoRouting,
-  });
-
-  return { scheduled: true, scheduledAt: sendAt.toISOString(), smsId, channel: "sms" };
+  return {
+    scheduled: true,
+    scheduledAt: sendAt.toISOString(),
+    smsId,
+    emailId,
+    channel:
+      smsId && emailId ? "auto" : emailId ? "email" : "sms",
+  };
 }
 
 async function markScheduledMessage(

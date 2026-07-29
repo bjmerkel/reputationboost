@@ -16,7 +16,7 @@ export function channelDescription(channel: OutreachChannel): string {
     case "email":
       return "Send polished review request emails to customers with an email on file.";
     case "auto":
-      return "Email when available, otherwise SMS — reach every customer with one click.";
+      return "Email and SMS when both are on file — reach every customer with one click.";
     default:
       return "Send personalized text messages asking for Google reviews.";
   }

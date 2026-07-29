@@ -1,10 +1,9 @@
 import type { OutreachChannel } from "@/lib/review-requests/channel";
+import { customerHasEmail, customerHasSms } from "@/lib/customers/outreach-targets";
 import { sendEmailReviewRequests } from "@/lib/email/send-review-requests";
 import { sendReviewRequests } from "@/lib/sms/send-review-requests";
 import type { SendReviewRequestsInput, SendReviewRequestsResult } from "@/lib/sms/send-review-requests";
 import type { SendEmailReviewRequestsInput, SendEmailReviewRequestsResult } from "@/lib/email/send-review-requests";
-import { normalizeEmail } from "@/lib/email/resend";
-import { normalizePhoneE164 } from "@/lib/sms/phone";
 import type { CustomerRecord } from "@/lib/customers/types";
 
 export type { OutreachChannel } from "@/lib/review-requests/channel";
@@ -12,6 +11,7 @@ export type { OutreachChannel } from "@/lib/review-requests/channel";
 export interface SendOutreachReviewRequestsInput extends SendReviewRequestsInput {
   channel?: OutreachChannel;
   subjectTemplate?: string;
+  smsTemplate?: string;
 }
 
 export interface SendOutreachReviewRequestsResult {
@@ -27,18 +27,34 @@ export interface SendOutreachReviewRequestsResult {
   email?: SendEmailReviewRequestsResult;
 }
 
-function canReachBySms(customer: CustomerRecord): boolean {
-  return Boolean(customer.phone && normalizePhoneE164(customer.phone));
-}
+function partitionAutoCustomers(customers: CustomerRecord[], batchSize: number): {
+  emailIds: string[];
+  smsIds: string[];
+} {
+  const emailIds: string[] = [];
+  const smsIds: string[] = [];
+  let customersSelected = 0;
 
-function canReachByEmail(customer: CustomerRecord): boolean {
-  return Boolean(normalizeEmail(customer.email ?? ""));
+  for (const customer of customers) {
+    if (customersSelected >= batchSize) break;
+
+    const hasEmail = customerHasEmail(customer);
+    const hasSms = customerHasSms(customer);
+    if (!hasEmail && !hasSms) continue;
+
+    if (hasEmail) emailIds.push(customer.id);
+    if (hasSms) smsIds.push(customer.id);
+    customersSelected++;
+  }
+
+  return { emailIds, smsIds };
 }
 
 export async function sendOutreachReviewRequests(
   input: SendOutreachReviewRequestsInput
 ): Promise<SendOutreachReviewRequestsResult> {
   const channel = input.channel ?? "sms";
+  const smsTemplate = input.smsTemplate?.trim() || input.template;
 
   if (channel === "email") {
     if (!input.subjectTemplate?.trim()) {
@@ -76,6 +92,10 @@ export async function sendOutreachReviewRequests(
   }
 
   if (channel === "auto") {
+    if (!input.subjectTemplate?.trim()) {
+      throw new Error("Email subject is required");
+    }
+
     const businessId = input.business.businessId!;
     const batchSize = input.batchSize ?? 15;
     const { getEligibleCustomers } = await import("@/lib/customers/storage");
@@ -93,19 +113,16 @@ export async function sendOutreachReviewRequests(
         : await getCustomersByIds(input.userId, businessId, input.customerIds);
     }
 
-    const emailIds: string[] = [];
-    const smsIds: string[] = [];
-    for (const customer of pool) {
-      if (emailIds.length + smsIds.length >= batchSize) break;
-      if (canReachByEmail(customer)) emailIds.push(customer.id);
-      else if (canReachBySms(customer)) smsIds.push(customer.id);
-    }
+    const { emailIds, smsIds } = partitionAutoCustomers(
+      input.customerIds?.length ? pool : pool.slice(0, batchSize * 4),
+      input.customerIds?.length ? pool.length : batchSize
+    );
 
-    const smsInput: SendReviewRequestsInput = { ...input };
+    const smsInput: SendReviewRequestsInput = { ...input, template: smsTemplate };
     const emailInput: SendEmailReviewRequestsInput = {
       userId: input.userId,
       business: input.business,
-      subjectTemplate: input.subjectTemplate?.trim() || "How was your experience with [BUSINESS]?",
+      subjectTemplate: input.subjectTemplate.trim(),
       bodyTemplate: input.template,
       batchSize,
       executionTaskId: input.executionTaskId,
@@ -142,7 +159,7 @@ export async function sendOutreachReviewRequests(
     };
   }
 
-  const sms = await sendReviewRequests(input);
+  const sms = await sendReviewRequests({ ...input, template: smsTemplate });
   return {
     channel: "sms",
     sent: sms.sent,
