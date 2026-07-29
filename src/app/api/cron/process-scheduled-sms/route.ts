@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { processDueScheduledSms } from "@/lib/review-requests/scheduled-sms";
+import { processDueScheduledOutreach } from "@/lib/review-requests/scheduled-sms";
 import { isAdminSupabaseConfigured } from "@/lib/supabase/admin";
 
 function verifyCronSecret(request: Request): boolean {
@@ -12,7 +12,7 @@ function verifyCronSecret(request: Request): boolean {
   return auth === `Bearer ${secret}`;
 }
 
-/** Vercel Cron: send due scheduled review-request SMS messages. */
+/** Vercel Cron: send due scheduled review-request SMS and email messages. */
 export async function GET(request: Request) {
   if (!verifyCronSecret(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await processDueScheduledSms();
+    const result = await processDueScheduledOutreach();
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     console.error("[cron/process-scheduled-sms] failed:", error);

@@ -43,6 +43,7 @@ export interface WebhookBusinessSettings {
   autoSend: boolean;
   delayHours: number;
   triggerEvents: string[];
+  outreachChannel: import("@/lib/review-requests/channel").OutreachChannel;
 }
 
 export interface WebhookProcessResult {
@@ -54,6 +55,8 @@ export interface WebhookProcessResult {
   reviewRequestScheduled?: boolean;
   scheduledAt?: string;
   scheduledSmsId?: string;
+  scheduledEmailId?: string;
+  outreachChannel?: string;
   auditHasReviewGap?: boolean;
   reviewRequestSkippedReason?: string;
   optedOut?: boolean;

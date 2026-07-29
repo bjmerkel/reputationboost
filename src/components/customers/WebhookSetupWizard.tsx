@@ -33,6 +33,7 @@ interface WebhookSettings {
   autoSend: boolean;
   delayHours: number;
   triggerEvents: string[];
+  outreachChannel: "sms" | "email" | "auto";
   auditHasReviewGap?: boolean;
   customerGeoCoverage?: {
     totalCustomers: number;
@@ -245,7 +246,9 @@ export default function WebhookSetupWizard() {
   const currentStep = STEPS[stepIndex];
 
   async function updateSettings(
-    patch: Partial<Pick<WebhookSettings, "autoSend" | "delayHours" | "triggerEvents">> & {
+    patch: Partial<
+      Pick<WebhookSettings, "autoSend" | "delayHours" | "triggerEvents" | "outreachChannel">
+    > & {
       rotateToken?: boolean;
     }
   ) {
@@ -267,6 +270,7 @@ export default function WebhookSetupWizard() {
               autoSend: data.autoSend,
               delayHours: data.delayHours,
               triggerEvents: data.triggerEvents,
+              outreachChannel: data.outreachChannel,
             }
           : prev
       );
@@ -494,11 +498,33 @@ export default function WebhookSetupWizard() {
                 <p className="mt-1 text-sm text-[#5f6368]">
                   When enabled,{" "}
                   <code className="text-xs">{settings.triggerEvents.join(", ")}</code> events
-                  automatically queue an SMS. Otherwise only payloads with{" "}
-                  <code className="text-xs">sendReviewRequest: true</code> send.
+                  automatically queue outreach via your selected channel. Otherwise only payloads
+                  with <code className="text-xs">sendReviewRequest: true</code> send.
                 </p>
               </div>
             </label>
+
+            <div>
+              <label className="text-sm font-semibold text-[#3c4043]">Outreach channel</label>
+              <p className="mt-1 text-sm text-[#5f6368]">
+                Smart mode emails customers when Zapier provides an email address, otherwise sends
+                SMS. Map <code className="text-xs">email</code> in your Zap for best coverage.
+              </p>
+              <select
+                value={settings.outreachChannel}
+                disabled={saving}
+                onChange={(e) =>
+                  void updateSettings({
+                    outreachChannel: e.target.value as WebhookSettings["outreachChannel"],
+                  })
+                }
+                className="mt-2 w-full max-w-sm rounded-lg border border-[#dadce0] px-3 py-2.5 text-sm"
+              >
+                <option value="auto">Smart — email when available, otherwise SMS</option>
+                <option value="email">Email only</option>
+                <option value="sms">SMS only</option>
+              </select>
+            </div>
 
             <div>
               <label className="text-sm font-semibold text-[#3c4043]">Send delay</label>
@@ -711,6 +737,14 @@ export default function WebhookSetupWizard() {
                   <code className="text-xs">sendReviewRequest: true</code> per payload
                 </li>
                 <li>Auto-send: {settings.autoSend ? "On" : "Off"}</li>
+                <li>
+                  Channel:{" "}
+                  {settings.outreachChannel === "auto"
+                    ? "Smart (email when available)"
+                    : settings.outreachChannel === "email"
+                      ? "Email"
+                      : "SMS"}
+                </li>
                 <li>
                   Delay:{" "}
                   {settings.delayHours === 0

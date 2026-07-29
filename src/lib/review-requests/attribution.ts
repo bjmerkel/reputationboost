@@ -334,7 +334,7 @@ export async function getOutreachStats(userId: string, businessId: string) {
   since.setDate(since.getDate() - 30);
   const sinceIso = since.toISOString();
 
-  const [eventsRes, smsRes, emailRes, scheduledRes, attributedRes] = await Promise.all([
+  const [eventsRes, smsRes, emailRes, scheduledSmsRes, scheduledEmailRes, attributedRes] = await Promise.all([
     supabase
       .from("customer_events")
       .select("id", { count: "exact", head: true })
@@ -362,6 +362,12 @@ export async function getOutreachStats(userId: string, businessId: string) {
       .eq("business_id", businessId)
       .eq("status", "scheduled"),
     supabase
+      .from("email_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("business_id", businessId)
+      .eq("status", "scheduled"),
+    supabase
       .from("review_outreach_attributions")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
@@ -379,7 +385,7 @@ export async function getOutreachStats(userId: string, businessId: string) {
     smsSent30d: smsSent,
     emailSent30d: emailSent,
     outreachSent30d: outreachSent,
-    scheduledPending: scheduledRes.count ?? 0,
+    scheduledPending: (scheduledSmsRes.count ?? 0) + (scheduledEmailRes.count ?? 0),
     attributedReviews30d: attributed,
     conversionRate: outreachSent > 0 ? Math.round((attributed / outreachSent) * 1000) / 10 : 0,
     windowDays: ATTRIBUTION_WINDOW_DAYS,

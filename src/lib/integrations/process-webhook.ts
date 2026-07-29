@@ -3,17 +3,19 @@ import { ensureStrategy } from "@/audit/ensure-strategy";
 import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin";
 import { upsertCustomerAdmin } from "@/lib/customers/storage-admin";
 import type { CustomerRecord } from "@/lib/customers/types";
-import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
 import {
   auditHasReviewGap,
   evaluateReviewRequestEligibility,
   ineligibilityMessage,
 } from "@/lib/review-requests/eligibility";
 import { scheduleReviewRequestForCustomer } from "@/lib/review-requests/scheduled-sms";
+import { sendOutreachReviewRequests } from "@/lib/review-requests/send-outreach";
 import { prepareGeoReviewContext } from "@/lib/review-velocity/prepare-geo-review";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildPrivateFeedbackTemplate } from "@/lib/sms/private-feedback";
-import { sendReviewRequests } from "@/lib/sms/send-review-requests";
+import {
+  canDeliverWebhookOutreach,
+  generateWebhookReviewRequestContent,
+} from "./webhook-outreach";
 import { inferWebhookServiceNotes } from "./webhook-service";
 import { isOptOutEvent, normalizeWebhookPayload } from "./normalize-webhook-payload";
 import {
@@ -21,10 +23,6 @@ import {
   getWebhookBusinessByToken,
 } from "./webhook-storage";
 import type { WebhookProcessResult } from "./webhook-types";
-
-function buildDefaultTemplate(_businessName: string): string {
-  return `Hi [FIRST_NAME]! Thanks for choosing [BUSINESS] for [SERVICE]. We'd love your feedback on Google — it helps neighbors find us: [REVIEW_LINK]`;
-}
 
 function readSentiment(
   payload: Record<string, unknown>
@@ -237,6 +235,8 @@ export async function processInboundWebhook(
   let reviewRequestScheduled = false;
   let scheduledAt: string | undefined;
   let scheduledSmsId: string | undefined;
+  let scheduledEmailId: string | undefined;
+  let outreachChannel = settings.outreachChannel;
   let reviewRequestSkippedReason = eligibility.reason
     ? ineligibilityMessage(eligibility.reason)
     : undefined;
@@ -253,20 +253,39 @@ export async function processInboundWebhook(
 
     if (usePrivateFeedback && !reviewUrlOverride) {
       reviewRequestSkippedReason = "Private feedback URL is not configured.";
+    } else if (!canDeliverWebhookOutreach(settings.outreachChannel, customer)) {
+      reviewRequestSkippedReason =
+        settings.outreachChannel === "email"
+          ? "Customer has no email address on file."
+          : "Customer has no reachable phone number.";
     } else {
       const focusKeyword = geoContext.focusKeyword;
-      const template = usePrivateFeedback
-        ? buildPrivateFeedbackTemplate(business.name)
-        : audit
-          ? await generateReviewRequestMessage(audit, customer, focusKeyword, geoRouting ?? undefined)
-          : buildDefaultTemplate(business.name);
+      const geoOptions = geoRouting?.geoTargeted
+        ? {
+            geoTargeted: true,
+            neighborhoodLabel: geoRouting.neighborhoodLabel,
+            promptSeed: focusKeyword ?? undefined,
+          }
+        : undefined;
+      const content = await generateWebhookReviewRequestContent({
+        channel: settings.outreachChannel,
+        businessName: business.name,
+        audit,
+        customer,
+        focusKeyword,
+        geo: geoOptions,
+        usePrivateFeedback,
+      });
+      outreachChannel = content.channel;
 
       if (settings.delayHours > 0) {
         const scheduled = await scheduleReviewRequestForCustomer({
           userId: settings.userId,
           business,
           customer,
-          template,
+          template: content.template,
+          subjectTemplate: content.subject,
+          channel: settings.outreachChannel,
           delayHours: settings.delayHours,
           reviewUrlOverride,
           focusKeyword,
@@ -277,25 +296,35 @@ export async function processInboundWebhook(
           reviewRequestScheduled = true;
           scheduledAt = scheduled.scheduledAt;
           scheduledSmsId = scheduled.smsId;
+          scheduledEmailId = scheduled.emailId;
+          outreachChannel = scheduled.channel ?? outreachChannel;
           reviewRequestSkippedReason = undefined;
         } else {
           reviewRequestSkippedReason = scheduled.reason ?? "schedule_failed";
         }
       } else {
-        const result = await sendReviewRequests({
+        const result = await sendOutreachReviewRequests({
           userId: settings.userId,
           business,
-          template,
+          channel: settings.outreachChannel,
+          template: content.template,
+          subjectTemplate: content.subject,
           customerIds: [customer.id],
           focusKeyword,
           geoRouting,
           serviceRole: true,
           reviewUrlOverride,
+          manualSend: false,
         });
 
         reviewRequestSent = result.sent > 0;
+        outreachChannel = result.channel;
         if (!reviewRequestSent) {
-          reviewRequestSkippedReason = result.messages[0]?.error ?? "send_failed";
+          const firstError =
+            result.email?.messages[0]?.error ??
+            result.sms?.messages[0]?.error ??
+            "send_failed";
+          reviewRequestSkippedReason = firstError;
         } else {
           reviewRequestSkippedReason = undefined;
         }
@@ -315,6 +344,7 @@ export async function processInboundWebhook(
       sentiment,
       usedPrivateFeedback: eligibility.usePrivateFeedback === true,
       optedOut: payload.optedOut ?? false,
+      outreachChannel,
       geoRouting: geoRouting
         ? {
             focusKeyword: geoRouting.focusKeyword,
@@ -361,6 +391,8 @@ export async function processInboundWebhook(
     reviewRequestScheduled,
     scheduledAt,
     scheduledSmsId,
+    scheduledEmailId,
+    outreachChannel,
     auditHasReviewGap: hasReviewGap,
     reviewRequestSkippedReason,
     optedOut: customer.opted_out,

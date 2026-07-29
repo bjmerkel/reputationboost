@@ -20,6 +20,10 @@ import {
   evaluateReviewRequestEligibility,
 } from "@/lib/review-requests/eligibility";
 import type { GeoRoutingDecision } from "@/lib/review-velocity/geo-router";
+import { buildReviewEmailContent } from "@/lib/email/template";
+import { getResendFromAddress, isResendConfigured, sendEmail } from "@/lib/email/resend";
+import type { OutreachChannel } from "@/lib/review-requests/channel";
+import { resolveWebhookOutreachChannel } from "@/lib/integrations/webhook-outreach";
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isTwilioConfigured, sendSms } from "@/lib/sms/twilio";
@@ -39,6 +43,76 @@ export interface ScheduledSmsRecord {
 
 function addHours(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000);
+}
+
+export interface ScheduledEmailRecord {
+  id: string;
+  business_id: string;
+  user_id: string;
+  customer_id: string | null;
+  to_email: string;
+  subject: string;
+  body_text: string;
+  body_html: string;
+  scheduled_at: string;
+  status: string;
+  focus_keyword: string | null;
+}
+
+export async function scheduleReviewRequestEmail(input: {
+  userId: string;
+  businessId: string;
+  customerId: string;
+  toEmail: string;
+  subject: string;
+  bodyText: string;
+  bodyHtml: string;
+  sendAt: Date;
+  customerEventId?: string;
+  focusKeyword?: string | null;
+  geoRouting?: GeoRoutingDecision | null;
+}): Promise<string> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("email_messages")
+    .insert({
+      business_id: input.businessId,
+      user_id: input.userId,
+      customer_id: input.customerId,
+      execution_task_id: input.customerEventId ?? null,
+      focus_keyword: input.focusKeyword?.trim() || null,
+      target_grid_north: input.geoRouting?.targetCell.gridNorth ?? null,
+      target_grid_east: input.geoRouting?.targetCell.gridEast ?? null,
+      target_zone: input.geoRouting?.targetZone ?? null,
+      neighborhood_label: input.geoRouting?.neighborhoodLabel ?? null,
+      to_email: input.toEmail,
+      subject: input.subject,
+      body_text: input.bodyText,
+      body_html: input.bodyHtml,
+      status: "scheduled",
+      scheduled_at: input.sendAt.toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data.id as string;
+}
+
+export async function listDueScheduledEmail(limit = 50): Promise<ScheduledEmailRecord[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("email_messages")
+    .select(
+      "id, business_id, user_id, customer_id, to_email, subject, body_text, body_html, scheduled_at, status, focus_keyword"
+    )
+    .eq("status", "scheduled")
+    .lte("scheduled_at", new Date().toISOString())
+    .order("scheduled_at", { ascending: true })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ScheduledEmailRecord[];
 }
 
 export async function scheduleReviewRequestSms(input: {
@@ -139,14 +213,26 @@ export async function scheduleReviewRequestForCustomer(input: {
   business: ClientConfig;
   customer: CustomerRecord;
   template: string;
+  subjectTemplate?: string;
+  channel?: OutreachChannel;
   delayHours: number;
   customerEventId?: string;
   reviewUrlOverride?: string;
   focusKeyword?: string | null;
   geoRouting?: GeoRoutingDecision | null;
-}): Promise<{ scheduled: boolean; scheduledAt?: string; smsId?: string; reason?: string }> {
+}): Promise<{
+  scheduled: boolean;
+  scheduledAt?: string;
+  smsId?: string;
+  emailId?: string;
+  channel?: OutreachChannel;
+  reason?: string;
+}> {
   const businessId = input.business.businessId;
   if (!businessId) throw new Error("Business ID is required");
+
+  const channel = resolveWebhookOutreachChannel(input.channel ?? "auto", input.customer);
+  const sendAt = addHours(new Date(), Math.max(0, input.delayHours));
 
   const address = [
     input.business.location.address,
@@ -170,6 +256,51 @@ export async function scheduleReviewRequestForCustomer(input: {
     return { scheduled: false, reason: "missing_review_url" };
   }
 
+  if (channel === "email") {
+    const { buildUnsubscribeUrl } = await import("@/lib/email/unsubscribe");
+    const { normalizeEmail } = await import("@/lib/email/resend");
+    const toEmail = normalizeEmail(input.customer.email ?? "");
+    if (!toEmail) {
+      return { scheduled: false, reason: "missing_email" };
+    }
+
+    const content = buildReviewEmailContent({
+      subjectTemplate: input.subjectTemplate ?? "How was your experience with [BUSINESS]?",
+      bodyTemplate: input.template,
+      customer: input.customer,
+      businessName: input.business.name,
+      reviewUrl,
+      unsubscribeUrl: buildUnsubscribeUrl(input.customer.id, businessId),
+      focusKeyword: input.geoRouting?.focusKeyword ?? input.focusKeyword,
+      neighborhoodLabel: input.geoRouting?.neighborhoodLabel ?? null,
+      location: {
+        city: input.business.location.city,
+        state: input.business.location.state,
+      },
+    });
+
+    const emailId = await scheduleReviewRequestEmail({
+      userId: input.userId,
+      businessId,
+      customerId: input.customer.id,
+      toEmail,
+      subject: content.subject,
+      bodyText: content.bodyText,
+      bodyHtml: content.bodyHtml,
+      sendAt,
+      customerEventId: input.customerEventId,
+      focusKeyword: input.geoRouting?.focusKeyword ?? input.focusKeyword,
+      geoRouting: input.geoRouting,
+    });
+
+    return {
+      scheduled: true,
+      scheduledAt: sendAt.toISOString(),
+      emailId,
+      channel: "email",
+    };
+  }
+
   const body = personalizeReviewRequestSms({
     template: input.template,
     customer: input.customer,
@@ -183,7 +314,6 @@ export async function scheduleReviewRequestForCustomer(input: {
     },
   });
 
-  const sendAt = addHours(new Date(), Math.max(0, input.delayHours));
   const smsId = await scheduleReviewRequestSms({
     userId: input.userId,
     businessId,
@@ -196,7 +326,7 @@ export async function scheduleReviewRequestForCustomer(input: {
     geoRouting: input.geoRouting,
   });
 
-  return { scheduled: true, scheduledAt: sendAt.toISOString(), smsId };
+  return { scheduled: true, scheduledAt: sendAt.toISOString(), smsId, channel: "sms" };
 }
 
 async function markScheduledMessage(
@@ -224,6 +354,173 @@ async function markScheduledMessage(
     .eq("id", messageId);
 
   if (error) throw new Error(error.message);
+}
+
+async function markScheduledEmail(
+  messageId: string,
+  patch: {
+    status: "sent" | "failed" | "simulated";
+    errorMessage?: string;
+    providerMessageId?: string;
+    toEmail?: string;
+  }
+): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("email_messages")
+    .update({
+      status: patch.status,
+      error_message: patch.errorMessage ?? null,
+      provider_message_id: patch.providerMessageId ?? null,
+      to_email: patch.toEmail ?? undefined,
+      sent_at:
+        patch.status === "sent" || patch.status === "simulated"
+          ? new Date().toISOString()
+          : null,
+    })
+    .eq("id", messageId);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function processDueScheduledEmail(): Promise<{
+  processed: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+}> {
+  const due = await listDueScheduledEmail();
+  let sent = 0;
+  let failed = 0;
+  let skipped = 0;
+
+  for (const message of due) {
+    try {
+      if (!message.customer_id) {
+        await markScheduledEmail(message.id, {
+          status: "failed",
+          errorMessage: "Missing customer",
+        });
+        failed++;
+        continue;
+      }
+
+      const business = await loadBusinessConfig(message.business_id);
+      if (!business) {
+        await markScheduledEmail(message.id, {
+          status: "failed",
+          errorMessage: "Business not found",
+        });
+        failed++;
+        continue;
+      }
+
+      const customers = await getCustomersByIdsAdmin(message.business_id, [message.customer_id]);
+      const customer = customers[0];
+      if (!customer) {
+        await markScheduledEmail(message.id, {
+          status: "failed",
+          errorMessage: "Customer not found",
+        });
+        failed++;
+        continue;
+      }
+
+      const rawAudit = await loadLatestAuditForBusinessAdmin(
+        message.user_id,
+        message.business_id,
+        business.id,
+        business.name
+      );
+      const audit = rawAudit ? ensureStrategy(rawAudit) : null;
+
+      const eligibility = evaluateReviewRequestEligibility({
+        customer,
+        manualSend: true,
+        auditHasReviewGap: auditHasReviewGap(audit),
+      });
+
+      if (!eligibility.eligible) {
+        await markScheduledEmail(message.id, {
+          status: "failed",
+          errorMessage: eligibility.reason ?? "ineligible",
+        });
+        skipped++;
+        continue;
+      }
+
+      if (!isResendConfigured()) {
+        await markScheduledEmail(message.id, { status: "simulated" });
+        await markCustomersReviewRequestedAdmin(message.business_id, [customer.id]);
+        await startCampaignAfterScheduledSend({
+          userId: message.user_id,
+          business,
+          focusKeyword: message.focus_keyword,
+          audit,
+        });
+        sent++;
+        continue;
+      }
+
+      const emailResult = await sendEmail(
+        {
+          to: message.to_email,
+          subject: message.subject,
+          html: message.body_html,
+          text: message.body_text,
+        },
+        undefined,
+        getResendFromAddress(business.name) ?? undefined
+      );
+
+      if (emailResult.success) {
+        await markScheduledEmail(message.id, {
+          status: "sent",
+          providerMessageId: emailResult.messageId,
+          toEmail: emailResult.to,
+        });
+        await markCustomersReviewRequestedAdmin(message.business_id, [customer.id]);
+        await startCampaignAfterScheduledSend({
+          userId: message.user_id,
+          business,
+          focusKeyword: message.focus_keyword,
+          audit,
+        });
+        sent++;
+      } else {
+        await markScheduledEmail(message.id, {
+          status: "failed",
+          errorMessage: emailResult.error,
+        });
+        failed++;
+      }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "processing_failed";
+      await markScheduledEmail(message.id, { status: "failed", errorMessage: errMsg });
+      failed++;
+    }
+  }
+
+  return { processed: due.length, sent, failed, skipped };
+}
+
+export async function processDueScheduledOutreach(): Promise<{
+  processed: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+  sms: Awaited<ReturnType<typeof processDueScheduledSms>>;
+  email: Awaited<ReturnType<typeof processDueScheduledEmail>>;
+}> {
+  const [sms, email] = await Promise.all([processDueScheduledSms(), processDueScheduledEmail()]);
+  return {
+    processed: sms.processed + email.processed,
+    sent: sms.sent + email.sent,
+    failed: sms.failed + email.failed,
+    skipped: sms.skipped + email.skipped,
+    sms,
+    email,
+  };
 }
 
 export async function processDueScheduledSms(): Promise<{

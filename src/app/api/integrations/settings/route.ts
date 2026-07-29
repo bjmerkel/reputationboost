@@ -11,6 +11,7 @@ import { getCustomerGeoCoverageForUser } from "@/lib/customers/geo-stats";
 import { auditHasReviewGap } from "@/lib/review-requests/eligibility";
 import { ZAPIER_SETUP_STEPS, ZAPIER_TEMPLATES } from "@/lib/integrations/zapier-templates";
 import { getZapierEmbedConfig } from "@/lib/integrations/zapier-embed";
+import type { OutreachChannel } from "@/lib/review-requests/channel";
 import { getUser } from "@/lib/supabase/server";
 
 function buildWebhookUrl(request: Request, token: string): string {
@@ -47,6 +48,7 @@ export async function GET(request: Request) {
       autoSend: settings.autoSend,
       delayHours: settings.delayHours,
       triggerEvents: settings.triggerEvents,
+      outreachChannel: settings.outreachChannel,
       auditHasReviewGap: hasReviewGap,
       customerGeoCoverage: geoCoverage,
       privateFeedbackUrl: record?.private_feedback_url ?? null,
@@ -58,6 +60,7 @@ export async function GET(request: Request) {
         phone: "214-555-0100",
         firstName: "Jane",
         lastName: "Doe",
+        email: "jane@example.com",
         service: "water heater install",
         jobAddress: "123 Oak Street",
         jobCity: "Maple Grove",
@@ -92,6 +95,7 @@ export async function PATCH(request: Request) {
       autoSend?: boolean;
       delayHours?: number;
       triggerEvents?: string[];
+      outreachChannel?: OutreachChannel;
       rotateToken?: boolean;
       privateFeedbackUrl?: string | null;
     }>(request);

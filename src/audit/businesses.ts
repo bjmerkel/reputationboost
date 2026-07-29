@@ -39,6 +39,7 @@ export interface BusinessRecord {
   webhook_auto_send: boolean;
   webhook_delay_hours: number;
   webhook_trigger_events: string[];
+  webhook_outreach_channel?: string | null;
   gbp_google_update_at: string | null;
   last_manual_rank_refresh_at: string | null;
   autopilot_mode: string;

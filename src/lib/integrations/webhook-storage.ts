@@ -3,6 +3,12 @@ import { createAdminClient, isAdminSupabaseConfigured } from "@/lib/supabase/adm
 import { createClient } from "@/lib/supabase/server";
 import { generateWebhookToken } from "./webhook-token";
 import { DEFAULT_WEBHOOK_TRIGGER_EVENTS, type WebhookBusinessSettings } from "./webhook-types";
+import type { OutreachChannel } from "@/lib/review-requests/channel";
+
+function parseOutreachChannel(value: string | null | undefined): OutreachChannel {
+  if (value === "sms" || value === "email" || value === "auto") return value;
+  return "auto";
+}
 
 function toSettings(row: BusinessRecord): WebhookBusinessSettings {
   if (!row.webhook_token) {
@@ -16,6 +22,7 @@ function toSettings(row: BusinessRecord): WebhookBusinessSettings {
     autoSend: row.webhook_auto_send ?? false,
     delayHours: row.webhook_delay_hours ?? 2,
     triggerEvents: row.webhook_trigger_events ?? [...DEFAULT_WEBHOOK_TRIGGER_EVENTS],
+    outreachChannel: parseOutreachChannel(row.webhook_outreach_channel),
   };
 }
 
@@ -87,6 +94,7 @@ export async function updateWebhookSettings(
     autoSend?: boolean;
     delayHours?: number;
     triggerEvents?: string[];
+    outreachChannel?: OutreachChannel;
     rotateToken?: boolean;
     privateFeedbackUrl?: string | null;
   }
@@ -99,6 +107,7 @@ export async function updateWebhookSettings(
   if (patch.autoSend !== undefined) update.webhook_auto_send = patch.autoSend;
   if (patch.delayHours !== undefined) update.webhook_delay_hours = patch.delayHours;
   if (patch.triggerEvents !== undefined) update.webhook_trigger_events = patch.triggerEvents;
+  if (patch.outreachChannel !== undefined) update.webhook_outreach_channel = patch.outreachChannel;
   if (patch.rotateToken) update.webhook_token = generateWebhookToken();
   if (patch.privateFeedbackUrl !== undefined) {
     update.private_feedback_url = patch.privateFeedbackUrl?.trim() || null;
