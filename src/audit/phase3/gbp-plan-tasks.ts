@@ -19,6 +19,7 @@ import { mediaCategoryLabel } from "@/lib/google/gbp-media-coverage";
 import { formatMediaViewCountLabel } from "@/lib/google/gbp-media-maintenance";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import { sanitizeGbpPostDraft } from "@/lib/google/gbp-post-content";
+import { defaultGooglePostScheduledFor } from "@/lib/google/google-post-schedule";
 import { resolveGbpDescriptionDraft } from "@/lib/llm/apply-gbp-description";
 import { defaultUsHolidayDescriptions } from "@/lib/google/gbp-hours";
 import {
@@ -785,12 +786,23 @@ export function tasksFromGbpPlanStep(
         const matched = matchKeywordsInText(post, allKeywords);
         const targetKeywords =
           matched.length > 0 ? matched : allKeywords[i % allKeywords.length] ? [allKeywords[i % allKeywords.length]] : [];
-        return buildGbpTask(audit, step, "google_post", `${step.title} (${i + 1}/${posts.length})`, post, {
-          postIndex: i + 1,
-          totalPosts: posts.length,
-          platform: "google_business",
-          targetKeywords,
-        });
+        const task = buildGbpTask(
+          audit,
+          step,
+          "google_post",
+          `${step.title} (${i + 1}/${posts.length})`,
+          post,
+          {
+            postIndex: i + 1,
+            totalPosts: posts.length,
+            platform: "google_business",
+            targetKeywords,
+          }
+        );
+        return {
+          ...task,
+          scheduledFor: defaultGooglePostScheduledFor(i + 1),
+        };
       });
     }
     default:

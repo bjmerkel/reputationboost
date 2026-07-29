@@ -228,6 +228,33 @@ export async function getExecutionTaskAdmin(taskId: string): Promise<ExecutionTa
 }
 
 /** Admin status/content updates for cron reconcile (no user session). */
+export async function listDueScheduledGooglePostTasksAdmin(
+  limit = 50
+): Promise<Array<{ task: ExecutionTask; userId: string; businessId: string }>> {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("execution_tasks")
+    .select("*")
+    .eq("task_type", "google_post")
+    .eq("status", "approved")
+    .lte("scheduled_for", now)
+    .is("completed_at", null)
+    .not("scheduled_for", "is", null)
+    .order("scheduled_for", { ascending: true })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => ({
+    task: rowToTask(row),
+    userId: row.user_id as string,
+    businessId: row.business_id as string,
+  }));
+}
+
 export async function updateExecutionTaskAdmin(
   taskId: string,
   updates: Partial<

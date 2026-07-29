@@ -4,6 +4,7 @@ import type { MarketActionCalibration } from "@/audit/autopilot/market-calibrati
 import type { UserNotification } from "@/audit/storage-notifications";
 import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
 import { needsGbpDescriptionRepublish } from "@/lib/google/gbp-description";
+import { googlePostShouldScheduleOnly } from "@/lib/google/google-post-schedule";
 import { pendingRoutineTasks } from "./pending-tasks";
 
 type ExecutionState = {
@@ -96,6 +97,7 @@ export async function patchExecutionTask(
     status?: "approved" | "rejected";
     draftContent?: string;
     payload?: Record<string, unknown>;
+    scheduledFor?: string | null;
   }
 ): Promise<ExecutionTask> {
   const res = await fetch(`/api/execution/${taskId}`, {
@@ -110,7 +112,7 @@ export async function patchExecutionTask(
 
 export async function executeExecutionTask(
   taskId: string,
-  options?: { retry?: boolean }
+  options?: { retry?: boolean; publishNow?: boolean }
 ): Promise<ExecutionTask> {
   const res = await fetch(`/api/execution/${taskId}`, {
     method: "POST",
@@ -223,7 +225,12 @@ export async function publishPhotoBatch(
 
 export async function approveAndPublishTask(
   task: ExecutionTask,
-  options?: { draftContent?: string; retry?: boolean; payload?: Record<string, unknown> }
+  options?: {
+    draftContent?: string;
+    retry?: boolean;
+    payload?: Record<string, unknown>;
+    publishNow?: boolean;
+  }
 ): Promise<ExecutionTask> {
   if (task.type === "review_response" && !isValidReviewId(task.payload.reviewId)) {
     throw new Error(
@@ -242,6 +249,8 @@ export async function approveAndPublishTask(
 
   const draftContent = options?.draftContent?.trim();
   const retry = options?.retry ?? needsGbpDescriptionRepublish(task);
+  const publishNow = options?.publishNow === true;
+  const scheduleOnly = googlePostShouldScheduleOnly(task, publishNow);
 
   if (draftContent && draftContent !== task.draftContent) {
     await patchExecutionTask(task.id, { draftContent });
@@ -255,13 +264,20 @@ export async function approveAndPublishTask(
     return executeExecutionTask(task.id, { retry: true });
   }
 
+  if (scheduleOnly) {
+    if (task.status === "pending_approval") {
+      return patchExecutionTask(task.id, { status: "approved" });
+    }
+    return task;
+  }
+
   if (task.status === "pending_approval") {
     await patchExecutionTask(task.id, { status: "approved" });
   } else if (task.status !== "approved") {
     throw new Error(`Task cannot be published from status: ${task.status}`);
   }
 
-  return executeExecutionTask(task.id);
+  return executeExecutionTask(task.id, publishNow ? { publishNow: true } : undefined);
 }
 
 export async function approveAllRoutineTasks(tasks: ExecutionTask[]): Promise<number> {

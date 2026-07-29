@@ -8,6 +8,7 @@ import {
   onExperimentTaskCompleted,
 } from "@/audit/autopilot/experiment-lifecycle";
 import { logPlanEvent } from "@/lib/analytics/plan-events";
+import { googlePostShouldScheduleOnly } from "@/lib/google/google-post-schedule";
 import { getValidGbpConnection } from "@/lib/google/token-store";
 import { getUser } from "@/lib/supabase/server";
 
@@ -25,6 +26,7 @@ export async function PATCH(
     status?: "approved" | "rejected";
     draftContent?: string;
     payload?: Record<string, unknown>;
+    scheduledFor?: string | null;
   };
 
   const task = await getExecutionTask(user.id, taskId);
@@ -36,11 +38,18 @@ export async function PATCH(
     ? { ...task.payload, ...body.payload }
     : task.payload;
 
+  const nextScheduledFor =
+    body.scheduledFor !== undefined
+      ? body.scheduledFor
+      : body.status === "approved"
+        ? task.scheduledFor ?? new Date().toISOString()
+        : task.scheduledFor;
+
   const updated = await updateExecutionTask(user.id, taskId, {
     status: body.status ?? task.status,
     draftContent: body.draftContent ?? task.draftContent,
     payload: body.payload ? mergedPayload : undefined,
-    scheduledFor: body.status === "approved" ? new Date().toISOString() : task.scheduledFor,
+    scheduledFor: nextScheduledFor,
   });
 
   if (updated?.status === "approved" && task.payload.experimentId) {
@@ -65,14 +74,15 @@ export async function POST(
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  let body: { retry?: boolean } = {};
+  let body: { retry?: boolean; publishNow?: boolean } = {};
   try {
-    body = (await request.json()) as { retry?: boolean };
+    body = (await request.json()) as { retry?: boolean; publishNow?: boolean };
   } catch {
     body = {};
   }
 
   const retry = body.retry === true;
+  const publishNow = body.publishNow === true;
   const canExecute =
     task.status === "approved" ||
     (retry &&
@@ -82,6 +92,13 @@ export async function POST(
   if (!canExecute) {
     return NextResponse.json(
       { error: "Task must be approved before execution" },
+      { status: 400 }
+    );
+  }
+
+  if (googlePostShouldScheduleOnly(task, publishNow)) {
+    return NextResponse.json(
+      { error: "This post is scheduled for a future publish time. Approve it to schedule, or publish now to override." },
       { status: 400 }
     );
   }

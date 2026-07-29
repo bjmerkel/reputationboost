@@ -14,7 +14,8 @@ import ReviewResponseKeywordHints, {
   reviewResponseCanSuggestWeave,
 } from "./ReviewResponseKeywordHints";
 import { formatPlanTimestamp } from "./plan-timestamps";
-import { taskPrimaryActionLabel } from "./plan-ux-copy";
+import { googlePostShowsPublishNow, taskPrimaryActionLabel } from "./plan-ux-copy";
+import { googlePostAwaitingScheduledPublish } from "@/lib/google/google-post-schedule";
 
 const EDIT_STATUS_STYLES: Record<GbpEditStatus, string> = {
   accepted: "bg-[#e6f4ea] text-[#137333]",
@@ -99,6 +100,11 @@ export default function PlanStepTaskRow({
           ? task.payload.descriptionDraftRefreshedAt
           : task.createdAt
   );
+  const scheduledPublishTime =
+    task.type === "google_post" && task.scheduledFor
+      ? formatPlanTimestamp(task.scheduledFor)
+      : null;
+  const awaitingScheduledPublish = googlePostAwaitingScheduledPublish(task);
 
   return (
     <div
@@ -119,6 +125,19 @@ export default function PlanStepTaskRow({
               Recommended {recommendationTime}
             </p>
           )}
+          {scheduledPublishTime &&
+            task.status !== "completed" &&
+            task.status !== "rejected" &&
+            !awaitingScheduledPublish && (
+              <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
+                Scheduled publish {scheduledPublishTime}
+              </p>
+            )}
+          {awaitingScheduledPublish && scheduledPublishTime && (
+            <p className={`mt-1 text-xs font-medium ${isLight ? "text-[#1a73e8]" : "text-blue-300"}`}>
+              Scheduled for {scheduledPublishTime}
+            </p>
+          )}
         </div>
         <span
           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
@@ -131,7 +150,9 @@ export default function PlanStepTaskRow({
                   : "bg-[#e8f0fe] text-[#1a73e8]"
           }`}
         >
-          {task.status.replace(/_/g, " ")}
+          {awaitingScheduledPublish
+            ? "scheduled"
+            : task.status.replace(/_/g, " ")}
         </span>
       </div>
 
@@ -271,14 +292,38 @@ export default function PlanStepTaskRow({
           ) : (
             <>
               {canPublish && (
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => void actions.approveAndPublish(task, { draftContent: draft })}
-                  className="btn-primary rounded-full px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                >
-                  {taskPrimaryActionLabel(task, { loading })}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() =>
+                      void actions.approveAndPublish(task, {
+                        draftContent: draft,
+                        publishNow: googlePostShowsPublishNow(task) && awaitingScheduledPublish,
+                      })
+                    }
+                    className="btn-primary rounded-full px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  >
+                    {taskPrimaryActionLabel(task, {
+                      loading,
+                      publishNow: googlePostShowsPublishNow(task) && awaitingScheduledPublish,
+                    })}
+                  </button>
+                  {googlePostShowsPublishNow(task) && !awaitingScheduledPublish && (
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() =>
+                        void actions.approveAndPublish(task, { draftContent: draft, publishNow: true })
+                      }
+                      className={`rounded-full border px-4 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                        isLight ? "border-[#dadce0] text-[#3c4043]" : "border-white/10 text-slate-300"
+                      }`}
+                    >
+                      {loading ? "Publishing…" : "Publish now"}
+                    </button>
+                  )}
+                </>
               )}
               <button
                 type="button"
