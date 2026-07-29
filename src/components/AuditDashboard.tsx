@@ -504,6 +504,7 @@ export default function AuditDashboard({
           industry={businessIndustry}
           minimalChrome={view === "audit"}
           scoreCalculatedAt={scoreCalculatedAt}
+          liveScores={scoreHistory.liveScores}
         >
           {view === "report" && (
             <HomeView
@@ -517,7 +518,7 @@ export default function AuditDashboard({
               avgCustomerValue={avgCustomerValue}
               avgCustomerValueCurrency={avgCustomerValueCurrency}
               businessId={businessId}
-              liveScore={scoreHistory.liveScores?.overall ?? null}
+              liveScores={scoreHistory.liveScores}
               liveScoreDate={scoreCalculatedAt}
               scoreChangelog={scoreHistory.changelog}
               globalCalibration={scoreHistory.globalCalibration}

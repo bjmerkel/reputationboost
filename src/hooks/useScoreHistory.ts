@@ -11,6 +11,8 @@ export interface ScoreHistoryData {
   latestDate: string | null;
   liveScores: {
     overall: number;
+    driverScore: number;
+    outcomeIndex: number;
     visibility: number;
     conversion: number;
     revenueCapture: number;

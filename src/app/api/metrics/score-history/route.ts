@@ -170,6 +170,10 @@ export async function GET(request: Request) {
     latest != null
       ? {
           overall: latest.overall,
+          driverScore: latest.driverScore ?? latest.conversion,
+          outcomeIndex:
+            latest.outcomeIndex ??
+            Math.round(latest.visibility * 0.6 + latest.revenueCapture * 0.4),
           visibility: latest.visibility,
           conversion: latest.conversion,
           revenueCapture: latest.revenueCapture,

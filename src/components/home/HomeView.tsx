@@ -15,6 +15,7 @@ import HomeHealthSummary from "@/components/home/HomeHealthSummary";
 import HomeReviewInbox from "@/components/home/HomeReviewInbox";
 import { getPendingApprovalCounts, planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 import { resolveAcvCopyFromAudit } from "@/lib/business/acv-copy";
+import type { LiveScoreSlice } from "@/lib/scores/resolve-display-scores";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { useAcvReminder } from "@/hooks/useAcvReminder";
 
@@ -30,7 +31,7 @@ export default function HomeView({
   avgCustomerValueCurrency = "USD",
   businessId,
   clientId,
-  liveScore,
+  liveScores,
   liveScoreDate,
   scoreChangelog = [],
   globalCalibration = {},
@@ -50,7 +51,7 @@ export default function HomeView({
   engagementLoading?: boolean;
   avgCustomerValue?: number | null;
   avgCustomerValueCurrency?: string;
-  liveScore?: number | null;
+  liveScores?: LiveScoreSlice | null;
   liveScoreDate?: string | null;
   scoreChangelog?: ScoreChangelogEntry[];
   globalCalibration?: AttributionCalibration;
@@ -96,7 +97,7 @@ export default function HomeView({
         engagement={engagement}
         loading={attributionLoading}
         engagementLoading={engagementLoading}
-        liveScore={liveScore}
+        liveScores={liveScores}
         liveScoreDate={liveScoreDate}
         dailyChangelog={scoreChangelog}
         estimatedMonthlyRevenue={estimatedMonthlyRevenue}
