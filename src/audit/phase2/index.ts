@@ -36,6 +36,8 @@ export {
   applyKeywordPortfolioToClient,
   applyTrackedKeywordsToAudit,
   buildOptimizedKeywordList,
+  buildPlaceholderRankSnapshot,
+  buildPreliminaryAuditForPortfolio,
   computeKeywordPortfolio,
   findTrackedKeywordForGbpTerm,
   isBrandKeyword,
@@ -43,6 +45,8 @@ export {
   KEYWORD_PORTFOLIO_PLAN_STEP,
   portfolioStepIsSatisfied,
   prioritizeKeywordsForGrid,
+  resolveKeywordsForRankCollection,
+  trackedKeywordsEqual,
 } from "./keyword-portfolio";
 export {
   BALANCED_WEIGHTS_WITH_ACV,

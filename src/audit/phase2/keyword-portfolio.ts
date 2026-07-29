@@ -1,10 +1,14 @@
 import type {
+  AuditTrigger,
   ClientConfig,
+  GbpSnapshot,
   KeywordPortfolioAnalysis,
   KeywordPortfolioStatus,
   KeywordRankSnapshot,
   KeywordSwapRecommendation,
+  OffGoogleSnapshot,
   Phase1AuditPayload,
+  ReviewSnapshot,
   StrategyReport,
   TrackedKeywordPortfolioItem,
   UntrackedGbpKeywordCandidate,
@@ -628,6 +632,14 @@ function refreshRankingAggregates(audit: Phase1AuditPayload): void {
     : 0;
 }
 
+/** Placeholder rank snapshot used before live Places collection (demand-only portfolio pass). */
+export function buildPlaceholderRankSnapshot(
+  keyword: string,
+  rank = 7
+): KeywordRankSnapshot {
+  return placeholderKeywordSnapshot(keyword, rank);
+}
+
 function placeholderKeywordSnapshot(keyword: string, rank = 7): KeywordRankSnapshot {
   const inLocalPack = rank <= 3;
   return {
@@ -644,6 +656,66 @@ function placeholderKeywordSnapshot(keyword: string, rank = 7): KeywordRankSnaps
     clientRating: 4.5,
     clientReviewCount: 40,
   };
+}
+
+export interface BuildPreliminaryAuditOptions {
+  client: ClientConfig;
+  userId?: string;
+  trigger: AuditTrigger;
+  startedAt: string;
+  auditId: string;
+  period: string;
+  gbp: GbpSnapshot;
+  reviews: ReviewSnapshot;
+  offGoogle: OffGoogleSnapshot;
+}
+
+/**
+ * Build a minimal audit payload for keyword portfolio analysis before Places API
+ * rank collection. Rankings use placeholders so portfolio can align keywords with
+ * GBP demand without spending on the wrong keyword set first.
+ */
+export function buildPreliminaryAuditForPortfolio(
+  options: BuildPreliminaryAuditOptions
+): Phase1AuditPayload {
+  const completedAt = new Date().toISOString();
+  const keywords = options.client.keywords;
+
+  return {
+    clientId: options.client.id,
+    clientName: options.client.name,
+    userId: options.userId,
+    auditId: options.auditId,
+    trigger: options.trigger,
+    period: options.period,
+    startedAt: options.startedAt,
+    completedAt,
+    gbp: options.gbp,
+    reviews: options.reviews,
+    offGoogle: options.offGoogle,
+    rankings: {
+      collectedAt: completedAt,
+      keywords: keywords.map((keyword) => placeholderKeywordSnapshot(keyword)),
+      shareOfVoice: 0,
+      keywordsInPack: 0,
+      totalKeywords: keywords.length,
+    },
+    competitors: [],
+  };
+}
+
+function trackedKeywordSignature(keywords: string[]): string {
+  return [...new Set(keywords.map((keyword) => normalizeKeyword(keyword)))].sort().join("|");
+}
+
+/** Whether two keyword lists match after normalization (order-insensitive). */
+export function trackedKeywordsEqual(a: string[], b: string[]): boolean {
+  return trackedKeywordSignature(a) === trackedKeywordSignature(b);
+}
+
+/** Final keyword set to use for Places rank collection after portfolio intelligence. */
+export function resolveKeywordsForRankCollection(audit: Phase1AuditPayload): string[] {
+  return computeKeywordPortfolio(audit).recommendedKeywords;
 }
 
 /** Optimistically sync audit rankings to a newly saved tracked keyword list. */
