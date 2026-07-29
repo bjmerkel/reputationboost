@@ -9,10 +9,12 @@ export default function RoiSummaryCard({
   summary,
   loading = false,
   acvCopy = resolveAcvCopy(),
+  onOpenReminder,
 }: {
   summary: AttributionSummary | null;
   loading?: boolean;
   acvCopy?: AcvCopy;
+  onOpenReminder?: () => void;
 }) {
   if (loading) {
     return (
@@ -34,12 +36,23 @@ export default function RoiSummaryCard({
           Estimated value
         </p>
         <p className="mt-2 text-sm text-[#5f6368]">{acvCopy.roiPrompt}</p>
-        <Link
-          href="/platform/settings"
-          className="mt-3 inline-block text-sm font-semibold text-[#1a73e8] hover:underline"
-        >
-          {acvCopy.roiSettingsLink}
-        </Link>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          {onOpenReminder ? (
+            <button
+              type="button"
+              onClick={onOpenReminder}
+              className="text-sm font-semibold text-[#1a73e8] hover:underline"
+            >
+              {acvCopy.addAction}
+            </button>
+          ) : null}
+          <Link
+            href="/platform/settings"
+            className="text-sm font-semibold text-[#1a73e8] hover:underline"
+          >
+            {onOpenReminder ? "Or open Settings" : acvCopy.roiSettingsLink}
+          </Link>
+        </div>
       </section>
     );
   }

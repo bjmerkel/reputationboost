@@ -14,10 +14,12 @@ import EngagementPeriodCard from "@/components/engagement/EngagementPeriodCard";
 import RoiSummaryCard from "@/components/attribution/RoiSummaryCard";
 import PlanResultsTimeline from "./PlanResultsTimeline";
 import ExperimentResultsPanel from "./ExperimentResultsPanel";
+import { useAcvReminder } from "@/hooks/useAcvReminder";
 
 export default function ResultsView({
   audit,
   clientId,
+  businessId,
   tasks,
   attributions,
   summary,
@@ -32,6 +34,7 @@ export default function ResultsView({
 }: {
   audit: FullAuditPayload;
   clientId: string;
+  businessId?: string | null;
   tasks: ExecutionTask[];
   attributions: ActionAttribution[];
   summary: AttributionSummary | null;
@@ -62,6 +65,13 @@ export default function ResultsView({
 
   const rollingHeadline = engagement ? buildRollingEngagementHeadline(engagement) : null;
   const acvCopy = useMemo(() => resolveAcvCopyFromAudit(audit), [audit]);
+  const { openReminder, modal: acvReminderModal } = useAcvReminder({
+    businessId,
+    clientId,
+    audit,
+    avgCustomerValue,
+    autoShow: !attributionLoading,
+  });
 
   return (
     <div className="space-y-6">
@@ -73,7 +83,12 @@ export default function ResultsView({
         headline={rollingHeadline}
       />
 
-      <RoiSummaryCard summary={summary} loading={attributionLoading} acvCopy={acvCopy} />
+      <RoiSummaryCard
+        summary={summary}
+        loading={attributionLoading}
+        acvCopy={acvCopy}
+        onOpenReminder={businessId ? openReminder : undefined}
+      />
 
       <ExperimentResultsPanel clientId={clientId} attributions={attributions} />
 
@@ -92,6 +107,7 @@ export default function ResultsView({
         onFocusHandled={onFocusHandled}
         onNavigateToPlan={onNavigateToPlan}
       />
+      {acvReminderModal}
     </div>
   );
 }
