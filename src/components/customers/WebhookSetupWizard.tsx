@@ -43,7 +43,6 @@ interface WebhookSettings {
   zapierTemplates?: ZapierTemplate[];
   zapierEmbed?: ZapierEmbedConfig;
   samplePayload: Record<string, unknown>;
-  optOutSamplePayload?: Record<string, unknown>;
 }
 
 const WIZARD_STEP_KEY = "rb-webhook-wizard-step";
@@ -71,7 +70,6 @@ const TOOL_ICONS: Record<string, string> = {
   "hcp-job-completed": "🏠",
   "square-payment-received": "💳",
   custom: "⚡",
-  "customer-opt-out": "🛑",
 };
 
 function getTriggerLabel(template: ZapierTemplate): string {
@@ -82,8 +80,6 @@ function getTriggerLabel(template: ZapierTemplate): string {
       return "Job Completed";
     case "square-payment-received":
       return "New Payment";
-    case "customer-opt-out":
-      return "New SMS";
     default:
       return "your trigger event";
   }
@@ -92,11 +88,9 @@ function getTriggerLabel(template: ZapierTemplate): string {
 function getNativeZapierSteps(template: ZapierTemplate): string[] {
   const toolName = template.label.split("—")[0]?.trim() ?? "your tool";
   const actionName =
-    template.eventType === "customer.opted_out"
-      ? "Update Customer"
-      : template.eventType === "invoice.paid"
-        ? "Create Customer From Invoice"
-        : "Create Customer From Job";
+    template.eventType === "invoice.paid"
+      ? "Create Customer From Invoice"
+      : "Create Customer From Job";
   const triggerLabel = getTriggerLabel(template);
 
   if (template.id === "square-payment-received") {
@@ -127,16 +121,6 @@ function getManualZapierSteps(template: ZapierTemplate, webhookUrl: string): str
         : template.id === "square-payment-received"
           ? "Use Square → New Payment as the trigger. Map buyer phone into phone, customer name into name, payment note or order line into service, and amount into amount."
           : "Map customer phone, name, and job or service description into the matching JSON fields.";
-
-  if (template.id === "customer-opt-out") {
-    return [
-      "Create a Zap that triggers when a customer replies STOP or unsubscribes (e.g. Twilio → New SMS).",
-      "Add Webhooks by Zapier → POST as the action.",
-      `Paste this URL: ${webhookUrl}`,
-      'Set the JSON body with event: "customer.opted_out", phone, and optedOut: true.',
-      "Turn the Zap on — future review requests will skip opted-out numbers.",
-    ];
-  }
 
   return [
     `Open the ${template.label.split("—")[0]?.trim() ?? "integration"} template in Zapier (button below).`,
@@ -174,14 +158,6 @@ function buildSamplePayload(
       jobAddress: "123 Oak Street",
       jobCity: "Maple Grove",
       jobZip: "55311",
-    };
-  }
-  if (template.id === "customer-opt-out") {
-    return {
-      event: "customer.opted_out",
-      phone: "214-555-0100",
-      optedOut: true,
-      source: "twilio",
     };
   }
   return {
@@ -252,33 +228,19 @@ export default function WebhookSetupWizard() {
   }, [stepIndex, selectedTemplateId, hydrated]);
 
   const reviewTemplates = useMemo(() => {
-    const fromApi = (settings?.zapierTemplates ?? []).filter(
-      (t) => t.id !== "customer-opt-out"
-    );
+    const fromApi = settings?.zapierTemplates ?? [];
     return [...fromApi, CUSTOM_TEMPLATE];
   }, [settings?.zapierTemplates]);
 
-  const optOutTemplate = useMemo(
-    () => (settings?.zapierTemplates ?? []).find((t) => t.id === "customer-opt-out"),
-    [settings?.zapierTemplates]
-  );
-
   const selectedTemplate = useMemo(() => {
     if (!selectedTemplateId) return null;
-    return (
-      reviewTemplates.find((t) => t.id === selectedTemplateId) ??
-      (selectedTemplateId === "customer-opt-out" ? optOutTemplate : null)
-    );
-  }, [selectedTemplateId, reviewTemplates, optOutTemplate]);
+    return reviewTemplates.find((t) => t.id === selectedTemplateId) ?? null;
+  }, [selectedTemplateId, reviewTemplates]);
 
   const selectedZapierEmbed = useMemo(() => {
     if (!selectedTemplateId || !settings?.zapierEmbed) return null;
     return settings.zapierEmbed.templates.find((t) => t.id === selectedTemplateId) ?? null;
   }, [selectedTemplateId, settings?.zapierEmbed]);
-
-  const optOutZapierEmbed = useMemo(() => {
-    return settings?.zapierEmbed?.templates.find((t) => t.id === "customer-opt-out") ?? null;
-  }, [settings?.zapierEmbed]);
 
   const currentStep = STEPS[stepIndex];
 
@@ -668,26 +630,13 @@ export default function WebhookSetupWizard() {
               </div>
             </div>
 
-            {optOutTemplate && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <p className="font-semibold text-amber-950">
-                  {TOOL_ICONS["customer-opt-out"]} SMS opt-out Zap (second Zap)
-                </p>
-                <p className="mt-1 text-sm text-amber-900">{optOutTemplate.description}</p>
-                <p className="mt-1 text-sm text-amber-900">
-                  Honors STOP and unsubscribe replies automatically — set this up alongside your
-                  review request Zap.
-                </p>
-                <a
-                  href={optOutZapierEmbed?.createUrl ?? optOutTemplate.templateUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-flex text-sm font-semibold text-amber-950 underline"
-                >
-                  Set up opt-out Zap in Zapier
-                </a>
-              </div>
-            )}
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <p className="font-semibold text-emerald-950">SMS opt-out is automatic</p>
+              <p className="mt-1 text-sm text-emerald-900">
+                When customers reply STOP or unsubscribe to review request texts, Reputation Boost
+                marks them opted out automatically. You do not need a second Zap for opt-outs.
+              </p>
+            </div>
 
             <button
               type="button"
@@ -753,27 +702,6 @@ export default function WebhookSetupWizard() {
                 {copied === "payload" ? "Copied" : "Copy sample payload"}
               </button>
             </div>
-
-            {settings.optOutSamplePayload && (
-              <div>
-                <p className="text-sm font-semibold text-[#3c4043]">Opt-out test payload</p>
-                <pre className="mt-2 overflow-x-auto rounded-lg bg-[#f8f9fa] p-3 text-xs text-[#3c4043]">
-                  {JSON.stringify(settings.optOutSamplePayload, null, 2)}
-                </pre>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void copyText(
-                      "optout",
-                      JSON.stringify(settings.optOutSamplePayload, null, 2)
-                    )
-                  }
-                  className="mt-2 text-sm font-semibold text-[#1a73e8] hover:underline"
-                >
-                  {copied === "optout" ? "Copied" : "Copy opt-out payload"}
-                </button>
-              </div>
-            )}
 
             <div className="rounded-lg border border-[#dadce0] bg-[#f8f9fa] p-4 text-sm text-[#5f6368]">
               <p className="font-medium text-[#202124]">Quick reference</p>

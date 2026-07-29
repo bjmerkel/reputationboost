@@ -4,7 +4,7 @@
  * Usage: node scripts/print-embed-urls.js <webhook-url> [template-id]
  *
  * After creating a public Zap template in Zapier Partner, set the returned ID in Vercel:
- * ZAPIER_TEMPLATE_JOBBER, ZAPIER_TEMPLATE_HCP, ZAPIER_TEMPLATE_SQUARE, ZAPIER_TEMPLATE_OPT_OUT
+ * ZAPIER_TEMPLATE_JOBBER, ZAPIER_TEMPLATE_HCP, ZAPIER_TEMPLATE_SQUARE
  */
 
 const TEMPLATES = [
@@ -15,7 +15,6 @@ const TEMPLATES = [
     env: "ZAPIER_TEMPLATE_SQUARE",
     trigger: "Square — New Payment",
   },
-  { key: "customer-opt-out", env: "ZAPIER_TEMPLATE_OPT_OUT", trigger: "Twilio — SMS STOP" },
 ];
 
 const APP_SLUG = process.env.ZAPIER_APP_SLUG || "reputation-boost";
