@@ -56,17 +56,28 @@ export default async function LocationsPage({ searchParams }: PageProps) {
               portfolio.
             </p>
           </div>
-          <Link
-            href="/platform/onboard?add=1"
-            className="btn-primary inline-flex rounded-full px-5 py-2.5 text-sm font-semibold text-white"
-          >
-            + Add location
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/platform/onboard?add=1"
+              className="btn-primary inline-flex rounded-full px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              + Add location
+            </Link>
+            {businesses.some((business) => business.googleEmail) && (
+              <Link
+                href="/platform/onboard?add=1&import=1"
+                className="inline-flex rounded-full border border-[#1a73e8] bg-[#e8f0fe] px-5 py-2.5 text-sm font-semibold text-[#1a73e8] transition hover:bg-[#d2e3fc]"
+              >
+                Import from Google
+              </Link>
+            )}
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-[#dadce0] bg-white shadow-sm">
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 border-b border-[#e8eaed] bg-[#f8f9fa] px-6 py-3 text-xs font-semibold uppercase tracking-wide text-[#80868b] max-sm:hidden">
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 border-b border-[#e8eaed] bg-[#f8f9fa] px-6 py-3 text-xs font-semibold uppercase tracking-wide text-[#80868b] max-lg:hidden">
             <span>Location</span>
+            <span className="w-40">Google account</span>
             <span className="w-20 text-right">Score</span>
             <span className="w-24 text-right">Status</span>
             <span className="w-24 text-right">Action</span>
@@ -81,7 +92,7 @@ export default async function LocationsPage({ searchParams }: PageProps) {
               return (
                 <div
                   key={location.id}
-                  className={`grid gap-4 px-6 py-4 max-sm:space-y-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center ${
+                  className={`grid gap-4 px-6 py-4 max-lg:space-y-3 lg:grid-cols-[1fr_auto_auto_auto_auto] lg:items-center ${
                     isActive ? "bg-[#e8f0fe]/40" : ""
                   }`}
                 >
@@ -97,9 +108,20 @@ export default async function LocationsPage({ searchParams }: PageProps) {
                     <p className="mt-1 truncate text-sm text-[#5f6368]">
                       {[location.city, location.state].filter(Boolean).join(", ")}
                     </p>
+                    {location.googleEmail && (
+                      <p className="mt-1 truncate text-xs text-[#80868b] lg:hidden">
+                        Google: {location.googleEmail}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="sm:w-20 sm:text-right">
+                  <div className="hidden w-40 min-w-0 lg:block">
+                    <p className="truncate text-sm text-[#5f6368]">
+                      {location.googleEmail ?? "Not connected"}
+                    </p>
+                  </div>
+
+                  <div className="lg:w-20 lg:text-right">
                     <span className="text-xs font-semibold uppercase tracking-wide text-[#80868b] sm:hidden">
                       Score
                     </span>
@@ -108,7 +130,7 @@ export default async function LocationsPage({ searchParams }: PageProps) {
                     </p>
                   </div>
 
-                  <div className="sm:w-24 sm:text-right">
+                  <div className="lg:w-24 lg:text-right">
                     <span className="text-xs font-semibold uppercase tracking-wide text-[#80868b] sm:hidden">
                       Status
                     </span>
@@ -123,7 +145,7 @@ export default async function LocationsPage({ searchParams }: PageProps) {
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2 sm:w-24 sm:justify-end">
+                  <div className="flex flex-wrap gap-2 lg:w-24 lg:justify-end">
                     {location.onboardingComplete ? (
                       <Link
                         href={dashboardHref}

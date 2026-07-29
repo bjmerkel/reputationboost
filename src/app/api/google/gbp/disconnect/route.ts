@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { disconnectGbp, getBusinessRecord } from "@/audit/businesses";
+import {
+  countBusinessesSharingGoogleEmail,
+  disconnectGbp,
+  getBusinessRecord,
+} from "@/audit/businesses";
 import { revokeOAuthToken } from "@/lib/google/oauth";
 import { getUser } from "@/lib/supabase/server";
 
@@ -24,14 +28,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Google Business Profile is not connected" }, { status: 400 });
     }
 
+    const googleEmail = business.gbp_google_email ?? "";
+    const sharedCount = googleEmail
+      ? await countBusinessesSharingGoogleEmail(user.id, googleEmail, business.id)
+      : 0;
+
     const tokenToRevoke = business.gbp_refresh_token ?? business.gbp_access_token;
-    if (tokenToRevoke) {
+    if (tokenToRevoke && sharedCount === 0) {
       await revokeOAuthToken(tokenToRevoke);
     }
 
     await disconnectGbp(user.id, business.id);
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      tokenRevoked: sharedCount === 0,
+      sharedAcrossLocations: sharedCount > 0,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to disconnect GBP";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -151,6 +151,47 @@ export async function findBusinessWithPlaceId(
   );
 }
 
+export async function countBusinessesSharingGoogleEmail(
+  userId: string,
+  googleEmail: string,
+  excludeBusinessId?: string
+): Promise<number> {
+  const normalized = googleEmail.trim().toLowerCase();
+  if (!normalized) return 0;
+
+  const rows = await listUserBusinesses(userId);
+  return rows.filter(
+    (row) =>
+      row.id !== excludeBusinessId &&
+      row.gbp_refresh_token &&
+      row.gbp_google_email?.trim().toLowerCase() === normalized
+  ).length;
+}
+
+export async function copyGbpTokensFromBusiness(
+  userId: string,
+  sourceBusinessId: string,
+  targetBusinessId: string
+): Promise<void> {
+  if (sourceBusinessId === targetBusinessId) return;
+
+  const source = await getBusinessRecord(userId, sourceBusinessId);
+  const target = await getBusinessRecord(userId, targetBusinessId);
+  if (!source || !target) {
+    throw new Error("Business not found.");
+  }
+  if (!source.gbp_refresh_token) {
+    throw new Error("Source Google account is not connected.");
+  }
+
+  await saveGbpTokens(userId, targetBusinessId, {
+    accessToken: source.gbp_access_token ?? "",
+    refreshToken: source.gbp_refresh_token,
+    expiresAt: source.gbp_token_expires_at ?? new Date(0).toISOString(),
+    googleEmail: source.gbp_google_email ?? undefined,
+  });
+}
+
 export async function getPrimaryBusiness(userId: string): Promise<ClientConfig | null> {
   const rows = await listUserBusinesses(userId);
   const completed = rows

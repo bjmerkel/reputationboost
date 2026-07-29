@@ -8,6 +8,7 @@ export interface BusinessSummary {
   state: string;
   onboardingComplete: boolean;
   gbpConnected: boolean;
+  googleEmail?: string | null;
 }
 
 export function withBusinessId(path: string, businessId: string): string {

@@ -24,6 +24,7 @@ export function businessRecordToSummary(row: BusinessRecord): BusinessSummary {
     state: row.location?.state ?? "",
     onboardingComplete: row.onboarding_complete,
     gbpConnected: Boolean(row.gbp_location_id),
+    googleEmail: row.gbp_google_email,
   };
 }
 

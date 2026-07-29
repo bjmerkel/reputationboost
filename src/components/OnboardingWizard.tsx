@@ -1,19 +1,32 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RankedGbpLocation } from "@/lib/google/gbp-onboarding-match";
 import GoogleBusinessAutocomplete, {
   type BusinessPlaceSelection,
 } from "@/components/GoogleBusinessAutocomplete";
+import GbpLocationPicker from "@/components/GbpLocationPicker";
 import { KeywordSuggestions } from "@/components/KeywordSuggestions";
 import RankingMap from "@/components/platform/RankingMap";
 import { resolveAcvCopy } from "@/lib/business/acv-copy";
 
+export interface ConnectedGoogleAccount {
+  businessId: string;
+  businessName: string;
+  googleEmail: string;
+  city: string;
+  state: string;
+}
+
+type WizardStep = "method" | "business" | "connect" | "location" | "import-account" | "import";
+
 interface OnboardingWizardProps {
-  step: "business" | "connect" | "location";
+  step: WizardStep;
   businessId?: string;
   locations?: RankedGbpLocation[];
+  connectedAccounts?: ConnectedGoogleAccount[];
+  sourceBusinessId?: string;
   error?: string;
   disconnected?: boolean;
   addingLocation?: boolean;
@@ -24,6 +37,8 @@ export default function OnboardingWizard({
   step: initialStep,
   businessId: initialBusinessId,
   locations = [],
+  connectedAccounts = [],
+  sourceBusinessId: initialSourceBusinessId,
   error,
   disconnected,
   addingLocation = false,
@@ -31,10 +46,15 @@ export default function OnboardingWizard({
 }: OnboardingWizardProps) {
   const isLight = theme === "light";
   const router = useRouter();
-  const [step, setStep] = useState(initialStep);
+  const [step, setStep] = useState<WizardStep>(initialStep);
   const [businessId, setBusinessId] = useState(initialBusinessId ?? "");
+  const [sourceBusinessId, setSourceBusinessId] = useState(initialSourceBusinessId ?? "");
+  const [importLocations, setImportLocations] = useState<RankedGbpLocation[]>([]);
+  const [importMeta, setImportMeta] = useState<{ googleEmail?: string | null; unlinkedCount?: number }>({});
   const [loading, setLoading] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
   const [formError, setFormError] = useState(error ?? "");
+  const hasConnectedAccounts = connectedAccounts.length > 0;
 
   const [placeSelected, setPlaceSelected] = useState(false);
   const [placeId, setPlaceId] = useState("");
@@ -53,6 +73,71 @@ export default function OnboardingWizard({
   const [avgCustomerValue, setAvgCustomerValue] = useState("");
   const [isServiceAreaBusiness, setIsServiceAreaBusiness] = useState(false);
   const acvCopy = useMemo(() => resolveAcvCopy(industry), [industry]);
+
+  useEffect(() => {
+    if (step !== "location" || !businessId || locations.length > 0) return;
+
+    let cancelled = false;
+    async function loadOwnedLocations() {
+      setImportLoading(true);
+      setFormError("");
+      try {
+        const res = await fetch(`/api/google/gbp/locations?businessId=${businessId}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to load Google listings");
+        if (!cancelled) {
+          setImportLocations(data.locations ?? []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setFormError(err instanceof Error ? err.message : "Failed to load Google listings");
+        }
+      } finally {
+        if (!cancelled) setImportLoading(false);
+      }
+    }
+
+    void loadOwnedLocations();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, businessId, locations.length]);
+
+  useEffect(() => {
+    if (step !== "import" || !sourceBusinessId) return;
+
+    let cancelled = false;
+    async function loadImportCandidates() {
+      setImportLoading(true);
+      setFormError("");
+      try {
+        const params = new URLSearchParams({ sourceBusinessId });
+        if (businessId) params.set("targetBusinessId", businessId);
+        const res = await fetch(`/api/google/gbp/import-candidates?${params.toString()}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to load Google listings");
+        if (!cancelled) {
+          setImportLocations(data.locations ?? []);
+          setImportMeta({
+            googleEmail: data.googleEmail,
+            unlinkedCount: data.unlinkedCount,
+          });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setFormError(err instanceof Error ? err.message : "Failed to load Google listings");
+          setImportLocations([]);
+        }
+      } finally {
+        if (!cancelled) setImportLoading(false);
+      }
+    }
+
+    void loadImportCandidates();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, sourceBusinessId, businessId]);
 
   function handlePlaceSelect(place: BusinessPlaceSelection) {
     setPlaceSelected(true);
@@ -140,9 +225,61 @@ export default function OnboardingWizard({
     }
   }
 
-  function connectGoogle() {
+  function connectGoogle(reuseFromBusinessId?: string) {
     if (!businessId) return;
-    window.location.href = `/api/google/gbp/connect?businessId=${businessId}`;
+    const params = new URLSearchParams({ businessId });
+    if (reuseFromBusinessId) {
+      params.set("reuseFromBusinessId", reuseFromBusinessId);
+    }
+    window.location.href = `/api/google/gbp/connect?${params.toString()}`;
+  }
+
+  function startImportFlow(account?: ConnectedGoogleAccount) {
+    setFormError("");
+    if (account) {
+      setSourceBusinessId(account.businessId);
+      if (businessId) {
+        connectGoogle(account.businessId);
+        return;
+      }
+      setStep("import");
+      return;
+    }
+    setStep("import-account");
+  }
+
+  async function importLocation(loc: RankedGbpLocation) {
+    if (!sourceBusinessId) return;
+
+    setLoading(true);
+    setFormError("");
+    try {
+      const res = await fetch("/api/google/gbp/import-location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceBusinessId,
+          targetBusinessId: businessId || undefined,
+          accountId: loc.accountId,
+          locationId: loc.locationId,
+          placeId: loc.placeId,
+          title: loc.title,
+          phone: loc.phone,
+          website: loc.website,
+          industry: loc.primaryCategory,
+          address: loc.address,
+          parentChainId: loc.parentChainId,
+          chainDisplayName: loc.chainDisplayName,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to import location");
+      router.push(`/platform/audit?businessId=${data.businessId}&onboarded=1`);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function skipGbpForLater() {
@@ -184,21 +321,29 @@ export default function OnboardingWizard({
   return (
     <div className={isLight ? "mx-auto max-w-6xl" : "mx-auto max-w-xl"}>
       <div className="mb-8 flex gap-2">
-        {(["business", "connect", "location"] as const).map((s, i) => (
-          <div
-            key={s}
-            className={`h-1 flex-1 rounded-full ${
-              step === s || (step === "location" && s !== "business")
-                ? isLight
-                  ? "bg-[#1a73e8]"
-                  : "bg-emerald-400"
-                : isLight
-                  ? "bg-[#dadce0]"
-                  : "bg-white/10"
-            }`}
-            title={`Step ${i + 1}`}
-          />
-        ))}
+        {(addingLocation && hasConnectedAccounts
+          ? (["method", "business", "connect", "import"] as const)
+          : (["business", "connect", "location"] as const)
+        ).map((marker) => {
+          const active =
+            step === marker ||
+            (marker === "connect" && (step === "import-account" || step === "import")) ||
+            (marker === "import" && step === "location");
+          return (
+            <div
+              key={marker}
+              className={`h-1 flex-1 rounded-full ${
+                active
+                  ? isLight
+                    ? "bg-[#1a73e8]"
+                    : "bg-emerald-400"
+                  : isLight
+                    ? "bg-[#dadce0]"
+                    : "bg-white/10"
+              }`}
+            />
+          );
+        })}
       </div>
 
       {(formError || error) && (
@@ -223,6 +368,137 @@ export default function OnboardingWizard({
         >
           Google Business Profile disconnected. Reconnect below to resume live audits.
         </p>
+      )}
+
+      {step === "method" && (
+        <div className="mx-auto max-w-xl space-y-4">
+          <h2 className={`text-2xl font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
+            How do you want to add this location?
+          </h2>
+          <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+            Import a listing from a Google account you&apos;ve already connected, or search Google
+            Maps if this location uses a different profile manager.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => startImportFlow()}
+            className={`w-full rounded-xl border p-5 text-left transition ${
+              isLight
+                ? "border-[#1a73e8] bg-[#e8f0fe] hover:bg-[#d2e3fc]"
+                : "border-emerald-500/50 bg-emerald-500/10"
+            }`}
+          >
+            <p className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+              Import from Google
+            </p>
+            <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+              Pick from listings on a connected Google account. Fastest when the profile is already
+              linked to your portfolio.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStep("business")}
+            className={`w-full rounded-xl border p-5 text-left transition ${
+              isLight
+                ? "border-[#dadce0] bg-white hover:border-[#1a73e8] hover:bg-[#f8f9fa]"
+                : "border-white/10 bg-white/[0.03]"
+            }`}
+          >
+            <p className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+              Search Google Maps
+            </p>
+            <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+              Use this when the location is managed by a different Google account or isn&apos;t in
+              your connected listings yet.
+            </p>
+          </button>
+        </div>
+      )}
+
+      {step === "import-account" && (
+        <div className="mx-auto max-w-xl space-y-4">
+          <h2 className={`text-2xl font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
+            Choose a Google account
+          </h2>
+          <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+            Each location can use its own Google login. Pick an account that already manages this
+            listing, or connect a new one below.
+          </p>
+
+          {connectedAccounts.map((account) => (
+            <button
+              key={account.businessId}
+              type="button"
+              onClick={() => startImportFlow(account)}
+              className={`w-full rounded-xl border p-4 text-left transition ${
+                isLight
+                  ? "border-[#dadce0] bg-white hover:border-[#1a73e8] hover:bg-[#f8f9fa]"
+                  : "border-white/10 bg-white/[0.03]"
+              }`}
+            >
+              <p className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+                {account.googleEmail}
+              </p>
+              <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                Connected via {account.businessName}
+                {account.city ? ` · ${account.city}, ${account.state}` : ""}
+              </p>
+            </button>
+          ))}
+
+          <button
+            type="button"
+            onClick={() => {
+              setStep("business");
+            }}
+            className={`w-full rounded-full border py-3 text-sm font-semibold transition ${
+              isLight
+                ? "border-[#dadce0] text-[#3c4043] hover:bg-[#f8f9fa]"
+                : "border-white/10 text-white"
+            }`}
+          >
+            Connect a different Google account
+          </button>
+        </div>
+      )}
+
+      {step === "import" && (
+        <div className="mx-auto max-w-xl space-y-4">
+          <h2 className={`text-2xl font-bold ${isLight ? "text-[#202124]" : "text-white"}`}>
+            Import a location
+          </h2>
+          <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+            {importMeta.googleEmail
+              ? `Showing listings from ${importMeta.googleEmail} that are not already in your portfolio.`
+              : "Choose a Google listing to add to your portfolio."}
+          </p>
+
+          <GbpLocationPicker
+            theme={theme}
+            locations={importLocations}
+            loading={importLoading}
+            disabled={loading}
+            emptyMessage={
+              importMeta.unlinkedCount === 0
+                ? "All listings on this Google account are already in your portfolio. Connect a different Google account or search Google Maps."
+                : "No available listings found for this Google account."
+            }
+            onSelect={importLocation}
+          />
+
+          <button
+            type="button"
+            onClick={() => setStep(hasConnectedAccounts ? "import-account" : "method")}
+            className={`w-full rounded-full py-3 text-sm font-medium transition ${
+              isLight ? "text-[#5f6368] hover:text-[#202124]" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            Choose a different Google account
+          </button>
+        </div>
       )}
 
       {step === "business" && (
@@ -376,9 +652,37 @@ export default function OnboardingWizard({
             Connect Google Business Profile
           </h2>
           <p className={`text-sm leading-relaxed ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-            Sign in with the Google account that manages your business on Google Maps.
-            We&apos;ll pull live profile data, reviews, posts, and performance metrics.
+            {addingLocation
+              ? "This location may use a different Google account than your other locations. Reuse an existing connection or sign in with the account that manages this listing."
+              : "Sign in with the Google account that manages your business on Google Maps. We'll pull live profile data, reviews, posts, and performance metrics."}
           </p>
+
+          {addingLocation && hasConnectedAccounts && (
+            <div className="space-y-3">
+              <p className={`text-sm font-medium ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
+                Reuse a connected Google account
+              </p>
+              {connectedAccounts.map((account) => (
+                <button
+                  key={account.businessId}
+                  type="button"
+                  onClick={() => connectGoogle(account.businessId)}
+                  className={`w-full rounded-xl border p-4 text-left transition ${
+                    isLight
+                      ? "border-[#dadce0] bg-white hover:border-[#1a73e8] hover:bg-[#f8f9fa]"
+                      : "border-white/10 bg-white/[0.03]"
+                  }`}
+                >
+                  <p className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+                    {account.googleEmail}
+                  </p>
+                  <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                    Connected via {account.businessName}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
 
           <ul className={`space-y-2 text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
             <li>✓ Performance: profile views, calls, directions, website clicks, search keywords</li>
@@ -389,11 +693,13 @@ export default function OnboardingWizard({
 
           <button
             type="button"
-            onClick={connectGoogle}
+            onClick={() => connectGoogle()}
             className="btn-primary flex w-full items-center justify-center gap-3 rounded-full py-3 text-sm font-semibold text-white"
           >
             <GoogleIcon />
-            Connect with Google
+            {addingLocation && hasConnectedAccounts
+              ? "Connect a different Google account"
+              : "Connect with Google"}
           </button>
 
           <button
@@ -422,46 +728,13 @@ export default function OnboardingWizard({
             Your Google account manages multiple locations. Choose the one to optimize.
           </p>
 
-          {locations.map((loc) => (
-            <button
-              key={`${loc.accountId}-${loc.locationId}`}
-              type="button"
-              disabled={loading}
-              onClick={() => selectLocation(loc)}
-              className={`w-full rounded-xl border p-4 text-left transition disabled:opacity-50 ${
-                loc.recommended
-                  ? isLight
-                    ? "border-[#1a73e8] bg-[#e8f0fe] hover:bg-[#d2e3fc]"
-                    : "border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/15"
-                  : isLight
-                    ? "border-[#dadce0] bg-white hover:border-[#1a73e8] hover:bg-[#f8f9fa]"
-                    : "border-white/10 bg-white/[0.03] hover:border-emerald-500/40 hover:bg-white/[0.05]"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
-                  {loc.title}
-                </p>
-                {loc.recommended && (
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                      isLight ? "bg-[#1a73e8] text-white" : "bg-emerald-500 text-white"
-                    }`}
-                  >
-                    Recommended
-                  </span>
-                )}
-              </div>
-              <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-                {loc.address}
-              </p>
-              <p className={`mt-1 text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
-                {loc.primaryCategory}
-                {loc.chainDisplayName ? ` · ${loc.chainDisplayName} chain` : ""}
-                {loc.matchReason ? ` · ${loc.matchReason}` : ""}
-              </p>
-            </button>
-          ))}
+          <GbpLocationPicker
+            theme={theme}
+            locations={locations.length > 0 ? locations : importLocations}
+            loading={importLoading && locations.length === 0}
+            disabled={loading}
+            onSelect={selectLocation}
+          />
         </div>
       )}
     </div>

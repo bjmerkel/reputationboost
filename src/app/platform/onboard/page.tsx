@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getPrimaryBusiness } from "@/audit/businesses";
-import OnboardingWizard from "@/components/OnboardingWizard";
+import { getPrimaryBusiness, listUserBusinesses } from "@/audit/businesses";
+import OnboardingWizard, {
+  type ConnectedGoogleAccount,
+} from "@/components/OnboardingWizard";
 import type { RankedGbpLocation } from "@/lib/google/gbp-onboarding-match";
+import { listGbpTokenSources } from "@/lib/google/gbp-import";
 import { getUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -14,11 +17,13 @@ interface PageProps {
   searchParams: Promise<{
     step?: string;
     businessId?: string;
+    sourceBusinessId?: string;
     locations?: string;
     error?: string;
     disconnected?: string;
     change?: string;
     add?: string;
+    import?: string;
   }>;
 }
 
@@ -29,6 +34,9 @@ export default async function OnboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const existing = await getPrimaryBusiness(user.id);
   const addingLocation = params.add === "1" || params.change === "1";
+  const rows = await listUserBusinesses(user.id);
+  const connectedAccounts: ConnectedGoogleAccount[] = listGbpTokenSources(rows);
+  const hasConnectedAccounts = connectedAccounts.length > 0;
 
   if (existing?.onboardingComplete && !params.step && !params.disconnected && !addingLocation) {
     redirect("/platform/audit");
@@ -45,13 +53,29 @@ export default async function OnboardPage({ searchParams }: PageProps) {
     }
   }
 
-  const step = addingLocation
-    ? "business"
-    : params.step === "location" && params.businessId
-      ? "location"
-      : params.businessId || (existing?.businessId && !existing.onboardingComplete)
-        ? "connect"
-        : "business";
+  let step: "method" | "business" | "connect" | "location" | "import-account" | "import" =
+    "business";
+
+  if (params.step === "import" && params.sourceBusinessId) {
+    step = "import";
+  } else if (params.step === "import-account") {
+    step = "import-account";
+  } else if (params.step === "location" && params.businessId) {
+    step = "location";
+  } else if (addingLocation && hasConnectedAccounts && !params.businessId && params.import === "1") {
+    step = "import-account";
+  } else if (addingLocation && hasConnectedAccounts && !params.businessId && !params.step) {
+    step = "method";
+  } else if (addingLocation && !params.businessId && !params.step) {
+    step = "business";
+  } else if (
+    params.businessId ||
+    (existing?.businessId && !existing.onboardingComplete && !addingLocation)
+  ) {
+    step = "connect";
+  } else {
+    step = "business";
+  }
 
   const wizardBusinessId = addingLocation
     ? params.businessId
@@ -66,7 +90,9 @@ export default async function OnboardPage({ searchParams }: PageProps) {
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-[#5f6368]">
           {addingLocation
-            ? "Search Google Maps for your new location. Your existing locations stay active while you set this one up."
+            ? hasConnectedAccounts
+              ? "Import from a connected Google account or search Google Maps. Each location can use its own Google login when needed."
+              : "Search Google Maps for your new location. Your existing locations stay active while you set this one up."
             : "Search Google Maps, confirm your location, and link your Google Business Profile for live audits and optimization."}
         </p>
       </div>
@@ -76,6 +102,8 @@ export default async function OnboardPage({ searchParams }: PageProps) {
           step={step}
           businessId={wizardBusinessId}
           locations={locations}
+          connectedAccounts={connectedAccounts}
+          sourceBusinessId={params.sourceBusinessId}
           error={params.error}
           disconnected={params.disconnected === "1"}
           addingLocation={addingLocation}
