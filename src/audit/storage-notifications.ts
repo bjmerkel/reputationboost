@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 export type AutopilotNotificationType =
   | "suggestion_created"
   | "experiment_queued"
-  | "experiment_concluded";
+  | "experiment_concluded"
+  | "scheduled_post_failed";
 
 export interface UserNotification {
   id: string;

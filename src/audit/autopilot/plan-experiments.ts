@@ -1,4 +1,5 @@
 import { createId } from "@/lib/create-id";
+import { defaultGooglePostScheduledFor } from "@/lib/google/google-post-schedule";
 import type {
   ExecutionTask,
   FullAuditPayload,
@@ -124,7 +125,12 @@ export function buildExecutionTaskForExperiment(params: {
       autopilot: true,
     },
     requiresApproval: needsApproval,
-    scheduledFor: needsApproval ? null : new Date().toISOString(),
+    scheduledFor:
+      action.actionType === "google_post" && needsApproval
+        ? defaultGooglePostScheduledFor(1)
+        : needsApproval
+          ? null
+          : new Date().toISOString(),
     completedAt: null,
     result: null,
     createdAt: new Date().toISOString(),
