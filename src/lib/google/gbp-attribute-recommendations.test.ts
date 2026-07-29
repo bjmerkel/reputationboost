@@ -6,6 +6,8 @@ import {
   buildConfiguredProfileLinks,
   buildUserUriAttributeUpdates,
   chunkAttributeUpdates,
+  isActionableManualAttribute,
+  isNonActionableManualAttribute,
   isProfileLinkCoverageItem,
   isUriAttributeType,
   profileLinkUriPlaceholder,
@@ -95,6 +97,43 @@ describe("buildAttributeCoverage", () => {
   it("keeps recommendAttributeUpdates limited when requested", () => {
     const updates = recommendAttributeUpdates(available, current, { limit: 1 });
     assert.equal(updates.length, 1);
+  });
+
+  it("excludes non-actionable chat attributes from missing gaps", () => {
+    const withChat = [
+      ...available,
+      {
+        name: "attributes/primary_chat",
+        displayName: "Primary chat",
+        groupDisplayName: "Place page attributes",
+        valueType: "ENUM",
+        deprecated: false,
+      },
+    ];
+    const coverage = buildAttributeCoverage(withChat, current, {
+      websiteUri: "https://example.com/book",
+    });
+
+    assert.equal(
+      isNonActionableManualAttribute({
+        displayName: "Primary chat",
+        groupDisplayName: "Place page attributes",
+        name: "attributes/primary_chat",
+        valueType: "ENUM",
+      }),
+      true
+    );
+    assert.equal(
+      isActionableManualAttribute({
+        displayName: "Payment options",
+        groupDisplayName: "Payments",
+        name: "attributes/payment_options",
+        valueType: "REPEATED_ENUM",
+      }),
+      true
+    );
+    assert.ok(!coverage.missing.some((item) => item.displayName === "Primary chat"));
+    assert.ok(coverage.missing.some((item) => item.displayName === "Payment options"));
   });
 });
 
@@ -242,6 +281,75 @@ describe("attribute plan integration", () => {
     assert.ok(Array.isArray(tasks[0].payload.attributes));
     assert.ok(Array.isArray(tasks[1].payload.attributes));
     assert.equal((tasks[1].payload.attributes as unknown[]).length, 4);
+  });
+
+  it("skips manual checklist tasks for non-actionable chat attributes", () => {
+    const audit = auditWithCoverage();
+    const onlyChatAvailable = [
+      {
+        name: "attributes/primary_chat",
+        displayName: "Primary chat",
+        groupDisplayName: "Place page attributes",
+        valueType: "ENUM",
+        deprecated: false,
+      },
+    ];
+    const chatOnlyCoverage = buildAttributeCoverage(onlyChatAvailable, []);
+    const chatOnlyAudit: FullAuditPayload = {
+      ...audit,
+      gbp: {
+        ...audit.gbp,
+        attributeCoverage: chatOnlyCoverage,
+      },
+    };
+
+    const chatOnlyTasks = buildAttributeExecutionTasks(chatOnlyAudit, {
+      stepNumber: 13,
+      title: "Attributes",
+      instruction: "Enable attributes",
+      gbpAction: "update_attributes",
+      actionData: { attributes: [] },
+    });
+    assert.equal(chatOnlyCoverage.missingCount, 0);
+    assert.equal(
+      chatOnlyTasks.some((task) => task.title.includes("Set remaining GBP attributes")),
+      false
+    );
+
+    const withChatCoverage = buildAttributeCoverage(
+      [
+        ...available,
+        {
+          name: "attributes/primary_chat",
+          displayName: "Primary chat",
+          groupDisplayName: "Place page attributes",
+          valueType: "ENUM",
+          deprecated: false,
+        },
+      ],
+      current,
+      { websiteUri: audit.gbp.identity.website }
+    );
+    const withChatAudit: FullAuditPayload = {
+      ...audit,
+      gbp: {
+        ...audit.gbp,
+        attributeCoverage: withChatCoverage,
+      },
+    };
+    const withChatTasks = buildAttributeExecutionTasks(withChatAudit, {
+      stepNumber: 13,
+      title: "Attributes",
+      instruction: "Enable attributes",
+      gbpAction: "update_attributes",
+      actionData: { attributes: withChatCoverage.autoUpdates },
+    });
+    const checklist = withChatTasks.find((task) =>
+      task.title.includes("Set remaining GBP attributes")
+    );
+    assert.ok(checklist);
+    assert.ok(!checklist!.draftContent.includes("Primary chat"));
+    assert.ok(checklist!.draftContent.includes("Payment options"));
   });
 
   it("suggests WhatsApp links from the business phone", () => {

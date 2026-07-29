@@ -6,7 +6,7 @@ import type {
   GbpLocationFieldStatus,
   GbpSnapshot,
 } from "@/audit/types";
-import { isProfileLinkCoverageItem, isUriAttributeType, resolveProfileLinkMissing } from "./gbp-attribute-recommendations";
+import { isActionableManualAttribute, isProfileLinkCoverageItem, isUriAttributeType, resolveProfileLinkMissing } from "./gbp-attribute-recommendations";
 import { enrichLocationInventoryScores } from "./gbp-field-score-impact";
 import { GBP_DESCRIPTION_MAX_LENGTH } from "./gbp-description";
 import { missingServiceKeywords } from "./gbp-service-descriptions";
@@ -139,7 +139,8 @@ function buildAttributesInventoryField(
       (item) =>
         !item.autoApplicable &&
         !isProfileLinkCoverageItem(item) &&
-        !isUriAttributeType(item.valueType)
+        !isUriAttributeType(item.valueType) &&
+        isActionableManualAttribute(item)
     ).length;
 
     const current =

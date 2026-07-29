@@ -4,7 +4,7 @@ import type {
   KeywordRankAnalysis,
   Phase1AuditPayload,
 } from "../types";
-import { isProfileLinkCoverageItem, isUriAttributeType, resolveProfileLinkMissing } from "@/lib/google/gbp-attribute-recommendations";
+import { isActionableManualAttribute, isProfileLinkCoverageItem, isUriAttributeType, resolveProfileLinkMissing } from "@/lib/google/gbp-attribute-recommendations";
 import { keywordCoveredByServices, missingServiceKeywords as missingServiceKeywordsForNames } from "@/lib/google/gbp-service-descriptions";
 import { detectPackFragility } from "./scoring";
 import { resolveReviewResponseRate } from "@/audit/review-engagement";
@@ -311,7 +311,11 @@ export function buildAttributePlanContent(audit: Phase1AuditPayload): {
   const configuredProfileLinks = coverage.configuredProfileLinks ?? [];
   const profileLinkMissing = resolveProfileLinkMissing(coverage);
   const enumMissing = coverage.missing.filter(
-    (item) => !item.autoApplicable && !isProfileLinkCoverageItem(item) && !isUriAttributeType(item.valueType)
+    (item) =>
+      !item.autoApplicable &&
+      !isProfileLinkCoverageItem(item) &&
+      !isUriAttributeType(item.valueType) &&
+      isActionableManualAttribute(item)
   );
 
   const recommended =

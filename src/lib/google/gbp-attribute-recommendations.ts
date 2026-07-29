@@ -94,6 +94,35 @@ export function isProfileLinkCoverageItem(
   return isProfileLinkAttribute(item);
 }
 
+function manualAttributeHaystack(
+  item: Pick<GbpAttributeCoverageItem, "displayName" | "groupDisplayName" | "name">
+): string {
+  return `${item.displayName} ${item.groupDisplayName} ${item.name}`.toLowerCase();
+}
+
+/** Manual ENUM attributes we should not surface as plan checklist work (not API-writable). */
+export function isNonActionableManualAttribute(
+  item: Pick<GbpAttributeCoverageItem, "displayName" | "groupDisplayName" | "name" | "valueType">
+): boolean {
+  const haystack = manualAttributeHaystack(item);
+  return /\b(chat|messaging|messages?)\b/.test(haystack);
+}
+
+export function isActionableManualAttribute(
+  item: Pick<GbpAttributeCoverageItem, "displayName" | "groupDisplayName" | "name" | "valueType">
+): boolean {
+  return !isNonActionableManualAttribute(item);
+}
+
+/** Missing attributes that should count toward plan gaps and step 13 satisfaction. */
+export function isActionableAttributeGap(
+  item: Pick<GbpAttributeCoverageItem, "displayName" | "groupDisplayName" | "name" | "valueType" | "autoApplicable">
+): boolean {
+  if (item.autoApplicable) return true;
+  if (isProfileLinkCoverageItem(item) || isUriAttributeType(item.valueType)) return true;
+  return isActionableManualAttribute(item);
+}
+
 function attributeUriValue(attr: GbpLocationAttribute): string | undefined {
   return attr.values.find(
     (value) =>
@@ -310,16 +339,18 @@ export function buildAttributeCoverage(
       .map((meta) => attributeKey(meta.name))
   );
 
-  const missing = sortByPriority(active, missingKeys).map((meta) => {
-    const autoUpdate = buildAutoUpdate(meta, options?.websiteUri);
-    return {
-      name: meta.name,
-      displayName: meta.displayName,
-      groupDisplayName: meta.groupDisplayName,
-      valueType: meta.valueType,
-      autoApplicable: autoUpdate != null,
-    };
-  });
+  const missing = sortByPriority(active, missingKeys)
+    .map((meta) => {
+      const autoUpdate = buildAutoUpdate(meta, options?.websiteUri);
+      return {
+        name: meta.name,
+        displayName: meta.displayName,
+        groupDisplayName: meta.groupDisplayName,
+        valueType: meta.valueType,
+        autoApplicable: autoUpdate != null,
+      };
+    })
+    .filter(isActionableAttributeGap);
 
   const autoUpdates = sortByPriority(active, missingKeys)
     .map((meta) => buildAutoUpdate(meta, options?.websiteUri))

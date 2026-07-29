@@ -38,6 +38,7 @@ import {
   portfolioStepIsSatisfied,
 } from "./keyword-portfolio";
 import { buildGbpDescriptionDraft, cityFromAddress } from "@/lib/google/gbp-description-draft";
+import { isNonActionableManualAttribute } from "@/lib/google/gbp-attribute-recommendations";
 import { resolveReviewResponseRate } from "@/audit/review-engagement";
 
 export interface GbpPlanBuildOptions {
@@ -187,6 +188,7 @@ function retiredTitleInText(text: string): boolean {
 
 /** Legacy execution tasks for retired checklist steps (Messaging, Booking Feature, etc.). */
 export function isRetiredGbpPlanTask(task: {
+  type?: string;
   title?: string;
   description?: string;
   draftContent?: string;
@@ -202,6 +204,20 @@ export function isRetiredGbpPlanTask(task: {
   const body = `${task.description ?? ""}\n${task.draftContent ?? ""}`;
   if (body.includes("Turn on GBP chat/messages")) return true;
   if (body.includes("Enable messaging with fast response times")) return true;
+
+  if (
+    task.type === "gbp_checklist" &&
+    title.includes("Set remaining GBP attributes")
+  ) {
+    const checklist = task.payload?.attributeChecklist;
+    if (Array.isArray(checklist) && checklist.length > 0) {
+      const names = checklist.map((item) => String(item));
+      if (names.every((name) => isNonActionableManualAttribute({ displayName: name, groupDisplayName: "", name }))) {
+        return true;
+      }
+    }
+    if (body.includes("Primary chat")) return true;
+  }
 
   return false;
 }

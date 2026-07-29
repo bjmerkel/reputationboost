@@ -25,6 +25,7 @@ import {
   attributeDisplayName,
   buildUserUriAttributeUpdates,
   chunkAttributeUpdates,
+  isActionableManualAttribute,
   isProfileLinkCoverageItem,
   isUriAttributeType,
   resolveProfileLinkMissing,
@@ -224,7 +225,10 @@ export function buildAttributeExecutionTasks(
   const manualMissing = coverage?.missing.filter((item) => !item.autoApplicable) ?? [];
   const profileLinkMissing = resolveProfileLinkMissing(coverage);
   const enumMissing = manualMissing.filter(
-    (item) => !isProfileLinkCoverageItem(item) && !isUriAttributeType(item.valueType)
+    (item) =>
+      !isProfileLinkCoverageItem(item) &&
+      !isUriAttributeType(item.valueType) &&
+      isActionableManualAttribute(item)
   );
   const tasks: ExecutionTask[] = [];
 

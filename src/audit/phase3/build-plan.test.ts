@@ -202,6 +202,38 @@ describe("buildPlan", () => {
     assert.equal(step14!.tasks.some((task) => task.type === "gbp_notifications"), true);
   });
 
+  it("drops legacy Primary chat attribute checklist tasks from step 13", () => {
+    const audit = createTestAudit();
+    const primaryChatTask = {
+      id: "legacy-primary-chat",
+      auditId: audit.auditId,
+      actionItemId: "gbp-step-13",
+      type: "gbp_checklist" as const,
+      title: "Set remaining GBP attributes",
+      description:
+        "These attributes must be set manually in Google Business Profile:\n• Primary chat (Place page attributes)",
+      priority: "P2" as const,
+      status: "approved" as const,
+      draftContent:
+        "These attributes must be set manually in Google Business Profile:\n• Primary chat (Place page attributes)",
+      payload: {
+        gbpStepNumber: 13,
+        gbpStepTitle: "Attributes",
+        planPhaseId: "foundation",
+        attributeChecklist: ["Primary chat"],
+      },
+    };
+
+    const plan = buildPlan(audit, [...(audit.execution?.tasks ?? []), primaryChatTask]);
+    const step13 = plan!.steps.find((step) => step.stepNumber === 13);
+
+    assert.ok(step13);
+    assert.equal(
+      step13!.tasks.some((task) => task.title === "Set remaining GBP attributes"),
+      false
+    );
+  });
+
   it("attaches outcomes from attributions to completed steps", () => {
     const audit = createTestAudit();
     const tasks = audit.execution!.tasks.map((t) =>
