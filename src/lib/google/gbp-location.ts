@@ -874,9 +874,9 @@ export async function updateLocationAttributes(
     body: JSON.stringify({ name: resource, attributes }),
   });
 
-  const data = (await res.json()) as { error?: { message?: string } };
+  const data = (await res.json()) as Parameters<typeof formatGbpApiError>[0];
   if (!res.ok) {
-    throw new Error(data.error?.message ?? `Attribute update failed (${res.status})`);
+    throw new Error(formatGbpApiError(data, res.status, "attributes"));
   }
 }
 
@@ -1208,7 +1208,7 @@ export async function patchGbpLocation(
 
   const data = (await res.json()) as Parameters<typeof formatGbpApiError>[0];
   if (!res.ok) {
-    throw new Error(formatGbpApiError(data, res.status));
+    throw new Error(formatGbpApiError(data, res.status, "description"));
   }
 }
 

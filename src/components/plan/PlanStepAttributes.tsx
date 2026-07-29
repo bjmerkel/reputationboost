@@ -6,6 +6,8 @@ import type { GbpAttributeUpdate } from "@/lib/google/gbp-location";
 import {
   attributeDisplayName,
   buildUserUriAttributeUpdates,
+  isSupportedAttributeName,
+  normalizeProfileLinkUri,
   profileLinkUriPlaceholder,
   resolveProfileLinkMissing,
 } from "@/lib/google/gbp-attribute-recommendations";
@@ -89,11 +91,16 @@ export default function PlanStepAttributes({
     if (!requiresUriInput) return readAttributeUpdates(task);
 
     const profileLinks = resolveProfileLinkMissing(coverage);
+    const supportedNames = coverage?.supportedAttributeNames ?? [];
+    const actionableProfileLinks =
+      supportedNames.length > 0
+        ? profileLinks.filter((item) => isSupportedAttributeName(item.name, supportedNames))
+        : profileLinks;
     const taskAttrs = readAttributeUpdates(task);
     const configuredByName = new Map(
       (coverage?.configuredProfileLinks ?? []).map((link) => [link.name, link.uri])
     );
-    const suggested = buildUserUriAttributeUpdates(profileLinks, {
+    const suggested = buildUserUriAttributeUpdates(actionableProfileLinks, {
       phone: businessPhone,
       websiteUri: businessWebsite,
     });
@@ -140,7 +147,7 @@ export default function PlanStepAttributes({
   const selectedUriUpdates = selectedAttributes
     .map((update) => ({
       ...update,
-      uri: (uriValues[update.name] ?? "").trim(),
+      uri: normalizeProfileLinkUri((uriValues[update.name] ?? "").trim(), update.name),
     }))
     .filter((update) => publishableUri(update.uri ?? ""));
 

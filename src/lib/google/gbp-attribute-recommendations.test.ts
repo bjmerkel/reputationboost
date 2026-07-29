@@ -6,10 +6,13 @@ import {
   buildConfiguredProfileLinks,
   buildUserUriAttributeUpdates,
   chunkAttributeUpdates,
+  filterSupportedAttributeUpdates,
   isActionableManualAttribute,
   isNonActionableManualAttribute,
   isProfileLinkCoverageItem,
+  isSupportedAttributeName,
   isUriAttributeType,
+  normalizeProfileLinkUri,
   profileLinkUriPlaceholder,
   resolveProfileLinkMissing,
   recommendAttributeUpdates,
@@ -58,6 +61,20 @@ const available = [
     deprecated: false,
   },
   {
+    name: "attributes/url_facebook",
+    displayName: "Facebook",
+    groupDisplayName: "Place page URLs",
+    valueType: "URL",
+    deprecated: false,
+  },
+  {
+    name: "attributes/url_instagram",
+    displayName: "Instagram",
+    groupDisplayName: "Place page URLs",
+    valueType: "URL",
+    deprecated: false,
+  },
+  {
     name: "attributes/url_whatsapp",
     displayName: "WhatsApp",
     groupDisplayName: "Place page URLs",
@@ -81,8 +98,8 @@ describe("buildAttributeCoverage", () => {
     });
 
     assert.equal(coverage.enabledCount, 1);
-    assert.equal(coverage.availableCount, 6);
-    assert.equal(coverage.missingCount, 5);
+    assert.equal(coverage.availableCount, 8);
+    assert.equal(coverage.missingCount, 7);
     assert.equal(coverage.autoUpdates.length, 2);
     assert.deepEqual(
       coverage.autoUpdates.map((update) => update.name),
@@ -158,7 +175,7 @@ describe("attribute plan integration", () => {
 
   it("builds a plan step that names missing attributes", () => {
     const planContent = buildAttributePlanContent(auditWithCoverage());
-    assert.match(planContent.current, /1 of 6 enabled/);
+    assert.match(planContent.current, /1 of 8 enabled/);
     assert.match(planContent.recommended, /Enable 2 missing attributes/);
     assert.equal(planContent.actionData?.attributes.length, 2);
     assert.ok(planContent.copyBlocks?.some((block) => block.label.includes("One-click")));
@@ -208,7 +225,7 @@ describe("attribute plan integration", () => {
     assert.equal(links[0].uri, "https://www.facebook.com/nlclasvegas");
   });
 
-  it("includes Facebook and Instagram in profile link gaps when not configured", () => {
+  it("includes Facebook and Instagram in profile link gaps when Google supports them", () => {
     const coverage = buildAttributeCoverage(available, current, {
       websiteUri: "https://example.com/book",
     });
@@ -225,6 +242,19 @@ describe("attribute plan integration", () => {
       coverage.profileLinkMissing.some((item) => item.displayName === "Linkedin"),
       "LinkedIn should remain in profile link gaps"
     );
+  });
+
+  it("omits supplemental Facebook and Instagram when Google does not list them", () => {
+    const withoutSocial = available.filter(
+      (item) => item.displayName !== "Facebook" && item.displayName !== "Instagram"
+    );
+    const coverage = buildAttributeCoverage(withoutSocial, current, {
+      websiteUri: "https://example.com/book",
+    });
+
+    assert.ok(!coverage.profileLinkMissing.some((item) => item.displayName === "Facebook"));
+    assert.ok(!coverage.profileLinkMissing.some((item) => item.displayName === "Instagram"));
+    assert.ok(coverage.profileLinkMissing.some((item) => item.displayName === "Linkedin"));
   });
 
   it("suggests Facebook and Instagram URL prefixes", () => {
@@ -386,7 +416,7 @@ describe("attribute plan integration", () => {
       gbpAction: "update_attributes",
     });
 
-    assert.match(context.expectedEffect, /missing 5 of 6 available attributes/i);
+    assert.match(context.expectedEffect, /missing 7 of 8 available attributes/i);
     assert.match(
       context.expectedEffect,
       /conversion|action rates|relevance/i,
@@ -395,6 +425,39 @@ describe("attribute plan integration", () => {
     assert.ok(
       (context.engagementImpact ?? 0) > 0 || (context.healthScoreImpact ?? 0) > 0,
       "step context should quantify engagement or health impact"
+    );
+  });
+});
+
+describe("attribute support helpers", () => {
+  it("filters unsupported attribute updates", () => {
+    const updates = [
+      { name: "attributes/url_facebook", uri: "https://www.facebook.com/page" },
+      { name: "attributes/url_linkedin", uri: "https://www.linkedin.com/company/page" },
+    ];
+    const supported = ["attributes/url_linkedin"];
+    const filtered = filterSupportedAttributeUpdates(updates, supported);
+
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].name, "attributes/url_linkedin");
+    assert.equal(
+      isSupportedAttributeName("attributes/url_facebook", supported),
+      false
+    );
+  });
+
+  it("normalizes profile link URIs before publish", () => {
+    assert.equal(
+      normalizeProfileLinkUri("http://www.facebook.com/page", "attributes/url_facebook"),
+      "https://www.facebook.com/page"
+    );
+    assert.equal(
+      normalizeProfileLinkUri("https://wa.me/+1 (347) 286-6065", "attributes/url_whatsapp"),
+      "https://wa.me/13472866065"
+    );
+    assert.equal(
+      normalizeProfileLinkUri("sms:+1 347-286-6065"),
+      "sms:+13472866065"
     );
   });
 });

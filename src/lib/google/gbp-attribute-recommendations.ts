@@ -199,6 +199,23 @@ export function buildConfiguredProfileLinks(
   return links.sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
+export function isSupportedAttributeName(
+  name: string,
+  supportedNames: string[]
+): boolean {
+  const key = attributeKey(name);
+  return supportedNames.some((supported) => attributeKey(supported) === key);
+}
+
+/** Keep only attribute updates Google lists as available for this location. */
+export function filterSupportedAttributeUpdates(
+  updates: GbpAttributeUpdate[],
+  supportedNames: string[]
+): GbpAttributeUpdate[] {
+  if (supportedNames.length === 0) return updates;
+  return updates.filter((update) => isSupportedAttributeName(update.name, supportedNames));
+}
+
 function buildMissingProfileLinkItems(
   active: GbpAttributeMetadata[],
   configuredProfileLinks: GbpConfiguredProfileLink[]
@@ -237,6 +254,10 @@ function buildMissingProfileLinkItems(
   }
 
   for (const supplemental of SUPPLEMENTAL_PROFILE_LINK_ATTRIBUTES) {
+    if (!isSupportedAttributeName(supplemental.name, active.map((meta) => meta.name))) {
+      continue;
+    }
+
     const platform = supplemental.displayName.toLowerCase();
     const alreadyRepresented = active.some(
       (meta) => isProfileLinkAttribute(meta) && profileLinkHaystack(meta).includes(platform)
@@ -490,7 +511,15 @@ export function resolveProfileLinkMissing(
   for (const item of coverage.missing) {
     if (isProfileLinkCoverageItem(item)) add(item);
   }
+  const supportedNames = coverage.supportedAttributeNames ?? [];
   for (const supplemental of SUPPLEMENTAL_PROFILE_LINK_ATTRIBUTES) {
+    if (
+      supportedNames.length > 0 &&
+      !isSupportedAttributeName(supplemental.name, supportedNames)
+    ) {
+      continue;
+    }
+
     add({
       name: supplemental.name,
       displayName: supplemental.displayName,
@@ -501,6 +530,42 @@ export function resolveProfileLinkMissing(
   }
 
   return items.sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+/** Normalize profile-link URIs before sending to Google. */
+export function normalizeProfileLinkUri(
+  uri: string,
+  attributeName?: string
+): string {
+  const trimmed = uri.trim();
+  if (!trimmed) return trimmed;
+
+  if (trimmed.startsWith("sms:") || trimmed.startsWith("tel:")) {
+    const scheme = trimmed.startsWith("sms:") ? "sms:" : "tel:";
+    const value = trimmed.slice(scheme.length).replace(/\s+/g, "");
+    const digits = value.replace(/[^\d+]/g, "");
+    return `${scheme}${digits}`;
+  }
+
+  let normalized = trimmed;
+  if (normalized.startsWith("http://")) {
+    normalized = `https://${normalized.slice("http://".length)}`;
+  }
+
+  const haystack = (attributeName ?? "").toLowerCase();
+  if (haystack.includes("whatsapp")) {
+    const waMatch = normalized.match(/wa\.me\/([^/?#]+)/i);
+    if (waMatch) {
+      const digits = waMatch[1].replace(/\D/g, "");
+      if (digits) return `https://wa.me/${digits}`;
+    }
+    const phoneDigits = normalized.replace(/\D/g, "");
+    if (phoneDigits.length >= 10) {
+      return `https://wa.me/${phoneDigits}`;
+    }
+  }
+
+  return normalized;
 }
 
 function digitsOnlyPhone(phone: string): string {
@@ -570,4 +635,19 @@ export function buildUserUriAttributeUpdates(
       name: item.name,
       uri: suggestUriForAttribute(item, options),
     }));
+}
+
+/** Prepare URI attribute updates for Google: normalize links and drop unsupported names. */
+export function prepareUriAttributeUpdates(
+  updates: GbpAttributeUpdate[],
+  supportedNames: string[]
+): GbpAttributeUpdate[] {
+  const supported = filterSupportedAttributeUpdates(updates, supportedNames);
+  return supported.map((update) => {
+    if (!update.uri) return update;
+    return {
+      ...update,
+      uri: normalizeProfileLinkUri(update.uri, update.name),
+    };
+  });
 }

@@ -1,6 +1,6 @@
 import type { GbpConnection } from "@/audit/types";
 import { authHeadersForConnection } from "./auth-headers";
-import { buildAttributeCoverage, recommendBookingAttributes } from "./gbp-attribute-recommendations";
+import { buildAttributeCoverage, filterSupportedAttributeUpdates, normalizeProfileLinkUri, recommendBookingAttributes } from "./gbp-attribute-recommendations";
 import type { BusinessHours, SpecialHours } from "./gbp-hours";
 import {
   defaultUsHolidayHours,
@@ -18,6 +18,7 @@ import {
   lookupServiceTypeForDisplayName,
   resolveCategoryByDisplayName,
   updateLocationAttributes,
+  attributeKey,
   type GbpAttributeUpdate,
   type GbpCategoryRef,
 } from "./gbp-location";
@@ -466,12 +467,95 @@ export async function applyAttributes(
     throw new Error("No attribute updates provided.");
   }
 
-  await updateLocationAttributes(connection, updates);
+  const available = await listAvailableAttributes(connection).catch(() => []);
+  const supportedNames = available.map((meta) => meta.name);
+  const normalized = updates.map((update) =>
+    update.uri
+      ? { ...update, uri: normalizeProfileLinkUri(update.uri, update.name) }
+      : update
+  );
+  const prepared =
+    supportedNames.length > 0
+      ? filterSupportedAttributeUpdates(normalized, supportedNames)
+      : normalized;
+
+  if (prepared.length === 0) {
+    const labels = updates.map((update) => {
+      const meta = available.find((item) => attributeKey(item.name) === attributeKey(update.name));
+      return meta?.displayName ?? update.name.replace(/^attributes\//, "").replace(/_/g, " ");
+    });
+    throw new Error(
+      labels.length > 0
+        ? `Google does not support these profile links for your business category: ${labels.join(", ")}. Remove them and publish the rest, or add links manually in Google Business Profile.`
+        : "No supported attribute updates were available to publish for this location."
+    );
+  }
+
+  const skippedCount = updates.length - prepared.length;
+
+  try {
+    await updateLocationAttributes(connection, prepared);
+  } catch (batchError) {
+    if (prepared.length <= 1) {
+      throw batchError;
+    }
+
+    const applied: GbpAttributeUpdate[] = [];
+    const failed: Array<{ update: GbpAttributeUpdate; message: string }> = [];
+
+    for (const update of prepared) {
+      try {
+        await updateLocationAttributes(connection, [update]);
+        applied.push(update);
+      } catch (error) {
+        failed.push({
+          update,
+          message: error instanceof Error ? error.message : "Publish failed",
+        });
+      }
+    }
+
+    if (applied.length === 0) {
+      throw batchError;
+    }
+
+    const appliedLabels = applied.map((update) => {
+      const meta = available.find((item) => attributeKey(item.name) === attributeKey(update.name));
+      return meta?.displayName ?? update.name.replace(/^attributes\//, "").replace(/_/g, " ");
+    });
+    const failedLabels = failed.map(({ update }) => {
+      const meta = available.find((item) => attributeKey(item.name) === attributeKey(update.name));
+      return meta?.displayName ?? update.name.replace(/^attributes\//, "").replace(/_/g, " ");
+    });
+
+    const partialMessage = [
+      `Published ${applied.length} link${applied.length === 1 ? "" : "s"}: ${appliedLabels.join(", ")}.`,
+      failedLabels.length > 0
+        ? `Could not publish ${failedLabels.join(", ")} — check each URL is a valid https:// link to your page.`
+        : null,
+      skippedCount > 0
+        ? `Skipped ${skippedCount} unsupported link${skippedCount === 1 ? "" : "s"} for your category.`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    return {
+      success: true,
+      message: partialMessage,
+      applied: { count: applied.length, skipped: skippedCount, failed: failed.length },
+    };
+  }
+
+  const skippedMessage =
+    skippedCount > 0
+      ? ` Skipped ${skippedCount} unsupported link${skippedCount === 1 ? "" : "s"} for your category.`
+      : "";
 
   return {
     success: true,
-    message: `Updated ${updates.length} attribute(s) on Google Business Profile.`,
-    applied: { count: updates.length },
+    message: `Updated ${prepared.length} attribute(s) on Google Business Profile.${skippedMessage}`,
+    applied: { count: prepared.length, skipped: skippedCount },
   };
 }
 
