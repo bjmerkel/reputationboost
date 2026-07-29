@@ -36,6 +36,31 @@ export interface PlacesMonthlyUsage {
   collectionsSkipped: number;
 }
 
+export function defaultPlacesMonthlyUsage(
+  budget = DEFAULT_PLACES_MONTHLY_CALL_BUDGET
+): PlacesMonthlyUsage {
+  return {
+    callsBudget: budget,
+    callsReserved: 0,
+    callsRemaining: budget,
+    collectionsSkipped: 0,
+  };
+}
+
+function isPlacesCostGovernanceUnavailable(error: { code?: string; message?: string }): boolean {
+  const message = error.message ?? "";
+  return (
+    error.code === "PGRST205" ||
+    error.code === "42P01" ||
+    message.includes("places_api_monthly_usage") ||
+    message.includes("market_collection_claims") ||
+    message.includes("reserve_places_api_calls") ||
+    message.includes("release_places_api_calls") ||
+    message.includes("Could not find the table") ||
+    message.includes("does not exist")
+  );
+}
+
 export async function getPlacesMonthlyUsage(
   businessId: string,
   date: string | Date = new Date()
@@ -47,7 +72,12 @@ export async function getPlacesMonthlyUsage(
     .eq("business_id", businessId)
     .eq("month", monthStartYmd(date))
     .maybeSingle();
-  if (error) throw new Error(`Failed to read Places API budget: ${error.message}`);
+  if (error) {
+    if (isPlacesCostGovernanceUnavailable(error)) {
+      return defaultPlacesMonthlyUsage();
+    }
+    throw new Error(`Failed to read Places API budget: ${error.message}`);
+  }
   const callsBudget = Number(data?.calls_budget ?? DEFAULT_PLACES_MONTHLY_CALL_BUDGET);
   const callsReserved = Number(data?.calls_reserved ?? 0);
   return {
@@ -71,7 +101,12 @@ export async function reservePlacesApiCalls(
     p_calls: calls,
     p_budget: budget,
   });
-  if (error) throw new Error(`Failed to reserve Places API budget: ${error.message}`);
+  if (error) {
+    if (isPlacesCostGovernanceUnavailable(error)) {
+      return true;
+    }
+    throw new Error(`Failed to reserve Places API budget: ${error.message}`);
+  }
   return data === true;
 }
 
@@ -86,7 +121,10 @@ export async function releasePlacesApiCalls(
     p_month: monthStartYmd(date),
     p_calls: calls,
   });
-  if (error) throw new Error(`Failed to release Places API budget: ${error.message}`);
+  if (error) {
+    if (isPlacesCostGovernanceUnavailable(error)) return;
+    throw new Error(`Failed to release Places API budget: ${error.message}`);
+  }
 }
 
 export async function recordPlacesCollectionSkipped(
@@ -112,7 +150,10 @@ export async function recordPlacesCollectionSkipped(
       },
       { onConflict: "business_id,month" }
     );
-  if (error) throw new Error(`Failed to record skipped Places collection: ${error.message}`);
+  if (error) {
+    if (isPlacesCostGovernanceUnavailable(error)) return;
+    throw new Error(`Failed to record skipped Places collection: ${error.message}`);
+  }
 }
 
 export async function claimMarketCollection(
@@ -131,6 +172,7 @@ export async function claimMarketCollection(
   const { error } = await supabase.from("market_collection_claims").insert(row);
   if (!error) return true;
   if (error.code !== "23505") {
+    if (isPlacesCostGovernanceUnavailable(error)) return true;
     throw new Error(`Failed to claim market collection: ${error.message}`);
   }
 
@@ -142,7 +184,10 @@ export async function claimMarketCollection(
     .eq("keyword", keyword)
     .eq("period_start", claim.periodStart)
     .maybeSingle();
-  if (readError) throw new Error(`Failed to inspect market collection: ${readError.message}`);
+  if (readError) {
+    if (isPlacesCostGovernanceUnavailable(readError)) return true;
+    throw new Error(`Failed to inspect market collection: ${readError.message}`);
+  }
   if (!existing || existing.status === "completed") return false;
 
   const startedAt = new Date(existing.started_at as string).getTime();
@@ -165,7 +210,10 @@ export async function claimMarketCollection(
     .eq("started_at", existing.started_at)
     .select("business_id")
     .maybeSingle();
-  if (updateError) throw new Error(`Failed to reclaim market collection: ${updateError.message}`);
+  if (updateError) {
+    if (isPlacesCostGovernanceUnavailable(updateError)) return true;
+    throw new Error(`Failed to reclaim market collection: ${updateError.message}`);
+  }
   return Boolean(reclaimed);
 }
 
@@ -188,7 +236,10 @@ async function finishMarketCollection(
     .eq("collection_type", claim.collectionType)
     .eq("keyword", normalizeCollectionKeyword(claim.keyword))
     .eq("period_start", claim.periodStart);
-  if (error) throw new Error(`Failed to finish market collection: ${error.message}`);
+  if (error) {
+    if (isPlacesCostGovernanceUnavailable(error)) return;
+    throw new Error(`Failed to finish market collection: ${error.message}`);
+  }
 }
 
 export function completeMarketCollection(

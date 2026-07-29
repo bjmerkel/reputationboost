@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   DEFAULT_PLACES_MONTHLY_CALL_BUDGET,
   MONTHLY_KEYWORD_CALL_RESERVATION,
+  defaultPlacesMonthlyUsage,
   monthStartYmd,
   normalizeCollectionKeyword,
 } from "./places-cost-governance";
@@ -30,5 +31,13 @@ describe("Places cost governance", () => {
       monthlyGridReservation + twoEightKeywordPulses <=
         DEFAULT_PLACES_MONTHLY_CALL_BUDGET
     );
+  });
+
+  it("returns a full monthly budget when cost governance tables are unavailable", () => {
+    const usage = defaultPlacesMonthlyUsage();
+    assert.equal(usage.callsBudget, DEFAULT_PLACES_MONTHLY_CALL_BUDGET);
+    assert.equal(usage.callsReserved, 0);
+    assert.equal(usage.callsRemaining, DEFAULT_PLACES_MONTHLY_CALL_BUDGET);
+    assert.equal(usage.collectionsSkipped, 0);
   });
 });

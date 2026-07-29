@@ -100,7 +100,19 @@ export async function getPendingMarketRefreshForBusiness(
     .eq("business_id", businessId)
     .eq("status", "pending")
     .maybeSingle();
-  if (error) throw new Error(`Failed to read pending market refresh: ${error.message}`);
+  if (error) {
+    const message = error.message ?? "";
+    if (
+      error.code === "PGRST205" ||
+      error.code === "42P01" ||
+      message.includes("market_refresh_queue") ||
+      message.includes("Could not find the table") ||
+      message.includes("does not exist")
+    ) {
+      return null;
+    }
+    throw new Error(`Failed to read pending market refresh: ${error.message}`);
+  }
   return data
     ? {
         runAfter: data.run_after as string,
