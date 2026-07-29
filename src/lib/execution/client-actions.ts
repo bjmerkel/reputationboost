@@ -94,7 +94,7 @@ export async function reconcilePlan(
 export async function patchExecutionTask(
   taskId: string,
   body: {
-    status?: "approved" | "rejected";
+    status?: "approved" | "rejected" | "scheduled" | "pending_approval";
     draftContent?: string;
     payload?: Record<string, unknown>;
     scheduledFor?: string | null;
@@ -230,6 +230,7 @@ export async function approveAndPublishTask(
     retry?: boolean;
     payload?: Record<string, unknown>;
     publishNow?: boolean;
+    scheduledFor?: string | null;
   }
 ): Promise<ExecutionTask> {
   if (task.type === "review_response" && !isValidReviewId(task.payload.reviewId)) {
@@ -251,6 +252,7 @@ export async function approveAndPublishTask(
   const retry = options?.retry ?? needsGbpDescriptionRepublish(task);
   const publishNow = options?.publishNow === true;
   const scheduleOnly = googlePostShouldScheduleOnly(task, publishNow);
+  const scheduledFor = options?.scheduledFor ?? task.scheduledFor;
 
   if (draftContent && draftContent !== task.draftContent) {
     await patchExecutionTask(task.id, { draftContent });
@@ -265,19 +267,34 @@ export async function approveAndPublishTask(
   }
 
   if (scheduleOnly) {
-    if (task.status === "pending_approval") {
-      return patchExecutionTask(task.id, { status: "approved" });
+    if (!scheduledFor) {
+      throw new Error("Choose a publish date and time to schedule this post.");
     }
-    return task;
+    return patchExecutionTask(task.id, {
+      status: "scheduled",
+      scheduledFor,
+      ...(draftContent ? { draftContent } : {}),
+    });
   }
 
-  if (task.status === "pending_approval") {
+  if (task.status === "pending_approval" || task.status === "scheduled") {
     await patchExecutionTask(task.id, { status: "approved" });
   } else if (task.status !== "approved") {
     throw new Error(`Task cannot be published from status: ${task.status}`);
   }
 
   return executeExecutionTask(task.id, publishNow ? { publishNow: true } : undefined);
+}
+
+export async function cancelScheduledGooglePost(taskId: string): Promise<ExecutionTask> {
+  return patchExecutionTask(taskId, { status: "pending_approval" });
+}
+
+export async function rescheduleGooglePost(
+  taskId: string,
+  scheduledFor: string
+): Promise<ExecutionTask> {
+  return patchExecutionTask(taskId, { status: "scheduled", scheduledFor });
 }
 
 export async function approveAllRoutineTasks(tasks: ExecutionTask[]): Promise<number> {

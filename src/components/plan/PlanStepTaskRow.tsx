@@ -14,8 +14,13 @@ import ReviewResponseKeywordHints, {
   reviewResponseCanSuggestWeave,
 } from "./ReviewResponseKeywordHints";
 import { formatPlanTimestamp } from "./plan-timestamps";
-import { googlePostShowsPublishNow, taskPrimaryActionLabel } from "./plan-ux-copy";
-import { googlePostAwaitingScheduledPublish } from "@/lib/google/google-post-schedule";
+import {
+  googlePostShowsPublishNow,
+  googlePostShowsSchedulePicker,
+  taskPrimaryActionLabel,
+} from "./plan-ux-copy";
+import { googlePostAwaitingScheduledPublish, googlePostIsScheduled } from "@/lib/google/google-post-schedule";
+import GooglePostSchedulePicker, { useGooglePostScheduleState } from "./GooglePostSchedulePicker";
 
 const EDIT_STATUS_STYLES: Record<GbpEditStatus, string> = {
   accepted: "bg-[#e6f4ea] text-[#137333]",
@@ -65,6 +70,8 @@ export default function PlanStepTaskRow({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.draftContent);
   const loading = actions.loadingTaskId === task.id;
+  const isGooglePost = task.type === "google_post";
+  const scheduleState = useGooglePostScheduleState(task);
 
   useEffect(() => {
     if (!editing) {
@@ -74,7 +81,9 @@ export default function PlanStepTaskRow({
 
   const canPublish =
     gbpConnected &&
-    (task.status === "pending_approval" || task.status === "approved") &&
+    (task.status === "pending_approval" ||
+      task.status === "approved" ||
+      task.status === "scheduled") &&
     task.type !== "gbp_photo" &&
     (task.type !== "review_response" || isValidReviewId(task.payload.reviewId));
 
@@ -105,6 +114,11 @@ export default function PlanStepTaskRow({
       ? formatPlanTimestamp(task.scheduledFor)
       : null;
   const awaitingScheduledPublish = googlePostAwaitingScheduledPublish(task);
+  const isScheduledPost = googlePostIsScheduled(task);
+  const showSchedulePicker = isGooglePost && googlePostShowsSchedulePicker(task) && gbpConnected;
+  const scheduleChanged =
+    scheduleState.scheduledForIso != null &&
+    scheduleState.scheduledForIso !== task.scheduledFor;
 
   return (
     <div
@@ -147,7 +161,9 @@ export default function PlanStepTaskRow({
                 ? "bg-[#fef7e0] text-[#e37400]"
                 : task.status === "rejected"
                   ? "bg-[#f1f3f4] text-[#5f6368]"
-                  : "bg-[#e8f0fe] text-[#1a73e8]"
+                  : isScheduledPost || awaitingScheduledPublish
+                    ? "bg-[#e8f0fe] text-[#1a73e8]"
+                    : "bg-[#e8f0fe] text-[#1a73e8]"
           }`}
         >
           {awaitingScheduledPublish
@@ -220,6 +236,15 @@ export default function PlanStepTaskRow({
         </div>
       )}
 
+      {showSchedulePicker && (
+        <GooglePostSchedulePicker
+          task={task}
+          variant={variant}
+          disabled={loading}
+          onChange={scheduleState.setScheduleFromPicker}
+        />
+      )}
+
       {task.result && (
         <p className={`mt-2 text-sm ${task.status === "failed" ? "text-[#d93025]" : "text-[#137333]"}`}>
           {task.status === "failed" ? "✗" : "✓"} {task.result}
@@ -262,7 +287,10 @@ export default function PlanStepTaskRow({
 
       {task.status === "completed" && <TaskOutcomeBadge attribution={attribution} />}
 
-      {(task.status === "pending_approval" || task.status === "approved") && task.type !== "gbp_photo" && (
+      {(task.status === "pending_approval" ||
+        task.status === "approved" ||
+        task.status === "scheduled") &&
+        task.type !== "gbp_photo" && (
         <div className="mt-4 flex flex-wrap gap-2">
           {editing ? (
             <>
@@ -295,32 +323,78 @@ export default function PlanStepTaskRow({
                 <>
                   <button
                     type="button"
-                    disabled={loading}
+                    disabled={
+                      loading ||
+                      (isGooglePost &&
+                        !awaitingScheduledPublish &&
+                        !scheduleState.canSchedule)
+                    }
                     onClick={() =>
                       void actions.approveAndPublish(task, {
                         draftContent: draft,
-                        publishNow: googlePostShowsPublishNow(task) && awaitingScheduledPublish,
+                        scheduledFor: scheduleState.scheduledForIso,
+                        publishNow:
+                          isGooglePost &&
+                          googlePostShowsPublishNow(task) &&
+                          awaitingScheduledPublish,
                       })
                     }
                     className="btn-primary rounded-full px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                   >
                     {taskPrimaryActionLabel(task, {
                       loading,
-                      publishNow: googlePostShowsPublishNow(task) && awaitingScheduledPublish,
+                      publishNow:
+                        isGooglePost &&
+                        googlePostShowsPublishNow(task) &&
+                        awaitingScheduledPublish,
                     })}
                   </button>
-                  {googlePostShowsPublishNow(task) && !awaitingScheduledPublish && (
+                  {isGooglePost &&
+                    googlePostShowsPublishNow(task) &&
+                    !awaitingScheduledPublish && (
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() =>
+                          void actions.approveAndPublish(task, {
+                            draftContent: draft,
+                            publishNow: true,
+                          })
+                        }
+                        className={`rounded-full border px-4 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                          isLight ? "border-[#dadce0] text-[#3c4043]" : "border-white/10 text-slate-300"
+                        }`}
+                      >
+                        {loading ? "Publishing…" : "Publish now"}
+                      </button>
+                    )}
+                  {isScheduledPost && scheduleChanged && scheduleState.canSchedule && (
                     <button
                       type="button"
-                      disabled={loading}
+                      disabled={loading || !scheduleState.scheduledForIso}
                       onClick={() =>
-                        void actions.approveAndPublish(task, { draftContent: draft, publishNow: true })
+                        void actions.rescheduleGooglePost(
+                          task.id,
+                          scheduleState.scheduledForIso!
+                        )
                       }
                       className={`rounded-full border px-4 py-1.5 text-xs font-medium disabled:opacity-50 ${
                         isLight ? "border-[#dadce0] text-[#3c4043]" : "border-white/10 text-slate-300"
                       }`}
                     >
-                      {loading ? "Publishing…" : "Publish now"}
+                      {loading ? "Saving…" : "Update schedule"}
+                    </button>
+                  )}
+                  {isScheduledPost && actions.cancelScheduledPost && (
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => void actions.cancelScheduledPost(task.id)}
+                      className={`rounded-full px-4 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                        isLight ? "text-[#5f6368] hover:bg-[#f1f3f4]" : "text-slate-400 hover:bg-white/5"
+                      }`}
+                    >
+                      Cancel schedule
                     </button>
                   )}
                 </>

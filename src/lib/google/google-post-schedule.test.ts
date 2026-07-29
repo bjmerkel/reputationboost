@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   addDays,
+  datetimeLocalValueToIso,
   defaultGooglePostScheduledFor,
   googlePostAwaitingScheduledPublish,
   googlePostShouldScheduleOnly,
+  isoToDatetimeLocalValue,
   isFutureScheduled,
+  validateGooglePostScheduleTime,
 } from "./google-post-schedule";
 import type { ExecutionTask } from "@/audit/types";
 
@@ -61,5 +64,19 @@ describe("google-post-schedule", () => {
     const task = googlePostTask({ status: "approved", scheduledFor: future });
     assert.equal(googlePostAwaitingScheduledPublish(task), true);
     assert.equal(googlePostAwaitingScheduledPublish(googlePostTask()), false);
+  });
+
+  it("datetimeLocalValueToIso round-trips through picker helpers", () => {
+    const iso = defaultGooglePostScheduledFor(2, new Date("2026-06-15T10:00:00.000Z"));
+    const local = isoToDatetimeLocalValue(iso);
+    assert.ok(local.length > 0);
+    const parsed = datetimeLocalValueToIso(local);
+    assert.ok(parsed);
+    assert.equal(new Date(parsed).getTime(), new Date(iso).getTime());
+  });
+
+  it("validateGooglePostScheduleTime rejects near-term times", () => {
+    const soon = new Date(Date.now() + 60_000).toISOString();
+    assert.ok(validateGooglePostScheduleTime(soon));
   });
 });

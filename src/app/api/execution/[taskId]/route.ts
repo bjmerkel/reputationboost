@@ -8,7 +8,10 @@ import {
   onExperimentTaskCompleted,
 } from "@/audit/autopilot/experiment-lifecycle";
 import { logPlanEvent } from "@/lib/analytics/plan-events";
-import { googlePostShouldScheduleOnly } from "@/lib/google/google-post-schedule";
+import {
+  googlePostShouldScheduleOnly,
+  validateGooglePostScheduleTime,
+} from "@/lib/google/google-post-schedule";
 import { getValidGbpConnection } from "@/lib/google/token-store";
 import { getUser } from "@/lib/supabase/server";
 
@@ -23,7 +26,7 @@ export async function PATCH(
 
   const { taskId } = await params;
   const body = (await request.json()) as {
-    status?: "approved" | "rejected";
+    status?: "approved" | "rejected" | "scheduled" | "pending_approval";
     draftContent?: string;
     payload?: Record<string, unknown>;
     scheduledFor?: string | null;
@@ -38,22 +41,43 @@ export async function PATCH(
     ? { ...task.payload, ...body.payload }
     : task.payload;
 
+  const requestedStatus = body.status ?? task.status;
+  const requestedScheduledFor =
+    body.scheduledFor !== undefined ? body.scheduledFor : task.scheduledFor;
+
+  if (task.type === "google_post") {
+    const scheduling =
+      requestedStatus === "scheduled" ||
+      (body.scheduledFor !== undefined && requestedScheduledFor != null);
+    if (scheduling && requestedScheduledFor) {
+      const scheduleError = validateGooglePostScheduleTime(requestedScheduledFor);
+      if (scheduleError) {
+        return NextResponse.json({ error: scheduleError }, { status: 400 });
+      }
+    }
+  }
+
   const nextScheduledFor =
     body.scheduledFor !== undefined
       ? body.scheduledFor
-      : body.status === "approved"
+      : requestedStatus === "approved"
         ? task.scheduledFor ?? new Date().toISOString()
         : task.scheduledFor;
 
   const updated = await updateExecutionTask(user.id, taskId, {
-    status: body.status ?? task.status,
+    status: requestedStatus,
     draftContent: body.draftContent ?? task.draftContent,
     payload: body.payload ? mergedPayload : undefined,
     scheduledFor: nextScheduledFor,
   });
 
-  if (updated?.status === "approved" && task.payload.experimentId) {
-    void onExperimentTaskApproved(updated);
+  if (
+    updated?.status === "approved" ||
+    updated?.status === "scheduled"
+  ) {
+    if (task.payload.experimentId) {
+      void onExperimentTaskApproved(updated);
+    }
   }
 
   return NextResponse.json({ task: updated });
@@ -85,6 +109,7 @@ export async function POST(
   const publishNow = body.publishNow === true;
   const canExecute =
     task.status === "approved" ||
+    task.status === "scheduled" ||
     (retry &&
       task.type === "gbp_description" &&
       (task.status === "completed" || task.status === "failed"));
