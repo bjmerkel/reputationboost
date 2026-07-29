@@ -25,6 +25,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/process-scheduled-posts",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/ingest-ai-visibility",
       "schedule": "0 3 * * 0"
     }

@@ -1,4 +1,8 @@
 import type { ExecutionTask, Plan, PlanStep } from "@/audit/types";
+import {
+  googlePostAwaitingScheduledPublish,
+  isFutureScheduled,
+} from "@/lib/google/google-post-schedule";
 
 /** Task types that only mark local completion — no GBP API publish. */
 const LOCAL_COMPLETE_TASK_TYPES = new Set<ExecutionTask["type"]>([
@@ -15,14 +19,36 @@ export function taskUsesLocalCompletion(task: ExecutionTask): boolean {
 
 export function taskPrimaryActionLabel(
   task: ExecutionTask,
-  options?: { loading?: boolean; republish?: boolean }
+  options?: { loading?: boolean; republish?: boolean; publishNow?: boolean }
 ): string {
   if (options?.loading) {
+    if (options.publishNow || options.republish) return "Publishing…";
+    if (
+      task.type === "google_post" &&
+      isFutureScheduled(task.scheduledFor) &&
+      task.status === "pending_approval"
+    ) {
+      return "Scheduling…";
+    }
     return options.republish ? "Publishing…" : taskUsesLocalCompletion(task) ? "Saving…" : "Publishing…";
   }
   if (options?.republish) return "Save & re-publish";
   if (taskUsesLocalCompletion(task)) return "Mark complete";
+  if (
+    task.type === "google_post" &&
+    isFutureScheduled(task.scheduledFor) &&
+    task.status === "pending_approval"
+  ) {
+    return "Schedule post";
+  }
+  if (googlePostAwaitingScheduledPublish(task)) {
+    return "Publish now";
+  }
   return "Approve & publish";
+}
+
+export function googlePostShowsPublishNow(task: ExecutionTask): boolean {
+  return task.type === "google_post" && isFutureScheduled(task.scheduledFor);
 }
 
 export function planStepHasPublishableTasks(step: PlanStep): boolean {
