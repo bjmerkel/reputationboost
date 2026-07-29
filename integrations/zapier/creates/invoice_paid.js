@@ -5,10 +5,9 @@ const inputFields = [
   {
     key: "phone",
     label: "Customer phone",
-    required: true,
     type: "string",
     helpText:
-      "Required for SMS review requests. Map from the payment or customer record in your invoicing app.",
+      "Required for SMS review requests unless email is mapped.",
   },
   {
     key: "name",
@@ -43,7 +42,7 @@ module.exports = {
   display: {
     label: "Create Customer From Invoice",
     description:
-      "Creates or updates a customer when an invoice is paid. Optionally queues an SMS review request.",
+      "Creates or updates a customer when an invoice is paid. Optionally queues a review request.",
   },
   operation: {
     inputFields,
