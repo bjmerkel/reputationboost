@@ -32,14 +32,6 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
     eventType: "invoice.paid",
     sampleFields: ["phone", "name", "email", "service", "externalId", "amount", "currency", "paidAt"],
   },
-  {
-    id: "customer-opt-out",
-    label: "SMS opt-out handler",
-    description: "Mark a customer as opted out when they reply STOP or unsubscribe.",
-    templateUrl: "https://zapier.com/apps/twilio/integrations/reputation-boost",
-    eventType: "customer.opted_out",
-    sampleFields: ["phone", "optedOut"],
-  },
 ];
 
 export const ZAPIER_SETUP_STEPS = [
@@ -49,5 +41,4 @@ export const ZAPIER_SETUP_STEPS = [
   "Map invoice or job total into amount (and currency when available) for revenue attribution.",
   "Map the job site address into jobAddress, jobCity, and jobZip so review requests can target weak map areas.",
   "Set event to job.completed or invoice.paid for review requests.",
-  "Use customer.opted_out with optedOut: true to honor unsubscribe requests.",
 ];

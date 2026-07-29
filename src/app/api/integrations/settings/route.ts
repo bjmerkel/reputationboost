@@ -69,12 +69,6 @@ export async function GET(request: Request) {
         source: "jobber",
         sendReviewRequest: true,
       },
-      optOutSamplePayload: {
-        event: "customer.opted_out",
-        phone: "214-555-0100",
-        optedOut: true,
-        source: "twilio",
-      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load webhook settings";

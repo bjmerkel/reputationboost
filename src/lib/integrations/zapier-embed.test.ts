@@ -34,7 +34,7 @@ describe("zapier-embed", () => {
   it("returns tool-specific setup URLs without template env vars", () => {
     const config = getZapierEmbedConfig("https://example.com/webhook?token=wb_x");
     assert.equal(config.enabled, false);
-    assert.equal(config.templates.length, 4);
+    assert.equal(config.templates.length, 3);
     assert.match(config.createZapUrl, /webintent\/create-zap/);
 
     const jobber = config.templates.find((t) => t.id === "jobber-job-completed");
