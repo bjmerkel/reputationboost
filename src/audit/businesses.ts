@@ -5,6 +5,7 @@ import type {
 } from "@/audit/types";
 import { parseAutopilotMode, type AutopilotMode } from "@/audit/autopilot/modes";
 import type { GridProfileKey } from "@/lib/google/geo-grid";
+import { updateBusinessRow } from "@/audit/business-update";
 import { createClient } from "@/lib/supabase/server";
 
 export interface BusinessRecord {
@@ -307,20 +308,16 @@ export async function saveGbpLocation(
   const existing = await getBusinessRecord(userId, businessId);
   const patch = buildGbpLocationPatch(existing, selection);
 
-  const { error } = await supabase
-    .from("businesses")
-    .update(patch)
-    .eq("user_id", userId)
-    .eq("id", businessId);
-
-  if (error) throw new Error(`Failed to save GBP location: ${error.message}`);
+  await updateBusinessRow(supabase, userId, businessId, patch, "save GBP location");
 }
 
 export async function disconnectGbp(userId: string, businessId: string): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("businesses")
-    .update({
+  await updateBusinessRow(
+    supabase,
+    userId,
+    businessId,
+    {
       gbp_account_id: null,
       gbp_location_id: null,
       gbp_place_id: null,
@@ -336,11 +333,9 @@ export async function disconnectGbp(userId: string, businessId: string): Promise
       gbp_google_email: null,
       onboarding_complete: false,
       updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", userId)
-    .eq("id", businessId);
-
-  if (error) throw new Error(`Failed to disconnect GBP: ${error.message}`);
+    },
+    "disconnect GBP"
+  );
 }
 
 export async function saveGbpServiceArea(
@@ -349,16 +344,16 @@ export async function saveGbpServiceArea(
   serviceArea: GbpPersistedServiceArea
 ): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("businesses")
-    .update({
+  await updateBusinessRow(
+    supabase,
+    userId,
+    businessId,
+    {
       gbp_service_area: serviceArea,
       updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", userId)
-    .eq("id", businessId);
-
-  if (error) throw new Error(`Failed to save GBP service area: ${error.message}`);
+    },
+    "save GBP service area"
+  );
 }
 
 export async function saveManualRankRefreshAt(
