@@ -25,11 +25,10 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
     sampleFields: ["phone", "name", "service", "jobAddress", "jobCity", "jobZip", "externalId", "amount", "currency"],
   },
   {
-    id: "quickbooks-invoice-paid",
-    label: "QuickBooks — Invoice Paid",
-    description:
-      "Request a review after a QuickBooks payment is received. Requires a Find Customer step to map phone.",
-    templateUrl: "https://zapier.com/apps/quickbooks-online/integrations/reputation-boost",
+    id: "square-payment-received",
+    label: "Square — Payment Received",
+    description: "Request a review after a Square payment is completed.",
+    templateUrl: "https://zapier.com/apps/square/integrations/reputation-boost",
     eventType: "invoice.paid",
     sampleFields: ["phone", "name", "email", "service", "externalId", "amount", "currency", "paidAt"],
   },

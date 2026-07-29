@@ -50,7 +50,7 @@
                     "firstName": "Jane",
                     "lastName": "Doe",
                     "service": "hvac maintenance",
-                    "source": "quickbooks",
+                    "source": "square",
                     "sendReviewRequest": true
                   }
                 },

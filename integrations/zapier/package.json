@@ -1,6 +1,6 @@
 {
   "name": "reputation-boost-zapier",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": true,
   "description": "Reputation Boost is a reputation management platform that helps local service businesses automate review requests and customer follow-up.",
   "main": "index.js",

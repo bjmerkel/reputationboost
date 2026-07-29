@@ -69,7 +69,7 @@ const STEPS = [
 const TOOL_ICONS: Record<string, string> = {
   "jobber-job-completed": "🔧",
   "hcp-job-completed": "🏠",
-  "quickbooks-invoice-paid": "📒",
+  "square-payment-received": "💳",
   custom: "⚡",
   "customer-opt-out": "🛑",
 };
@@ -80,7 +80,7 @@ function getTriggerLabel(template: ZapierTemplate): string {
       return "Job Completed";
     case "hcp-job-completed":
       return "Job Completed";
-    case "quickbooks-invoice-paid":
+    case "square-payment-received":
       return "New Payment";
     case "customer-opt-out":
       return "New SMS";
@@ -99,12 +99,12 @@ function getNativeZapierSteps(template: ZapierTemplate): string[] {
         : "Create Customer From Job";
   const triggerLabel = getTriggerLabel(template);
 
-  if (template.id === "quickbooks-invoice-paid") {
+  if (template.id === "square-payment-received") {
     return [
       `Click "Set up in Zapier" below — your webhook URL is copied automatically.`,
-      `Set QuickBooks Online → ${triggerLabel} as the trigger (not New Invoice — use New Payment so you only fire after money is received).`,
-      "Add QuickBooks → Find Customer: search by Customer ID from the payment, then map Primary Phone or Mobile from the customer record.",
-      `Add Reputation Boost → ${actionName}, paste your webhook URL, and map phone from the Find Customer step (required), plus name, service, amount, and currency.`,
+      `Set Square → ${triggerLabel} as the trigger.`,
+      "Map customer phone from the payment or customer record. If phone is missing, add Square → Find Customer and map phone from the customer profile.",
+      `Add Reputation Boost → ${actionName}, paste your webhook URL, and map phone (required), name, service, amount, and currency.`,
       "Test the Zap with a real payment, then turn it on.",
     ];
   }
@@ -124,8 +124,8 @@ function getManualZapierSteps(template: ZapierTemplate, webhookUrl: string): str
       ? "Map Jobber customer phone, first/last name, job type or line items into phone, firstName, lastName, and service. Include property address as jobAddress, jobCity, and jobZip for geo-targeted review routing."
       : template.id === "hcp-job-completed"
         ? "Map Housecall Pro customer phone, name, job description, and job site address into phone, firstName/lastName, service, jobAddress, jobCity, and jobZip."
-        : template.id === "quickbooks-invoice-paid"
-          ? "Use QuickBooks Online → New Payment as the trigger. Add QuickBooks → Find Customer to look up the payer, then map Primary Phone or Mobile into phone. Map Customer Name into name, line Description into service, and Total Amount into amount."
+        : template.id === "square-payment-received"
+          ? "Use Square → New Payment as the trigger. Map buyer phone into phone, customer name into name, payment note or order line into service, and amount into amount."
           : "Map customer phone, name, and job or service description into the matching JSON fields.";
 
   if (template.id === "customer-opt-out") {
@@ -153,12 +153,12 @@ function buildSamplePayload(
   template: ZapierTemplate,
   base: Record<string, unknown>
 ): Record<string, unknown> {
-  if (template.id === "quickbooks-invoice-paid") {
+  if (template.id === "square-payment-received") {
     return {
       ...base,
       event: "invoice.paid",
-      source: "quickbooks",
-      service: "hvac maintenance",
+      source: "square",
+      service: "service call",
       amount: 425,
       currency: "USD",
       paidAt: "2026-07-05",
@@ -378,7 +378,7 @@ export default function WebhookSetupWizard() {
           <div>
             <h2 className="text-lg font-bold text-[#202124]">Connect your field service tool</h2>
             <p className="mt-1 max-w-2xl text-sm text-[#5f6368]">
-              A guided setup for Jobber, Housecall Pro, QuickBooks, or any tool via Zapier/Make.
+              A guided setup for Jobber, Housecall Pro, Square, or any tool via Zapier/Make.
               We&apos;ll walk you through copying your webhook URL and wiring up review requests.
             </p>
           </div>

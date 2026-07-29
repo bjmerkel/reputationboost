@@ -62,19 +62,19 @@ describe("normalizeWebhookPayload", () => {
       phone: "214-555-0100",
       total_amount: "1250.50",
       paid_at: "2026-07-05T18:00:00.000Z",
-      source: "quickbooks",
+      source: "square",
     });
 
     assert.equal(payload.amount, 1250.5);
     assert.equal(payload.paidAt, "2026-07-05T18:00:00.000Z");
   });
 
-  it("normalizes QuickBooks customer phone aliases", () => {
+  it("normalizes payment app customer phone aliases", () => {
     const payload = normalizeWebhookPayload({
       event: "invoice.paid",
       primary_phone: "2145550100",
       name: "Jane Doe",
-      source: "quickbooks",
+      source: "square",
     });
 
     assert.equal(payload.phone, "2145550100");
