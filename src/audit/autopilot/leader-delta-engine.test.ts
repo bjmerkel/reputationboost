@@ -7,6 +7,7 @@ import {
   computeLeaderDelta,
   findTopLeaderDeltaForKeyword,
   formatLeaderDeltaSummary,
+  MIN_KEYWORD_RELEVANCE_FOR_CATEGORY_ACTIONS,
   summarizeLeaderGaps,
 } from "./leader-delta-engine";
 
@@ -149,6 +150,52 @@ describe("leader-delta-engine", () => {
     assert.ok(lines.some((line) => line.includes("300")));
     assert.ok(lines.some((line) => line.includes("Category")));
     assert.ok(formatLeaderDeltaSummary(delta!).includes("ABC Drain"));
+  });
+
+  it("skips category pivots for low-relevance keywords", () => {
+    const delta = computeLeaderDelta({
+      keyword: "nursery",
+      cell: cell(11, 0, 0.5, { name: "Star Nursery Garden Center", reviews: 300 }),
+      client: {
+        primaryCategory: "Day care center",
+        secondaryCategories: [],
+        reviewCount: 40,
+        reviewVelocity30d: 1,
+        rating: 4.5,
+        photoCount: 5,
+        photoRecencyDays: 60,
+        postCadenceDays: 40,
+        postsLast30Days: 0,
+        services: [],
+        attributeCount: 2,
+        descriptionLength: 100,
+      },
+      leaderProfile: {
+        name: "Star Nursery Garden Center",
+        placeId: "nursery",
+        averageRating: 4.9,
+        reviewCount: 300,
+        newReviewsThisMonth: 14,
+        postsLast30Days: 3,
+        photoCount: 40,
+        lastPostDate: new Date(Date.now() - 7 * 86400000).toISOString(),
+        primaryCategory: "General contractor",
+        descriptionLength: 500,
+        attributeCount: 8,
+        mapPositions: {},
+        reviewThemes: [],
+      },
+      keywordRelevanceScore: MIN_KEYWORD_RELEVANCE_FOR_CATEGORY_ACTIONS - 1,
+    });
+
+    assert.ok(delta);
+    assert.equal(
+      delta!.rankedActions.some((action) => action.actionType === "gbp_primary_category"),
+      false
+    );
+    assert.ok(
+      delta!.rankedActions.some((action) => action.actionType === "review_request")
+    );
   });
 
   it("finds a top losing-cell delta from audit geo grids", () => {

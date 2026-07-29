@@ -8,6 +8,7 @@ import { resolveCalibrationConfidence } from "@/audit/phase2/attribution-calibra
 import { uncalibratedRankPriorForStep } from "@/audit/phase2/rank-priors";
 import type { MarketCalibrationIndex } from "@/audit/autopilot/market-calibration";
 import { resolveMarketActionPrior } from "@/audit/autopilot/market-calibration";
+import { resolveKeywordRelevance } from "@/audit/phase2/relevance-heuristic";
 import { deriveMarketKey } from "@/audit/autopilot/market-key";
 import { missingServiceKeywords } from "@/lib/google/gbp-service-descriptions";
 import { classifyLosingCells } from "./cell-loss-classifier";
@@ -17,6 +18,9 @@ import {
   type CompetitorProfileIndex,
 } from "./competitor-profile-index";
 import type { ClientProfileSnapshot, LeaderDelta, LeaderDeltaAction } from "./types";
+
+/** Below this score, beat-the-leader should not suggest category pivots for the keyword. */
+export const MIN_KEYWORD_RELEVANCE_FOR_CATEGORY_ACTIONS = 50;
 
 function daysSince(iso: string | null): number | null {
   if (!iso) return null;
@@ -160,12 +164,16 @@ function buildRankedActions(params: {
   missingServices: string[];
   marketKey?: string;
   marketIndex?: MarketCalibrationIndex;
+  keywordRelevanceScore?: number;
 }): LeaderDeltaAction[] {
   const actions: LeaderDeltaAction[] = [];
   const { keyword, leaderName, client, leader, missingServices, marketKey, marketIndex } =
     params;
+  const allowCategoryActions =
+    (params.keywordRelevanceScore ?? 100) >= MIN_KEYWORD_RELEVANCE_FOR_CATEGORY_ACTIONS;
 
   if (
+    allowCategoryActions &&
     leader.primaryCategory &&
     normalizeCategory(leader.primaryCategory) !== normalizeCategory(client.primaryCategory)
   ) {
@@ -182,7 +190,7 @@ function buildRankedActions(params: {
     const has = client.secondaryCategories.some(
       (value) => normalizeCategory(value) === normalizeCategory(secondary)
     );
-    if (!has) {
+    if (!has && allowCategoryActions) {
       actions.push({
         actionType: "gbp_secondary_categories",
         planStepNumber: 5,
@@ -297,6 +305,7 @@ export function computeLeaderDelta(params: {
   missingServices?: string[];
   marketKey?: string;
   marketIndex?: MarketCalibrationIndex;
+  keywordRelevanceScore?: number;
 }): LeaderDelta | null {
   const cellLeader = leaderFromCell(params.cell);
   if (!cellLeader) return null;
@@ -418,6 +427,7 @@ export function computeLeaderDelta(params: {
       missingServices,
       marketKey: params.marketKey,
       marketIndex: params.marketIndex,
+      keywordRelevanceScore: params.keywordRelevanceScore,
     }),
   };
 
@@ -465,6 +475,9 @@ export function findTopLeaderDeltaForKeyword(
     0;
   const impressionsWeight = impressions > 0 ? Math.log10(impressions + 10) : 1;
   const marketKey = deriveMarketKey(audit);
+  const keywordRelevanceScore = resolveKeywordRelevance(audit).find(
+    (row) => row.keyword.toLowerCase() === keyword.toLowerCase()
+  )?.score;
   const losing = classifyLosingCells(snapshot.geoGrid, impressionsWeight);
   if (losing.length === 0) return null;
 
@@ -488,6 +501,7 @@ export function findTopLeaderDeltaForKeyword(
       leaderProfile,
       marketKey,
       marketIndex: options.marketIndex,
+      keywordRelevanceScore,
     });
     if (delta) return delta;
   }

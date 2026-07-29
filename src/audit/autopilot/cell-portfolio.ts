@@ -1,9 +1,11 @@
 import type { FullAuditPayload, GeoGridPoint, Phase1AuditPayload } from "@/audit/types";
+import { relevanceByKeyword } from "@/audit/phase2/relevance-heuristic";
 import { classifyLosingCells } from "./cell-loss-classifier";
 import {
   buildClientProfileSnapshot,
   computeLeaderDelta,
   formatCellDirection,
+  MIN_KEYWORD_RELEVANCE_FOR_CATEGORY_ACTIONS,
 } from "./leader-delta-engine";
 import {
   buildCompetitorProfileIndex,
@@ -79,10 +81,17 @@ export function buildCellPortfolio(params: {
   const marketIndex = params.marketIndex ?? new Map();
   const competitorIndex = buildCompetitorProfileIndex(params.audit.competitors);
   const client = buildClientProfileSnapshot(params.audit.gbp);
+  const relevanceIndex = relevanceByKeyword(params.audit);
   const entries: CellPortfolioEntry[] = [];
 
   for (const snapshot of params.audit.rankings.keywords) {
     if (!snapshot.geoGrid?.length) continue;
+    const keywordRelevance = relevanceIndex.get(snapshot.keyword.toLowerCase());
+    if (
+      (keywordRelevance?.score ?? 0) < MIN_KEYWORD_RELEVANCE_FOR_CATEGORY_ACTIONS
+    ) {
+      continue;
+    }
     const impressions = keywordImpressions(params.audit, snapshot.keyword);
     const impressionsWeight = impressions > 0 ? Math.log10(impressions + 10) : 1;
     const losing = classifyLosingCells(snapshot.geoGrid, impressionsWeight);
@@ -107,6 +116,7 @@ export function buildCellPortfolio(params: {
         leaderProfile,
         marketKey,
         marketIndex,
+        keywordRelevanceScore: keywordRelevance?.score,
       });
       const experiment = experimentStatusForCell(
         experiments,

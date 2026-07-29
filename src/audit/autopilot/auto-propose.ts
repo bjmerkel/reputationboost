@@ -1,11 +1,13 @@
 import type { FullAuditPayload } from "@/audit/types";
 import type { BusinessRecord } from "@/audit/businesses";
 import { businessRecordToClientConfig } from "@/audit/businesses";
+import { relevanceByKeyword } from "@/audit/phase2/relevance-heuristic";
 import { buildCompetitorProfileIndex, resolveCompetitorProfile } from "./competitor-profile-index";
 import {
   buildClientProfileSnapshot,
   computeLeaderDelta,
   findTopLeaderDeltaForKeyword,
+  MIN_KEYWORD_RELEVANCE_FOR_CATEGORY_ACTIONS,
 } from "./leader-delta-engine";
 import { classifyLosingCells } from "./cell-loss-classifier";
 import { deriveMarketKey } from "./market-key";
@@ -67,6 +69,7 @@ export async function autoProposeExperimentForBusiness(params: {
   }
 
   const competitorIndex = buildCompetitorProfileIndex(params.audit.competitors);
+  const relevanceIndex = relevanceByKeyword(params.audit);
   const marketKey = deriveMarketKey(params.audit);
   const marketIndex = await loadMarketCalibrationForMarketKeyAdmin(marketKey);
   const businessStats = buildBusinessArmStatsFromExperiments(
@@ -86,6 +89,9 @@ export async function autoProposeExperimentForBusiness(params: {
       (row) => row.keyword.toLowerCase() === keyword.toLowerCase()
     );
     if (!snapshot?.geoGrid?.length) continue;
+
+    const keywordRelevance = relevanceIndex.get(keyword.toLowerCase());
+    if ((keywordRelevance?.score ?? 0) < MIN_KEYWORD_RELEVANCE_FOR_CATEGORY_ACTIONS) continue;
 
     const impressions = keywordImpressions(params.audit, keyword);
     const impressionsWeight = impressions > 0 ? Math.log10(impressions + 10) : 1;
@@ -121,6 +127,7 @@ export async function autoProposeExperimentForBusiness(params: {
         leaderProfile,
         marketKey,
         marketIndex,
+        keywordRelevanceScore: keywordRelevance?.score,
       });
       if (!delta || delta.rankedActions.length === 0) continue;
 

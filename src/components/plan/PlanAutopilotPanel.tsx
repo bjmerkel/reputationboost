@@ -140,7 +140,8 @@ export default function PlanAutopilotPanel({
             Ranking autopilot
           </p>
           <p className={`mt-1 text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-            Per-cell experiments run through your approval queue and measure grid movement.
+            Optional map-cell tests — separate from your GBP plan below. Approved experiments
+            measure whether a neighborhood moves in the grid.
           </p>
         </div>
         <label className={`text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>

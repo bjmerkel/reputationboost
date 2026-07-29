@@ -34,7 +34,6 @@ import PlanAcvNudge from "./PlanAcvNudge";
 import PlanAcvReminderModal from "./PlanAcvReminderModal";
 import PlanKeywordPlaybooks from "./PlanKeywordPlaybooks";
 import PlanAutopilotPanel from "./PlanAutopilotPanel";
-import CellPortfolioPanel from "./CellPortfolioPanel";
 import PlanMaintenanceCadence from "./PlanMaintenanceCadence";
 import PlanNextBestActions from "./PlanNextBestActions";
 import PlanPhaseSection from "./PlanPhaseSection";
@@ -590,10 +589,6 @@ export default function PlanView({
             if (stepNumber != null) setLocalFocusStep(stepNumber);
           }}
         />
-      )}
-
-      {AUTOPILOT_FLAGS.enabled && (
-        <CellPortfolioPanel clientId={clientId} variant={variant} />
       )}
 
       {(plan.planRationale || plan.objective) && (
