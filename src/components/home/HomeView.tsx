@@ -16,6 +16,7 @@ import HomeReviewInbox from "@/components/home/HomeReviewInbox";
 import { getPendingApprovalCounts, planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 import { resolveAcvCopyFromAudit } from "@/lib/business/acv-copy";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
+import { useAcvReminder } from "@/hooks/useAcvReminder";
 
 export default function HomeView({
   audit,
@@ -27,6 +28,8 @@ export default function HomeView({
   engagementLoading = false,
   avgCustomerValue,
   avgCustomerValueCurrency = "USD",
+  businessId,
+  clientId,
   liveScore,
   liveScoreDate,
   scoreChangelog = [],
@@ -37,7 +40,6 @@ export default function HomeView({
   onReviewPending,
   onNavigateToPlan,
   onKeywordsUpdated,
-  clientId,
 }: {
   audit: FullAuditPayload;
   tasks: ExecutionTask[];
@@ -59,6 +61,7 @@ export default function HomeView({
   onNavigateToPlan?: (stepNumber: number, scrollTarget?: "google-updates") => void;
   onKeywordsUpdated?: (keywords: string[]) => void;
   clientId: string;
+  businessId?: string | null;
 }) {
   const pendingCounts = getPendingApprovalCounts(tasks);
   const approvalCount = planApprovalBadgeCount(tasks);
@@ -76,6 +79,15 @@ export default function HomeView({
     [audit]
   );
   const acvCopy = useMemo(() => resolveAcvCopyFromAudit(audit), [audit]);
+  const { openReminder, modal: acvReminderModal } = useAcvReminder({
+    businessId,
+    clientId,
+    audit,
+    avgCustomerValue,
+    currency: avgCustomerValueCurrency,
+    autoShow: !attributionLoading,
+  });
+
   return (
     <div className="space-y-6 min-w-0">
       <HomeHealthSummary
@@ -113,7 +125,12 @@ export default function HomeView({
         onNavigateToPlan={() => onNavigateToPlan?.(11)}
       />
 
-      <RoiSummaryCard summary={summary} loading={attributionLoading} acvCopy={acvCopy} />
+      <RoiSummaryCard
+        summary={summary}
+        loading={attributionLoading}
+        acvCopy={acvCopy}
+        onOpenReminder={businessId ? openReminder : undefined}
+      />
 
       <ListingStrengthInsights
         audit={audit}
@@ -151,6 +168,7 @@ export default function HomeView({
           {pendingCounts.generating === 1 ? "" : "s"} need generation in Plan before review.
         </p>
       )}
+      {acvReminderModal}
     </div>
   );
 }

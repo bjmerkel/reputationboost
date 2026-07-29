@@ -516,6 +516,7 @@ export default function AuditDashboard({
               engagementLoading={attributionLoading}
               avgCustomerValue={avgCustomerValue}
               avgCustomerValueCurrency={avgCustomerValueCurrency}
+              businessId={businessId}
               liveScore={scoreHistory.liveScores?.overall ?? null}
               liveScoreDate={scoreCalculatedAt}
               scoreChangelog={scoreHistory.changelog}
@@ -580,6 +581,7 @@ export default function AuditDashboard({
             <ResultsView
               audit={audit}
               clientId={clientId}
+              businessId={businessId}
               tasks={tasks}
               attributions={attributionData.attributions}
               summary={attributionData.summary}
