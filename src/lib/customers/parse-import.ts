@@ -1,3 +1,5 @@
+import { normalizeCustomerContact } from "@/lib/customers/contact";
+import { normalizeEmail } from "@/lib/email/resend";
 import { normalizePhoneE164 } from "@/lib/sms/phone";
 import type { ImportCustomerRow } from "./types";
 
@@ -66,6 +68,35 @@ function splitFullName(fullName: string): { firstName: string; lastName: string 
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
+function parseContactRow(input: {
+  phone?: string;
+  email?: string;
+  rowLabel: string;
+  errors: string[];
+}): { phone?: string; email?: string } | null {
+  const phoneRaw = input.phone?.trim();
+  const emailRaw = input.email?.trim();
+
+  if (!phoneRaw && !emailRaw) {
+    return null;
+  }
+
+  try {
+    const normalized = normalizeCustomerContact({
+      phone: phoneRaw,
+      email: emailRaw,
+    });
+    return {
+      phone: normalized.phone ?? undefined,
+      email: normalized.email ?? undefined,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid contact";
+    input.errors.push(`${input.rowLabel}: ${message}`);
+    return null;
+  }
+}
+
 export interface CsvParseResult {
   rows: ImportCustomerRow[];
   skipped: number;
@@ -91,9 +122,14 @@ export function parseCustomerCsv(text: string): CsvParseResult {
     return HEADER_ALIASES[normalized] ?? null;
   });
 
-  const phoneIndex = columnMap.indexOf("phone");
-  if (phoneIndex === -1) {
-    return { rows: [], skipped: 0, errors: ["CSV must include a phone column"] };
+  const hasPhoneColumn = columnMap.includes("phone");
+  const hasEmailColumn = columnMap.includes("email");
+  if (!hasPhoneColumn && !hasEmailColumn) {
+    return {
+      rows: [],
+      skipped: 0,
+      errors: ["CSV must include a phone or email column"],
+    };
   }
 
   const rows: ImportCustomerRow[] = [];
@@ -116,14 +152,13 @@ export function parseCustomerCsv(text: string): CsvParseResult {
       }
     });
 
-    const phone = row.phone?.trim();
-    if (!phone) {
-      skipped++;
-      continue;
-    }
-
-    if (!normalizePhoneE164(phone)) {
-      errors.push(`Row ${i + 1}: invalid phone "${phone}"`);
+    const contact = parseContactRow({
+      phone: row.phone,
+      email: row.email,
+      rowLabel: `Row ${i + 1}`,
+      errors,
+    });
+    if (!contact) {
       skipped++;
       continue;
     }
@@ -131,8 +166,8 @@ export function parseCustomerCsv(text: string): CsvParseResult {
     rows.push({
       firstName: row.firstName?.trim() ?? "",
       lastName: row.lastName?.trim() ?? "",
-      phone,
-      email: row.email?.trim(),
+      phone: contact.phone,
+      email: contact.email,
       serviceNotes: row.serviceNotes?.trim(),
       lastServiceDate: row.lastServiceDate?.trim(),
     });
@@ -157,14 +192,15 @@ export function parseCustomerJson(data: unknown): CsvParseResult {
     }
 
     const record = item as Record<string, unknown>;
-    const phone = String(record.phone ?? record.phoneNumber ?? "").trim();
-    if (!phone) {
-      skipped++;
-      return;
-    }
-
-    if (!normalizePhoneE164(phone)) {
-      errors.push(`Row ${index + 1}: invalid phone "${phone}"`);
+    const phone = String(record.phone ?? record.phoneNumber ?? "").trim() || undefined;
+    const email = String(record.email ?? "").trim() || undefined;
+    const contact = parseContactRow({
+      phone,
+      email,
+      rowLabel: `Row ${index + 1}`,
+      errors,
+    });
+    if (!contact) {
       skipped++;
       return;
     }
@@ -176,8 +212,8 @@ export function parseCustomerJson(data: unknown): CsvParseResult {
     rows.push({
       firstName: firstName || (fullName ? splitFullName(fullName).firstName : ""),
       lastName: lastName || (fullName ? splitFullName(fullName).lastName : ""),
-      phone,
-      email: String(record.email ?? "").trim() || undefined,
+      phone: contact.phone,
+      email: contact.email,
       serviceNotes: String(record.serviceNotes ?? record.service ?? record.notes ?? "").trim() || undefined,
       lastServiceDate:
         String(record.lastServiceDate ?? record.last_service_date ?? "").trim() || undefined,

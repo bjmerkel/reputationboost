@@ -57,7 +57,7 @@ Content-Type: application/json`}
 
             <section>
               <h2 className="text-xl font-medium text-[#202124]">Request body</h2>
-              <p className="mt-3">Required fields: <code className="text-sm">event</code>, <code className="text-sm">phone</code> (10-digit US). Include <code className="text-sm">email</code> to enable Smart/email outreach from Zapier.</p>
+              <p className="mt-3">Required fields: <code className="text-sm">event</code> and at least one of <code className="text-sm">phone</code> or <code className="text-sm">email</code>.</p>
               <pre className="mt-3 overflow-x-auto rounded-lg bg-white p-4 text-sm text-[#3c4043] shadow-sm ring-1 ring-[#dadce0]">
 {`{
   "event": "job.completed",

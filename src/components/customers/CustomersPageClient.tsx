@@ -13,7 +13,7 @@ interface Customer {
   id: string;
   first_name: string;
   last_name: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   service_notes: string | null;
   last_service_date: string | null;
@@ -47,7 +47,8 @@ interface CustomersPageProps {
 
 const CHANNELS: OutreachChannel[] = ["auto", "email", "sms"];
 
-function formatPhone(phone: string): string {
+function formatPhone(phone: string | null): string {
+  if (!phone?.trim()) return "—";
   const digits = phone.replace(/\D/g, "");
   if (digits.length === 11 && digits.startsWith("1")) {
     return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
@@ -214,6 +215,10 @@ export default function CustomersPageClient({
   async function handleAddCustomer(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!newCustomer.phone.trim() && !newCustomer.email.trim()) {
+      setError("Enter a phone number or email address.");
+      return;
+    }
     try {
       const res = await fetch("/api/customers", {
         method: "POST",
@@ -366,7 +371,8 @@ export default function CustomersPageClient({
             Upload a CSV with columns like <code className="text-xs">first_name</code>,{" "}
             <code className="text-xs">last_name</code>, <code className="text-xs">phone</code>,{" "}
             <code className="text-xs">email</code>, <code className="text-xs">service</code>.
-            Include email addresses to unlock one-click email surveys.
+            Include at least one of <code className="text-xs">phone</code> or{" "}
+            <code className="text-xs">email</code> per row.
           </p>
 
           <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#dadce0] bg-[#f8f9fa] px-6 py-8 transition hover:border-[#1a73e8] hover:bg-[#e8f0fe]">
@@ -411,18 +417,18 @@ export default function CustomersPageClient({
                 />
               </div>
               <input
-                required
-                placeholder="Phone *"
+                placeholder="Phone"
                 value={newCustomer.phone}
                 onChange={(e) => setNewCustomer((c) => ({ ...c, phone: e.target.value }))}
                 className="w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
               />
               <input
-                placeholder="Email (for email surveys)"
+                placeholder="Email"
                 value={newCustomer.email}
                 onChange={(e) => setNewCustomer((c) => ({ ...c, email: e.target.value }))}
                 className="w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
               />
+              <p className="text-xs text-[#80868b]">Provide at least a phone number or email.</p>
               <input
                 placeholder="Service (e.g. water heater install)"
                 value={newCustomer.serviceNotes}

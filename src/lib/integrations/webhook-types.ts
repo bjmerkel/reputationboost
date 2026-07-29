@@ -9,7 +9,7 @@ export type WebhookEventType =
 
 export interface WebhookPayload {
   event: WebhookEventType;
-  phone: string;
+  phone?: string;
   firstName?: string;
   lastName?: string;
   name?: string;

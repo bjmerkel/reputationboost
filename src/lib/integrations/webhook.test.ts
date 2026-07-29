@@ -26,9 +26,19 @@ describe("normalizeWebhookPayload", () => {
     assert.equal(payload.sendReviewRequest, true);
   });
 
-  it("requires event and phone", () => {
+  it("requires event and phone or email", () => {
     assert.throws(() => normalizeWebhookPayload({ phone: "2145550100" }), /event/);
-    assert.throws(() => normalizeWebhookPayload({ event: "job.completed" }), /phone/);
+    assert.throws(() => normalizeWebhookPayload({ event: "job.completed" }), /phone or email/);
+  });
+
+  it("accepts email-only webhook payloads", () => {
+    const payload = normalizeWebhookPayload({
+      event: "invoice.paid",
+      email: "jane@example.com",
+      first_name: "Jane",
+    });
+    assert.equal(payload.email, "jane@example.com");
+    assert.equal(payload.phone, undefined);
   });
 
   it("maps opt-out event types to optedOut true", () => {

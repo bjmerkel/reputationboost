@@ -28,7 +28,7 @@ export interface SendOutreachReviewRequestsResult {
 }
 
 function canReachBySms(customer: CustomerRecord): boolean {
-  return Boolean(normalizePhoneE164(customer.phone));
+  return Boolean(customer.phone && normalizePhoneE164(customer.phone));
 }
 
 function canReachByEmail(customer: CustomerRecord): boolean {

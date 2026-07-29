@@ -30,7 +30,7 @@ export function resolveWebhookOutreachChannel(
 ): OutreachChannel {
   if (channel === "auto") {
     if (normalizeEmail(customer.email ?? "")) return "email";
-    if (normalizePhoneE164(customer.phone)) return "sms";
+    if (customer.phone && normalizePhoneE164(customer.phone)) return "sms";
     return "sms";
   }
   return channel;
@@ -42,7 +42,7 @@ export function canDeliverWebhookOutreach(
 ): boolean {
   const resolved = resolveWebhookOutreachChannel(channel, customer);
   if (resolved === "email") return Boolean(normalizeEmail(customer.email ?? ""));
-  return Boolean(normalizePhoneE164(customer.phone));
+  return Boolean(customer.phone && normalizePhoneE164(customer.phone));
 }
 
 export async function generateWebhookReviewRequestContent(input: {

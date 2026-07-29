@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { REVIEW_REQUEST_COOLDOWN_DAYS } from "@/lib/review-requests/eligibility";
-import { normalizePhoneE164 } from "@/lib/sms/phone";
+import { upsertCustomerRecord } from "@/lib/customers/upsert-customer";
 import type { CustomerInput, CustomerRecord } from "./types";
 
 function rowToRecord(row: Record<string, unknown>): CustomerRecord {
@@ -12,40 +12,8 @@ export async function upsertCustomerAdmin(
   businessId: string,
   input: CustomerInput
 ): Promise<CustomerRecord> {
-  const phone = normalizePhoneE164(input.phone);
-  if (!phone) throw new Error("Invalid phone number");
-
   const supabase = createAdminClient();
-  const row: Record<string, unknown> = {
-    business_id: businessId,
-    user_id: userId,
-    first_name: input.firstName?.trim() ?? "",
-    last_name: input.lastName?.trim() ?? "",
-    phone,
-    email: input.email?.trim() || null,
-    service_notes: input.serviceNotes?.trim() || null,
-    last_service_date: input.lastServiceDate || null,
-    source: input.source ?? "webhook",
-    updated_at: new Date().toISOString(),
-  };
-
-  if (input.serviceAddress !== undefined) row.service_address = input.serviceAddress?.trim() || null;
-  if (input.serviceCity !== undefined) row.service_city = input.serviceCity?.trim() || null;
-  if (input.serviceZip !== undefined) row.service_zip = input.serviceZip?.trim() || null;
-  if (input.serviceLat !== undefined) row.service_lat = input.serviceLat ?? null;
-  if (input.serviceLng !== undefined) row.service_lng = input.serviceLng ?? null;
-  if (input.gridNorth !== undefined) row.grid_north = input.gridNorth ?? null;
-  if (input.gridEast !== undefined) row.grid_east = input.gridEast ?? null;
-  if (input.geoResolvedAt !== undefined) row.geo_resolved_at = input.geoResolvedAt ?? null;
-
-  const { data, error } = await supabase
-    .from("customers")
-    .upsert(row, { onConflict: "business_id,phone" })
-    .select("*")
-    .single();
-
-  if (error) throw new Error(error.message);
-  return rowToRecord(data);
+  return upsertCustomerRecord(supabase, userId, businessId, input);
 }
 
 export async function getCustomersByIdsAdmin(

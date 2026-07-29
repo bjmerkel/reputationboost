@@ -58,8 +58,8 @@ export async function POST(request: Request) {
       lastServiceDate?: string;
     };
 
-    if (!body.phone?.trim()) {
-      return NextResponse.json({ error: "Phone number is required" }, { status: 400 });
+    if (!body.phone?.trim() && !body.email?.trim()) {
+      return NextResponse.json({ error: "Phone or email is required" }, { status: 400 });
     }
 
     const customer = await createCustomer(user.id, business.businessId, {

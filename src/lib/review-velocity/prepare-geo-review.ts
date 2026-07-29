@@ -51,7 +51,7 @@ export async function prepareGeoReviewContext(input: {
 
     if (resolved) {
       customer = await upsertCustomerAdmin(input.userId, input.businessId, {
-        phone: customer.phone,
+        phone: customer.phone ?? undefined,
         serviceAddress: resolved.serviceAddress ?? undefined,
         serviceCity: resolved.serviceCity ?? undefined,
         serviceZip: resolved.serviceZip ?? undefined,

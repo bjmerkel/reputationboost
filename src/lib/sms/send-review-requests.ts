@@ -34,6 +34,7 @@ import {
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isTwilioConfigured, sendSms } from "@/lib/sms/twilio";
+import { normalizePhoneE164 } from "@/lib/sms/phone";
 import type { GeoGridPoint } from "@/audit/types";
 
 export interface SendReviewRequestsInput {
@@ -269,6 +270,20 @@ export async function sendReviewRequests(
   const defaultFocusKeyword = input.focusKeyword?.trim() || null;
 
   for (const customer of customers) {
+    const normalizedPhone = customer.phone ? normalizePhoneE164(customer.phone) : null;
+    if (!normalizedPhone) {
+      result.skipped++;
+      result.messages.push({
+        customerId: customer.id,
+        phone: customer.phone ?? "",
+        body: "",
+        status: "skipped",
+        error: "No phone number on file.",
+        skipReason: "missing_phone",
+      });
+      continue;
+    }
+
     let customerGeoRouting = input.geoRouting ?? null;
     let customerFocusKeyword = defaultFocusKeyword;
 
@@ -286,7 +301,7 @@ export async function sendReviewRequests(
         result.skipped++;
         result.messages.push({
           customerId: customer.id,
-          phone: customer.phone,
+          phone: normalizedPhone,
           body: "",
           status: "skipped",
           error: "Weekly review request cap reached for this map area.",
@@ -315,7 +330,7 @@ export async function sendReviewRequests(
       result.skipped++;
       result.messages.push({
         customerId: customer.id,
-        phone: customer.phone,
+        phone: normalizedPhone,
         body: "",
         status: "skipped",
         error: eligibility.reason ? ineligibilityMessage(eligibility.reason) : "Not eligible",
@@ -342,7 +357,7 @@ export async function sendReviewRequests(
     if (input.dryRun) {
       result.messages.push({
         customerId: customer.id,
-        phone: customer.phone,
+        phone: normalizedPhone,
         body,
         status: "simulated",
         geoTargeted: customerGeoRouting?.geoTargeted ?? false,
@@ -362,7 +377,7 @@ export async function sendReviewRequests(
         targetGridEast: customerGeoRouting?.targetCell.gridEast ?? null,
         targetZone: customerGeoRouting?.targetZone ?? null,
         neighborhoodLabel,
-        toPhone: customer.phone,
+        toPhone: normalizedPhone,
         body,
         status: "simulated",
       });
@@ -371,7 +386,7 @@ export async function sendReviewRequests(
       result.sent++;
       result.messages.push({
         customerId: customer.id,
-        phone: customer.phone,
+        phone: normalizedPhone,
         body,
         status: "simulated",
         geoTargeted: customerGeoRouting?.geoTargeted ?? false,
@@ -380,7 +395,7 @@ export async function sendReviewRequests(
       continue;
     }
 
-    const sms = await sendSms(customer.phone, body);
+    const sms = await sendSms(normalizedPhone, body);
 
     if (sms.success) {
       const logMessage = input.serviceRole ? logSmsMessageAdmin : logSmsMessage;
@@ -420,7 +435,7 @@ export async function sendReviewRequests(
         targetGridEast: customerGeoRouting?.targetCell.gridEast ?? null,
         targetZone: customerGeoRouting?.targetZone ?? null,
         neighborhoodLabel,
-        toPhone: customer.phone,
+        toPhone: normalizedPhone,
         body,
         status: "failed",
         errorMessage: sms.error,
@@ -428,7 +443,7 @@ export async function sendReviewRequests(
       result.failed++;
       result.messages.push({
         customerId: customer.id,
-        phone: customer.phone,
+        phone: normalizedPhone,
         body,
         status: "failed",
         error: sms.error,

@@ -157,13 +157,21 @@ John,Smith,(972) 555-0199,drain cleaning`;
     assert.equal(errors.length, 0);
     assert.equal(rows.length, 2);
     assert.equal(rows[0].firstName, "Jane");
-    assert.equal(rows[0].phone, "214-555-0100");
+    assert.equal(rows[0].phone, "+12145550100");
     assert.equal(rows[0].serviceNotes, "water heater");
   });
 
-  it("requires phone column", () => {
-    const { errors } = parseCustomerCsv("name,email\nJane,jane@example.com");
-    assert.ok(errors.some((e) => e.includes("phone")));
+  it("requires phone or email column", () => {
+    const { errors } = parseCustomerCsv("name,service\nJane,AC repair");
+    assert.ok(errors.some((e) => e.includes("phone or email")));
+  });
+
+  it("accepts email-only rows", () => {
+    const csv = `first_name,email,service
+Jane,jane@example.com,install`;
+    const { rows, errors } = parseCustomerCsv(csv);
+    assert.equal(errors.length, 0);
+    assert.equal(rows[0].email, "jane@example.com");
   });
 });
 

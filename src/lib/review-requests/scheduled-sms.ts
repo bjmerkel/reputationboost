@@ -27,6 +27,7 @@ import { resolveWebhookOutreachChannel } from "@/lib/integrations/webhook-outrea
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isTwilioConfigured, sendSms } from "@/lib/sms/twilio";
+import { normalizePhoneE164 } from "@/lib/sms/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface ScheduledSmsRecord {
@@ -314,11 +315,16 @@ export async function scheduleReviewRequestForCustomer(input: {
     },
   });
 
+  const normalizedPhone = input.customer.phone ? normalizePhoneE164(input.customer.phone) : null;
+  if (!normalizedPhone) {
+    return { scheduled: false, reason: "missing_phone" };
+  }
+
   const smsId = await scheduleReviewRequestSms({
     userId: input.userId,
     businessId,
     customerId: input.customer.id,
-    toPhone: input.customer.phone,
+    toPhone: normalizedPhone,
     body,
     sendAt,
     customerEventId: input.customerEventId,

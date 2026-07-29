@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { REVIEW_REQUEST_COOLDOWN_DAYS } from "@/lib/review-requests/eligibility";
-import { normalizePhoneE164 } from "@/lib/sms/phone";
+import { normalizeCustomerContact } from "@/lib/customers/contact";
+import { upsertCustomerRecord } from "@/lib/customers/upsert-customer";
 import type {
   CustomerInput,
   CustomerListOptions,
@@ -66,32 +67,13 @@ export async function createCustomer(
   businessId: string,
   input: CustomerInput
 ): Promise<CustomerRecord> {
-  const phone = normalizePhoneE164(input.phone);
-  if (!phone) throw new Error("Invalid phone number");
-
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("customers")
-    .upsert(
-      {
-        business_id: businessId,
-        user_id: userId,
-        first_name: input.firstName?.trim() ?? "",
-        last_name: input.lastName?.trim() ?? "",
-        phone,
-        email: input.email?.trim() || null,
-        service_notes: input.serviceNotes?.trim() || null,
-        last_service_date: input.lastServiceDate || null,
-        source: input.source ?? "manual",
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "business_id,phone" }
-    )
-    .select()
-    .single();
-
-  if (error) throw new Error(formatCustomerStorageError(error.message));
-  return rowToRecord(data);
+  try {
+    return await upsertCustomerRecord(supabase, userId, businessId, input);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to save customer";
+    throw new Error(formatCustomerStorageError(message));
+  }
 }
 
 export async function importCustomers(
@@ -105,19 +87,31 @@ export async function importCustomers(
 
   for (const row of rows) {
     try {
-      const phone = normalizePhoneE164(row.phone);
-      if (!phone) {
-        failed++;
-        continue;
-      }
-
       const supabase = await createClient();
-      const { data: existing } = await supabase
-        .from("customers")
-        .select("id")
-        .eq("business_id", businessId)
-        .eq("phone", phone)
-        .maybeSingle();
+      const { phone, email } = normalizeCustomerContact({
+        phone: row.phone,
+        email: row.email,
+      });
+
+      let existingId: string | null = null;
+      if (phone) {
+        const { data: byPhone } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("business_id", businessId)
+          .eq("phone", phone)
+          .maybeSingle();
+        existingId = byPhone?.id ?? null;
+      }
+      if (!existingId && email) {
+        const { data: byEmail } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("business_id", businessId)
+          .eq("email", email)
+          .maybeSingle();
+        existingId = byEmail?.id ?? null;
+      }
 
       await createCustomer(userId, businessId, {
         firstName: row.firstName,
@@ -129,7 +123,7 @@ export async function importCustomers(
         source: "import",
       });
 
-      if (existing) updated++;
+      if (existingId) updated++;
       else imported++;
     } catch {
       failed++;

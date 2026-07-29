@@ -85,8 +85,12 @@ export function normalizeWebhookPayload(data: unknown): WebhookPayload {
     "bill_phone",
   ]);
 
+  const email = readString(record, ["email", "email_address"]);
+
   if (!event) throw new Error("Missing required field: event");
-  if (!phone) throw new Error("Missing required field: phone");
+  if (!phone && !email) {
+    throw new Error("Missing required field: phone or email");
+  }
 
   const fullName = readString(record, ["name", "fullName", "full_name", "customerName"]);
   const firstName = readString(record, ["firstName", "first_name", "given_name"]);
@@ -105,7 +109,7 @@ export function normalizeWebhookPayload(data: unknown): WebhookPayload {
     firstName: firstName ?? parsedName.firstName,
     lastName: lastName ?? parsedName.lastName,
     name: fullName,
-    email: readString(record, ["email", "email_address"]),
+    email,
     service: resolveWebhookServiceRaw(record),
     jobType: readString(record, ["jobType", "job_type", "workType", "work_type"]),
     lineItemTitle: readString(record, [

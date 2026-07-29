@@ -4,7 +4,7 @@ export interface CustomerRecord {
   user_id: string;
   first_name: string;
   last_name: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   service_notes: string | null;
   last_service_date: string | null;
@@ -29,7 +29,7 @@ export interface CustomerRecord {
 export interface CustomerInput {
   firstName?: string;
   lastName?: string;
-  phone: string;
+  phone?: string;
   email?: string;
   serviceNotes?: string;
   lastServiceDate?: string;
@@ -47,7 +47,7 @@ export interface CustomerInput {
 export interface ImportCustomerRow {
   firstName: string;
   lastName: string;
-  phone: string;
+  phone?: string;
   email?: string;
   serviceNotes?: string;
   lastServiceDate?: string;
