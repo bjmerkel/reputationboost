@@ -239,7 +239,7 @@ export async function listDueScheduledGooglePostTasksAdmin(
     .from("execution_tasks")
     .select("*")
     .eq("task_type", "google_post")
-    .eq("status", "approved")
+    .in("status", ["approved", "scheduled"])
     .lte("scheduled_for", now)
     .is("completed_at", null)
     .not("scheduled_for", "is", null)

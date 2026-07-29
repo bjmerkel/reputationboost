@@ -1,6 +1,7 @@
 import type { ExecutionTask, Plan, PlanStep } from "@/audit/types";
 import {
   googlePostAwaitingScheduledPublish,
+  googlePostIsScheduled,
   isFutureScheduled,
 } from "@/lib/google/google-post-schedule";
 
@@ -41,14 +42,28 @@ export function taskPrimaryActionLabel(
   ) {
     return "Schedule post";
   }
-  if (googlePostAwaitingScheduledPublish(task)) {
+  if (googlePostIsScheduled(task) || googlePostAwaitingScheduledPublish(task)) {
     return "Publish now";
   }
   return "Approve & publish";
 }
 
 export function googlePostShowsPublishNow(task: ExecutionTask): boolean {
-  return task.type === "google_post" && isFutureScheduled(task.scheduledFor);
+  return (
+    task.type === "google_post" &&
+    (isFutureScheduled(task.scheduledFor) ||
+      googlePostIsScheduled(task) ||
+      googlePostAwaitingScheduledPublish(task))
+  );
+}
+
+export function googlePostShowsSchedulePicker(task: ExecutionTask): boolean {
+  return (
+    task.type === "google_post" &&
+    task.status !== "completed" &&
+    task.status !== "rejected" &&
+    task.status !== "failed"
+  );
 }
 
 export function planStepHasPublishableTasks(step: PlanStep): boolean {

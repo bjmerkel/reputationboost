@@ -1148,6 +1148,7 @@ export type PlanStepStatus =
   | "pending"
   | "needs_approval"
   | "approved"
+  | "scheduled"
   | "completed"
   | "skipped";
 

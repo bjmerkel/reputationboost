@@ -25,11 +25,13 @@ import {
   MANUAL_STEP_SYNCING_LABEL,
 } from "./plan-ux-copy";
 import { formatStepAttributionTrackingLabel } from "./plan-display";
+import { googlePostScheduleSummary } from "@/lib/google/google-post-schedule";
 
 const STATUS_STYLES = {
   completed: "border-[#ceead6] bg-[#f6faf7]",
   needs_approval: "border-[#feefc3] bg-[#fffbf0]",
   approved: "border-[#d2e3fc] bg-[#f8fbff]",
+  scheduled: "border-[#e8f0fe] bg-[#f8fbff]",
   skipped: "border-[#dadce0] bg-[#f8f9fa]",
   pending: "border-[#dadce0] bg-white",
 } as const;
@@ -81,6 +83,9 @@ export default function PlanStepCard({
 }) {
   const isLight = variant === "light";
   const isCompleted = step.status === "completed";
+  const isScheduledStep = step.status === "scheduled";
+  const postScheduleSummary =
+    step.stepNumber === 8 ? googlePostScheduleSummary(step.tasks) : null;
   const reviewRequestTask = step.tasks.find(
     (t) => t.type === "review_request" && t.status !== "completed"
   );
@@ -96,6 +101,7 @@ export default function PlanStepCard({
       (!isCompleted &&
         (step.status === "needs_approval" ||
           step.status === "approved" ||
+          step.status === "scheduled" ||
           reviewRequestTask != null ||
           reviewDisputeTasks.length > 0))
   );
@@ -170,6 +176,15 @@ export default function PlanStepCard({
                   ? `Step ${displayIndex} of ${displayTotal}`
                   : `Step ${step.stepNumber} of ${totalSteps}`}
             </p>
+            {isScheduledStep && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  isLight ? "bg-[#e8f0fe] text-[#1a73e8]" : "bg-blue-400/15 text-blue-300"
+                }`}
+              >
+                Scheduled
+              </span>
+            )}
             {isCompleted && (
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
@@ -205,6 +220,11 @@ export default function PlanStepCard({
           {customSignal && (
             <p className={`mt-1 text-xs font-medium ${isLight ? "text-[#1a73e8]" : "text-sky-300"}`}>
               Strategist pick · {customSignal}
+            </p>
+          )}
+          {!expanded && !isCompleted && postScheduleSummary && (
+            <p className={`mt-1 text-xs ${isLight ? "text-[#1a73e8]" : "text-sky-300"}`}>
+              {postScheduleSummary}
             </p>
           )}
           {!expanded && !isCompleted && (

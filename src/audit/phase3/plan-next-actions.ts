@@ -9,6 +9,7 @@ const ACTIONABLE: ReadonlySet<PlanStep["status"]> = new Set([
   "pending",
   "needs_approval",
   "approved",
+  "scheduled",
 ]);
 
 export interface NextBestPlanStepsOptions {

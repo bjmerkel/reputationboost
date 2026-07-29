@@ -124,6 +124,8 @@ export default function PlanView({
     reconciling,
     error,
     approveAndPublish,
+    cancelScheduledPost,
+    rescheduleGooglePost,
     rejectTask,
     updateDraft,
     checkEditStatus,
@@ -189,6 +191,8 @@ export default function PlanView({
   const actions = useMemo(
     () => ({
       approveAndPublish,
+      cancelScheduledPost,
+      rescheduleGooglePost,
       rejectTask,
       updateDraft,
       checkEditStatus,
@@ -210,6 +214,8 @@ export default function PlanView({
     }),
     [
       approveAndPublish,
+      cancelScheduledPost,
+      rescheduleGooglePost,
       rejectTask,
       updateDraft,
       checkEditStatus,

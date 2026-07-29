@@ -7,6 +7,8 @@ import type { AttributionCalibration } from "@/audit/phase2/attribution-calibrat
 import type { UserNotification } from "@/audit/storage-notifications";
 import {
   approveAllRoutineTasks,
+  cancelScheduledGooglePost,
+  rescheduleGooglePost,
   approveAndPublishTask,
   checkTaskEditStatus,
   fetchExecutionState,
@@ -165,11 +167,24 @@ export function usePlanTasks({
         retry?: boolean;
         payload?: Record<string, unknown>;
         publishNow?: boolean;
+        scheduledFor?: string | null;
       }
     ) =>
       runWithLoading(task.id, () =>
         approveAndPublishTask(task, options).then(() => undefined)
       ),
+    [runWithLoading]
+  );
+
+  const cancelScheduledPost = useCallback(
+    (taskId: string) =>
+      runWithLoading(taskId, () => cancelScheduledGooglePost(taskId).then(() => undefined)),
+    [runWithLoading]
+  );
+
+  const rescheduleGooglePostTask = useCallback(
+    (taskId: string, scheduledFor: string) =>
+      runWithLoading(taskId, () => rescheduleGooglePost(taskId, scheduledFor).then(() => undefined)),
     [runWithLoading]
   );
 
@@ -331,6 +346,8 @@ export function usePlanTasks({
     refresh,
     reconcilePlanNow,
     approveAndPublish,
+    cancelScheduledPost,
+    rescheduleGooglePost: rescheduleGooglePostTask,
     rejectTask,
     updateDraft,
     checkEditStatus,
@@ -351,6 +368,8 @@ export type PlanTasksState = ReturnType<typeof usePlanTasks>;
 export type PlanTaskActions = Pick<
   ReturnType<typeof usePlanTasks>,
   | "approveAndPublish"
+  | "cancelScheduledPost"
+  | "rescheduleGooglePost"
   | "rejectTask"
   | "updateDraft"
   | "checkEditStatus"

@@ -60,4 +60,21 @@ describe("deriveStepStatus", () => {
       "needs_approval"
     );
   });
+
+  it("returns scheduled when active posts are queued", () => {
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    assert.equal(
+      deriveStepStatus([
+        stubTask("scheduled"),
+        stubTask("completed"),
+      ]),
+      "scheduled"
+    );
+    assert.equal(
+      deriveStepStatus([
+        { ...stubTask("approved"), type: "google_post", scheduledFor: future },
+      ]),
+      "scheduled"
+    );
+  });
 });
