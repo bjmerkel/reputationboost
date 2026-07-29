@@ -24,20 +24,31 @@ jobs:
           cache-dependency-path: integrations/zapier/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        env:
+          NODE_ENV: development
+        run: npm ci --include=dev
 
       - name: Push integration to Zapier
         env:
+          NODE_ENV: development
           ZAPIER_DEPLOY_KEY: ${{ secrets.ZAPIER_DEPLOY_KEY }}
           ZAPIER_APP_ID: ${{ secrets.ZAPIER_APP_ID }}
         run: |
-          if [ -z "$ZAPIER_DEPLOY_KEY" ] || [ -z "$ZAPIER_APP_ID" ]; then
+          set -euo pipefail
+
+          if [ -z "${ZAPIER_DEPLOY_KEY:-}" ] || [ -z "${ZAPIER_APP_ID:-}" ]; then
             echo "Skipping Zapier push — set ZAPIER_DEPLOY_KEY and ZAPIER_APP_ID repo secrets."
             exit 0
+          fi
+
+          if [ ! -x "./node_modules/.bin/zapier" ]; then
+            echo "Zapier CLI not found at ./node_modules/.bin/zapier"
+            ls -la ./node_modules/.bin || true
+            exit 1
           fi
 
           node -e "const fs=require('fs'); fs.writeFileSync(process.env.HOME + '/.zapierrc', JSON.stringify({ deployKey: process.env.ZAPIER_DEPLOY_KEY }));"
           node -e "const fs=require('fs'); fs.writeFileSync('.zapierapprc', JSON.stringify({ id: Number(process.env.ZAPIER_APP_ID) }));"
 
-          npm run validate
-          npm run push -- --skip-npm-install
+          ./node_modules/.bin/zapier validate
+          ./node_modules/.bin/zapier push --skip-npm-install
