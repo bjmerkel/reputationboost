@@ -47,16 +47,24 @@ export default function BusinessSwitcher({
       <div className="hidden min-w-0 sm:block">
         <Link
           href="/platform/locations"
-          className="block max-w-[220px] truncate text-sm font-medium text-[#202124] hover:text-[#1a73e8] lg:max-w-[280px]"
+          className="flex max-w-[220px] items-center gap-2 rounded-lg border border-[#dadce0] bg-[#f8f9fa] px-3 py-2 transition hover:border-[#1a73e8] hover:bg-white lg:max-w-[280px]"
           title={active.name}
+          aria-label={`Location: ${active.name}. View all locations.`}
         >
-          {active.name}
+          <LocationIcon className="h-4 w-4 shrink-0 text-[#5f6368]" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] font-semibold uppercase tracking-wide text-[#80868b]">
+              Location
+            </span>
+            <span className="block truncate text-sm font-medium text-[#202124]">{active.name}</span>
+            {(active.city || active.state) && (
+              <span className="block truncate text-xs text-[#80868b]">
+                {[active.city, active.state].filter(Boolean).join(", ")}
+              </span>
+            )}
+          </span>
+          <ChevronIcon className="h-4 w-4 shrink-0 text-[#5f6368]" />
         </Link>
-        {(active.city || active.state) && (
-          <p className="max-w-[220px] truncate text-xs text-[#80868b] lg:max-w-[280px]">
-            {[active.city, active.state].filter(Boolean).join(", ")}
-          </p>
-        )}
       </div>
     );
   }
@@ -69,8 +77,13 @@ export default function BusinessSwitcher({
         className="flex max-w-[220px] items-center gap-2 rounded-lg border border-[#dadce0] bg-[#f8f9fa] px-3 py-2 text-left transition hover:border-[#1a73e8] hover:bg-white lg:max-w-[280px]"
         aria-expanded={open}
         aria-haspopup="listbox"
+        aria-label={`Switch location. Current location: ${active.name}`}
       >
+        <LocationIcon className="h-4 w-4 shrink-0 text-[#5f6368]" />
         <span className="min-w-0 flex-1">
+          <span className="block text-[10px] font-semibold uppercase tracking-wide text-[#80868b]">
+            Location
+          </span>
           <span className="block truncate text-sm font-medium text-[#202124]">{active.name}</span>
           {(active.city || active.state) && (
             <span className="block truncate text-xs text-[#80868b]">
@@ -78,7 +91,11 @@ export default function BusinessSwitcher({
             </span>
           )}
         </span>
-        <ChevronIcon className="h-4 w-4 shrink-0 text-[#5f6368]" />
+        <ChevronIcon
+          className={`h-4 w-4 shrink-0 text-[#5f6368] transition-transform duration-200 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
       </button>
 
       {open && (
@@ -162,6 +179,18 @@ function ChevronIcon({ className }: { className?: string }) {
       <path
         fillRule="evenodd"
         d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function LocationIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path
+        fillRule="evenodd"
+        d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.145c.18-.1.452-.27.793-.604.34-.334.724-.78 1.137-1.325.81-1.09 1.714-2.646 2.446-4.462.74-1.84 1.252-3.978 1.252-5.914C16.5 2.462 13.538 0 10 0S3.5 2.462 3.5 5.5c0 1.936.512 4.074 1.252 5.914.732 1.816 1.636 3.372 2.446 4.462.413.545.797.99 1.137 1.325.34.334.613.504.793.604a5.74 5.74 0 00.281.145l.018.008.006.003zM10 7.5a2 2 0 100-4 2 2 0 000 4z"
         clipRule="evenodd"
       />
     </svg>
