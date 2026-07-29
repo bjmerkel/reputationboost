@@ -7,6 +7,14 @@ export interface ZapierTemplate {
   sampleFields: string[];
 }
 
+/** Contact fields included in every Zapier integration mapping guide. */
+export const ZAPIER_CONTACT_FIELDS = ["phone", "email"] as const;
+
+export function withZapierContactFields(fields: readonly string[]): string[] {
+  const rest = fields.filter((field) => field !== "phone" && field !== "email");
+  return [...ZAPIER_CONTACT_FIELDS, ...rest];
+}
+
 export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
   {
     id: "jobber-job-completed",
@@ -14,7 +22,19 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
     description: "Send a review request when a Jobber job is marked complete.",
     templateUrl: "https://zapier.com/apps/jobber/integrations/reputation-boost",
     eventType: "job.completed",
-    sampleFields: ["phone", "email", "firstName", "lastName", "jobType", "service", "jobAddress", "jobCity", "jobZip", "lineItems", "externalId", "amount", "currency"],
+    sampleFields: withZapierContactFields([
+      "firstName",
+      "lastName",
+      "jobType",
+      "service",
+      "jobAddress",
+      "jobCity",
+      "jobZip",
+      "lineItems",
+      "externalId",
+      "amount",
+      "currency",
+    ]),
   },
   {
     id: "hcp-job-completed",
@@ -22,7 +42,16 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
     description: "Trigger outreach when a Housecall Pro job finishes.",
     templateUrl: "https://zapier.com/apps/housecall-pro/integrations/reputation-boost",
     eventType: "job.completed",
-    sampleFields: ["phone", "email", "name", "service", "jobAddress", "jobCity", "jobZip", "externalId", "amount", "currency"],
+    sampleFields: withZapierContactFields([
+      "name",
+      "service",
+      "jobAddress",
+      "jobCity",
+      "jobZip",
+      "externalId",
+      "amount",
+      "currency",
+    ]),
   },
   {
     id: "square-payment-received",
@@ -30,14 +59,21 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
     description: "Request a review after a Square payment is completed.",
     templateUrl: "https://zapier.com/apps/square/integrations/reputation-boost",
     eventType: "invoice.paid",
-    sampleFields: ["phone", "name", "email", "service", "externalId", "amount", "currency", "paidAt"],
+    sampleFields: withZapierContactFields([
+      "name",
+      "service",
+      "externalId",
+      "amount",
+      "currency",
+      "paidAt",
+    ]),
   },
 ];
 
 export const ZAPIER_SETUP_STEPS = [
   "Pick a Zapier template below (or build your own with Webhooks by Zapier → POST).",
   "Paste your Reputation Boost webhook URL into the Zap action.",
-  "Map customer phone, name, and email when available — Smart mode sends email and SMS when both are on file.",
+  "Map customer phone and email when available — at least one is required. Smart mode sends both SMS and email when both are on file.",
   "Map Jobber job type / line item into service or jobType fields.",
   "Map invoice or job total into amount (and currency when available) for revenue attribution.",
   "Map the job site address into jobAddress, jobCity, and jobZip so review requests can target weak map areas.",

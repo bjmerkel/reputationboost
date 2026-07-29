@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
+import { withZapierContactFields } from "@/lib/integrations/zapier-templates";
 
 interface ZapierTemplate {
   id: string;
@@ -55,7 +56,15 @@ const CUSTOM_TEMPLATE: ZapierTemplate = {
   description: "Build your own automation with Webhooks by Zapier or Make.",
   templateUrl: "https://zapier.com/webintent/create-zap?utm_source=reputation_boost&utm_medium=wizard&utm_campaign=zapier_setup",
   eventType: "job.completed",
-  sampleFields: ["phone", "email", "firstName", "lastName", "service", "jobAddress", "jobCity", "jobZip", "externalId"],
+  sampleFields: withZapierContactFields([
+    "firstName",
+    "lastName",
+    "service",
+    "jobAddress",
+    "jobCity",
+    "jobZip",
+    "externalId",
+  ]),
 };
 
 const STEPS = [
@@ -143,6 +152,7 @@ function buildSamplePayload(
       ...base,
       event: "invoice.paid",
       source: "square",
+      email: "jane@example.com",
       service: "service call",
       amount: 425,
       currency: "USD",

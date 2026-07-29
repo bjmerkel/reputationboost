@@ -6,7 +6,7 @@ const inputFields = [
     key: "phone",
     label: "Customer phone",
     type: "string",
-    helpText: "Required for SMS review requests unless email is mapped.",
+    helpText: "Map phone or email — at least one is required.",
   },
   { key: "email", label: "Customer email", type: "string" },
   { key: "firstName", label: "First name", type: "string" },

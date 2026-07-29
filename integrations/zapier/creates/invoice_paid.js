@@ -6,9 +6,9 @@ const inputFields = [
     key: "phone",
     label: "Customer phone",
     type: "string",
-    helpText:
-      "Required for SMS review requests unless email is mapped.",
+    helpText: "Map phone or email — at least one is required.",
   },
+  { key: "email", label: "Customer email", type: "string" },
   {
     key: "name",
     label: "Customer name",
@@ -17,7 +17,6 @@ const inputFields = [
   },
   { key: "firstName", label: "First name", type: "string" },
   { key: "lastName", label: "Last name", type: "string" },
-  { key: "email", label: "Customer email", type: "string" },
   {
     key: "service",
     label: "Service / line item",
@@ -65,6 +64,7 @@ module.exports = {
       id: "evt_sample",
       event: "invoice.paid",
       phone: "214-555-0100",
+      email: "jane@example.com",
       name: "Jane Doe",
     },
   },
