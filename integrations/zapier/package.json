@@ -1,13 +1,14 @@
 {
   "name": "reputation-boost-zapier",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Reputation Boost Zapier integration — send job events and opt-outs without Webhooks by Zapier.",
+  "description": "Reputation Boost is a reputation management platform that helps local service businesses automate review requests and customer follow-up.",
   "main": "index.js",
   "scripts": {
     "test": "zapier-platform test",
     "validate": "zapier-platform validate",
-    "push": "zapier-platform push"
+    "push": "zapier-platform push",
+    "partner:embed-urls": "node scripts/print-embed-urls.js"
   },
   "engines": {
     "node": ">=18",
