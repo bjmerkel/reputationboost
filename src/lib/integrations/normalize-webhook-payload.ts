@@ -70,7 +70,20 @@ export function normalizeWebhookPayload(data: unknown): WebhookPayload {
 
   const record = data as Record<string, unknown>;
   const event = readString(record, ["event", "event_type", "eventType", "type"]);
-  const phone = readString(record, ["phone", "phoneNumber", "phone_number", "mobile", "cell"]);
+  const phone = readString(record, [
+    "phone",
+    "phoneNumber",
+    "phone_number",
+    "mobile",
+    "cell",
+    "primaryPhone",
+    "primary_phone",
+    "PrimaryPhone",
+    "customerPhone",
+    "customer_phone",
+    "billPhone",
+    "bill_phone",
+  ]);
 
   if (!event) throw new Error("Missing required field: event");
   if (!phone) throw new Error("Missing required field: phone");

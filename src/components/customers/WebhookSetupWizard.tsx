@@ -74,6 +74,21 @@ const TOOL_ICONS: Record<string, string> = {
   "customer-opt-out": "🛑",
 };
 
+function getTriggerLabel(template: ZapierTemplate): string {
+  switch (template.id) {
+    case "jobber-job-completed":
+      return "Job Completed";
+    case "hcp-job-completed":
+      return "Job Completed";
+    case "quickbooks-invoice-paid":
+      return "New Payment";
+    case "customer-opt-out":
+      return "New SMS";
+    default:
+      return "your trigger event";
+  }
+}
+
 function getNativeZapierSteps(template: ZapierTemplate): string[] {
   const toolName = template.label.split("—")[0]?.trim() ?? "your tool";
   const actionName =
@@ -82,11 +97,22 @@ function getNativeZapierSteps(template: ZapierTemplate): string[] {
       : template.eventType === "invoice.paid"
         ? "Create Customer From Invoice"
         : "Create Customer From Job";
+  const triggerLabel = getTriggerLabel(template);
+
+  if (template.id === "quickbooks-invoice-paid") {
+    return [
+      `Click "Set up in Zapier" below — your webhook URL is copied automatically.`,
+      `Set QuickBooks Online → ${triggerLabel} as the trigger (not New Invoice — use New Payment so you only fire after money is received).`,
+      "Add QuickBooks → Find Customer: search by Customer ID from the payment, then map Primary Phone or Mobile from the customer record.",
+      `Add Reputation Boost → ${actionName}, paste your webhook URL, and map phone from the Find Customer step (required), plus name, service, amount, and currency.`,
+      "Test the Zap with a real payment, then turn it on.",
+    ];
+  }
 
   return [
     `Click "Set up in Zapier" below — your webhook URL is copied automatically.`,
-    `In Zapier, connect ${toolName} as the trigger (${actionName}).`,
-    `Choose Reputation Boost as the action — paste your webhook URL once when prompted.`,
+    `In Zapier, set ${toolName} → ${triggerLabel} as the trigger.`,
+    `Choose Reputation Boost → ${actionName} as the action — paste your webhook URL once when prompted.`,
     "Map customer phone, name, and service fields from the trigger into the labeled inputs.",
     "Test the Zap, then turn it on.",
   ];
@@ -99,7 +125,7 @@ function getManualZapierSteps(template: ZapierTemplate, webhookUrl: string): str
       : template.id === "hcp-job-completed"
         ? "Map Housecall Pro customer phone, name, job description, and job site address into phone, firstName/lastName, service, jobAddress, jobCity, and jobZip."
         : template.id === "quickbooks-invoice-paid"
-          ? "Map QuickBooks customer phone, name, and line item description into phone, name fields, and service."
+          ? "Use QuickBooks Online → New Payment as the trigger. Add QuickBooks → Find Customer to look up the payer, then map Primary Phone or Mobile into phone. Map Customer Name into name, line Description into service, and Total Amount into amount."
           : "Map customer phone, name, and job or service description into the matching JSON fields.";
 
   if (template.id === "customer-opt-out") {
@@ -114,7 +140,7 @@ function getManualZapierSteps(template: ZapierTemplate, webhookUrl: string): str
 
   return [
     `Open the ${template.label.split("—")[0]?.trim() ?? "integration"} template in Zapier (button below).`,
-    "Connect your account and pick the trigger (job completed or invoice paid).",
+    "Connect your account and pick the trigger (job completed, invoice paid, or payment received).",
     "Add Webhooks by Zapier → POST as the action.",
     `Paste your webhook URL: ${webhookUrl}`,
     fieldHint,
