@@ -5,9 +5,9 @@
   "description": "Reputation Boost is a reputation management platform that helps local service businesses automate review requests and customer follow-up.",
   "main": "index.js",
   "scripts": {
-    "test": "zapier-platform test",
-    "validate": "zapier-platform validate",
-    "push": "zapier-platform push",
+    "test": "zapier test",
+    "validate": "zapier validate",
+    "push": "zapier push",
     "partner:embed-urls": "node scripts/print-embed-urls.js"
   },
   "engines": {
