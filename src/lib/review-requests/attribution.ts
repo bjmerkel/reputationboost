@@ -334,7 +334,7 @@ export async function getOutreachStats(userId: string, businessId: string) {
   since.setDate(since.getDate() - 30);
   const sinceIso = since.toISOString();
 
-  const [eventsRes, smsRes, scheduledRes, attributedRes] = await Promise.all([
+  const [eventsRes, smsRes, emailRes, scheduledRes, attributedRes] = await Promise.all([
     supabase
       .from("customer_events")
       .select("id", { count: "exact", head: true })
@@ -343,6 +343,13 @@ export async function getOutreachStats(userId: string, businessId: string) {
       .gte("created_at", sinceIso),
     supabase
       .from("sms_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("business_id", businessId)
+      .in("status", ["sent", "simulated"])
+      .gte("sent_at", sinceIso),
+    supabase
+      .from("email_messages")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .eq("business_id", businessId)
@@ -363,14 +370,18 @@ export async function getOutreachStats(userId: string, businessId: string) {
   ]);
 
   const smsSent = smsRes.count ?? 0;
+  const emailSent = emailRes.count ?? 0;
+  const outreachSent = smsSent + emailSent;
   const attributed = attributedRes.count ?? 0;
 
   return {
     webhooks30d: eventsRes.count ?? 0,
     smsSent30d: smsSent,
+    emailSent30d: emailSent,
+    outreachSent30d: outreachSent,
     scheduledPending: scheduledRes.count ?? 0,
     attributedReviews30d: attributed,
-    conversionRate: smsSent > 0 ? Math.round((attributed / smsSent) * 1000) / 10 : 0,
+    conversionRate: outreachSent > 0 ? Math.round((attributed / outreachSent) * 1000) / 10 : 0,
     windowDays: ATTRIBUTION_WINDOW_DAYS,
   };
 }

@@ -6,6 +6,8 @@ import { parseJsonResponse } from "@/lib/http/parse-json-response";
 interface OutreachStats {
   webhooks30d: number;
   smsSent30d: number;
+  emailSent30d: number;
+  outreachSent30d: number;
   scheduledPending: number;
   attributedReviews30d: number;
   conversionRate: number;
@@ -21,6 +23,17 @@ interface CustomerEvent {
   created_at: string;
   payload: Record<string, unknown>;
   customer?: { first_name: string; last_name: string; phone: string } | null;
+}
+
+interface EmailRow {
+  id: string;
+  to_email: string;
+  subject: string;
+  status: string;
+  sent_at: string | null;
+  error_message: string | null;
+  created_at: string;
+  customers?: { first_name: string; last_name: string } | null;
 }
 
 interface SmsRow {
@@ -41,6 +54,7 @@ interface ActivityFilters {
 
 const EVENTS_PAGE_SIZE = 25;
 const SMS_PAGE_SIZE = 20;
+const EMAIL_PAGE_SIZE = 20;
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString();
@@ -61,28 +75,35 @@ export default function OutreachActivityPanel() {
   const [sms, setSms] = useState<SmsRow[]>([]);
   const [smsTotal, setSmsTotal] = useState(0);
   const [smsOffset, setSmsOffset] = useState(0);
+  const [emails, setEmails] = useState<EmailRow[]>([]);
+  const [emailsTotal, setEmailsTotal] = useState(0);
+  const [emailsOffset, setEmailsOffset] = useState(0);
   const [filters, setFilters] = useState<ActivityFilters | null>(null);
   const [eventType, setEventType] = useState("");
   const [source, setSource] = useState("");
   const [sentOnly, setSentOnly] = useState("");
   const [optedOutOnly, setOptedOutOnly] = useState(false);
   const [smsStatus, setSmsStatus] = useState("");
+  const [emailStatus, setEmailStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(
-    async (options?: { eventsOffset?: number; smsOffset?: number; reset?: boolean }) => {
+    async (options?: { eventsOffset?: number; smsOffset?: number; emailsOffset?: number; reset?: boolean }) => {
       setLoading(true);
       setError(null);
 
       const nextEventsOffset = options?.reset ? 0 : (options?.eventsOffset ?? eventsOffset);
       const nextSmsOffset = options?.reset ? 0 : (options?.smsOffset ?? smsOffset);
+      const nextEmailsOffset = options?.reset ? 0 : (options?.emailsOffset ?? emailsOffset);
 
       const params = new URLSearchParams({
         eventsLimit: String(EVENTS_PAGE_SIZE),
         eventsOffset: String(nextEventsOffset),
         smsLimit: String(SMS_PAGE_SIZE),
         smsOffset: String(nextSmsOffset),
+        emailLimit: String(EMAIL_PAGE_SIZE),
+        emailOffset: String(nextEmailsOffset),
         includeFilters: "1",
       });
       if (eventType) params.set("eventType", eventType);
@@ -90,6 +111,7 @@ export default function OutreachActivityPanel() {
       if (sentOnly) params.set("sentOnly", sentOnly);
       if (optedOutOnly) params.set("optedOutOnly", "1");
       if (smsStatus) params.set("smsStatus", smsStatus);
+      if (emailStatus) params.set("emailStatus", emailStatus);
 
       try {
         const res = await fetch(`/api/customers/activity?${params.toString()}`);
@@ -99,6 +121,8 @@ export default function OutreachActivityPanel() {
           eventsTotal: number;
           sms: SmsRow[];
           smsTotal: number;
+          emails: EmailRow[];
+          emailsTotal: number;
           filters: ActivityFilters | null;
           error?: string;
         }>(res);
@@ -111,6 +135,9 @@ export default function OutreachActivityPanel() {
         setSms(data.sms);
         setSmsTotal(data.smsTotal);
         setSmsOffset(nextSmsOffset);
+        setEmails(data.emails);
+        setEmailsTotal(data.emailsTotal);
+        setEmailsOffset(nextEmailsOffset);
         if (data.filters) setFilters(data.filters);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load activity");
@@ -118,16 +145,17 @@ export default function OutreachActivityPanel() {
         setLoading(false);
       }
     },
-    [eventType, source, sentOnly, optedOutOnly, smsStatus, eventsOffset, smsOffset]
+    [eventType, source, sentOnly, optedOutOnly, smsStatus, emailStatus, eventsOffset, smsOffset, emailsOffset]
   );
 
   useEffect(() => {
     void load({ reset: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventType, source, sentOnly, optedOutOnly, smsStatus]);
+  }, [eventType, source, sentOnly, optedOutOnly, smsStatus, emailStatus]);
 
   const hasMoreEvents = eventsOffset + events.length < eventsTotal;
   const hasMoreSms = smsOffset + sms.length < smsTotal;
+  const hasMoreEmails = emailsOffset + emails.length < emailsTotal;
 
   if (loading && !stats) {
     return (
@@ -151,7 +179,7 @@ export default function OutreachActivityPanel() {
         <div>
           <h2 className="text-lg font-bold text-[#202124]">Outreach results</h2>
           <p className="mt-1 text-sm text-[#5f6368]">
-            Last 30 days — webhook events, texts sent, and reviews attributed to outreach.
+            Last 30 days — webhook events, outreach sent, and reviews attributed.
           </p>
         </div>
         <button
@@ -170,7 +198,7 @@ export default function OutreachActivityPanel() {
       )}
 
       {stats && (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-lg bg-[#f8f9fa] p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">Webhooks</p>
             <p className="mt-1 text-2xl font-bold text-[#202124]">{stats.webhooks30d}</p>
@@ -178,6 +206,10 @@ export default function OutreachActivityPanel() {
           <div className="rounded-lg bg-[#f8f9fa] p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">SMS sent</p>
             <p className="mt-1 text-2xl font-bold text-[#202124]">{stats.smsSent30d}</p>
+          </div>
+          <div className="rounded-lg bg-[#f8f9fa] p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">Emails sent</p>
+            <p className="mt-1 text-2xl font-bold text-[#202124]">{stats.emailSent30d}</p>
           </div>
           <div className="rounded-lg bg-[#f8f9fa] p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">Scheduled</p>
@@ -189,13 +221,13 @@ export default function OutreachActivityPanel() {
             </p>
             <p className="mt-1 text-2xl font-bold text-[#202124]">{stats.attributedReviews30d}</p>
             <p className="mt-1 text-xs text-[#5f6368]">
-              {stats.conversionRate}% of SMS ({stats.windowDays}d window)
+              {stats.conversionRate}% of outreach ({stats.windowDays}d window)
             </p>
           </div>
         </div>
       )}
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <select
           value={eventType}
           onChange={(e) => setEventType(e.target.value)}
@@ -240,6 +272,16 @@ export default function OutreachActivityPanel() {
           <option value="simulated">Simulated</option>
           <option value="failed">Failed</option>
         </select>
+        <select
+          value={emailStatus}
+          onChange={(e) => setEmailStatus(e.target.value)}
+          className="rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
+        >
+          <option value="">All email statuses</option>
+          <option value="sent">Sent</option>
+          <option value="simulated">Simulated</option>
+          <option value="failed">Failed</option>
+        </select>
         <label className="flex items-center gap-2 rounded-lg border border-[#dadce0] px-3 py-2 text-sm">
           <input
             type="checkbox"
@@ -250,7 +292,7 @@ export default function OutreachActivityPanel() {
         </label>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <div>
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-bold text-[#202124]">Recent webhook events</h3>
@@ -301,7 +343,7 @@ export default function OutreachActivityPanel() {
 
         <div>
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-bold text-[#202124]">Recent messages</h3>
+            <h3 className="text-sm font-bold text-[#202124]">Recent SMS</h3>
             <span className="text-xs text-[#80868b]">
               {sms.length} of {smsTotal}
             </span>
@@ -341,7 +383,51 @@ export default function OutreachActivityPanel() {
               onClick={() => void load({ smsOffset: smsOffset + SMS_PAGE_SIZE })}
               className="mt-2 text-sm font-semibold text-[#1a73e8] hover:underline disabled:opacity-50"
             >
-              Load more messages
+              Load more SMS
+            </button>
+          )}
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-bold text-[#202124]">Recent emails</h3>
+            <span className="text-xs text-[#80868b]">
+              {emails.length} of {emailsTotal}
+            </span>
+          </div>
+          <div className="mt-2 max-h-72 overflow-y-auto rounded-lg border border-[#dadce0]">
+            {emails.length === 0 ? (
+              <p className="p-4 text-sm text-[#5f6368]">No emails match these filters.</p>
+            ) : (
+              <ul className="divide-y divide-[#dadce0]">
+                {emails.map((row) => (
+                  <li key={row.id} className="px-4 py-3 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-medium text-[#202124]">{row.to_email}</span>
+                      <span className="rounded-full bg-[#e8f0fe] px-2 py-0.5 text-xs font-medium text-[#1a73e8]">
+                        {row.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-xs text-[#5f6368]">{row.subject}</p>
+                    <p className="mt-1 text-xs text-[#80868b]">
+                      {row.sent_at ? `Sent ${formatWhen(row.sent_at)}` : formatWhen(row.created_at)}
+                    </p>
+                    {row.error_message && (
+                      <p className="mt-1 text-xs text-red-600">{row.error_message}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {hasMoreEmails && (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void load({ emailsOffset: emailsOffset + EMAIL_PAGE_SIZE })}
+              className="mt-2 text-sm font-semibold text-[#1a73e8] hover:underline disabled:opacity-50"
+            >
+              Load more emails
             </button>
           )}
         </div>

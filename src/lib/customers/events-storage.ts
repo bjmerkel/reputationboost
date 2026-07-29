@@ -134,6 +134,42 @@ export async function listRecentSmsMessages(
   return { sms: data ?? [], total: count ?? 0 };
 }
 
+export interface EmailListOptions {
+  limit?: number;
+  offset?: number;
+  status?: string;
+}
+
+export async function listRecentEmailMessages(
+  userId: string,
+  businessId: string,
+  options: EmailListOptions = {}
+) {
+  const supabase = await createClient();
+  const limit = options.limit ?? 30;
+  const offset = options.offset ?? 0;
+
+  let query = supabase
+    .from("email_messages")
+    .select(
+      "id, customer_id, to_email, subject, status, sent_at, error_message, created_at, customers(first_name, last_name)",
+      { count: "exact" }
+    )
+    .eq("user_id", userId)
+    .eq("business_id", businessId);
+
+  if (options.status) {
+    query = query.eq("status", options.status);
+  }
+
+  const { data, error, count } = await query
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) throw new Error(error.message);
+  return { emails: data ?? [], total: count ?? 0 };
+}
+
 export async function listEventFilterOptions(userId: string, businessId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase

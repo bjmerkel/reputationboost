@@ -12,7 +12,10 @@ import { getActiveKeywordCampaigns } from "@/lib/review-requests/campaign-storag
 import { refreshCampaignCompletionsForBusiness } from "@/lib/review-requests/campaign-dashboard";
 import { getEligibleCustomers, listCustomers } from "@/lib/customers/storage";
 import { getCustomerGeoCoverageForUser } from "@/lib/customers/geo-stats";
+import { previewReviewEmailContent } from "@/lib/email/template";
+import { generateReviewRequestEmail } from "@/lib/llm/review-request-email";
 import { generateReviewRequestMessage } from "@/lib/llm/review-request-sms";
+import type { OutreachChannel } from "@/lib/review-requests/channel";
 import { selectCustomersForGeoCampaign } from "@/lib/review-velocity/geo-router";
 import { loadCellLiftAggregatesForUser } from "@/lib/review-velocity/lift-storage";
 import { loadKeywordGridsForAudit } from "@/lib/review-velocity/resolve-geo-routing";
@@ -33,7 +36,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await parseJsonBody<{ customerId?: string; focusKeyword?: string | null }>(request);
+    const body = await parseJsonBody<{
+      customerId?: string;
+      focusKeyword?: string | null;
+      channel?: OutreachChannel;
+    }>(request);
+    const channel: OutreachChannel = body.channel ?? "sms";
     const { customers: eligibleCustomers, total: eligibleCount } = await listCustomers(
       user.id,
       business.businessId,
@@ -139,45 +147,96 @@ export async function POST(request: Request) {
       keywordMatchedSample;
 
     const useGeoTemplate = geoFilterApplied && customersWithGeo > 0;
+    const geoOptions = useGeoTemplate
+      ? {
+          geoTargeted: true,
+          neighborhoodLabel:
+            geoSample?.service_city?.trim() || business.location.city || undefined,
+          promptSeed: focusKeyword ?? undefined,
+        }
+      : undefined;
+
+    const previewCustomer = geoSample ?? keywordMatchedSample ?? sampleCustomer;
+    const previewLocation = {
+      city: business.location.city,
+      state: business.location.state,
+    };
+    const previewNeighborhood =
+      previewCustomer?.service_city?.trim() || business.location.city || null;
+
     let template: string;
-    if (audit) {
+    let subject = "How was your experience with [BUSINESS]?";
+    let preview: string;
+    let previewHtml: string | null = null;
+
+    if (channel === "email" || channel === "auto") {
+      if (audit) {
+        const emailDraft = await generateReviewRequestEmail(
+          audit,
+          geoSample ?? keywordMatchedSample ?? undefined,
+          focusKeyword,
+          geoOptions
+        );
+        subject = emailDraft.subject;
+        template = emailDraft.body;
+      } else {
+        const firstName = keywordMatchedSample?.first_name?.trim() || "[FIRST_NAME]";
+        subject = "We'd love your feedback, [FIRST_NAME]";
+        template = `Hi ${firstName},\n\nThank you for choosing [BUSINESS] for [SERVICE]. If your experience was great, would you take a moment to leave us a quick Google review?\n\n[REVIEW_LINK]\n\nThank you,\n[BUSINESS]`;
+      }
+
+      const emailPreview = previewReviewEmailContent({
+        subjectTemplate: subject,
+        bodyTemplate: template,
+        businessName: business.name,
+        reviewUrl: reviewUrl ?? "https://example.com/review",
+        customer: previewCustomer,
+        focusKeyword,
+        neighborhoodLabel: previewNeighborhood,
+        location: previewLocation,
+      });
+      preview = emailPreview.bodyText;
+      previewHtml = emailPreview.bodyHtml;
+    } else if (audit) {
       template = await generateReviewRequestMessage(
         audit,
         geoSample ?? keywordMatchedSample ?? undefined,
         focusKeyword,
-        useGeoTemplate
-          ? {
-              geoTargeted: true,
-              neighborhoodLabel:
-                geoSample?.service_city?.trim() || business.location.city || undefined,
-              promptSeed: focusKeyword ?? undefined,
-            }
-          : undefined
+        geoOptions
       );
+      preview = previewReviewRequestSms({
+        template,
+        businessName: business.name,
+        reviewUrl: reviewUrl ?? "https://example.com/review",
+        customer: previewCustomer,
+        focusKeyword,
+        neighborhoodLabel: previewNeighborhood,
+        location: previewLocation,
+      });
     } else {
       const firstName = keywordMatchedSample?.first_name?.trim() || "[FIRST_NAME]";
       template = `Hi ${firstName}! Thanks for choosing [BUSINESS] for [SERVICE]. If your experience was great, a quick Google review would mean a lot: [REVIEW_LINK]`;
+      preview = previewReviewRequestSms({
+        template,
+        businessName: business.name,
+        reviewUrl: reviewUrl ?? "https://example.com/review",
+        customer: previewCustomer,
+        focusKeyword,
+        neighborhoodLabel: previewNeighborhood,
+        location: previewLocation,
+      });
     }
 
-    const previewCustomer = geoSample ?? keywordMatchedSample ?? sampleCustomer;
-    const preview = previewReviewRequestSms({
-      template,
-      businessName: business.name,
-      reviewUrl: reviewUrl ?? "https://example.com/review",
-      customer: previewCustomer,
-      focusKeyword,
-      neighborhoodLabel:
-        previewCustomer?.service_city?.trim() || business.location.city || null,
-      location: {
-        city: business.location.city,
-        state: business.location.state,
-      },
-    });
+    const emailEligibleCount = eligibleCustomers.filter((customer) => customer.email?.trim()).length;
 
     return NextResponse.json({
+      channel,
       template,
+      subject,
       preview,
+      previewHtml,
       reviewUrl,
+      emailEligibleCount,
       eligibleCount,
       matchedCustomers,
       customersWithGeo,

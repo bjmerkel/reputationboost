@@ -6,6 +6,7 @@ import CustomersPageClient from "@/components/customers/CustomersPageClient";
 import OutreachActivityPanel from "@/components/customers/OutreachActivityPanel";
 import WebhookIntegrationPanel from "@/components/customers/WebhookIntegrationPanel";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
+import { isResendConfigured } from "@/lib/email/resend";
 import { isTwilioConfigured } from "@/lib/sms/twilio";
 import { getUser } from "@/lib/supabase/server";
 
@@ -57,8 +58,8 @@ export default async function CustomersPage() {
             Customer outreach
           </h1>
           <p className="mt-3 max-w-2xl text-[#5f6368]">
-            Import your customer list, personalize a Google review request, and send it by SMS —
-            the fastest path to more 5-star reviews.
+            Import your customer list, personalize a Google review request, and send it by SMS or
+            email — the fastest path to more 5-star reviews.
           </p>
         </div>
 
@@ -69,6 +70,7 @@ export default async function CustomersPage() {
           businessName={business.name}
           reviewUrl={reviewUrl}
           twilioConfigured={isTwilioConfigured()}
+          resendConfigured={isResendConfigured()}
           />
         </div>
       </div>

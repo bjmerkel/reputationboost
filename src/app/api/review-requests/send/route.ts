@@ -3,8 +3,10 @@ import { getPrimaryBusiness } from "@/audit/businesses";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { updateExecutionTask } from "@/audit/storage-execution";
+import { isResendConfigured } from "@/lib/email/resend";
+import type { OutreachChannel } from "@/lib/review-requests/channel";
 import { auditHasReviewGap } from "@/lib/review-requests/eligibility";
-import { sendReviewRequests } from "@/lib/sms/send-review-requests";
+import { sendOutreachReviewRequests } from "@/lib/review-requests/send-outreach";
 import { isTwilioConfigured } from "@/lib/sms/twilio";
 import { getUser } from "@/lib/supabase/server";
 import { parseJsonBody } from "@/lib/http/parse-json-body";
@@ -23,6 +25,8 @@ export async function POST(request: Request) {
   try {
     const body = await parseJsonBody<{
       template?: string;
+      subject?: string;
+      channel?: OutreachChannel;
       customerIds?: string[];
       batchSize?: number;
       dryRun?: boolean;
@@ -30,8 +34,14 @@ export async function POST(request: Request) {
       focusKeyword?: string | null;
     }>(request);
 
+    const channel: OutreachChannel = body.channel ?? "sms";
+
     if (!body.template?.trim()) {
       return NextResponse.json({ error: "Message template is required" }, { status: 400 });
+    }
+
+    if ((channel === "email" || channel === "auto") && !body.subject?.trim()) {
+      return NextResponse.json({ error: "Email subject is required" }, { status: 400 });
     }
 
     const rawAudit = await loadLatestAuditFromSupabase(user.id, business.id, {
@@ -40,10 +50,12 @@ export async function POST(request: Request) {
     });
     const audit = rawAudit ? ensureStrategy(rawAudit) : null;
 
-    const result = await sendReviewRequests({
+    const result = await sendOutreachReviewRequests({
       userId: user.id,
       business,
+      channel,
       template: body.template.trim(),
+      subjectTemplate: body.subject?.trim(),
       customerIds: body.customerIds,
       batchSize: body.batchSize,
       executionTaskId: body.executionTaskId,
@@ -54,9 +66,11 @@ export async function POST(request: Request) {
     });
 
     if (body.executionTaskId && !body.dryRun && result.sent > 0) {
+      const channelLabel =
+        channel === "email" ? "email" : channel === "auto" ? "outreach" : "SMS";
       const summary = result.simulated
-        ? `Simulated ${result.sent} SMS review request${result.sent === 1 ? "" : "s"}.`
-        : `Sent ${result.sent} SMS review request${result.sent === 1 ? "" : "s"}${result.failed > 0 ? ` (${result.failed} failed)` : ""}.`;
+        ? `Simulated ${result.sent} ${channelLabel} review request${result.sent === 1 ? "" : "s"}.`
+        : `Sent ${result.sent} ${channelLabel} review request${result.sent === 1 ? "" : "s"}${result.failed > 0 ? ` (${result.failed} failed)` : ""}.`;
 
       await updateExecutionTask(user.id, body.executionTaskId, {
         status: "completed",
@@ -69,6 +83,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ...result,
       twilioConfigured: isTwilioConfigured(),
+      resendConfigured: isResendConfigured(),
       geoFilterApplied: result.geoFilterApplied,
     });
   } catch (error) {

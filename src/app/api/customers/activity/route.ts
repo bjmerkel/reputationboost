@@ -3,6 +3,7 @@ import { getPrimaryBusiness } from "@/audit/businesses";
 import {
   listCustomerEvents,
   listEventFilterOptions,
+  listRecentEmailMessages,
   listRecentSmsMessages,
 } from "@/lib/customers/events-storage";
 import { getOutreachStats } from "@/lib/review-requests/attribution";
@@ -35,15 +36,18 @@ export async function GET(request: Request) {
   const eventsOffset = readInt(url.searchParams.get("eventsOffset"), 0);
   const smsLimit = readInt(url.searchParams.get("smsLimit"), 20);
   const smsOffset = readInt(url.searchParams.get("smsOffset"), 0);
+  const emailLimit = readInt(url.searchParams.get("emailLimit"), 20);
+  const emailOffset = readInt(url.searchParams.get("emailOffset"), 0);
   const eventType = url.searchParams.get("eventType")?.trim() || undefined;
   const source = url.searchParams.get("source")?.trim() || undefined;
   const reviewRequestSent = readBool(url.searchParams.get("sentOnly"));
   const optedOutOnly = url.searchParams.get("optedOutOnly") === "1";
   const smsStatus = url.searchParams.get("smsStatus")?.trim() || undefined;
+  const emailStatus = url.searchParams.get("emailStatus")?.trim() || undefined;
   const includeFilters = url.searchParams.get("includeFilters") === "1";
 
   try {
-    const [eventResult, smsResult, stats, filters] = await Promise.all([
+    const [eventResult, smsResult, emailResult, stats, filters] = await Promise.all([
       listCustomerEvents(user.id, business.businessId, {
         limit: eventsLimit,
         offset: eventsOffset,
@@ -56,6 +60,11 @@ export async function GET(request: Request) {
         limit: smsLimit,
         offset: smsOffset,
         status: smsStatus,
+      }),
+      listRecentEmailMessages(user.id, business.businessId, {
+        limit: emailLimit,
+        offset: emailOffset,
+        status: emailStatus,
       }),
       getOutreachStats(user.id, business.businessId),
       includeFilters
@@ -72,6 +81,10 @@ export async function GET(request: Request) {
       smsTotal: smsResult.total,
       smsLimit,
       smsOffset,
+      emails: emailResult.emails,
+      emailsTotal: emailResult.total,
+      emailLimit,
+      emailOffset,
       stats,
       filters,
     });

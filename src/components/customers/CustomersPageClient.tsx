@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import ReviewCampaignPlanCard from "@/components/review-requests/ReviewCampaignPlanCard";
 import ReviewCampaignDashboard from "@/components/customers/ReviewCampaignDashboard";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
 import { REVIEW_REQUEST_COOLDOWN_DAYS } from "@/lib/review-requests/eligibility";
+import type { OutreachChannel } from "@/lib/review-requests/channel";
+import { channelDescription, channelLabel } from "@/lib/review-requests/channel";
 import type { ReviewCampaignPlan } from "@/lib/review-requests/campaign-plan";
 
 interface Customer {
@@ -30,11 +31,21 @@ function isEligibleCustomer(customer: Customer): boolean {
   return days >= REVIEW_REQUEST_COOLDOWN_DAYS;
 }
 
+function isReachableForChannel(customer: Customer, channel: OutreachChannel): boolean {
+  if (!isEligibleCustomer(customer)) return false;
+  if (channel === "email") return Boolean(customer.email?.trim());
+  if (channel === "sms") return Boolean(customer.phone?.trim());
+  return Boolean(customer.email?.trim() || customer.phone?.trim());
+}
+
 interface CustomersPageProps {
   businessName: string;
   reviewUrl: string | null;
   twilioConfigured: boolean;
+  resendConfigured: boolean;
 }
+
+const CHANNELS: OutreachChannel[] = ["auto", "email", "sms"];
 
 function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
@@ -55,6 +66,7 @@ export default function CustomersPageClient({
   businessName,
   reviewUrl,
   twilioConfigured,
+  resendConfigured,
 }: CustomersPageProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [total, setTotal] = useState(0);
@@ -62,9 +74,13 @@ export default function CustomersPageClient({
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [sending, setSending] = useState(false);
+  const [channel, setChannel] = useState<OutreachChannel>("auto");
   const [template, setTemplate] = useState("");
+  const [subject, setSubject] = useState("");
   const [preview, setPreview] = useState("");
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [eligibleCount, setEligibleCount] = useState(0);
+  const [emailEligibleCount, setEmailEligibleCount] = useState(0);
   const [batchSize, setBatchSize] = useState(15);
   const [matchedCustomers, setMatchedCustomers] = useState(0);
   const [focusKeyword, setFocusKeyword] = useState<string | null>(null);
@@ -82,8 +98,8 @@ export default function CustomersPageClient({
   });
 
   const eligibleCustomers = useMemo(
-    () => customers.filter(isEligibleCustomer),
-    [customers]
+    () => customers.filter((customer) => isReachableForChannel(customer, channel)),
+    [customers, channel]
   );
 
   const loadCustomers = useCallback(async () => {
@@ -104,40 +120,60 @@ export default function CustomersPageClient({
     }
   }, []);
 
-  const loadMessageTemplate = useCallback(async (keywordOverride?: string | null) => {
-    try {
-      const res = await fetch("/api/review-requests/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ focusKeyword: keywordOverride ?? focusKeyword ?? null }),
-      });
-      const data = await parseJsonResponse<{
-        template: string;
-        preview: string;
-        eligibleCount: number;
-        matchedCustomers: number;
-        batchSize: number;
-        focusKeyword: string | null;
-        campaignPlan: ReviewCampaignPlan | null;
-        error?: string;
-      }>(res);
-      if (!res.ok) throw new Error(data.error ?? "Failed to generate message");
-      setTemplate(data.template);
-      setPreview(data.preview);
-      setEligibleCount(data.eligibleCount);
-      setMatchedCustomers(data.matchedCustomers);
-      setBatchSize(data.batchSize);
-      setFocusKeyword(data.focusKeyword);
-      setCampaignPlan(data.campaignPlan);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate message");
-    }
-  }, [focusKeyword]);
+  const loadMessageTemplate = useCallback(
+    async (keywordOverride?: string | null, channelOverride?: OutreachChannel) => {
+      const activeChannel = channelOverride ?? channel;
+      try {
+        const res = await fetch("/api/review-requests/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            focusKeyword: keywordOverride ?? focusKeyword ?? null,
+            channel: activeChannel,
+          }),
+        });
+        const data = await parseJsonResponse<{
+          channel: OutreachChannel;
+          template: string;
+          subject?: string;
+          preview: string;
+          previewHtml?: string | null;
+          eligibleCount: number;
+          emailEligibleCount?: number;
+          matchedCustomers: number;
+          batchSize: number;
+          focusKeyword: string | null;
+          campaignPlan: ReviewCampaignPlan | null;
+          error?: string;
+        }>(res);
+        if (!res.ok) throw new Error(data.error ?? "Failed to generate message");
+        setTemplate(data.template);
+        setSubject(data.subject ?? "");
+        setPreview(data.preview);
+        setPreviewHtml(data.previewHtml ?? null);
+        setEligibleCount(data.eligibleCount);
+        setEmailEligibleCount(data.emailEligibleCount ?? 0);
+        setMatchedCustomers(data.matchedCustomers);
+        setBatchSize(data.batchSize);
+        setFocusKeyword(data.focusKeyword);
+        setCampaignPlan(data.campaignPlan);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to generate message");
+      }
+    },
+    [channel, focusKeyword]
+  );
 
   useEffect(() => {
     void loadCustomers();
     void loadMessageTemplate();
   }, [loadCustomers, loadMessageTemplate]);
+
+  async function handleChannelChange(nextChannel: OutreachChannel) {
+    setChannel(nextChannel);
+    setSelectedIds(new Set());
+    await loadMessageTemplate(focusKeyword, nextChannel);
+  }
 
   async function handleCsvImport(file: File) {
     setImporting(true);
@@ -236,7 +272,9 @@ export default function CustomersPageClient({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          channel,
           template,
+          subject: channel === "sms" ? undefined : subject,
           customerIds,
           batchSize: selectedIds.size > 0 ? selectedIds.size : batchSize,
           focusKeyword,
@@ -248,19 +286,23 @@ export default function CustomersPageClient({
         failed: number;
         skipped: number;
         simulated: boolean;
+        channel: OutreachChannel;
         error?: string;
       }>(res);
       if (!res.ok) throw new Error(data.error ?? "Send failed");
 
+      const channelName =
+        data.channel === "auto" ? "outreach" : data.channel === "email" ? "email" : "SMS";
+
       if (dryRun) {
-        setSendResult(`Preview ready for ${customerIds?.length ?? Math.min(15, eligibleCount)} customer(s).`);
+        setSendResult(`Preview ready for ${customerIds?.length ?? Math.min(batchSize, eligibleCustomers.length)} customer(s).`);
       } else if (data.simulated) {
         setSendResult(
-          `Simulated ${data.sent} message(s). Add Twilio credentials to send real texts.`
+          `Simulated ${data.sent} ${channelName} message(s). Add provider credentials to send for real.`
         );
       } else {
         setSendResult(
-          `Sent ${data.sent} review request${data.sent === 1 ? "" : "s"}${data.failed ? ` (${data.failed} failed)` : ""}.`
+          `Sent ${data.sent} ${channelName} review request${data.sent === 1 ? "" : "s"}${data.failed ? ` (${data.failed} failed)` : ""}.`
         );
       }
 
@@ -277,14 +319,23 @@ export default function CustomersPageClient({
     }
   }
 
+  const showEmailEditor = channel === "email" || channel === "auto";
+  const showSmsEditor = channel === "sms";
+  const demoMode =
+    (channel === "sms" && !twilioConfigured) ||
+    (channel === "email" && !resendConfigured) ||
+    (channel === "auto" && !twilioConfigured && !resendConfigured);
+
   return (
     <div className="space-y-6">
-      {!twilioConfigured && (
+      {demoMode && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <strong>Demo mode:</strong> SMS will be simulated until you add{" "}
-          <code className="rounded bg-amber-100 px-1">TWILIO_ACCOUNT_SID</code>,{" "}
-          <code className="rounded bg-amber-100 px-1">TWILIO_AUTH_TOKEN</code>, and{" "}
-          <code className="rounded bg-amber-100 px-1">TWILIO_FROM_NUMBER</code> to your environment.
+          <strong>Demo mode:</strong>{" "}
+          {channel === "auto"
+            ? "Outreach will be simulated until you add Twilio and/or Resend credentials."
+            : channel === "email"
+              ? "Emails will be simulated until you add RESEND_API_KEY and RESEND_FROM_EMAIL."
+              : "SMS will be simulated until you add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER."}
         </div>
       )}
 
@@ -315,6 +366,7 @@ export default function CustomersPageClient({
             Upload a CSV with columns like <code className="text-xs">first_name</code>,{" "}
             <code className="text-xs">last_name</code>, <code className="text-xs">phone</code>,{" "}
             <code className="text-xs">email</code>, <code className="text-xs">service</code>.
+            Include email addresses to unlock one-click email surveys.
           </p>
 
           <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#dadce0] bg-[#f8f9fa] px-6 py-8 transition hover:border-[#1a73e8] hover:bg-[#e8f0fe]">
@@ -366,7 +418,7 @@ export default function CustomersPageClient({
                 className="w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
               />
               <input
-                placeholder="Email"
+                placeholder="Email (for email surveys)"
                 value={newCustomer.email}
                 onChange={(e) => setNewCustomer((c) => ({ ...c, email: e.target.value }))}
                 className="w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
@@ -388,7 +440,27 @@ export default function CustomersPageClient({
         </div>
 
         <div className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-[#202124]">Review request campaign</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-[#202124]">Review request campaign</h2>
+            <div className="inline-flex rounded-full border border-[#dadce0] bg-[#f8f9fa] p-1">
+              {CHANNELS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => void handleChannelChange(value)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    channel === value
+                      ? "bg-white text-[#1a73e8] shadow-sm"
+                      : "text-[#5f6368] hover:text-[#202124]"
+                  }`}
+                >
+                  {channelLabel(value)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <p className="mt-3 text-sm text-[#5f6368]">{channelDescription(channel)}</p>
 
           {campaignPlan && (
             <div className="mt-4">
@@ -402,13 +474,26 @@ export default function CustomersPageClient({
             </div>
           )}
 
-          <h3 className="mt-6 text-sm font-bold text-[#202124]">SMS message</h3>
+          {showEmailEditor && (
+            <>
+              <h3 className="mt-6 text-sm font-bold text-[#202124]">Email subject</h3>
+              <input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="mt-2 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
+              />
+            </>
+          )}
+
+          <h3 className="mt-6 text-sm font-bold text-[#202124]">
+            {showSmsEditor ? "SMS message" : "Email message"}
+          </h3>
           <p className="mt-2 text-sm text-[#5f6368]">
-            Personalized for <strong>{businessName}</strong>. Set each customer&apos;s Service field
-            to match your focus keyword so <code className="text-xs">[SERVICE]</code> drives
-            keyword-rich reviews. Use a short program name (e.g. &quot;enrichment programs&quot;), not the full SEO phrase. Also use{" "}
+            Personalized for <strong>{businessName}</strong>. Use{" "}
             <code className="text-xs">[FIRST_NAME]</code>,{" "}
-            <code className="text-xs">[BUSINESS]</code>, and <code className="text-xs">[REVIEW_LINK]</code>.
+            <code className="text-xs">[SERVICE]</code>,{" "}
+            <code className="text-xs">[BUSINESS]</code>, and{" "}
+            <code className="text-xs">[REVIEW_LINK]</code>.
           </p>
 
           {reviewUrl && (
@@ -423,7 +508,7 @@ export default function CustomersPageClient({
           <textarea
             value={template}
             onChange={(e) => setTemplate(e.target.value)}
-            rows={5}
+            rows={showSmsEditor ? 5 : 7}
             className="mt-4 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm leading-relaxed"
           />
 
@@ -432,7 +517,16 @@ export default function CustomersPageClient({
               <span className="text-xs font-semibold uppercase tracking-wide text-[#80868b]">
                 Sample preview
               </span>
-              <p className="mt-1">{preview}</p>
+              {previewHtml ? (
+                <iframe
+                  title="Email preview"
+                  srcDoc={previewHtml}
+                  className="mt-2 h-72 w-full rounded-lg border border-[#dadce0] bg-white"
+                  sandbox=""
+                />
+              ) : (
+                <p className="mt-1 whitespace-pre-wrap">{preview}</p>
+              )}
             </div>
           )}
 
@@ -445,7 +539,7 @@ export default function CustomersPageClient({
             >
               {sending
                 ? "Sending…"
-                : `Send batch of ${selectedIds.size || Math.min(batchSize, eligibleCount)} customer(s)`}
+                : `Send batch of ${selectedIds.size || Math.min(batchSize, eligibleCustomers.length)} customer(s)`}
             </button>
             <button
               type="button"
@@ -453,12 +547,16 @@ export default function CustomersPageClient({
               onClick={() => void loadMessageTemplate(focusKeyword)}
               className="rounded-full border border-[#dadce0] px-4 py-2 text-sm font-semibold text-[#3c4043] hover:bg-[#f8f9fa]"
             >
-              Regenerate SMS
+              Regenerate {showSmsEditor ? "SMS" : "email"}
             </button>
           </div>
 
           <p className="mt-2 text-xs text-[#80868b]">
-            {eligibleCount} eligible (not yet contacted). Campaign suggests batches of {batchSize}
+            {eligibleCustomers.length} reachable via {channelLabel(channel).toLowerCase()}
+            {channel === "auto" && emailEligibleCount > 0
+              ? ` · ${emailEligibleCount} with email`
+              : ""}
+            . Campaign suggests batches of {batchSize}
             {focusKeyword && matchedCustomers > 0 ? ` · ${matchedCustomers} match "${focusKeyword}"` : ""}.
           </p>
         </div>
@@ -493,6 +591,7 @@ export default function CustomersPageClient({
                   <th className="px-4 py-3" />
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Phone</th>
+                  <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Service</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3" />
@@ -500,14 +599,14 @@ export default function CustomersPageClient({
               </thead>
               <tbody className="divide-y divide-[#dadce0]">
                 {customers.map((customer) => {
-                  const eligible = isEligibleCustomer(customer);
+                  const reachable = isReachableForChannel(customer, channel);
                   return (
-                    <tr key={customer.id} className={eligible ? "" : "opacity-60"}>
+                    <tr key={customer.id} className={reachable ? "" : "opacity-60"}>
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
                           checked={selectedIds.has(customer.id)}
-                          disabled={!eligible}
+                          disabled={!reachable}
                           onChange={() => toggleSelect(customer.id)}
                         />
                       </td>
@@ -515,6 +614,7 @@ export default function CustomersPageClient({
                         {customerName(customer)}
                       </td>
                       <td className="px-4 py-3 text-[#5f6368]">{formatPhone(customer.phone)}</td>
+                      <td className="px-4 py-3 text-[#5f6368]">{customer.email ?? "—"}</td>
                       <td className="px-4 py-3 text-[#5f6368]">
                         {customer.service_notes ?? "—"}
                       </td>

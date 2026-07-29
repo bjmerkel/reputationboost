@@ -248,3 +248,49 @@ export async function logSmsMessage(
 
   if (error) throw new Error(formatCustomerStorageError(error.message));
 }
+
+export interface EmailMessageInput {
+  businessId: string;
+  customerId?: string;
+  executionTaskId?: string;
+  focusKeyword?: string | null;
+  targetGridNorth?: number | null;
+  targetGridEast?: number | null;
+  targetZone?: string | null;
+  neighborhoodLabel?: string | null;
+  toEmail: string;
+  subject: string;
+  bodyText: string;
+  bodyHtml: string;
+  status: "pending" | "sent" | "failed" | "simulated";
+  providerMessageId?: string;
+  errorMessage?: string;
+}
+
+export async function logEmailMessage(
+  userId: string,
+  input: EmailMessageInput
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("email_messages").insert({
+    business_id: input.businessId,
+    user_id: userId,
+    customer_id: input.customerId ?? null,
+    execution_task_id: input.executionTaskId ?? null,
+    focus_keyword: input.focusKeyword ?? null,
+    target_grid_north: input.targetGridNorth ?? null,
+    target_grid_east: input.targetGridEast ?? null,
+    target_zone: input.targetZone ?? null,
+    neighborhood_label: input.neighborhoodLabel ?? null,
+    to_email: input.toEmail,
+    subject: input.subject,
+    body_text: input.bodyText,
+    body_html: input.bodyHtml,
+    status: input.status,
+    provider_message_id: input.providerMessageId ?? null,
+    error_message: input.errorMessage ?? null,
+    sent_at: input.status === "sent" || input.status === "simulated" ? new Date().toISOString() : null,
+  });
+
+  if (error) throw new Error(formatCustomerStorageError(error.message));
+}
