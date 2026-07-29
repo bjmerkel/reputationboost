@@ -133,6 +133,9 @@ function buildSamplePayload(
       event: "invoice.paid",
       source: "quickbooks",
       service: "hvac maintenance",
+      amount: 425,
+      currency: "USD",
+      paidAt: "2026-07-05",
     };
   }
   if (template.id === "hcp-job-completed") {
@@ -159,6 +162,8 @@ function buildSamplePayload(
     ...base,
     event: template.eventType,
     source: template.id === "jobber-job-completed" ? "jobber" : "zapier",
+    amount: 890,
+    currency: "USD",
   };
 }
 

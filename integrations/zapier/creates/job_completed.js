@@ -1,4 +1,5 @@
 const { postWebhookEvent } = require("../lib/post-webhook");
+const { revenueInputFields, readRevenueFields } = require("../lib/revenue-fields");
 
 const inputFields = [
   { key: "phone", label: "Customer phone", required: true, type: "string" },
@@ -12,6 +13,7 @@ const inputFields = [
   { key: "jobLng", label: "Job longitude", type: "number" },
   { key: "serviceDate", label: "Service date", type: "datetime" },
   { key: "externalId", label: "External job ID", type: "string" },
+  ...revenueInputFields.filter((field) => field.key !== "paidAt"),
   { key: "source", label: "Source", type: "string", default: "zapier" },
   {
     key: "sendReviewRequest",
@@ -46,6 +48,7 @@ module.exports = {
         jobLng: bundle.inputData.jobLng,
         serviceDate: bundle.inputData.serviceDate,
         externalId: bundle.inputData.externalId,
+        ...readRevenueFields(bundle),
         source: bundle.inputData.source || "zapier",
         sendReviewRequest: bundle.inputData.sendReviewRequest !== "false",
       }),

@@ -64,6 +64,8 @@ export async function GET(request: Request) {
         jobZip: "55311",
         serviceDate: "2026-07-05",
         externalId: "job-12345",
+        amount: 890,
+        currency: "USD",
         source: "jobber",
         sendReviewRequest: true,
       },
