@@ -98,6 +98,8 @@ export async function patchExecutionTask(
     draftContent?: string;
     payload?: Record<string, unknown>;
     scheduledFor?: string | null;
+    completedAt?: string | null;
+    result?: string | null;
   }
 ): Promise<ExecutionTask> {
   const res = await fetch(`/api/execution/${taskId}`, {
@@ -266,6 +268,27 @@ export async function approveAndPublishTask(
     return executeExecutionTask(task.id, { retry: true });
   }
 
+  if (task.type === "google_post" && task.status === "failed") {
+    if (publishNow) {
+      await patchExecutionTask(task.id, {
+        status: "approved",
+        completedAt: null,
+        result: null,
+      });
+      return executeExecutionTask(task.id, { publishNow: true, retry: true });
+    }
+    if (scheduledFor) {
+      return patchExecutionTask(task.id, {
+        status: "scheduled",
+        scheduledFor,
+        completedAt: null,
+        result: null,
+        ...(draftContent ? { draftContent } : {}),
+      });
+    }
+    throw new Error("Choose a new publish time or retry publish.");
+  }
+
   if (scheduleOnly) {
     if (!scheduledFor) {
       throw new Error("Choose a publish date and time to schedule this post.");
@@ -294,7 +317,12 @@ export async function rescheduleGooglePost(
   taskId: string,
   scheduledFor: string
 ): Promise<ExecutionTask> {
-  return patchExecutionTask(taskId, { status: "scheduled", scheduledFor });
+  return patchExecutionTask(taskId, {
+    status: "scheduled",
+    scheduledFor,
+    completedAt: null,
+    result: null,
+  });
 }
 
 export async function approveAllRoutineTasks(tasks: ExecutionTask[]): Promise<number> {

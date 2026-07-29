@@ -30,6 +30,8 @@ export async function PATCH(
     draftContent?: string;
     payload?: Record<string, unknown>;
     scheduledFor?: string | null;
+    completedAt?: string | null;
+    result?: string | null;
   };
 
   const task = await getExecutionTask(user.id, taskId);
@@ -69,6 +71,8 @@ export async function PATCH(
     draftContent: body.draftContent ?? task.draftContent,
     payload: body.payload ? mergedPayload : undefined,
     scheduledFor: nextScheduledFor,
+    ...(body.completedAt !== undefined ? { completedAt: body.completedAt } : {}),
+    ...(body.result !== undefined ? { result: body.result } : {}),
   });
 
   if (
@@ -111,6 +115,9 @@ export async function POST(
     task.status === "approved" ||
     task.status === "scheduled" ||
     (retry &&
+      task.type === "google_post" &&
+      task.status === "failed") ||
+    (retry &&
       task.type === "gbp_description" &&
       (task.status === "completed" || task.status === "failed"));
 
@@ -121,7 +128,31 @@ export async function POST(
     );
   }
 
-  if (googlePostShouldScheduleOnly(task, publishNow)) {
+  if (retry && task.type === "google_post" && task.status === "failed") {
+    await updateExecutionTask(user.id, taskId, {
+      status: publishNow ? "approved" : "scheduled",
+      completedAt: null,
+      result: null,
+    });
+    const refreshed = await getExecutionTask(user.id, taskId);
+    if (!refreshed) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+    if (!publishNow && googlePostShouldScheduleOnly(refreshed, false)) {
+      return NextResponse.json({ task: refreshed });
+    }
+  }
+
+  const taskToExecute =
+    retry && task.type === "google_post" && task.status === "failed"
+      ? await getExecutionTask(user.id, taskId)
+      : task;
+
+  if (!taskToExecute) {
+    return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+
+  if (googlePostShouldScheduleOnly(taskToExecute, publishNow)) {
     return NextResponse.json(
       { error: "This post is scheduled for a future publish time. Approve it to schedule, or publish now to override." },
       { status: 400 }
@@ -139,7 +170,7 @@ export async function POST(
       : null;
 
   const executed = await executeTask(
-    task,
+    taskToExecute,
     connection,
     business ? { userId: user.id, business } : undefined
   );

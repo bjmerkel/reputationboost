@@ -134,3 +134,36 @@ export function googlePostScheduleSummary(tasks: ExecutionTask[]): string | null
   }
   return `Next slot ${nextLabel}`;
 }
+
+export function googlePostPublishFailed(task: ExecutionTask): boolean {
+  return task.type === "google_post" && task.status === "failed";
+}
+
+/** Open google_post tasks with a publish time, sorted soonest first. */
+export function upcomingGooglePostTasks(tasks: ExecutionTask[]): ExecutionTask[] {
+  return tasks
+    .filter(
+      (task) =>
+        task.type === "google_post" &&
+        task.status !== "completed" &&
+        task.status !== "rejected" &&
+        task.scheduledFor != null &&
+        (task.status === "pending_approval" ||
+          task.status === "scheduled" ||
+          googlePostAwaitingScheduledPublish(task))
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.scheduledFor ?? 0).getTime() - new Date(b.scheduledFor ?? 0).getTime()
+    );
+}
+
+export function failedGooglePostTasks(tasks: ExecutionTask[]): ExecutionTask[] {
+  return tasks
+    .filter((task) => googlePostPublishFailed(task))
+    .sort(
+      (a, b) =>
+        new Date(b.completedAt ?? b.createdAt).getTime() -
+        new Date(a.completedAt ?? a.createdAt).getTime()
+    );
+}

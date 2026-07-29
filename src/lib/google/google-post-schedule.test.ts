@@ -8,6 +8,7 @@ import {
   googlePostShouldScheduleOnly,
   isoToDatetimeLocalValue,
   isFutureScheduled,
+  upcomingGooglePostTasks,
   validateGooglePostScheduleTime,
 } from "./google-post-schedule";
 import type { ExecutionTask } from "@/audit/types";
@@ -78,5 +79,16 @@ describe("google-post-schedule", () => {
   it("validateGooglePostScheduleTime rejects near-term times", () => {
     const soon = new Date(Date.now() + 60_000).toISOString();
     assert.ok(validateGooglePostScheduleTime(soon));
+  });
+
+  it("upcomingGooglePostTasks sorts by scheduled time", () => {
+    const later = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    const sooner = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const upcoming = upcomingGooglePostTasks([
+      googlePostTask({ id: "a", scheduledFor: later, status: "scheduled" }),
+      googlePostTask({ id: "b", scheduledFor: sooner, status: "pending_approval" }),
+    ]);
+    assert.equal(upcoming[0]?.id, "b");
+    assert.equal(upcoming[1]?.id, "a");
   });
 });
