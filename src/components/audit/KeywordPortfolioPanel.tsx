@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeywordPortfolioAnalysis, KeywordPortfolioStatus } from "@/audit/types";
+import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 
 const STATUS_LABELS: Record<KeywordPortfolioStatus, string> = {
   proven_demand: "Proven demand",
@@ -456,6 +457,12 @@ export default function KeywordPortfolioPanel({
         <div className="flex flex-wrap gap-2">
           <MetricPill
             light={light}
+            label="Tracked"
+            value={`${keywords.length}/${MAX_KEYWORDS}`}
+            warn={keywords.length >= MAX_KEYWORDS}
+          />
+          <MetricPill
+            light={light}
             label="Demand alignment"
             value={`${portfolio.demandAlignmentScore}%`}
             warn={portfolio.demandAlignmentScore < 50}
@@ -537,14 +544,25 @@ export default function KeywordPortfolioPanel({
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div>
           <div className="flex items-center justify-between gap-2">
-            <p className={`text-xs font-semibold uppercase tracking-wider ${light ? "text-[#80868b]" : "text-slate-500"}`}>
-              Tracked keywords
-            </p>
+            <div>
+              <p className={`text-xs font-semibold uppercase tracking-wider ${light ? "text-[#80868b]" : "text-slate-500"}`}>
+                Tracked keywords
+              </p>
+              <p className={`mt-1 text-xs ${light ? "text-[#80868b]" : "text-slate-500"}`}>
+                Track {MIN_KEYWORDS}–{MAX_KEYWORDS} keywords. Monthly heatmaps scan your top{" "}
+                {HEATMAP_FLAGS.weeklyKeywordLimit} by demand.
+              </p>
+            </div>
             <button
               type="button"
               disabled={saving || keywords.length >= MAX_KEYWORDS}
+              title={
+                keywords.length >= MAX_KEYWORDS
+                  ? `Maximum ${MAX_KEYWORDS} keywords tracked. Remove one to add another.`
+                  : undefined
+              }
               onClick={beginAdd}
-              className={`text-xs font-medium ${
+              className={`shrink-0 text-xs font-medium ${
                 light ? "text-[#1a73e8] hover:underline" : "text-sky-300 hover:underline"
               } disabled:opacity-50`}
             >
@@ -648,6 +666,11 @@ export default function KeywordPortfolioPanel({
                         <button
                           type="button"
                           disabled={saving || keywords.length <= MIN_KEYWORDS}
+                          title={
+                            keywords.length <= MIN_KEYWORDS
+                              ? `Keep at least ${MIN_KEYWORDS} tracked keywords.`
+                              : undefined
+                          }
                           onClick={() => void removeKeyword(keyword)}
                           className={`rounded px-2 py-0.5 text-[11px] font-medium ${
                             light ? "text-[#c5221f] hover:bg-[#fce8e6]" : "text-red-300 hover:bg-white/10"
