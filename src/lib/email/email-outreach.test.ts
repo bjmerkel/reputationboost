@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, afterEach } from "node:test";
 import { buildReviewEmailContent, previewReviewEmailContent } from "@/lib/email/template";
 import { buildUnsubscribeToken, parseUnsubscribeToken } from "@/lib/email/unsubscribe";
-import { normalizeEmail } from "@/lib/email/resend";
+import { normalizeEmail, parseFromAddress, formatEmailFromAddress, escapeDisplayName } from "@/lib/email/resend";
 import { googleWriteReviewUrl } from "@/lib/sms/review-link";
 
 describe("normalizeEmail", () => {
@@ -12,6 +12,64 @@ describe("normalizeEmail", () => {
 
   it("rejects invalid emails", () => {
     assert.equal(normalizeEmail("not-an-email"), null);
+  });
+});
+
+describe("parseFromAddress", () => {
+  it("parses plain email addresses", () => {
+    assert.deepEqual(parseFromAddress("noreply@example.com"), {
+      email: "noreply@example.com",
+    });
+  });
+
+  it("parses name and email format", () => {
+    assert.deepEqual(parseFromAddress("Reputation Boost <noreply@example.com>"), {
+      email: "noreply@example.com",
+      displayName: "Reputation Boost",
+    });
+  });
+
+  it("parses quoted display names", () => {
+    assert.deepEqual(parseFromAddress('"Cool Air, LLC" <noreply@example.com>'), {
+      email: "noreply@example.com",
+      displayName: "Cool Air, LLC",
+    });
+  });
+});
+
+describe("formatEmailFromAddress", () => {
+  const originalFrom = process.env.RESEND_FROM_EMAIL;
+
+  afterEach(() => {
+    if (originalFrom === undefined) delete process.env.RESEND_FROM_EMAIL;
+    else process.env.RESEND_FROM_EMAIL = originalFrom;
+  });
+
+  it("does not double-wrap when env already includes a display name", () => {
+    assert.equal(
+      formatEmailFromAddress("Cool Air", "Reputation Boost <noreply@example.com>"),
+      "Cool Air <noreply@example.com>"
+    );
+  });
+
+  it("quotes business names with commas", () => {
+    assert.equal(
+      formatEmailFromAddress("Cool Air, LLC", "noreply@example.com"),
+      '"Cool Air, LLC" <noreply@example.com>'
+    );
+  });
+
+  it("uses env display name when business name is absent", () => {
+    assert.equal(
+      formatEmailFromAddress(undefined, "Reputation Boost <noreply@example.com>"),
+      "Reputation Boost <noreply@example.com>"
+    );
+  });
+});
+
+describe("escapeDisplayName", () => {
+  it("quotes names with special characters", () => {
+    assert.equal(escapeDisplayName("Joe's Plumbing, LLC"), '"Joe\'s Plumbing, LLC"');
   });
 });
 
