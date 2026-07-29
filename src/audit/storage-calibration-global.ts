@@ -122,6 +122,8 @@ export async function refreshGlobalScoreCalibration(): Promise<number> {
     sample_size: cal.sampleSize,
     median_rank_delta: cal.medianRankDelta,
     median_calls_delta: cal.medianCallsDelta,
+    median_directions_delta: cal.medianDirectionsDelta,
+    median_website_clicks_delta: cal.medianWebsiteClicksDelta,
     estimated_score_impact: cal.estimatedScoreImpact,
     projection_sample_size: cal.projectionSampleSize,
     median_projected_driver_impact: cal.medianProjectedDriverImpact,
