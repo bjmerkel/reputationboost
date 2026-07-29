@@ -8,7 +8,7 @@ const inputFields = [
     type: "string",
     helpText: "Map phone or email — at least one is required.",
   },
-  { key: "email", label: "Customer email", type: "string" },
+  { key: "email", label: "Customer email", type: "string", helpText: "Map customer email for email review requests and Smart mode." },
   {
     key: "name",
     label: "Customer name",
