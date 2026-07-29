@@ -32,7 +32,7 @@ export default function WebhookApiDocsPage() {
           <div className="mt-10 space-y-8 text-[#5f6368]">
             <p>
               POST customer and job events to Reputation Boost from Zapier, Make, Jobber,
-              Housecall Pro, QuickBooks, or any system that can send JSON over HTTPS. Each
+              Housecall Pro, Square, or any system that can send JSON over HTTPS. Each
               business receives a unique webhook URL from{" "}
               <strong className="text-[#202124]">Customers → Connect your field service tool</strong>.
             </p>

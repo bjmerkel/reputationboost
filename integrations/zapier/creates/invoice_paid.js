@@ -8,13 +8,13 @@ const inputFields = [
     required: true,
     type: "string",
     helpText:
-      "Required for SMS review requests. QuickBooks payments do not include phone — add a QuickBooks Find Customer step before this action and map Primary Phone or Mobile here.",
+      "Required for SMS review requests. Map from the payment or customer record in your invoicing app.",
   },
   {
     key: "name",
     label: "Customer name",
     type: "string",
-    helpText: "Full customer or display name from QuickBooks (optional if first and last name are mapped).",
+    helpText: "Full customer or display name (optional if first and last name are mapped).",
   },
   { key: "firstName", label: "First name", type: "string" },
   { key: "lastName", label: "Last name", type: "string" },
@@ -28,7 +28,7 @@ const inputFields = [
   { key: "serviceDate", label: "Invoice or payment date", type: "datetime" },
   { key: "externalId", label: "External invoice or payment ID", type: "string" },
   ...revenueInputFields,
-  { key: "source", label: "Source", type: "string", default: "quickbooks" },
+  { key: "source", label: "Source", type: "string", default: "zapier" },
   {
     key: "sendReviewRequest",
     label: "Send review request",
@@ -59,7 +59,7 @@ module.exports = {
         serviceDate: bundle.inputData.serviceDate,
         externalId: bundle.inputData.externalId,
         ...readRevenueFields(bundle),
-        source: bundle.inputData.source || "quickbooks",
+        source: bundle.inputData.source || "zapier",
         sendReviewRequest: bundle.inputData.sendReviewRequest !== "false",
       }),
     sample: {

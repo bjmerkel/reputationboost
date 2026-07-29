@@ -17,14 +17,14 @@ export interface ZapierEmbedConfig {
 const TEMPLATE_ENV_KEYS: Record<string, string> = {
   "jobber-job-completed": "ZAPIER_TEMPLATE_JOBBER",
   "hcp-job-completed": "ZAPIER_TEMPLATE_HCP",
-  "quickbooks-invoice-paid": "ZAPIER_TEMPLATE_QUICKBOOKS",
+  "square-payment-received": "ZAPIER_TEMPLATE_SQUARE",
   "customer-opt-out": "ZAPIER_TEMPLATE_OPT_OUT",
 };
 
 const TRIGGER_APP_SLUGS: Record<string, string> = {
   "jobber-job-completed": "jobber",
   "hcp-job-completed": "housecall-pro",
-  "quickbooks-invoice-paid": "quickbooks-online",
+  "square-payment-received": "square",
   "customer-opt-out": "twilio",
   custom: "webhook",
 };
@@ -38,9 +38,9 @@ const TEMPLATE_LABELS: Record<string, { label: string; description: string }> = 
     label: "Housecall Pro → Reputation Boost",
     description: "When a Housecall Pro job finishes, send a review request.",
   },
-  "quickbooks-invoice-paid": {
-    label: "QuickBooks → Reputation Boost",
-    description: "When a QuickBooks invoice is paid, send a review request.",
+  "square-payment-received": {
+    label: "Square → Reputation Boost",
+    description: "When a Square payment is received, send a review request.",
   },
   "customer-opt-out": {
     label: "SMS opt-out → Reputation Boost",
