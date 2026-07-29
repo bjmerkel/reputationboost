@@ -14,7 +14,7 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
     description: "Send a review request when a Jobber job is marked complete.",
     templateUrl: "https://zapier.com/apps/jobber/integrations/reputation-boost",
     eventType: "job.completed",
-    sampleFields: ["phone", "firstName", "lastName", "jobType", "service", "jobAddress", "jobCity", "jobZip", "lineItems", "externalId", "amount", "currency"],
+    sampleFields: ["phone", "email", "firstName", "lastName", "jobType", "service", "jobAddress", "jobCity", "jobZip", "lineItems", "externalId", "amount", "currency"],
   },
   {
     id: "hcp-job-completed",
@@ -22,7 +22,7 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
     description: "Trigger outreach when a Housecall Pro job finishes.",
     templateUrl: "https://zapier.com/apps/housecall-pro/integrations/reputation-boost",
     eventType: "job.completed",
-    sampleFields: ["phone", "name", "service", "jobAddress", "jobCity", "jobZip", "externalId", "amount", "currency"],
+    sampleFields: ["phone", "email", "name", "service", "jobAddress", "jobCity", "jobZip", "externalId", "amount", "currency"],
   },
   {
     id: "square-payment-received",

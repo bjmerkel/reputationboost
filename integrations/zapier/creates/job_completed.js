@@ -2,7 +2,13 @@ const { postWebhookEvent } = require("../lib/post-webhook");
 const { revenueInputFields, readRevenueFields } = require("../lib/revenue-fields");
 
 const inputFields = [
-  { key: "phone", label: "Customer phone", required: true, type: "string" },
+  {
+    key: "phone",
+    label: "Customer phone",
+    type: "string",
+    helpText: "Required for SMS review requests unless email is mapped.",
+  },
+  { key: "email", label: "Customer email", type: "string" },
   { key: "firstName", label: "First name", type: "string" },
   { key: "lastName", label: "Last name", type: "string" },
   { key: "service", label: "Service / job type", type: "string" },
@@ -20,7 +26,7 @@ const inputFields = [
     label: "Send review request",
     type: "boolean",
     default: "true",
-    helpText: "Queue an SMS review request when this event is received.",
+    helpText: "Queue a review request when this event is received (SMS and/or email).",
   },
 ];
 
@@ -30,7 +36,7 @@ module.exports = {
   display: {
     label: "Create Customer From Job",
     description:
-      "Creates or updates a customer when a job is completed. Optionally queues an SMS review request.",
+      "Creates or updates a customer when a job is completed. Optionally queues a review request.",
   },
   operation: {
     inputFields,
@@ -38,6 +44,7 @@ module.exports = {
       postWebhookEvent(z, bundle, {
         event: "job.completed",
         phone: bundle.inputData.phone,
+        email: bundle.inputData.email,
         firstName: bundle.inputData.firstName,
         lastName: bundle.inputData.lastName,
         service: bundle.inputData.service,
@@ -56,6 +63,7 @@ module.exports = {
       id: "evt_sample",
       event: "job.completed",
       phone: "214-555-0100",
+      email: "jane@example.com",
     },
   },
 };

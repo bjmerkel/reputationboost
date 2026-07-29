@@ -55,7 +55,7 @@ const CUSTOM_TEMPLATE: ZapierTemplate = {
   description: "Build your own automation with Webhooks by Zapier or Make.",
   templateUrl: "https://zapier.com/webintent/create-zap?utm_source=reputation_boost&utm_medium=wizard&utm_campaign=zapier_setup",
   eventType: "job.completed",
-  sampleFields: ["phone", "firstName", "lastName", "service", "jobAddress", "jobCity", "jobZip", "externalId"],
+  sampleFields: ["phone", "email", "firstName", "lastName", "service", "jobAddress", "jobCity", "jobZip", "externalId"],
 };
 
 const STEPS = [
@@ -99,7 +99,7 @@ function getNativeZapierSteps(template: ZapierTemplate): string[] {
       `Click "Set up in Zapier" below — your webhook URL is copied automatically.`,
       `Set Square → ${triggerLabel} as the trigger.`,
       "Map customer phone from the payment or customer record. If phone is missing, add Square → Find Customer and map phone from the customer profile.",
-      `Add Reputation Boost → ${actionName}, paste your webhook URL, and map phone (required), name, service, amount, and currency.`,
+      `Add Reputation Boost → ${actionName}, paste your webhook URL, and map phone or email, name, service, amount, and currency.`,
       "Test the Zap with a real payment, then turn it on.",
     ];
   }
@@ -108,7 +108,7 @@ function getNativeZapierSteps(template: ZapierTemplate): string[] {
     `Click "Set up in Zapier" below — your webhook URL is copied automatically.`,
     `In Zapier, set ${toolName} → ${triggerLabel} as the trigger.`,
     `Choose Reputation Boost → ${actionName} as the action — paste your webhook URL once when prompted.`,
-    "Map customer phone, name, and service fields from the trigger into the labeled inputs.",
+    "Map customer phone, name, and service fields from the trigger into the labeled inputs. Include email when available for Smart mode email outreach.",
     "Test the Zap, then turn it on.",
   ];
 }
@@ -116,12 +116,12 @@ function getNativeZapierSteps(template: ZapierTemplate): string[] {
 function getManualZapierSteps(template: ZapierTemplate, webhookUrl: string): string[] {
   const fieldHint =
     template.id === "jobber-job-completed"
-      ? "Map Jobber customer phone, first/last name, job type or line items into phone, firstName, lastName, and service. Include property address as jobAddress, jobCity, and jobZip for geo-targeted review routing."
+      ? "Map Jobber customer phone, email, first/last name, job type or line items into phone, email, firstName, lastName, and service. Include property address as jobAddress, jobCity, and jobZip for geo-targeted review routing."
       : template.id === "hcp-job-completed"
-        ? "Map Housecall Pro customer phone, name, job description, and job site address into phone, firstName/lastName, service, jobAddress, jobCity, and jobZip."
+        ? "Map Housecall Pro customer phone, email, name, job description, and job site address into phone, email, firstName/lastName, service, jobAddress, jobCity, and jobZip."
         : template.id === "square-payment-received"
           ? "Use Square → New Payment as the trigger. Map buyer phone into phone, customer name into name, payment note or order line into service, and amount into amount."
-          : "Map customer phone, name, and job or service description into the matching JSON fields.";
+          : "Map customer phone, email, name, and job or service description into the matching JSON fields.";
 
   return [
     `Open the ${template.label.split("—")[0]?.trim() ?? "integration"} template in Zapier (button below).`,
@@ -156,6 +156,7 @@ function buildSamplePayload(
       source: "housecall_pro",
       firstName: "Jane",
       lastName: "Doe",
+      email: "jane@example.com",
       jobAddress: "123 Oak Street",
       jobCity: "Maple Grove",
       jobZip: "55311",
