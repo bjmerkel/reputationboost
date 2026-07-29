@@ -1,0 +1,62 @@
+name: Zapier Push
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "integrations/zapier/**"
+  workflow_dispatch:
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/zapier
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: integrations/zapier/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Zapier deploy key
+        env:
+          ZAPIER_DEPLOY_KEY: ${{ secrets.ZAPIER_DEPLOY_KEY }}
+        run: |
+          if [ -z "$ZAPIER_DEPLOY_KEY" ]; then
+            echo "ZAPIER_DEPLOY_KEY secret is not set. Skipping push."
+            exit 0
+          fi
+          mkdir -p "$HOME/.zapier"
+          node -e "const fs=require('fs'); fs.writeFileSync(process.env.HOME + '/.zapierrc', JSON.stringify({ deployKey: process.env.ZAPIER_DEPLOY_KEY }));"
+        shell: bash
+
+      - name: Link integration
+        env:
+          ZAPIER_APP_ID: ${{ secrets.ZAPIER_APP_ID }}
+        run: |
+          if [ -z "$ZAPIER_APP_ID" ]; then
+            echo "ZAPIER_APP_ID secret is not set. Skipping push."
+            exit 0
+          fi
+          node -e "const fs=require('fs'); fs.writeFileSync('.zapierapprc', JSON.stringify({ id: Number(process.env.ZAPIER_APP_ID) }));"
+
+      - name: Validate integration
+        if: env.ZAPIER_DEPLOY_KEY != '' && env.ZAPIER_APP_ID != ''
+        env:
+          ZAPIER_DEPLOY_KEY: ${{ secrets.ZAPIER_DEPLOY_KEY }}
+          ZAPIER_APP_ID: ${{ secrets.ZAPIER_APP_ID }}
+        run: npm run validate
+
+      - name: Push to Zapier
+        if: env.ZAPIER_DEPLOY_KEY != '' && env.ZAPIER_APP_ID != ''
+        env:
+          ZAPIER_DEPLOY_KEY: ${{ secrets.ZAPIER_DEPLOY_KEY }}
+          ZAPIER_APP_ID: ${{ secrets.ZAPIER_APP_ID }}
+        run: npm run push -- --skip-npm-install
