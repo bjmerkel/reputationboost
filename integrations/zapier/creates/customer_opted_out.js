@@ -1,7 +1,13 @@
 const { postWebhookEvent } = require("../lib/post-webhook");
 
 const inputFields = [
-  { key: "phone", label: "Customer phone", required: true, type: "string" },
+  {
+    key: "phone",
+    label: "Customer phone",
+    type: "string",
+    helpText: "Map phone or email — at least one is required.",
+  },
+  { key: "email", label: "Customer email", type: "string" },
   { key: "source", label: "Source", type: "string", default: "twilio" },
 ];
 
@@ -19,6 +25,7 @@ module.exports = {
       postWebhookEvent(z, bundle, {
         event: "customer.opted_out",
         phone: bundle.inputData.phone,
+        email: bundle.inputData.email,
         optedOut: true,
         source: bundle.inputData.source || "twilio",
       }),
@@ -26,6 +33,7 @@ module.exports = {
       id: "evt_sample",
       event: "customer.opted_out",
       phone: "214-555-0100",
+      email: "jane@example.com",
       optedOut: true,
     },
   },

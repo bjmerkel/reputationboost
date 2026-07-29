@@ -127,7 +127,7 @@
     "schemas": {
       "WebhookPayload": {
         "type": "object",
-        "required": ["event", "phone"],
+        "required": ["event"],
         "properties": {
           "event": {
             "type": "string",
@@ -136,13 +136,17 @@
           },
           "phone": {
             "type": "string",
-            "description": "Customer phone. US 10-digit numbers supported.",
+            "description": "Customer phone. At least one of phone or email is required.",
             "example": "2145550100"
           },
           "firstName": { "type": "string" },
           "lastName": { "type": "string" },
           "name": { "type": "string", "description": "Full name alternative to firstName/lastName" },
-          "email": { "type": "string" },
+          "email": {
+            "type": "string",
+            "description": "Customer email. At least one of phone or email is required.",
+            "example": "jane@example.com"
+          },
           "service": { "type": "string", "description": "Service or job description" },
           "jobType": { "type": "string" },
           "lineItemTitle": { "type": "string" },
@@ -151,7 +155,7 @@
           "source": { "type": "string", "example": "zapier" },
           "sendReviewRequest": {
             "type": "boolean",
-            "description": "When true, queue an SMS review request if eligible"
+            "description": "When true, queue a review request if eligible (SMS and/or email)"
           },
           "optedOut": {
             "type": "boolean",
