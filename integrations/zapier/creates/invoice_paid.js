@@ -2,14 +2,33 @@ const { postWebhookEvent } = require("../lib/post-webhook");
 const { revenueInputFields, readRevenueFields } = require("../lib/revenue-fields");
 
 const inputFields = [
-  { key: "phone", label: "Customer phone", required: true, type: "string" },
+  {
+    key: "phone",
+    label: "Customer phone",
+    required: true,
+    type: "string",
+    helpText:
+      "Required for SMS review requests. QuickBooks payments do not include phone — add a QuickBooks Find Customer step before this action and map Primary Phone or Mobile here.",
+  },
+  {
+    key: "name",
+    label: "Customer name",
+    type: "string",
+    helpText: "Full customer or display name from QuickBooks (optional if first and last name are mapped).",
+  },
   { key: "firstName", label: "First name", type: "string" },
   { key: "lastName", label: "Last name", type: "string" },
-  { key: "service", label: "Service / line item", type: "string" },
-  { key: "serviceDate", label: "Invoice date", type: "datetime" },
-  { key: "externalId", label: "External invoice ID", type: "string" },
+  { key: "email", label: "Customer email", type: "string" },
+  {
+    key: "service",
+    label: "Service / line item",
+    type: "string",
+    helpText: "Invoice line description or product/service name.",
+  },
+  { key: "serviceDate", label: "Invoice or payment date", type: "datetime" },
+  { key: "externalId", label: "External invoice or payment ID", type: "string" },
   ...revenueInputFields,
-  { key: "source", label: "Source", type: "string", default: "zapier" },
+  { key: "source", label: "Source", type: "string", default: "quickbooks" },
   {
     key: "sendReviewRequest",
     label: "Send review request",
@@ -32,19 +51,22 @@ module.exports = {
       postWebhookEvent(z, bundle, {
         event: "invoice.paid",
         phone: bundle.inputData.phone,
+        name: bundle.inputData.name,
         firstName: bundle.inputData.firstName,
         lastName: bundle.inputData.lastName,
+        email: bundle.inputData.email,
         service: bundle.inputData.service,
         serviceDate: bundle.inputData.serviceDate,
         externalId: bundle.inputData.externalId,
         ...readRevenueFields(bundle),
-        source: bundle.inputData.source || "zapier",
+        source: bundle.inputData.source || "quickbooks",
         sendReviewRequest: bundle.inputData.sendReviewRequest !== "false",
       }),
     sample: {
       id: "evt_sample",
       event: "invoice.paid",
       phone: "214-555-0100",
+      name: "Jane Doe",
     },
   },
 };

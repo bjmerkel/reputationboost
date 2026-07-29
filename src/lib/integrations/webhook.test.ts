@@ -68,6 +68,18 @@ describe("normalizeWebhookPayload", () => {
     assert.equal(payload.amount, 1250.5);
     assert.equal(payload.paidAt, "2026-07-05T18:00:00.000Z");
   });
+
+  it("normalizes QuickBooks customer phone aliases", () => {
+    const payload = normalizeWebhookPayload({
+      event: "invoice.paid",
+      primary_phone: "2145550100",
+      name: "Jane Doe",
+      source: "quickbooks",
+    });
+
+    assert.equal(payload.phone, "2145550100");
+    assert.equal(payload.name, "Jane Doe");
+  });
 });
 
 describe("isTriggerEvent", () => {
