@@ -11,6 +11,10 @@ import ScoreChangelog from "@/components/audit/ScoreChangelog";
 import EngagementPeriodCard from "@/components/engagement/EngagementPeriodCard";
 import InfoTooltip from "@/components/ui/InfoTooltip";
 import { formatScoreCalculatedAt } from "@/lib/scores/format-score-date";
+import {
+  resolveDisplayScores,
+  type LiveScoreSlice,
+} from "@/lib/scores/resolve-display-scores";
 import { SCORE_TOOLTIPS } from "@/lib/scores/score-tooltips";
 
 function formatDelta(change: number, suffix = ""): string {
@@ -30,7 +34,7 @@ export default function HomeHealthSummary({
   engagement,
   engagementLoading = false,
   loading = false,
-  liveScore,
+  liveScores,
   liveScoreDate,
   dailyChangelog = [],
   estimatedMonthlyRevenue,
@@ -42,7 +46,7 @@ export default function HomeHealthSummary({
   engagement: EngagementPeriodSummary | null;
   engagementLoading?: boolean;
   loading?: boolean;
-  liveScore?: number | null;
+  liveScores?: LiveScoreSlice | null;
   liveScoreDate?: string | null;
   dailyChangelog?: ScoreChangelogEntry[];
   estimatedMonthlyRevenue?: number | null;
@@ -50,8 +54,9 @@ export default function HomeHealthSummary({
   /** Live portfolio demand alignment; overrides stale audit-time score after keyword edits. */
   demandAlignmentScore?: number;
 }) {
-  const scores = audit.strategy?.scores;
   const mom = audit.strategy?.monthOverMonth;
+  const resolved = resolveDisplayScores(audit, liveScores);
+  const scores = resolved?.scores;
 
   if (loading && !scores) {
     return (
@@ -73,7 +78,7 @@ export default function HomeHealthSummary({
       ? { ...scores, demandAlignmentScore: resolvedDemandAlignmentScore }
       : scores;
 
-  const displayScore = Number.isFinite(liveScore) ? liveScore! : Number.isFinite(scores.overall) ? scores.overall : 0;
+  const displayScore = resolved?.overall ?? scores.overall ?? 0;
   const color = gradeColor(scores.grade);
   const auditChangelog = mom?.scoreChangelog ?? [];
   const changelog = dailyChangelog.length > 0 ? dailyChangelog : auditChangelog;
@@ -118,12 +123,6 @@ export default function HomeHealthSummary({
           {liveScoreDate && (
             <p className="mt-1 text-xs text-[#80868b]">
               Calculated {formatScoreCalculatedAt(liveScoreDate)}
-              {liveScore != null && liveScore !== scores.overall && (
-                <span className="text-[#1a73e8]">
-                  {" "}
-                  · live score {liveScore}/100
-                </span>
-              )}
             </p>
           )}
           {mom && mom.overallScoreChange !== 0 && (

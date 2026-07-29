@@ -3,6 +3,7 @@
 import type { EngagementPeriodSummary } from "@/audit/engagement-period";
 import type { FullAuditPayload } from "@/audit/types";
 import type { AuditView } from "@/components/audit/types";
+import type { LiveScoreSlice } from "@/lib/scores/resolve-display-scores";
 import { resolveDisplayCategory } from "@/lib/business/display-category";
 import ExternalImage from "@/components/ExternalImage";
 import ActionMetricsBar from "@/components/platform/ActionMetricsBar";
@@ -26,6 +27,7 @@ interface PlaceCardProps {
   /** Hide hero, score breakdown, and metrics when content lives in the main panel. */
   minimalChrome?: boolean;
   scoreCalculatedAt?: string | null;
+  liveScores?: LiveScoreSlice | null;
   children: React.ReactNode;
 }
 
@@ -40,6 +42,7 @@ export default function PlaceCard({
   industry,
   minimalChrome = false,
   scoreCalculatedAt,
+  liveScores,
   children,
 }: PlaceCardProps) {
   const { gbp } = audit;
@@ -96,6 +99,7 @@ export default function PlaceCard({
             audit={audit}
             onPreviewCustomer={onPreviewCustomer}
             scoreCalculatedAt={scoreCalculatedAt}
+            liveScores={liveScores}
           />
         )}
 

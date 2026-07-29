@@ -5,22 +5,30 @@ import GoogleMapsLink from "@/components/GoogleMapsLink";
 import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
 import InfoTooltip from "@/components/ui/InfoTooltip";
 import { formatScoreCalculatedAt } from "@/lib/scores/format-score-date";
+import {
+  resolveDisplayScores,
+  type LiveScoreSlice,
+} from "@/lib/scores/resolve-display-scores";
 import { SCORE_TOOLTIPS } from "@/lib/scores/score-tooltips";
 
 interface PlaceCardDetailsProps {
   audit: FullAuditPayload;
   onPreviewCustomer?: () => void;
   scoreCalculatedAt?: string | null;
+  liveScores?: LiveScoreSlice | null;
 }
 
 export default function PlaceCardDetails({
   audit,
   onPreviewCustomer,
   scoreCalculatedAt,
+  liveScores,
 }: PlaceCardDetailsProps) {
   const { gbp, strategy } = audit;
-  const score = strategy?.scores.overall ?? 0;
-  const grade = strategy?.scores.grade ?? "at_risk";
+  const resolved = resolveDisplayScores(audit, liveScores);
+  const scores = resolved?.scores ?? strategy?.scores;
+  const score = resolved?.overall ?? scores?.overall ?? 0;
+  const grade = scores?.grade ?? "at_risk";
   const website = gbp.identity.website?.replace(/^https?:\/\//, "").replace(/\/$/, "");
 
   const gradeColor =
@@ -43,9 +51,9 @@ export default function PlaceCardDetails({
               Calculated {formatScoreCalculatedAt(scoreCalculatedAt)}
             </p>
           )}
-          {strategy?.scores && (
+          {strategy?.scores && scores && (
             <div className="mt-2">
-              <ScoreBreakdown scores={strategy.scores} compact showInsight variant="light" />
+              <ScoreBreakdown scores={scores} compact showInsight variant="light" />
             </div>
           )}
         </div>
