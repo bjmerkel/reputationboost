@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness, loadBusinessConfig } from "@/audit/businesses";
+import { loadBusinessConfig } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import type { ClientConfig } from "@/audit/types";
 import { attachExecutionTasks } from "@/audit/attach-execution-tasks";
 import { deriveMarketKey } from "@/audit/autopilot/market-key";
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
 
   let client: ClientConfig | null = null;
   if (!clientId) {
-    client = await getPrimaryBusiness(user.id);
+    client = await getActiveBusiness(user.id);
     clientId = client?.id ?? null;
   }
 

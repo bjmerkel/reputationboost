@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import {
   analyzeGbpNotificationCoverage,
   formatEnabledNotificationSummary,
@@ -23,7 +23,7 @@ export async function GET() {
   }
 
   try {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     if (!business?.gbpConnection) {
       return NextResponse.json({ error: "GBP not connected" }, { status: 400 });
     }
@@ -58,7 +58,7 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     if (!business?.gbpConnection) {
       return NextResponse.json({ error: "GBP not connected" }, { status: 400 });
     }

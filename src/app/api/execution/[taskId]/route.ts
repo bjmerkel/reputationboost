@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { executeTask } from "@/audit/phase3/executor";
 import { getExecutionTask, updateExecutionTask } from "@/audit/storage-execution";
 import { computeAttributionAfterTaskCompletion } from "@/audit/attribution";
@@ -159,7 +159,7 @@ export async function POST(
     );
   }
 
-  const business = await getPrimaryBusiness(user.id);
+  const business = await getActiveBusiness(user.id);
   if (task.type === "review_request" && !business) {
     return NextResponse.json({ error: "No business configured" }, { status: 400 });
   }

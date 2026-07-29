@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { listRankTrendForUser } from "@/audit/storage-timeseries";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { getUser } from "@/lib/supabase/server";
 import { RADIAL_RING_MILES } from "@/lib/google/radial-rankings";
 
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     (searchParams.get("multiRadius") !== "false" && radiusMiles == null);
 
   if (!clientId) {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     clientId = business?.id ?? null;
   }
 

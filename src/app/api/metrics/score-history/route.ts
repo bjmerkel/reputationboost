@@ -14,7 +14,7 @@ import {
 import { keywordMapFromRankSnapshots } from "@/audit/phase2/service-area-attribution";
 import { radiusWeightsForAudit } from "@/audit/phase2/radius-profiles";
 import { backfillScoreDailyForBusiness } from "@/audit/phase2/score-ingest";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { loadGlobalScoreCalibration } from "@/audit/storage-calibration-global";
 import { loadGlobalScoreModel } from "@/audit/storage-score-model";
 import { loadLatestKeywordGridsAdmin } from "@/audit/storage-grid-snapshots";
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
   const days = Number(searchParams.get("days") ?? "30");
 
   if (!clientId) {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     clientId = business?.id ?? null;
   }
 

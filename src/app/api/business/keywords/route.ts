@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import {
-  getPrimaryBusiness,
   loadBusinessConfig,
   updateBusinessKeywords,
 } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { persistTrackedKeywordsToLatestAudit } from "@/audit/live-audit";
 import { computeKeywordPortfolio } from "@/audit/phase2/keyword-portfolio";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const slug = url.searchParams.get("slug");
     const business = slug
       ? await loadBusinessConfig(user.id, slug)
-      : await getPrimaryBusiness(user.id);
+      : await getActiveBusiness(user.id);
 
     if (!business?.businessId) {
       return NextResponse.json({ error: "No business configured" }, { status: 400 });
@@ -68,7 +68,7 @@ export async function PATCH(request: Request) {
 
     const business = body.slug
       ? await loadBusinessConfig(user.id, body.slug)
-      : await getPrimaryBusiness(user.id);
+      : await getActiveBusiness(user.id);
     const businessId = body.businessId ?? business?.businessId;
 
     if (!businessId || !business) {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getBusinessRecord, getPrimaryBusiness, loadBusinessConfig } from "@/audit/businesses";
+import { getBusinessRecord, loadBusinessConfig } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { buildLiveAudit } from "@/audit/live-audit";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
 import { getUser } from "@/lib/supabase/server";
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
   const refreshGbp = searchParams.get("refreshGbp") === "true";
 
   if (!clientId) {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     clientId = business?.id ?? null;
   }
 

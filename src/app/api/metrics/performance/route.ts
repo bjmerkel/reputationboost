@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { listPerformanceDailyForUser, getPerformanceIngestMetaForUser } from "@/audit/storage-timeseries";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { getUser } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   const days = Number(searchParams.get("days") ?? "30");
 
   if (!clientId) {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     clientId = business?.id ?? null;
   }
 

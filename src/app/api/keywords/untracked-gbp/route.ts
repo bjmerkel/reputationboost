@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness, loadBusinessConfig } from "@/audit/businesses";
+import { loadBusinessConfig } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { listUntrackedGbpSearchTerms } from "@/audit/phase2/keyword-portfolio";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { selectUntrackedGbpOpportunities } from "@/lib/llm/untracked-gbp";
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
 
     const business = body.slug
       ? await loadBusinessConfig(user.id, body.slug).catch(() => null)
-      : await getPrimaryBusiness(user.id);
+      : await getActiveBusiness(user.id);
 
     const audit =
       business?.id != null

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createBusiness, getPrimaryBusiness, saveAvgCustomerValue } from "@/audit/businesses";
+import { createBusiness, saveAvgCustomerValue } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { recomputeAttributionsForBusiness } from "@/audit/attribution";
 import { getUser } from "@/lib/supabase/server";
 
@@ -15,7 +16,7 @@ export async function PATCH(request: Request) {
       avgCustomerValue?: number | null;
     };
 
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id, body.businessId);
     const businessId = body.businessId ?? business?.businessId;
     if (!businessId) {
       return NextResponse.json({ error: "No business configured" }, { status: 400 });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { getReviewDispute, updateReviewDispute } from "@/lib/review-disputes/storage";
@@ -29,7 +29,7 @@ export async function PATCH(
   }
 
   try {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     const dispute = await updateReviewDispute(user.id, disputeId, body);
 
     const rawAudit =

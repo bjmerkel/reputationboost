@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { listActionAttributionsForUser } from "@/audit/storage-attribution";
 import { getUser } from "@/lib/supabase/server";
 
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   const limit = Number(searchParams.get("limit") ?? "50");
 
   if (!clientId) {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     clientId = business?.id ?? null;
   }
 

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import {
   getBusinessRecord,
-  getPrimaryBusiness,
   listUserBusinesses,
   loadBusinessConfig,
 } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import {
   buildLiveAudit,
   persistLiveAuditSnapshot,
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
 
     const business = body.clientId
       ? await loadBusinessConfig(user.id, body.clientId)
-      : await getPrimaryBusiness(user.id);
+      : await getActiveBusiness(user.id);
 
     if (!business) {
       return NextResponse.json(

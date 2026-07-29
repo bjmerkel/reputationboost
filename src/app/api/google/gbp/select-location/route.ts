@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { getBusinessRecord, saveGbpLocation } from "@/audit/businesses";
+import {
+  findBusinessWithGbpLocation,
+  getBusinessRecord,
+  saveGbpLocation,
+} from "@/audit/businesses";
 import type { GbpConnection } from "@/audit/types";
 import { fetchGbpIdentitySnapshot } from "@/lib/google/gbp-identity-snapshot";
 import { validateGbpLocationSelection } from "@/lib/google/gbp-onboarding-match";
@@ -35,6 +39,22 @@ export async function POST(request: Request) {
     const business = await getBusinessRecord(user.id, body.businessId);
     if (!business) {
       return NextResponse.json({ error: "Business not found" }, { status: 404 });
+    }
+
+    const duplicate = await findBusinessWithGbpLocation(
+      user.id,
+      body.locationId,
+      body.businessId
+    );
+    if (duplicate) {
+      return NextResponse.json(
+        {
+          error: `This location is already in your portfolio as "${duplicate.name}".`,
+          existingBusinessId: duplicate.id,
+          existingBusinessName: duplicate.name,
+        },
+        { status: 409 }
+      );
     }
 
     const accessToken = await getGbpAccessTokenForRecord(business);

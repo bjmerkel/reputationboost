@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getPrimaryBusiness } from "@/audit/businesses";
 import CustomersPageClient from "@/components/customers/CustomersPageClient";
 import OutreachActivityPanel from "@/components/customers/OutreachActivityPanel";
 import WebhookIntegrationPanel from "@/components/customers/WebhookIntegrationPanel";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isResendConfigured } from "@/lib/email/resend";
 import { isTwilioConfigured } from "@/lib/sms/twilio";
@@ -15,11 +15,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function CustomersPage() {
+interface PageProps {
+  searchParams: Promise<{ businessId?: string }>;
+}
+
+export default async function CustomersPage({ searchParams }: PageProps) {
   const user = await getUser();
   if (!user) redirect("/login?next=/platform/customers");
 
-  const business = await getPrimaryBusiness(user.id);
+  const params = await searchParams;
+  const business = await getActiveBusiness(user.id, params.businessId);
   if (!business) {
     redirect("/platform/onboard");
   }
@@ -40,11 +45,15 @@ export default async function CustomersPage() {
     address,
   });
 
+  const auditHref = business.businessId
+    ? `/platform/audit?businessId=${business.businessId}`
+    : "/platform/audit";
+
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-[#f8f9fa] py-8 lg:py-10">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
         <Link
-          href="/platform/audit"
+          href={auditHref}
           className="mb-6 inline-flex items-center gap-2 text-sm text-[#5f6368] transition-colors hover:text-[#202124]"
         >
           ← Back to dashboard
@@ -61,16 +70,19 @@ export default async function CustomersPage() {
             Import your customer list, personalize a Google review request, and send it by SMS or
             email — the fastest path to more 5-star reviews.
           </p>
+          <p className="mt-2 text-sm text-[#80868b]">
+            Active location: <span className="font-medium text-[#3c4043]">{business.name}</span>
+          </p>
         </div>
 
         <div className="space-y-6">
           <WebhookIntegrationPanel />
           <OutreachActivityPanel />
           <CustomersPageClient
-          businessName={business.name}
-          reviewUrl={reviewUrl}
-          twilioConfigured={isTwilioConfigured()}
-          resendConfigured={isResendConfigured()}
+            businessName={business.name}
+            reviewUrl={reviewUrl}
+            twilioConfigured={isTwilioConfigured()}
+            resendConfigured={isResendConfigured()}
           />
         </div>
       </div>

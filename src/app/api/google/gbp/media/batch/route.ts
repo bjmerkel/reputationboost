@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import {
   uploadGbpMediaFile,
   type GbpMediaCategory,
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     if (!business?.gbpConnection) {
       return NextResponse.json({ error: "GBP not connected" }, { status: 400 });
     }

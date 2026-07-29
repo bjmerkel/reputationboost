@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { ensureStrategy } from "@/audit/ensure-strategy";
-import { getPrimaryBusiness } from "@/audit/businesses";
 import { listExecutionTasks } from "@/audit/storage-execution";
 import { loadLatestAuditFromSupabase, loadPriorAuditFromSupabase } from "@/audit/storage-supabase";
 import { syncAuditToTrackedKeywords } from "@/audit/sync-tracked-keywords";
 import AuditDashboard from "@/components/AuditDashboard";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { getUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -14,6 +14,10 @@ export const metadata: Metadata = {
   description: "Automated Google Business Profile audit and Local 3-Pack strategy.",
   robots: { index: false, follow: false },
 };
+
+interface PageProps {
+  searchParams: Promise<{ businessId?: string }>;
+}
 
 function formatAddress(location: {
   address: string;
@@ -24,11 +28,12 @@ function formatAddress(location: {
   return `${location.address}, ${location.city}, ${location.state} ${location.zip}`;
 }
 
-export default async function PlatformAuditPage() {
+export default async function PlatformAuditPage({ searchParams }: PageProps) {
   const user = await getUser();
   if (!user) redirect("/login?next=/platform/audit");
 
-  const business = await getPrimaryBusiness(user.id);
+  const params = await searchParams;
+  const business = await getActiveBusiness(user.id, params.businessId);
   if (!business) {
     redirect("/platform/onboard");
   }

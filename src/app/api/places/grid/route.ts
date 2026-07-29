@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { getUser } from "@/lib/supabase/server";
 import { isGoogleMapsConfigured } from "@/lib/google/config";
 import { buildDemoGeoGrid, collectKeywordGeoGrid } from "@/lib/google/geo-grid";
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const business = await getPrimaryBusiness(user.id);
+  const business = await getActiveBusiness(user.id);
   if (!business) {
     return NextResponse.json({ error: "Complete onboarding first" }, { status: 400 });
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness, loadBusinessConfig } from "@/audit/businesses";
+import { loadBusinessConfig } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import {
   buildAcvEstimateContext,
   estimateAverageCustomerValue,
@@ -41,7 +42,7 @@ async function resolveContext(
     };
   }
 
-  const business = await getPrimaryBusiness(userId);
+  const business = await getActiveBusiness(userId);
   const businessId = body.businessId ?? business?.businessId;
   if (!businessId || !business || business.businessId !== businessId) {
     if (body.businessName && body.primaryCategory) {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness, loadBusinessConfig } from "@/audit/businesses";
+import { loadBusinessConfig } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { suggestKeywords } from "@/lib/llm/keywords";
 import { getUser } from "@/lib/supabase/server";
 
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
 
     const business = body.slug
       ? await loadBusinessConfig(user.id, body.slug).catch(() => null)
-      : await getPrimaryBusiness(user.id);
+      : await getActiveBusiness(user.id);
 
     const name = body.name?.trim() || business?.name || "";
     const industry = body.industry?.trim() || business?.industry || "";
