@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import { describe, it, afterEach } from "node:test";
 import { buildReviewEmailContent, previewReviewEmailContent } from "@/lib/email/template";
 import { buildUnsubscribeToken, parseUnsubscribeToken } from "@/lib/email/unsubscribe";
-import { normalizeEmail, parseFromAddress, formatEmailFromAddress, escapeDisplayName } from "@/lib/email/resend";
+import {
+  normalizeEmail,
+  parseFromAddress,
+  formatEmailFromAddress,
+  escapeDisplayName,
+  businessNameToEmailLocalPart,
+  customizeFromEmailForBusiness,
+  getResendFromAddress,
+} from "@/lib/email/resend";
 import { googleWriteReviewUrl } from "@/lib/sms/review-link";
 
 describe("normalizeEmail", () => {
@@ -70,6 +78,61 @@ describe("formatEmailFromAddress", () => {
 describe("escapeDisplayName", () => {
   it("quotes names with special characters", () => {
     assert.equal(escapeDisplayName("Joe's Plumbing, LLC"), '"Joe\'s Plumbing, LLC"');
+  });
+});
+
+describe("businessNameToEmailLocalPart", () => {
+  it("builds PascalCase local parts from business names", () => {
+    assert.equal(businessNameToEmailLocalPart("Psychic Jaycee"), "PsychicJaycee");
+    assert.equal(businessNameToEmailLocalPart("cool air hvac"), "CoolAirHvac");
+  });
+
+  it("falls back to noreply for empty names", () => {
+    assert.equal(businessNameToEmailLocalPart("   "), "noreply");
+  });
+});
+
+describe("customizeFromEmailForBusiness", () => {
+  const originalPerBusiness = process.env.RESEND_FROM_PER_BUSINESS;
+
+  afterEach(() => {
+    if (originalPerBusiness === undefined) delete process.env.RESEND_FROM_PER_BUSINESS;
+    else process.env.RESEND_FROM_PER_BUSINESS = originalPerBusiness;
+  });
+
+  it("replaces the local part while keeping the env domain", () => {
+    assert.equal(
+      customizeFromEmailForBusiness("noreply@survey.reputationboost.com", "Psychic Jaycee"),
+      "PsychicJaycee@survey.reputationboost.com"
+    );
+  });
+
+  it("can be disabled with RESEND_FROM_PER_BUSINESS=false", () => {
+    process.env.RESEND_FROM_PER_BUSINESS = "false";
+    assert.equal(
+      customizeFromEmailForBusiness("noreply@survey.reputationboost.com", "Psychic Jaycee"),
+      "noreply@survey.reputationboost.com"
+    );
+  });
+});
+
+describe("getResendFromAddress", () => {
+  const originalFrom = process.env.RESEND_FROM_EMAIL;
+  const originalPerBusiness = process.env.RESEND_FROM_PER_BUSINESS;
+
+  afterEach(() => {
+    if (originalFrom === undefined) delete process.env.RESEND_FROM_EMAIL;
+    else process.env.RESEND_FROM_EMAIL = originalFrom;
+    if (originalPerBusiness === undefined) delete process.env.RESEND_FROM_PER_BUSINESS;
+    else process.env.RESEND_FROM_PER_BUSINESS = originalPerBusiness;
+  });
+
+  it("uses a business-specific sender on the configured domain", () => {
+    process.env.RESEND_FROM_EMAIL = "noreply@survey.reputationboost.com";
+    assert.equal(
+      getResendFromAddress("Psychic Jaycee"),
+      "Psychic Jaycee <PsychicJaycee@survey.reputationboost.com>"
+    );
   });
 });
 

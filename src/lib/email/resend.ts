@@ -72,6 +72,66 @@ export function escapeDisplayName(name: string): string {
   return `"${trimmed.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
+function splitEmailAddress(email: string): { local: string; domain: string } | null {
+  const at = email.lastIndexOf("@");
+  if (at <= 0 || at === email.length - 1) return null;
+  const domain = email.slice(at + 1).trim();
+  if (!domain.includes(".")) return null;
+  return { local: email.slice(0, at), domain };
+}
+
+/** Build a sender local part like PsychicJaycee from "Psychic Jaycee". */
+export function businessNameToEmailLocalPart(name: string): string {
+  const parts = name.trim().split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  if (parts.length === 0) return "noreply";
+
+  const local = parts
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join("");
+
+  return local.slice(0, 64) || "noreply";
+}
+
+function isPerBusinessFromLocalPartEnabled(): boolean {
+  const flag = process.env.RESEND_FROM_PER_BUSINESS?.trim().toLowerCase();
+  return flag !== "false" && flag !== "0";
+}
+
+/** Swap the env local part for a business-specific one on the same domain. */
+export function customizeFromEmailForBusiness(
+  baseEmail: string,
+  businessName?: string
+): string {
+  if (!businessName?.trim() || !isPerBusinessFromLocalPartEnabled()) {
+    return baseEmail;
+  }
+
+  const split = splitEmailAddress(baseEmail);
+  if (!split) return baseEmail;
+
+  const local = businessNameToEmailLocalPart(businessName);
+  return `${local}@${split.domain}`;
+}
+
+export function resolveResendFromEmail(businessName?: string): {
+  email: string;
+  displayName?: string;
+} | null {
+  const fromValue = process.env.RESEND_FROM_EMAIL?.trim();
+  if (!fromValue) return null;
+
+  const parsed = parseFromAddress(fromValue);
+  if (!parsed) return null;
+
+  const email = customizeFromEmailForBusiness(parsed.email, businessName);
+  const displayName =
+    businessName?.trim() ||
+    process.env.RESEND_FROM_NAME?.trim() ||
+    parsed.displayName;
+
+  return { email, displayName };
+}
+
 export function formatEmailFromAddress(
   displayName: string | undefined,
   fromValue: string
@@ -90,12 +150,12 @@ export function isResendConfigured(): boolean {
 }
 
 export function getResendFromAddress(businessName?: string): string | null {
-  const fromEmail = process.env.RESEND_FROM_EMAIL?.trim();
-  if (!fromEmail) return null;
+  const resolved = resolveResendFromEmail(businessName);
+  if (!resolved) return null;
 
-  const envName = process.env.RESEND_FROM_NAME?.trim();
-  const displayName = businessName?.trim() || envName || undefined;
-  return formatEmailFromAddress(displayName, fromEmail);
+  const { email, displayName } = resolved;
+  if (!displayName) return email;
+  return `${escapeDisplayName(displayName)} <${email}>`;
 }
 
 function getResendConfig(): ResendConfig | null {
