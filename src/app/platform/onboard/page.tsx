@@ -18,6 +18,7 @@ interface PageProps {
     error?: string;
     disconnected?: string;
     change?: string;
+    add?: string;
   }>;
 }
 
@@ -27,9 +28,9 @@ export default async function OnboardPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const existing = await getPrimaryBusiness(user.id);
-  const changingBusiness = params.change === "1";
+  const addingLocation = params.add === "1" || params.change === "1";
 
-  if (existing?.onboardingComplete && !params.step && !params.disconnected && !changingBusiness) {
+  if (existing?.onboardingComplete && !params.step && !params.disconnected && !addingLocation) {
     redirect("/platform/audit");
   }
 
@@ -44,7 +45,7 @@ export default async function OnboardPage({ searchParams }: PageProps) {
     }
   }
 
-  const step = changingBusiness
+  const step = addingLocation
     ? "business"
     : params.step === "location" && params.businessId
       ? "location"
@@ -52,18 +53,21 @@ export default async function OnboardPage({ searchParams }: PageProps) {
         ? "connect"
         : "business";
 
-  const wizardBusinessId = changingBusiness
-    ? undefined
+  const wizardBusinessId = addingLocation
+    ? params.businessId
     : params.businessId ??
       (existing?.businessId && !existing.onboardingComplete ? existing.businessId : undefined);
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-y-auto py-6">
       <div className="shrink-0 px-4 pb-6 sm:px-6">
-        <h1 className="text-2xl font-semibold text-[#202124]">Connect your business</h1>
+        <h1 className="text-2xl font-semibold text-[#202124]">
+          {addingLocation ? "Add a location" : "Connect your business"}
+        </h1>
         <p className="mt-2 max-w-2xl text-sm text-[#5f6368]">
-          Search Google Maps, confirm your location, and link your Google Business Profile for
-          live audits and optimization.
+          {addingLocation
+            ? "Search Google Maps for your new location. Your existing locations stay active while you set this one up."
+            : "Search Google Maps, confirm your location, and link your Google Business Profile for live audits and optimization."}
         </p>
       </div>
 
@@ -74,7 +78,7 @@ export default async function OnboardPage({ searchParams }: PageProps) {
           locations={locations}
           error={params.error}
           disconnected={params.disconnected === "1"}
-          changingBusiness={changingBusiness}
+          addingLocation={addingLocation}
           theme="light"
         />
       </div>

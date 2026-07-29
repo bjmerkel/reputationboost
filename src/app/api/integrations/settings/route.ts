@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness, getBusinessRecord } from "@/audit/businesses";
+import { getBusinessRecord } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { ensureStrategy } from "@/audit/ensure-strategy";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import { parseJsonBody } from "@/lib/http/parse-json-body";
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const business = await getPrimaryBusiness(user.id);
+  const business = await getActiveBusiness(user.id);
   if (!business?.businessId) {
     return NextResponse.json({ error: "No business configured" }, { status: 400 });
   }
@@ -85,7 +86,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const business = await getPrimaryBusiness(user.id);
+  const business = await getActiveBusiness(user.id);
   if (!business?.businessId) {
     return NextResponse.json({ error: "No business configured" }, { status: 400 });
   }

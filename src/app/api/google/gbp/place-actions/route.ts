@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import {
   analyzeGbpPlaceActionCoverage,
   formatPlaceActionCoverageSummary,
@@ -22,7 +22,7 @@ async function resolveConnection() {
   const user = await getUser();
   if (!user) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
 
-  const business = await getPrimaryBusiness(user.id);
+  const business = await getActiveBusiness(user.id);
   if (!business?.gbpConnection) {
     return { error: NextResponse.json({ error: "GBP not connected" }, { status: 400 }) };
   }

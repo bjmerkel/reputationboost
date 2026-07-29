@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { getExecutionTask, updateExecutionTask } from "@/audit/storage-execution";
 import {
   checkGbpDescriptionEditStatus,
@@ -39,7 +39,7 @@ export async function POST(
     );
   }
 
-  const business = await getPrimaryBusiness(user.id);
+  const business = await getActiveBusiness(user.id);
   const connection = business?.gbpConnection
     ? await getValidGbpConnection(user.id, business)
     : null;

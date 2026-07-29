@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { executeTask } from "@/audit/phase3/executor";
 import { getExecutionTask, updateExecutionTask } from "@/audit/storage-execution";
 import { computeAttributionAfterTaskCompletion } from "@/audit/attribution";
@@ -34,7 +34,7 @@ export async function POST(
     return NextResponse.json({ task, message: "Already uploaded." });
   }
 
-  const business = await getPrimaryBusiness(user.id);
+  const business = await getActiveBusiness(user.id);
   if (!business?.gbpConnection) {
     return NextResponse.json({ error: "GBP not connected" }, { status: 400 });
   }

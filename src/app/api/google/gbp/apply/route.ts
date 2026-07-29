@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { applyGbpAction, type GbpApplyAction } from "@/lib/google/gbp-apply";
 import { getGbpLocationFull, type GbpAttributeUpdate } from "@/lib/google/gbp-location";
 import type { GbpMediaCategory, GbpMediaFormat } from "@/lib/google/gbp-media";
@@ -37,7 +37,7 @@ export async function GET() {
   }
 
   try {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     if (!business?.gbpConnection) {
       return NextResponse.json({ error: "GBP not connected" }, { status: 400 });
     }
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     if (!business?.gbpConnection) {
       return NextResponse.json({ error: "GBP not connected" }, { status: 400 });
     }

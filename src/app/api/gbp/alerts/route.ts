@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getBusinessRecord, getPrimaryBusiness } from "@/audit/businesses";
+import { getBusinessRecord } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import {
   acknowledgeGbpEventForUser,
   listActiveGbpEventsForUser,
@@ -12,7 +13,7 @@ import { getUser } from "@/lib/supabase/server";
 async function resolveBusinessId(userId: string, clientId: string | null): Promise<string | null> {
   let resolved = clientId;
   if (!resolved) {
-    const business = await getPrimaryBusiness(userId);
+    const business = await getActiveBusiness(userId);
     resolved = business?.id ?? null;
   }
   if (!resolved) return null;

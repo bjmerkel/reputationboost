@@ -16,7 +16,7 @@ interface OnboardingWizardProps {
   locations?: RankedGbpLocation[];
   error?: string;
   disconnected?: boolean;
-  changingBusiness?: boolean;
+  addingLocation?: boolean;
   theme?: "light" | "dark";
 }
 
@@ -26,7 +26,7 @@ export default function OnboardingWizard({
   locations = [],
   error,
   disconnected,
-  changingBusiness = false,
+  addingLocation = false,
   theme = "dark",
 }: OnboardingWizardProps) {
   const isLight = theme === "light";
@@ -146,7 +146,8 @@ export default function OnboardingWizard({
   }
 
   function skipGbpForLater() {
-    router.push("/platform/audit?skipped_gbp=1");
+    const query = businessId ? `?businessId=${businessId}&skipped_gbp=1` : "?skipped_gbp=1";
+    router.push(`/platform/audit${query}`);
   }
 
   async function selectLocation(loc: RankedGbpLocation) {
@@ -172,7 +173,7 @@ export default function OnboardingWizard({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save location");
-      router.push("/platform/audit?onboarded=1");
+      router.push(`/platform/audit?businessId=${businessId}&onboarded=1`);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -243,11 +244,11 @@ export default function OnboardingWizard({
           <h2
             className={`text-2xl font-bold ${isLight ? "text-[#202124]" : "text-white"}`}
           >
-            {changingBusiness ? "Change your business" : "Add your business"}
+            {addingLocation ? "Add your location" : "Add your business"}
           </h2>
           <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-            {changingBusiness
-              ? "Search for a different business on Google Maps. You'll connect its Google Business Profile in the next steps."
+            {addingLocation
+              ? "Search for another location on Google Maps. You'll connect its Google Business Profile in the next steps."
               : "Search for your business on Google Maps. Next you'll connect your Google Business Profile for live data."}
           </p>
 

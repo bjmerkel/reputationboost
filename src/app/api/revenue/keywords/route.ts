@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { listKeywordRevenueMonthlyForUser } from "@/audit/revenue-attribution/storage";
 import { getUser } from "@/lib/supabase/server";
 
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   const month = searchParams.get("month");
 
   if (!clientId) {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     clientId = business?.id ?? null;
   }
 

@@ -122,6 +122,35 @@ export async function listUserBusinesses(userId: string): Promise<BusinessRecord
   return (data ?? []) as BusinessRecord[];
 }
 
+export async function findBusinessWithGbpLocation(
+  userId: string,
+  gbpLocationId: string,
+  excludeBusinessId?: string
+): Promise<BusinessRecord | null> {
+  const rows = await listUserBusinesses(userId);
+  return (
+    rows.find(
+      (row) =>
+        row.gbp_location_id === gbpLocationId &&
+        row.id !== excludeBusinessId
+    ) ?? null
+  );
+}
+
+export async function findBusinessWithPlaceId(
+  userId: string,
+  placeId: string,
+  excludeBusinessId?: string
+): Promise<BusinessRecord | null> {
+  if (!placeId.trim()) return null;
+  const rows = await listUserBusinesses(userId);
+  return (
+    rows.find(
+      (row) => row.gbp_place_id === placeId && row.id !== excludeBusinessId
+    ) ?? null
+  );
+}
+
 export async function getPrimaryBusiness(userId: string): Promise<ClientConfig | null> {
   const rows = await listUserBusinesses(userId);
   const completed = rows

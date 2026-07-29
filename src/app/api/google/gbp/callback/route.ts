@@ -133,7 +133,9 @@ export async function GET(request: Request) {
         console.warn("[gbp-oauth] notification auto-config skipped:", notifyError);
       }
 
-      return NextResponse.redirect(`${siteUrl}/platform/audit?onboarded=1`);
+      return NextResponse.redirect(
+        `${siteUrl}/platform/audit?businessId=${parsed.businessId}&onboarded=1`
+      );
     }
 
     const locationPayload = Buffer.from(JSON.stringify(ranked)).toString("base64url");

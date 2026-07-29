@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import {
   logPlanEvent,
   type PlanAnalyticsEvent,
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid event" }, { status: 400 });
   }
 
-  const business = await getPrimaryBusiness(user.id);
+  const business = await getActiveBusiness(user.id);
   logPlanEvent({
     ...event,
     businessId: event.businessId ?? business?.businessId ?? null,

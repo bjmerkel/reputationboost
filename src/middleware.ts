@@ -1,8 +1,21 @@
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { ACTIVE_BUSINESS_COOKIE } from "@/lib/business/active-business-shared";
 
 export async function middleware(request: NextRequest) {
-  return updateSession(request);
+  const response = await updateSession(request);
+  const businessId = request.nextUrl.searchParams.get("businessId");
+
+  if (businessId && request.nextUrl.pathname.startsWith("/platform")) {
+    response.cookies.set(ACTIVE_BUSINESS_COOKIE, businessId, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  }
+
+  return response;
 }
 
 export const config = {

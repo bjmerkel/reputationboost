@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import { loadAuditByIdFromSupabase } from "@/audit/storage-supabase";
 import { getExecutionTask, updateExecutionTask } from "@/audit/storage-execution";
 import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
@@ -36,7 +36,7 @@ export async function POST(
     return NextResponse.json({ error: "Invalid review id on task" }, { status: 400 });
   }
 
-  const business = await getPrimaryBusiness(user.id);
+  const business = await getActiveBusiness(user.id);
   if (!business) {
     return NextResponse.json({ error: "No business configured" }, { status: 400 });
   }

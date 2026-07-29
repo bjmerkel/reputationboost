@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import {
   createGbpMediaFromUrl,
   deleteGbpMedia,
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     if (!business?.gbpConnection) {
       return NextResponse.json({ error: "GBP not connected" }, { status: 400 });
     }
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     if (!business?.gbpConnection) {
       return NextResponse.json({ error: "GBP not connected" }, { status: 400 });
     }
@@ -125,7 +125,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "name query param is required" }, { status: 400 });
     }
 
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     if (!business?.gbpConnection) {
       return NextResponse.json({ error: "GBP not connected" }, { status: 400 });
     }
@@ -160,7 +160,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "name and category are required" }, { status: 400 });
     }
 
-    const business = await getPrimaryBusiness(user.id);
+    const business = await getActiveBusiness(user.id);
     if (!business?.gbpConnection) {
       return NextResponse.json({ error: "GBP not connected" }, { status: 400 });
     }

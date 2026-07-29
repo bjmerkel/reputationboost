@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrimaryBusiness } from "@/audit/businesses";
+import { getActiveBusiness } from "@/lib/business/active-business";
 import {
   createCustomer,
   deleteCustomer,
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const business = await getPrimaryBusiness(user.id);
+  const business = await getActiveBusiness(user.id);
   if (!business?.businessId) {
     return NextResponse.json({ error: "No business configured" }, { status: 400 });
   }
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const business = await getPrimaryBusiness(user.id);
+  const business = await getActiveBusiness(user.id);
   if (!business?.businessId) {
     return NextResponse.json({ error: "No business configured" }, { status: 400 });
   }
@@ -85,7 +85,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const business = await getPrimaryBusiness(user.id);
+  const business = await getActiveBusiness(user.id);
   if (!business?.businessId) {
     return NextResponse.json({ error: "No business configured" }, { status: 400 });
   }
