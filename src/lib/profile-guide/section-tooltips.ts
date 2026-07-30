@@ -22,10 +22,10 @@ export const PROFILE_GUIDE_SECTION_TOOLTIPS = {
   },
   reviewFlyer: {
     title: "Review flyer",
-    what: "Print-ready flyers in three styles, each with your business name and Profile Guide QR code.",
-    why: "In-person asks work best with something physical to scan. A flyer at checkout or on a table turns a verbal request into an instant review.",
+    what: "AI-generated or simple print-ready flyers with your QR code, logo, cover photo, and business details.",
+    why: "In-person review asks work best with something professional to scan. A branded flyer at checkout turns a verbal request into an instant Google review.",
     examples:
-      "Print the friendly flyer for your waiting room, the professional version for invoices, or the bold style for a countertop tent card.",
+      "Generate an AI flyer for your front desk, download the PNG for a print shop, or use a simple template and print from your browser.",
   },
   actionButtons: {
     title: "Action buttons",

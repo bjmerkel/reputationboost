@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import type { ProfileGuideFlyerTemplate } from "./theme";
+import { resolveFlyerCopy } from "./flyer/copy";
 
 export interface FlyerInput {
   businessName: string;
@@ -11,29 +12,8 @@ export interface FlyerInput {
   template: ProfileGuideFlyerTemplate;
 }
 
-const TEMPLATE_COPY: Record<
-  ProfileGuideFlyerTemplate,
-  { headline: string; subhead: string; cta: string }
-> = {
-  professional: {
-    headline: "We'd love your feedback",
-    subhead: "Scan to leave us a Google review",
-    cta: "Your review helps our local business grow.",
-  },
-  friendly: {
-    headline: "Love your visit?",
-    subhead: "Scan & share the love on Google",
-    cta: "A quick review means the world to our team!",
-  },
-  bold: {
-    headline: "REVIEW US!",
-    subhead: "Scan the code. Leave a review.",
-    cta: "Help us stay the top choice in town.",
-  },
-};
-
 export async function buildProfileGuideFlyerHtml(input: FlyerInput): Promise<string> {
-  const copy = TEMPLATE_COPY[input.template];
+  const copy = resolveFlyerCopy(input.template, input.tagline);
   const qrDataUrl = await QRCode.toDataURL(`${input.publicUrl}?src=flyer-${input.template}`, {
     width: 280,
     margin: 1,
