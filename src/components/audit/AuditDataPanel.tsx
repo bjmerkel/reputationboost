@@ -32,6 +32,10 @@ import type { ActionAttribution } from "@/audit/types/timeseries";
 import type { EngagementPeriodSummary } from "@/audit/engagement-period";
 import { formatPerformanceIngestLabel, formatPerformanceIngestTimestamp } from "@/audit/engagement-period";
 import { formatCustomerAttribution } from "@/lib/google/gbp-media-display";
+import {
+  fetchProfileGuideBackgroundImage,
+  setProfileGuideBackgroundImage,
+} from "@/lib/profile-guide/background-image";
 import { buildMediaHealthReport } from "@/lib/google/gbp-media-health";
 import { buildPerformanceHealthReport } from "@/lib/google/gbp-performance-health";
 import { buildReviewsHealthReport } from "@/lib/google/gbp-reviews-health";
@@ -230,6 +234,25 @@ export default function AuditDataPanel({
   const performanceGridClass = isCanvas
     ? "grid gap-4 sm:grid-cols-2"
     : "grid grid-cols-1 gap-4";
+  const [profileGuideBackgroundUrl, setProfileGuideBackgroundUrl] = useState<string | null>(null);
+  const [profileGuideBackgroundSaving, setProfileGuideBackgroundSaving] = useState(false);
+
+  useEffect(() => {
+    void fetchProfileGuideBackgroundImage().then(setProfileGuideBackgroundUrl);
+  }, [audit.auditId]);
+
+  async function handleSelectProfileGuideBackground(url: string | null) {
+    setProfileGuideBackgroundSaving(true);
+    try {
+      await setProfileGuideBackgroundImage(url);
+      setProfileGuideBackgroundUrl(url);
+    } catch (error) {
+      console.error("[audit] profile guide background update failed:", error);
+    } finally {
+      setProfileGuideBackgroundSaving(false);
+    }
+  }
+
   const fieldCalibration = useMemo(() => {
     const calibration = mergeCalibrations(
       buildAttributionCalibration(attributions),
@@ -462,6 +485,10 @@ export default function AuditDataPanel({
                   photosByType={audit.gbp.content.photosByType}
                   previews={mediaPreviews}
                   coverage={audit.gbp.content.mediaCoverage}
+                  profileGuideBackgroundUrl={profileGuideBackgroundUrl}
+                  profileGuideBackgroundSaving={profileGuideBackgroundSaving}
+                  onSelectProfileGuideBackground={handleSelectProfileGuideBackground}
+                  profileGuidePreviewHref={`/platform/customers?businessId=${clientId}&tab=profile-guide`}
                 />
               </>
             )}
@@ -1326,6 +1353,10 @@ function MediaGallery({
   previews,
   coverage,
   light = false,
+  profileGuideBackgroundUrl = null,
+  profileGuideBackgroundSaving = false,
+  onSelectProfileGuideBackground,
+  profileGuidePreviewHref = "/platform/customers?tab=profile-guide",
 }: {
   photoCount: number;
   videoCount: number;
@@ -1333,6 +1364,10 @@ function MediaGallery({
   previews: GbpMediaPreview[];
   coverage?: GbpMediaCoverage;
   light?: boolean;
+  profileGuideBackgroundUrl?: string | null;
+  profileGuideBackgroundSaving?: boolean;
+  onSelectProfileGuideBackground?: (url: string | null) => void;
+  profileGuidePreviewHref?: string;
 }) {
   const theme = auditDataTheme(light);
   const typeSummary = Object.entries(photosByType)
@@ -1378,53 +1413,93 @@ function MediaGallery({
             </div>
           )}
           {missingSummary && <p className={`mt-2 text-xs ${theme.recommend}`}>Missing categories: {missingSummary}</p>}
+          {onSelectProfileGuideBackground && (
+            <p className={`mt-2 text-xs ${theme.label}`}>
+              Click <span className="font-medium">Guide cover</span> on any photo to set your Profile Guide
+              background.{" "}
+              <a href={profileGuidePreviewHref} className="font-medium text-[#1a73e8] hover:underline">
+                Preview your guide
+              </a>
+            </p>
+          )}
         </div>
         {previews.length > 0 && <p className={`text-xs ${theme.label}`}>Showing {previews.length} previews</p>}
       </div>
 
       {previews.length > 0 ? (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
-          {previews.map((item, i) => (
-            <a
-              key={`${item.googleUrl}-${i}`}
-              href={item.googleUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`group relative aspect-square overflow-hidden rounded-lg border ${
-                light ? "border-[#dadce0] bg-[#f8f9fa]" : "border-white/10 bg-slate-900/50"
-              }`}
-              title={item.description || item.category || undefined}
-            >
-              <ExternalImage
-                src={item.thumbnailUrl}
-                alt={item.description || item.category || "GBP media"}
-                className="h-full w-full object-cover transition group-hover:scale-105"
-              />
-              {item.mediaFormat === "VIDEO" && (
-                <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                  Video
-                </span>
-              )}
-              {item.isCustomerPhoto && (
-                <span
-                  className="absolute left-1 top-1 max-w-[90%] truncate rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white"
-                  title={item.attributionName ? `Uploaded by ${item.attributionName}` : "Customer photo"}
+          {previews.map((item, i) => {
+            const isGuideBackground =
+              Boolean(profileGuideBackgroundUrl) &&
+              item.mediaFormat === "PHOTO" &&
+              item.thumbnailUrl === profileGuideBackgroundUrl;
+
+            return (
+              <div
+                key={`${item.googleUrl}-${i}`}
+                className={`group relative aspect-square overflow-hidden rounded-lg border ${
+                  isGuideBackground
+                    ? "border-[#1a73e8] ring-2 ring-[#1a73e8]"
+                    : light
+                      ? "border-[#dadce0] bg-[#f8f9fa]"
+                      : "border-white/10 bg-slate-900/50"
+                }`}
+              >
+                <a
+                  href={item.googleUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block h-full w-full"
+                  title={item.description || item.category || undefined}
                 >
-                  {formatCustomerAttribution(item.attributionName)}
-                </span>
-              )}
-              {typeof item.viewCount === "number" && (
-                <span className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                  {item.viewCount.toLocaleString()} views
-                </span>
-              )}
-              {item.category && (
-                <span className="absolute bottom-1 left-1 max-w-[90%] truncate rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                  {item.category.replace(/_/g, " ").toLowerCase()}
-                </span>
-              )}
-            </a>
-          ))}
+                  <ExternalImage
+                    src={item.thumbnailUrl}
+                    alt={item.description || item.category || "GBP media"}
+                    className="h-full w-full object-cover transition group-hover:scale-105"
+                  />
+                </a>
+                {item.mediaFormat === "VIDEO" && (
+                  <span className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    Video
+                  </span>
+                )}
+                {item.isCustomerPhoto && (
+                  <span
+                    className="pointer-events-none absolute left-1 top-1 max-w-[90%] truncate rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white"
+                    title={item.attributionName ? `Uploaded by ${item.attributionName}` : "Customer photo"}
+                  >
+                    {formatCustomerAttribution(item.attributionName)}
+                  </span>
+                )}
+                {typeof item.viewCount === "number" && (
+                  <span className="pointer-events-none absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    {item.viewCount.toLocaleString()} views
+                  </span>
+                )}
+                {item.category && (
+                  <span className="pointer-events-none absolute bottom-1 left-1 max-w-[70%] truncate rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    {item.category.replace(/_/g, " ").toLowerCase()}
+                  </span>
+                )}
+                {item.mediaFormat === "PHOTO" && onSelectProfileGuideBackground && (
+                  <button
+                    type="button"
+                    disabled={profileGuideBackgroundSaving}
+                    onClick={() =>
+                      onSelectProfileGuideBackground(isGuideBackground ? null : item.thumbnailUrl)
+                    }
+                    className={`absolute bottom-1 right-1 z-10 rounded px-1.5 py-0.5 text-[10px] font-semibold transition ${
+                      isGuideBackground
+                        ? "bg-[#1a73e8] text-white"
+                        : "bg-white/95 text-[#1a73e8] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                    }`}
+                  >
+                    {isGuideBackground ? "Guide cover ✓" : "Guide cover"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <p className={theme.empty}>

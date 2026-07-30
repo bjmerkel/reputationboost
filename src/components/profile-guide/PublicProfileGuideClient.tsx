@@ -9,6 +9,7 @@ interface PublicProfileGuideClientProps {
   displayName: string;
   primaryColor: string;
   backgroundColor: string;
+  backgroundImageUrl: string | null;
   buttonStyle: import("@/lib/profile-guide/theme").ProfileGuideButtonStyle;
   fontPreset: import("@/lib/profile-guide/theme").ProfileGuideFontPreset;
   logoUrl: string | null;
@@ -22,6 +23,7 @@ export default function PublicProfileGuideClient({
   displayName,
   primaryColor,
   backgroundColor,
+  backgroundImageUrl,
   buttonStyle,
   fontPreset,
   logoUrl,
@@ -44,6 +46,7 @@ export default function PublicProfileGuideClient({
           displayName={displayName}
           primaryColor={primaryColor}
           backgroundColor={backgroundColor}
+          backgroundImageUrl={backgroundImageUrl}
           buttonStyle={buttonStyle}
           fontPreset={fontPreset}
           logoUrl={logoUrl}
