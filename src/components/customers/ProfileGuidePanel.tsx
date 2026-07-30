@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import ProfileGuidePhonePreview from "@/components/profile-guide/ProfileGuidePhonePreview";
 import ProfileGuideSectionTooltip from "@/components/profile-guide/ProfileGuideSectionTooltip";
+import { useLeavePageWarning } from "@/hooks/useLeavePageWarning";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
 import { customersTabHref } from "@/lib/customers/tabs";
 import { formatSourceLabel } from "@/lib/profile-guide/analytics";
@@ -137,6 +138,8 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   const [flyerStudioCache, setFlyerStudioCache] = useState<FlyerStudioCache | null>(null);
   const [flyerHistory, setFlyerHistory] = useState<FlyerHistoryEntry[]>([]);
   const [selectedFlyerHistoryId, setSelectedFlyerHistoryId] = useState<string | null>(null);
+
+  useLeavePageWarning(flyerGenerating);
 
   const loadGuide = useCallback(async () => {
     setLoading(true);
@@ -900,11 +903,15 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
           </div>
 
           {flyerGenerating && (
-            <p className="mt-3 text-sm text-[#5f6368]">
-              {flyerStudioCache
-                ? "Updating your flyer…"
-                : "Designing your flyer with AI… this usually takes 15–30 seconds."}
-            </p>
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-medium">
+                {flyerStudioCache ? "Updating your flyer…" : "Designing your flyer with AI…"}
+              </p>
+              <p className="mt-1 text-amber-800">
+                This usually takes 15–30 seconds. Stay on this page — navigating away will cancel
+                the job.
+              </p>
+            </div>
           )}
 
           {flyerPreview && (
