@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { getActiveBusiness } from "@/lib/business/active-business";
-import { getOrCreateProfileGuide, updateProfileGuide } from "@/lib/profile-guide/storage";
+import {
+  getOrCreateProfileGuide,
+  syncProfileGuideFromBusiness,
+  updateProfileGuide,
+} from "@/lib/profile-guide/storage";
 import type { ProfileGuideLinkInput, ProfileGuideUpdateInput } from "@/lib/profile-guide/types";
 import { profileGuidePublicUrl } from "@/lib/profile-guide/slug";
+import {
+  PROFILE_GUIDE_BUTTON_STYLES,
+  PROFILE_GUIDE_FONT_PRESETS,
+} from "@/lib/profile-guide/theme";
 import { getUser } from "@/lib/supabase/server";
 
 function serializeGuide(data: Awaited<ReturnType<typeof getOrCreateProfileGuide>>) {
@@ -15,8 +23,13 @@ function serializeGuide(data: Awaited<ReturnType<typeof getOrCreateProfileGuide>
       published: data.guide.published,
       publishedAt: data.guide.published_at,
       primaryColor: data.guide.primary_color,
+      backgroundColor: data.guide.background_color,
+      buttonStyle: data.guide.button_style,
+      fontPreset: data.guide.font_preset,
       logoUrl: data.guide.logo_url,
       tagline: data.guide.tagline,
+      textMessage: data.guide.text_message,
+      gbpSyncedAt: data.guide.gbp_synced_at,
       publicUrl: profileGuidePublicUrl(data.guide.slug, origin),
     },
     links: data.links.map((link) => ({
@@ -53,9 +66,24 @@ function parseLinks(body: unknown): ProfileGuideLinkInput[] | undefined {
 function parseUpdate(body: unknown): ProfileGuideUpdateInput {
   if (!body || typeof body !== "object") return {};
   const record = body as Record<string, unknown>;
+
+  const buttonStyle = record.buttonStyle;
+  const fontPreset = record.fontPreset;
+
   return {
     published: typeof record.published === "boolean" ? record.published : undefined,
     primaryColor: typeof record.primaryColor === "string" ? record.primaryColor : undefined,
+    backgroundColor: typeof record.backgroundColor === "string" ? record.backgroundColor : undefined,
+    buttonStyle:
+      typeof buttonStyle === "string" &&
+      PROFILE_GUIDE_BUTTON_STYLES.includes(buttonStyle as (typeof PROFILE_GUIDE_BUTTON_STYLES)[number])
+        ? (buttonStyle as ProfileGuideUpdateInput["buttonStyle"])
+        : undefined,
+    fontPreset:
+      typeof fontPreset === "string" &&
+      PROFILE_GUIDE_FONT_PRESETS.includes(fontPreset as (typeof PROFILE_GUIDE_FONT_PRESETS)[number])
+        ? (fontPreset as ProfileGuideUpdateInput["fontPreset"])
+        : undefined,
     logoUrl:
       record.logoUrl === null
         ? null
@@ -67,6 +95,12 @@ function parseUpdate(body: unknown): ProfileGuideUpdateInput {
         ? null
         : typeof record.tagline === "string"
           ? record.tagline
+          : undefined,
+    textMessage:
+      record.textMessage === null
+        ? null
+        : typeof record.textMessage === "string"
+          ? record.textMessage
           : undefined,
     displayName: typeof record.displayName === "string" ? record.displayName : undefined,
     links: parseLinks(record.links),
@@ -113,10 +147,43 @@ export async function PUT(request: Request) {
 
   try {
     await getOrCreateProfileGuide(user.id, business);
-    const data = await updateProfileGuide(user.id, business.businessId, parseUpdate(body));
+    const data = await updateProfileGuide(
+      user.id,
+      business.businessId,
+      parseUpdate(body),
+      business
+    );
     return NextResponse.json(serializeGuide(data));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update Profile Guide";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const business = await getActiveBusiness(user.id);
+  if (!business?.businessId) {
+    return NextResponse.json({ error: "No business configured" }, { status: 400 });
+  }
+
+  const url = new URL(request.url);
+  const action = url.searchParams.get("action");
+
+  if (action !== "sync") {
+    return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
+  }
+
+  try {
+    await getOrCreateProfileGuide(user.id, business);
+    const data = await syncProfileGuideFromBusiness(user.id, business, { force: true });
+    return NextResponse.json(serializeGuide(data));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to sync Profile Guide";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

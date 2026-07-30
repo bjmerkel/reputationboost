@@ -1,6 +1,12 @@
 "use client";
 
 import { trackProfileGuideEvent } from "@/lib/analytics/profile-guide-events";
+import {
+  buttonRadiusClass,
+  FONT_PRESET_STYLES,
+  type ProfileGuideButtonStyle,
+  type ProfileGuideFontPreset,
+} from "@/lib/profile-guide/theme";
 
 export interface ProfileGuidePreviewLink {
   id?: string;
@@ -12,6 +18,9 @@ export interface ProfileGuidePreviewLink {
 export interface ProfileGuidePhonePreviewProps {
   displayName: string;
   primaryColor?: string;
+  backgroundColor?: string;
+  buttonStyle?: ProfileGuideButtonStyle;
+  fontPreset?: ProfileGuideFontPreset;
   logoUrl?: string | null;
   tagline?: string | null;
   links: ProfileGuidePreviewLink[];
@@ -23,6 +32,9 @@ export interface ProfileGuidePhonePreviewProps {
 export default function ProfileGuidePhonePreview({
   displayName,
   primaryColor = "#1a73e8",
+  backgroundColor = "#f8f9fa",
+  buttonStyle = "rounded",
+  fontPreset = "professional",
   logoUrl,
   tagline,
   links,
@@ -30,6 +42,8 @@ export default function ProfileGuidePhonePreview({
   interactive = false,
   source,
 }: ProfileGuidePhonePreviewProps) {
+  const fonts = FONT_PRESET_STYLES[fontPreset];
+  const radiusClass = buttonRadiusClass(buttonStyle);
   const visibleLinks = links.filter((link) => link.enabled !== false && link.url.trim());
 
   function handleClick(link: ProfileGuidePreviewLink) {
@@ -48,7 +62,10 @@ export default function ProfileGuidePhonePreview({
   }
 
   return (
-    <div className="mx-auto mt-3 max-w-[260px] overflow-hidden rounded-2xl border border-[#dadce0] bg-white shadow-sm">
+    <div
+      className="mx-auto mt-3 max-w-[260px] overflow-hidden rounded-2xl border border-[#dadce0] shadow-sm"
+      style={{ backgroundColor, fontFamily: fonts.body }}
+    >
       <div className="px-4 py-5 text-center text-white" style={{ backgroundColor: primaryColor }}>
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -62,7 +79,9 @@ export default function ProfileGuidePhonePreview({
             {displayName.charAt(0).toUpperCase()}
           </div>
         )}
-        <p className="mt-3 text-base font-semibold">{displayName}</p>
+        <p className="mt-3 text-base font-semibold" style={{ fontFamily: fonts.heading }}>
+          {displayName}
+        </p>
         <p className="mt-1 text-xs text-white/80">{tagline || "Your local business guide"}</p>
       </div>
       <div className="space-y-2 p-3">
@@ -73,14 +92,14 @@ export default function ProfileGuidePhonePreview({
                 key={link.id ?? link.label}
                 type="button"
                 onClick={() => handleClick(link)}
-                className="w-full rounded-xl border border-[#dadce0] bg-white px-3 py-2.5 text-center text-sm font-medium text-[#3c4043] transition hover:bg-[#f8f9fa]"
+                className={`w-full border border-[#dadce0] bg-white px-3 py-2.5 text-center text-sm font-medium text-[#3c4043] transition hover:bg-[#f8f9fa] ${radiusClass}`}
               >
                 {link.label}
               </button>
             ) : (
               <div
                 key={link.id ?? link.label}
-                className="rounded-xl border border-[#dadce0] bg-white px-3 py-2.5 text-center text-sm font-medium text-[#3c4043]"
+                className={`border border-[#dadce0] bg-white px-3 py-2.5 text-center text-sm font-medium text-[#3c4043] ${radiusClass}`}
               >
                 {link.label}
               </div>

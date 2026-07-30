@@ -19,6 +19,8 @@ import type { OutreachChannel } from "@/lib/review-requests/channel";
 import { selectCustomersForGeoCampaign } from "@/lib/review-velocity/geo-router";
 import { loadCellLiftAggregatesForUser } from "@/lib/review-velocity/lift-storage";
 import { loadKeywordGridsForAudit } from "@/lib/review-velocity/resolve-geo-routing";
+import { getProfileGuideByBusinessId } from "@/lib/profile-guide/storage";
+import { profileGuidePublicUrl } from "@/lib/profile-guide/slug";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { previewReviewRequestSms } from "@/lib/sms/personalize";
 import { getUser } from "@/lib/supabase/server";
@@ -81,6 +83,15 @@ export async function POST(request: Request) {
       name: business.name,
       address,
     });
+
+    const guide = await getProfileGuideByBusinessId(user.id, business.businessId);
+    const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
+    const profileGuideUrl =
+      guide?.guide.published
+        ? `${profileGuidePublicUrl(guide.guide.slug, origin)}?src=outreach`
+        : null;
+
+    const outreachReviewUrl = profileGuideUrl ?? reviewUrl;
 
     const draftPlan = audit
       ? buildReviewCampaignPlan(audit, {
@@ -211,7 +222,7 @@ export async function POST(request: Request) {
         subjectTemplate: subject,
         bodyTemplate: template,
         businessName: business.name,
-        reviewUrl: reviewUrl ?? "https://example.com/review",
+        reviewUrl: outreachReviewUrl ?? "https://example.com/review",
         customer: previewCustomer,
         focusKeyword,
         neighborhoodLabel: previewNeighborhood,
@@ -222,7 +233,7 @@ export async function POST(request: Request) {
       smsPreview = previewReviewRequestSms({
         template: smsTemplate,
         businessName: business.name,
-        reviewUrl: reviewUrl ?? "https://example.com/review",
+        reviewUrl: outreachReviewUrl ?? "https://example.com/review",
         customer: previewCustomer,
         focusKeyword,
         neighborhoodLabel: previewNeighborhood,
@@ -237,7 +248,7 @@ export async function POST(request: Request) {
         subjectTemplate: subject,
         bodyTemplate: template,
         businessName: business.name,
-        reviewUrl: reviewUrl ?? "https://example.com/review",
+        reviewUrl: outreachReviewUrl ?? "https://example.com/review",
         customer: previewCustomer,
         focusKeyword,
         neighborhoodLabel: previewNeighborhood,
@@ -250,7 +261,7 @@ export async function POST(request: Request) {
       preview = previewReviewRequestSms({
         template,
         businessName: business.name,
-        reviewUrl: reviewUrl ?? "https://example.com/review",
+        reviewUrl: outreachReviewUrl ?? "https://example.com/review",
         customer: previewCustomer,
         focusKeyword,
         neighborhoodLabel: previewNeighborhood,
@@ -261,7 +272,7 @@ export async function POST(request: Request) {
       preview = previewReviewRequestSms({
         template,
         businessName: business.name,
-        reviewUrl: reviewUrl ?? "https://example.com/review",
+        reviewUrl: outreachReviewUrl ?? "https://example.com/review",
         customer: previewCustomer,
         focusKeyword,
         neighborhoodLabel: previewNeighborhood,
@@ -279,7 +290,9 @@ export async function POST(request: Request) {
       preview,
       smsPreview,
       previewHtml,
-      reviewUrl,
+      reviewUrl: outreachReviewUrl,
+      directReviewUrl: reviewUrl,
+      profileGuideUrl,
       emailEligibleCount,
       eligibleCount,
       matchedCustomers,

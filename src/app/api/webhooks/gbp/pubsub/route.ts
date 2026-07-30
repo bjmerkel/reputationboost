@@ -7,6 +7,10 @@ import {
   findBusinessRecordByGbpLocation,
   parseReviewIdFromReviewName,
 } from "@/lib/review-requests/attribution";
+import {
+  attributeReviewToProfileGuide,
+  getProfileGuideIdForBusiness,
+} from "@/lib/profile-guide/attribution";
 import { recordGbpGoogleUpdateEvent } from "@/lib/google/gbp-update-events";
 import { syncGoogleUpdatesForBusiness } from "@/lib/google/gbp-update-sync";
 import { buildPubSubGbpEvent } from "@/lib/google/gbp-event-factory";
@@ -166,6 +170,24 @@ export async function POST(request: Request) {
           attributionMethod: "pubsub_review",
         });
         attributionId = attribution?.id ?? null;
+
+        if (!attributionId) {
+          const guideId = await getProfileGuideIdForBusiness(businessRecord.id);
+          if (guideId) {
+            const guideAttribution = await attributeReviewToProfileGuide({
+              businessId: businessRecord.id,
+              userId: businessRecord.user_id,
+              guideId,
+              reviewDetectedAt: envelope.message?.publishTime ?? new Date().toISOString(),
+              reviewAuthor,
+              reviewRating,
+              reviewText,
+              reviewId: reviewId ?? undefined,
+              attributionMethod: "profile_guide_click",
+            });
+            attributionId = guideAttribution?.id ?? null;
+          }
+        }
       }
     } catch (error) {
       console.warn("[gbp-pubsub] outreach attribution failed:", error);

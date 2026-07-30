@@ -8,6 +8,9 @@ interface PublicProfileGuideClientProps {
   guideId: string;
   displayName: string;
   primaryColor: string;
+  backgroundColor: string;
+  buttonStyle: import("@/lib/profile-guide/theme").ProfileGuideButtonStyle;
+  fontPreset: import("@/lib/profile-guide/theme").ProfileGuideFontPreset;
   logoUrl: string | null;
   tagline: string | null;
   links: Array<{ id: string; label: string; url: string }>;
@@ -18,6 +21,9 @@ export default function PublicProfileGuideClient({
   guideId,
   displayName,
   primaryColor,
+  backgroundColor,
+  buttonStyle,
+  fontPreset,
   logoUrl,
   tagline,
   links,
@@ -37,6 +43,9 @@ export default function PublicProfileGuideClient({
         <ProfileGuidePhonePreview
           displayName={displayName}
           primaryColor={primaryColor}
+          backgroundColor={backgroundColor}
+          buttonStyle={buttonStyle}
+          fontPreset={fontPreset}
           logoUrl={logoUrl}
           tagline={tagline}
           links={links}

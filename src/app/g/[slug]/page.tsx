@@ -42,6 +42,9 @@ export default async function PublicProfileGuidePage({ params, searchParams }: P
       guideId={data.guide.id}
       displayName={data.guide.display_name}
       primaryColor={data.guide.primary_color}
+      backgroundColor={data.guide.background_color}
+      buttonStyle={data.guide.button_style}
+      fontPreset={data.guide.font_preset}
       logoUrl={data.guide.logo_url}
       tagline={data.guide.tagline}
       links={links}
