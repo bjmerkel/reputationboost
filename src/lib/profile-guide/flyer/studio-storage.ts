@@ -45,12 +45,6 @@ export interface FlyerStudioPersistedState {
   updatedAt: string;
 }
 
-const STORAGE_VERSION = 1;
-
-function storageKey(businessId?: string | null): string {
-  return `profile-guide-flyer-studio:${businessId?.trim() || "default"}`;
-}
-
 function isDataImageUrl(value: unknown): value is string {
   return typeof value === "string" && value.startsWith("data:image/");
 }
@@ -128,100 +122,36 @@ function parseTemplate(value: unknown): (typeof PROFILE_GUIDE_FLYER_TEMPLATES)[n
   return "professional";
 }
 
-export function loadFlyerStudioState(
-  businessId?: string | null
-): FlyerStudioPersistedState | null {
-  if (typeof sessionStorage === "undefined") return null;
+export function parseFlyerStudioState(value: unknown): FlyerStudioPersistedState | null {
+  if (!value || typeof value !== "object") return null;
+  const parsed = value as Record<string, unknown>;
+  if (parsed.version !== 1) return null;
 
-  try {
-    const raw = sessionStorage.getItem(storageKey(businessId));
-    if (!raw) return null;
+  const preview =
+    parsed.preview == null ? null : isDataImageUrl(parsed.preview) ? parsed.preview : null;
+  const studioCache = parseStudioCache(parsed.studioCache);
+  const history = Array.isArray(parsed.history)
+    ? parsed.history
+        .map(parseHistoryEntry)
+        .filter((entry): entry is FlyerHistoryEntry => entry !== null)
+    : [];
 
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (parsed.version !== STORAGE_VERSION) return null;
+  if (!preview && !studioCache) return null;
 
-    const preview =
-      parsed.preview == null
-        ? null
-        : isDataImageUrl(parsed.preview)
-          ? parsed.preview
-          : null;
-    const studioCache = parseStudioCache(parsed.studioCache);
-    const history = Array.isArray(parsed.history)
-      ? parsed.history
-          .map(parseHistoryEntry)
-          .filter((entry): entry is FlyerHistoryEntry => entry !== null)
-      : [];
-
-    if (!preview && !studioCache) return null;
-
-    return {
-      version: STORAGE_VERSION,
-      template: parseTemplate(parsed.template),
-      format: parseProfileGuideFlyerFormat(
-        typeof parsed.format === "string" ? parsed.format : "letter"
-      ),
-      promptRefinement:
-        typeof parsed.promptRefinement === "string" ? parsed.promptRefinement : "",
-      displayOptions: parseFlyerDisplayOptions(parsed.displayOptions),
-      preview,
-      studioCache,
-      history,
-      selectedHistoryId:
-        typeof parsed.selectedHistoryId === "string" ? parsed.selectedHistoryId : null,
-      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date().toISOString(),
-    };
-  } catch {
-    return null;
-  }
-}
-
-function trySave(key: string, value: string): boolean {
-  try {
-    sessionStorage.setItem(key, value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function saveFlyerStudioState(
-  businessId: string | undefined | null,
-  state: FlyerStudioPersistedState
-): void {
-  if (typeof sessionStorage === "undefined") return;
-  if (!state.preview && !state.studioCache) return;
-
-  const key = storageKey(businessId);
-  const payload = JSON.stringify(state);
-
-  if (trySave(key, payload)) return;
-
-  const withoutHistory: FlyerStudioPersistedState = {
-    ...state,
-    history: [],
-    selectedHistoryId: state.preview ? state.selectedHistoryId : null,
+  return {
+    version: 1,
+    template: parseTemplate(parsed.template),
+    format: parseProfileGuideFlyerFormat(
+      typeof parsed.format === "string" ? parsed.format : "letter"
+    ),
+    promptRefinement: typeof parsed.promptRefinement === "string" ? parsed.promptRefinement : "",
+    displayOptions: parseFlyerDisplayOptions(parsed.displayOptions ?? DEFAULT_FLYER_DISPLAY_OPTIONS),
+    preview,
+    studioCache,
+    history,
+    selectedHistoryId:
+      typeof parsed.selectedHistoryId === "string" ? parsed.selectedHistoryId : null,
+    updatedAt:
+      typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date().toISOString(),
   };
-  if (trySave(key, JSON.stringify(withoutHistory))) return;
-
-  if (!state.preview || !state.studioCache) return;
-
-  const previewOnly: FlyerStudioPersistedState = {
-    ...withoutHistory,
-    studioCache: {
-      ...state.studioCache,
-      backgroundDataUrl: state.preview,
-    },
-    preview: state.preview,
-  };
-  trySave(key, JSON.stringify(previewOnly));
-}
-
-export function clearFlyerStudioState(businessId?: string | null): void {
-  if (typeof sessionStorage === "undefined") return;
-  try {
-    sessionStorage.removeItem(storageKey(businessId));
-  } catch {
-    // Ignore storage failures
-  }
 }
