@@ -134,56 +134,23 @@ function buildCoverFadeSvg(
   return Buffer.from(parts.join(""));
 }
 
-function effectiveCardRadius(layout: FlyerLayout, tokens: ArchetypeLayoutTokens): number {
-  return Math.round(layout.contentCardRadius * tokens.cardRadiusScale);
-}
-
-function buildContentCardSvg(
-  layout: FlyerLayout,
-  tokens: ArchetypeLayoutTokens,
-  primaryColor: string
-): Buffer {
-  const {
-    contentCardLeft,
-    contentCardTop,
-    contentCardWidth,
-    contentCardHeight,
-  } = layout;
-  const radius = effectiveCardRadius(layout, tokens);
-  const shadowOpacity = tokens.cardStyle === "glass-panel" ? 0.08 : 0.12;
-  const fillOpacity = tokens.cardFillOpacity;
-  const border = tokens.cardBorderColor
-    ? `stroke="${escapeXml(tokens.cardBorderColor)}" stroke-width="2"`
-    : "";
+function buildContentScrimSvg(layout: FlyerLayout): Buffer {
+  const scrimTop = layout.contentCardTop;
+  const scrimHeight = layout.height - scrimTop;
 
   const parts = [
     `<svg width="${layout.width}" height="${layout.height}" xmlns="http://www.w3.org/2000/svg">`,
     `<defs>`,
-    `<filter id="cardShadow" x="-8%" y="-4%" width="116%" height="112%">`,
-    `<feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000000" flood-opacity="${shadowOpacity}"/>`,
-    `</filter>`,
+    `<linearGradient id="contentScrim" x1="0" y1="0" x2="0" y2="1">`,
+    `<stop offset="0%" stop-color="#000000" stop-opacity="0"/>`,
+    `<stop offset="35%" stop-color="#000000" stop-opacity="0.04"/>`,
+    `<stop offset="100%" stop-color="#000000" stop-opacity="0.22"/>`,
+    `</linearGradient>`,
     `</defs>`,
+    `<rect x="0" y="${scrimTop}" width="${layout.width}" height="${scrimHeight}" fill="url(#contentScrim)"/>`,
+    `</svg>`,
   ];
 
-  if (tokens.accentBarStyle === "diagonal") {
-    parts.push(
-      `<polygon points="${contentCardLeft},${contentCardTop + contentCardHeight} ${contentCardLeft + contentCardWidth},${contentCardTop} ${contentCardLeft + contentCardWidth},${contentCardTop + Math.round(contentCardHeight * 0.18)}" fill="${escapeXml(primaryColor)}" fill-opacity="0.12"/>`
-    );
-  }
-
-  parts.push(
-    `<rect x="${contentCardLeft}" y="${contentCardTop}" width="${contentCardWidth}" height="${contentCardHeight}" rx="${radius}" ry="${radius}" fill="#ffffff" fill-opacity="${fillOpacity}" filter="url(#cardShadow)" ${border}/>`
-  );
-
-  if (tokens.accentBarStyle === "top") {
-    const barWidth = Math.round(contentCardWidth * 0.22);
-    const barX = contentCardLeft + Math.round((contentCardWidth - barWidth) / 2);
-    parts.push(
-      `<rect x="${barX}" y="${contentCardTop + 18}" width="${barWidth}" height="5" rx="2.5" fill="${escapeXml(primaryColor)}"/>`
-    );
-  }
-
-  parts.push("</svg>");
   return Buffer.from(parts.join(""));
 }
 
@@ -652,7 +619,7 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
   }
 
   layers.push({
-    input: buildContentCardSvg(layout, tokens, brief.primaryColor),
+    input: buildContentScrimSvg(layout),
     top: 0,
     left: 0,
   });

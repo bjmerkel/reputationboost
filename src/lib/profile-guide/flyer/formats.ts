@@ -146,14 +146,14 @@ export function computeFlyerLayout(spec: FlyerFormatSpec): FlyerLayout {
   const scale = Math.min(scaleX, scaleY);
   const margin = Math.round(36 * scale);
   const coverHeight = Math.round(spec.height * 0.16);
-  const contentCardTop = coverHeight - Math.round(10 * scaleY);
+  const contentCardTop = coverHeight + Math.round(18 * scaleY);
   const contentCardLeft = margin;
   const contentCardWidth = spec.width - margin * 2;
   const contentCardHeight = spec.height - contentCardTop - margin;
   const contentCardPadding = Math.round(32 * scale);
   const qrCardSize = Math.round(278 * scale);
   const qrCodeSize = Math.round(232 * scale);
-  const qrTop = contentCardTop + Math.round(contentCardHeight * 0.57);
+  const qrTop = contentCardTop + Math.round(contentCardHeight * 0.52);
   const qrLeft = Math.round((spec.width - qrCardSize) / 2);
 
   return {
@@ -174,7 +174,7 @@ export function computeFlyerLayout(spec: FlyerFormatSpec): FlyerLayout {
     qrCodeSize,
     qrTop,
     qrLeft,
-    textTop: contentCardTop + contentCardPadding + Math.round(20 * scaleY),
+    textTop: contentCardTop + Math.round(12 * scaleY),
     headlineSize: Math.round(44 * scale),
     businessNameSize: Math.round(26 * scale),
     subheadSize: Math.round(22 * scale),
