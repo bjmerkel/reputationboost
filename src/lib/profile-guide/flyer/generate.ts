@@ -50,6 +50,8 @@ export async function generateAiProfileGuideFlyer(input: {
   backgroundDataUrl?: string;
   cachedCopy?: FlyerCopy;
   cachedImagePrompt?: string;
+  archetypeOverride?: FlyerDesignArchetype | null;
+  selectedCoverUrl?: string | null;
 }): Promise<GeneratedFlyerResult> {
   if (!isAiFlyerGenerationConfigured()) {
     throw new Error("OPENAI_API_KEY is not configured.");
@@ -68,6 +70,8 @@ export async function generateAiProfileGuideFlyer(input: {
     template: input.template,
     format,
     displayOptions,
+    archetypeOverride: input.archetypeOverride,
+    selectedCoverUrl: input.selectedCoverUrl,
   });
 
   const recomposedOnly = Boolean(input.backgroundDataUrl?.trim());

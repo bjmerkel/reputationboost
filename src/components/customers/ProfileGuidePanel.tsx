@@ -33,10 +33,24 @@ import {
   type FlyerDisplayOptions,
 } from "@/lib/profile-guide/flyer/options";
 import {
+  FLYER_DESIGN_ARCHETYPES,
+  getArchetypeDefinition,
+  type FlyerDesignArchetype,
+} from "@/lib/profile-guide/flyer/archetypes";
+import type { FlyerGbpPhoto } from "@/lib/profile-guide/flyer/photo-picker";
+import {
   type FlyerCopyPayload,
   type FlyerHistoryEntry,
   type FlyerStudioCache,
 } from "@/lib/profile-guide/flyer/studio-storage";
+
+interface FlyerStudioContextClient {
+  photos: FlyerGbpPhoto[];
+  detectedArchetype: FlyerDesignArchetype;
+  detectedArchetypeLabel: string;
+  primaryCategory: string;
+  resolvedCoverUrl: string | null;
+}
 
 interface FlyerStudioClient {
   template: (typeof PROFILE_GUIDE_FLYER_TEMPLATES)[number];
@@ -47,6 +61,9 @@ interface FlyerStudioClient {
   studioCache: FlyerStudioCache | null;
   history: FlyerHistoryEntry[];
   selectedHistoryId: string | null;
+  archetype?: FlyerDesignArchetype | null;
+  archetypeOverride?: FlyerDesignArchetype | null;
+  selectedCoverUrl?: string | null;
   updatedAt: string;
 }
 
@@ -79,6 +96,7 @@ interface GuideData {
   };
   links: GuideLink[];
   flyerStudio?: FlyerStudioClient | null;
+  flyerContext?: FlyerStudioContextClient | null;
 }
 
 interface AnalyticsData {
@@ -109,6 +127,9 @@ function applyFlyerStudioState(studio: FlyerStudioClient | null | undefined) {
       studioCache: null,
       history: [] as FlyerHistoryEntry[],
       selectedHistoryId: null,
+      archetype: null as FlyerDesignArchetype | null,
+      archetypeOverride: null as FlyerDesignArchetype | null,
+      selectedCoverUrl: null as string | null,
       restored: false,
     };
   }
@@ -122,6 +143,9 @@ function applyFlyerStudioState(studio: FlyerStudioClient | null | undefined) {
     studioCache: studio.studioCache,
     history: studio.history,
     selectedHistoryId: studio.selectedHistoryId,
+    archetype: studio.archetype ?? null,
+    archetypeOverride: studio.archetypeOverride ?? null,
+    selectedCoverUrl: studio.selectedCoverUrl ?? null,
     restored: Boolean(studio.preview),
   };
 }
@@ -159,7 +183,25 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   const [flyerStudioCache, setFlyerStudioCache] = useState<FlyerStudioCache | null>(null);
   const [flyerHistory, setFlyerHistory] = useState<FlyerHistoryEntry[]>([]);
   const [selectedFlyerHistoryId, setSelectedFlyerHistoryId] = useState<string | null>(null);
-  const [flyerArchetypeLabel, setFlyerArchetypeLabel] = useState<string | null>(null);
+  const [flyerArchetypeOverride, setFlyerArchetypeOverride] =
+    useState<FlyerDesignArchetype | null>(null);
+  const [flyerSelectedCoverUrl, setFlyerSelectedCoverUrl] = useState<string | null>(null);
+  const [flyerContext, setFlyerContext] = useState<FlyerStudioContextClient | null>(null);
+  const [showFlyerImagePrompt, setShowFlyerImagePrompt] = useState(false);
+
+  const activeFlyerArchetypeLabel = useMemo(() => {
+    const archetype =
+      flyerArchetypeOverride ??
+      flyerContext?.detectedArchetype ??
+      null;
+    return archetype ? getArchetypeDefinition(archetype).label : null;
+  }, [flyerArchetypeOverride, flyerContext?.detectedArchetype]);
+
+  const activeFlyerCoverUrl = useMemo(() => {
+    if (flyerSelectedCoverUrl) return flyerSelectedCoverUrl;
+    if (backgroundImageUrl) return backgroundImageUrl;
+    return flyerContext?.resolvedCoverUrl ?? null;
+  }, [backgroundImageUrl, flyerContext?.resolvedCoverUrl, flyerSelectedCoverUrl]);
 
   useLeavePageWarning(flyerGenerating);
 
@@ -192,6 +234,9 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       setFlyerStudioCache(flyerStudio.studioCache);
       setFlyerHistory(flyerStudio.history);
       setSelectedFlyerHistoryId(flyerStudio.selectedHistoryId);
+      setFlyerArchetypeOverride(flyerStudio.archetypeOverride);
+      setFlyerSelectedCoverUrl(flyerStudio.selectedCoverUrl);
+      setFlyerContext(json.flyerContext ?? null);
       if (flyerStudio.restored) {
         setMessage("Restored your saved flyer.");
       }
@@ -410,6 +455,8 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       template: flyerTemplate,
       format: flyerFormat,
       displayOptions: flyerDisplayOptions,
+      archetypeOverride: flyerArchetypeOverride,
+      selectedCoverUrl: flyerSelectedCoverUrl,
     };
 
     if (mode === "generate" || mode === "regenerate") {
@@ -455,6 +502,8 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         setFlyerStudioCache(flyerStudio.studioCache);
         setFlyerHistory(flyerStudio.history);
         setSelectedFlyerHistoryId(flyerStudio.selectedHistoryId);
+        setFlyerArchetypeOverride(flyerStudio.archetypeOverride);
+        setFlyerSelectedCoverUrl(flyerStudio.selectedCoverUrl);
       } else {
         setFlyerPreview(json.imageDataUrl);
         setFlyerStudioCache({
@@ -463,8 +512,6 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
           copy: json.copy,
         });
       }
-
-      setFlyerArchetypeLabel(json.archetypeLabel ?? null);
 
       setMessage(
         mode === "recompose"
@@ -839,13 +886,120 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
                 </button>
               ))}
             </div>
-            {flyerArchetypeLabel && (
+            {activeFlyerArchetypeLabel && (
               <p className="mt-2 text-xs text-[#5f6368]">
-                Design style: <span className="font-medium text-[#3c4043]">{flyerArchetypeLabel}</span>
-                <span className="text-[#80868b]"> (matched from your Google category)</span>
+                Design style:{" "}
+                <span className="font-medium text-[#3c4043]">{activeFlyerArchetypeLabel}</span>
+                <span className="text-[#80868b]">
+                  {flyerArchetypeOverride
+                    ? " (custom)"
+                    : flyerContext?.primaryCategory
+                      ? ` (matched from ${flyerContext.primaryCategory})`
+                      : " (matched from your Google category)"}
+                </span>
               </p>
             )}
           </div>
+
+          <div className="mt-4">
+            <p className="text-sm font-medium text-[#3c4043]">Design archetype</p>
+            <select
+              value={flyerArchetypeOverride ?? ""}
+              onChange={(event) =>
+                setFlyerArchetypeOverride(
+                  event.target.value
+                    ? (event.target.value as FlyerDesignArchetype)
+                    : null
+                )
+              }
+              className="mt-2 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
+            >
+              <option value="">
+                Auto
+                {flyerContext?.detectedArchetypeLabel
+                  ? ` (${flyerContext.detectedArchetypeLabel})`
+                  : ""}
+              </option>
+              {FLYER_DESIGN_ARCHETYPES.map((archetype) => (
+                <option key={archetype} value={archetype}>
+                  {getArchetypeDefinition(archetype).label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {(flyerContext?.photos.length ?? 0) > 0 || backgroundImageUrl ? (
+            <div className="mt-4">
+              <p className="text-sm font-medium text-[#3c4043]">Cover photo</p>
+              <p className="mt-1 text-xs text-[#80868b]">
+                Choose which photo appears in the flyer hero band. Auto picks the best match for
+                your design style.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFlyerSelectedCoverUrl(null)}
+                  className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                    !flyerSelectedCoverUrl
+                      ? "border-[#1a73e8] bg-[#e8f0fe] text-[#1a73e8]"
+                      : "border-[#dadce0] text-[#5f6368]"
+                  }`}
+                >
+                  Auto
+                </button>
+                {backgroundImageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setFlyerSelectedCoverUrl(backgroundImageUrl)}
+                    className={`overflow-hidden rounded-lg border ${
+                      flyerSelectedCoverUrl === backgroundImageUrl
+                        ? "border-[#1a73e8] ring-2 ring-[#e8f0fe]"
+                        : "border-[#e8eaed]"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={backgroundImageUrl}
+                      alt="Profile Guide cover"
+                      className="h-16 w-24 object-cover"
+                    />
+                  </button>
+                )}
+                {flyerContext?.photos.map((photo) => (
+                  <button
+                    key={photo.url}
+                    type="button"
+                    onClick={() => setFlyerSelectedCoverUrl(photo.url)}
+                    className={`overflow-hidden rounded-lg border ${
+                      flyerSelectedCoverUrl === photo.url
+                        ? "border-[#1a73e8] ring-2 ring-[#e8f0fe]"
+                        : "border-[#e8eaed]"
+                    }`}
+                    title={photo.category ?? "Google photo"}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.thumbnailUrl}
+                      alt={photo.category ?? "Google business photo"}
+                      className="h-16 w-24 object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+              {activeFlyerCoverUrl && (
+                <p className="mt-2 text-xs text-[#80868b]">
+                  Using cover:{" "}
+                  <span className="font-medium text-[#5f6368]">
+                    {flyerSelectedCoverUrl
+                      ? "selected photo"
+                      : backgroundImageUrl
+                        ? "Profile Guide cover"
+                        : "smart pick from Google photos"}
+                  </span>
+                </p>
+              )}
+            </div>
+          ) : null}
 
           <div className="mt-4">
             <p className="text-sm font-medium text-[#3c4043]">Flyer studio</p>
@@ -997,6 +1151,23 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {flyerStudioCache?.imagePrompt && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setShowFlyerImagePrompt((current) => !current)}
+                className="text-sm font-medium text-[#1a73e8] hover:underline"
+              >
+                {showFlyerImagePrompt ? "Hide" : "Show"} AI background prompt
+              </button>
+              {showFlyerImagePrompt && (
+                <pre className="mt-2 max-h-48 overflow-auto rounded-lg border border-[#e8eaed] bg-[#f8f9fa] p-3 text-xs whitespace-pre-wrap text-[#5f6368]">
+                  {flyerStudioCache.imagePrompt}
+                </pre>
+              )}
             </div>
           )}
 

@@ -4,6 +4,7 @@ import {
   getProfileGuideFlyerStudio,
   serializeFlyerStudioForClient,
 } from "@/lib/profile-guide/flyer/studio-db";
+import { loadFlyerStudioContext } from "@/lib/profile-guide/flyer/flyer-context";
 import {
   getOrCreateProfileGuide,
   syncProfileGuideFromBusiness,
@@ -19,7 +20,8 @@ import { getUser } from "@/lib/supabase/server";
 
 function serializeGuide(
   data: Awaited<ReturnType<typeof getOrCreateProfileGuide>>,
-  flyerStudio: ReturnType<typeof serializeFlyerStudioForClient> = null
+  flyerStudio: ReturnType<typeof serializeFlyerStudioForClient> = null,
+  flyerContext: Awaited<ReturnType<typeof loadFlyerStudioContext>> | null = null
 ) {
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? "";
   return {
@@ -49,6 +51,7 @@ function serializeGuide(
       enabled: link.enabled,
     })),
     flyerStudio,
+    flyerContext,
   };
 }
 
@@ -139,8 +142,18 @@ export async function GET() {
   try {
     const data = await getOrCreateProfileGuide(user.id, business);
     const flyerStudio = await getProfileGuideFlyerStudio(user.id, data.guide.id);
+    const origin = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    const publicUrl = profileGuidePublicUrl(data.guide.slug, origin);
+    const flyerContext = await loadFlyerStudioContext({
+      userId: user.id,
+      guide: data,
+      business,
+      publicUrl,
+      archetypeOverride: flyerStudio?.archetypeOverride ?? null,
+      selectedCoverUrl: flyerStudio?.selectedCoverUrl ?? null,
+    });
     return NextResponse.json(
-      serializeGuide(data, serializeFlyerStudioForClient(flyerStudio))
+      serializeGuide(data, serializeFlyerStudioForClient(flyerStudio), flyerContext)
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load Profile Guide";

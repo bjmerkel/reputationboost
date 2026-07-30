@@ -36,6 +36,9 @@ function rowToFlyerStudioState(row: Record<string, unknown>): FlyerStudioPersist
         : null,
     history: row.history,
     selectedHistoryId: row.selected_history_id,
+    archetype: row.archetype,
+    archetypeOverride: row.archetype_override,
+    selectedCoverUrl: row.selected_cover_url,
     updatedAt: row.updated_at,
   });
 }
@@ -91,6 +94,9 @@ export async function saveProfileGuideFlyerStudio(
       background_url: state.studioCache?.backgroundDataUrl ?? null,
       history: state.history,
       selected_history_id: state.selectedHistoryId,
+      archetype: state.archetype,
+      archetype_override: state.archetypeOverride,
+      selected_cover_url: state.selectedCoverUrl,
       updated_at: state.updatedAt,
     },
     { onConflict: "guide_id" }
@@ -140,6 +146,9 @@ export function serializeFlyerStudioForClient(state: FlyerStudioPersistedState |
     studioCache: state.studioCache,
     history: state.history,
     selectedHistoryId: state.selectedHistoryId,
+    archetype: state.archetype,
+    archetypeOverride: state.archetypeOverride,
+    selectedCoverUrl: state.selectedCoverUrl,
     updatedAt: state.updatedAt,
   };
 }

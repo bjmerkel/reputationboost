@@ -8,6 +8,10 @@ import {
   type ProfileGuideFlyerFormat,
 } from "./formats";
 import { PROFILE_GUIDE_FLYER_TEMPLATES } from "../theme";
+import {
+  parseFlyerArchetypeOverride,
+  type FlyerDesignArchetype,
+} from "./archetypes";
 
 export interface FlyerCopyPayload {
   headline: string;
@@ -42,6 +46,9 @@ export interface FlyerStudioPersistedState {
   studioCache: FlyerStudioCache | null;
   history: FlyerHistoryEntry[];
   selectedHistoryId: string | null;
+  archetype: FlyerDesignArchetype | null;
+  archetypeOverride: FlyerDesignArchetype | null;
+  selectedCoverUrl: string | null;
   updatedAt: string;
 }
 
@@ -151,6 +158,10 @@ export function parseFlyerStudioState(value: unknown): FlyerStudioPersistedState
     history,
     selectedHistoryId:
       typeof parsed.selectedHistoryId === "string" ? parsed.selectedHistoryId : null,
+    archetype: parseFlyerArchetypeOverride(parsed.archetype),
+    archetypeOverride: parseFlyerArchetypeOverride(parsed.archetypeOverride),
+    selectedCoverUrl:
+      typeof parsed.selectedCoverUrl === "string" ? parsed.selectedCoverUrl : null,
     updatedAt:
       typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date().toISOString(),
   };

@@ -4,6 +4,7 @@ import { isImageGenerationConfigured } from "@/lib/llm/config";
 import { generateAiProfileGuideFlyer, serializeGeneratedFlyer } from "@/lib/profile-guide/flyer/generate";
 import { parseProfileGuideFlyerFormat } from "@/lib/profile-guide/flyer/formats";
 import type { FlyerCopy } from "@/lib/profile-guide/flyer/copy";
+import { parseFlyerArchetypeOverride } from "@/lib/profile-guide/flyer/archetypes";
 import { parseFlyerDisplayOptions } from "@/lib/profile-guide/flyer/options";
 import {
   appendFlyerHistoryEntry,
@@ -80,11 +81,22 @@ export async function POST(request: Request) {
   const cachedImagePrompt =
     typeof record.imagePrompt === "string" ? record.imagePrompt : undefined;
   const cachedCopy = parseCachedCopy(record.copy);
+  const archetypeOverride =
+    "archetypeOverride" in record
+      ? parseFlyerArchetypeOverride(record.archetypeOverride)
+      : undefined;
+  const selectedCoverUrl =
+    record.selectedCoverUrl === null
+      ? null
+      : typeof record.selectedCoverUrl === "string"
+        ? record.selectedCoverUrl
+        : undefined;
 
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
   const publicUrl = profileGuidePublicUrl(guide.guide.slug, origin);
 
   try {
+    const existing = await getProfileGuideFlyerStudio(user.id, guide.guide.id);
     const result = await generateAiProfileGuideFlyer({
       userId: user.id,
       guide,
@@ -97,10 +109,15 @@ export async function POST(request: Request) {
       backgroundDataUrl,
       cachedCopy,
       cachedImagePrompt,
+      archetypeOverride:
+        archetypeOverride !== undefined
+          ? archetypeOverride
+          : existing?.archetypeOverride ?? null,
+      selectedCoverUrl:
+        selectedCoverUrl !== undefined ? selectedCoverUrl : existing?.selectedCoverUrl ?? null,
     });
 
     const serialized = serializeGeneratedFlyer(result);
-    const existing = await getProfileGuideFlyerStudio(user.id, guide.guide.id);
     const historyUpdate = appendFlyerHistoryEntry({
       existing,
       imageDataUrl: serialized.imageDataUrl,
@@ -123,6 +140,13 @@ export async function POST(request: Request) {
       },
       history: historyUpdate.history,
       selectedHistoryId: historyUpdate.selectedHistoryId,
+      archetype: result.archetype,
+      archetypeOverride:
+        archetypeOverride !== undefined
+          ? archetypeOverride
+          : existing?.archetypeOverride ?? null,
+      selectedCoverUrl:
+        selectedCoverUrl !== undefined ? selectedCoverUrl : existing?.selectedCoverUrl ?? null,
       updatedAt,
     };
 
