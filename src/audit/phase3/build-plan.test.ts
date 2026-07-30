@@ -11,14 +11,15 @@ describe("plan-phases", () => {
     assert.equal(getPhaseForStep(1), "foundation");
     assert.equal(getPhaseForStep(6), "content");
     assert.equal(getPhaseForStep(11), "reputation");
+    assert.equal(getPhaseForStep(16), "reputation");
     assert.equal(getPhaseForStep(17), "ongoing");
   });
 
   it("defines all core plan steps across phases", () => {
     const covered = PLAN_PHASE_DEFINITIONS.flatMap((p) => p.stepNumbers);
-    assert.equal(covered.length, 15);
+    assert.equal(covered.length, 16);
     assert.deepEqual([...new Set(covered)].sort((a, b) => a - b), [
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 17,
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16, 17,
     ]);
   });
 
