@@ -6,6 +6,10 @@ import ProfileGuidePhonePreview from "@/components/profile-guide/ProfileGuidePho
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
 import { customersTabHref } from "@/lib/customers/tabs";
 import { formatSourceLabel } from "@/lib/profile-guide/analytics";
+import {
+  MAX_CUSTOM_PROFILE_GUIDE_LINKS,
+  isNewProfileGuideLinkId,
+} from "@/lib/profile-guide/link-helpers";
 import type { ProfileGuideAnalyticsPeriod, ProfileGuideSourceStats } from "@/lib/profile-guide/types";
 import {
   PROFILE_GUIDE_BUTTON_STYLES,
@@ -82,6 +86,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   const [previewOpen, setPreviewOpen] = useState(false);
   const [period, setPeriod] = useState<ProfileGuideAnalyticsPeriod>(30);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [deletedLinkIds, setDeletedLinkIds] = useState<string[]>([]);
 
   const loadGuide = useCallback(async () => {
     setLoading(true);
@@ -101,6 +106,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       setTextMessage(json.guide.textMessage ?? "");
       setGbpSyncedAt(json.guide.gbpSyncedAt ?? null);
       setPublished(json.guide.published);
+      setDeletedLinkIds([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load Profile Guide");
     } finally {
@@ -144,6 +150,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   async function saveGuide(overrides?: {
     published?: boolean;
     links?: GuideLink[];
+    deletedLinkIds?: string[];
     primaryColor?: string;
     logoUrl?: string | null;
     backgroundImageUrl?: string | null;
@@ -154,6 +161,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
     setMessage(null);
 
     const nextLinks = overrides?.links ?? links;
+    const nextDeletedLinkIds = overrides?.deletedLinkIds ?? deletedLinkIds;
     const payload = {
       published: overrides?.published ?? published,
       primaryColor: overrides?.primaryColor ?? primaryColor,
@@ -165,8 +173,9 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         overrides?.backgroundImageUrl !== undefined ? overrides.backgroundImageUrl : backgroundImageUrl,
       tagline: overrides?.tagline ?? tagline,
       textMessage,
+      deletedLinkIds: nextDeletedLinkIds,
       links: nextLinks.map((link, index) => ({
-        id: link.id,
+        id: isNewProfileGuideLinkId(link.id) ? undefined : link.id,
         linkType: link.linkType,
         label: link.label,
         url: link.url,
@@ -185,6 +194,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       setData(json);
       setLinks(json.links);
       setPublished(json.guide.published);
+      setDeletedLinkIds([]);
       setBackgroundImageUrl(json.guide.backgroundImageUrl ?? null);
       setMessage(json.guide.published ? "Profile Guide published." : "Changes saved.");
       void loadAnalytics(period);
@@ -212,6 +222,36 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       return next.map((link, sortOrder) => ({ ...link, sortOrder }));
     });
   }
+
+  function addCustomButton() {
+    const customCount = links.filter((link) => link.linkType === "custom").length;
+    if (customCount >= MAX_CUSTOM_PROFILE_GUIDE_LINKS) {
+      setError(`You can add up to ${MAX_CUSTOM_PROFILE_GUIDE_LINKS} custom buttons.`);
+      return;
+    }
+
+    setError(null);
+    setLinks((current) => [
+      ...current,
+      {
+        id: `new-${crypto.randomUUID()}`,
+        linkType: "custom",
+        label: "Custom button",
+        url: "https://",
+        sortOrder: current.length,
+        enabled: true,
+      },
+    ]);
+  }
+
+  function removeCustomButton(id: string) {
+    if (!isNewProfileGuideLinkId(id)) {
+      setDeletedLinkIds((current) => [...current, id]);
+    }
+    setLinks((current) => current.filter((link) => link.id !== id));
+  }
+
+  const customButtonCount = links.filter((link) => link.linkType === "custom").length;
 
   async function handleLogoUpload(file: File | null) {
     if (!file) return;
@@ -551,31 +591,61 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         </section>
 
         <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
-          <h3 className="text-base font-semibold text-[#202124]">Action buttons</h3>
-          <p className="mt-1 text-sm text-[#5f6368]">
-            Reorder, toggle, and edit the links on your public guide.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-[#202124]">Action buttons</h3>
+              <p className="mt-1 text-sm text-[#5f6368]">
+                Add custom buttons, reorder, toggle, and edit the links on your public guide.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={addCustomButton}
+              disabled={customButtonCount >= MAX_CUSTOM_PROFILE_GUIDE_LINKS}
+              className="btn-secondary rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-50"
+            >
+              Add custom button
+            </button>
+          </div>
 
           <ul className="mt-4 space-y-3">
             {[...links]
               .sort((a, b) => a.sortOrder - b.sortOrder)
-              .map((link, index, sorted) => (
+              .map((link, index, sorted) => {
+                const isCustom = link.linkType === "custom";
+                return (
                 <li
                   key={link.id}
                   className="rounded-lg border border-[#e8eaed] bg-[#f8f9fa] p-4"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <label className="flex items-center gap-2 text-sm font-medium text-[#3c4043]">
-                      <input
-                        type="checkbox"
-                        checked={link.enabled}
-                        onChange={(event) =>
-                          updateLink(link.id, { enabled: event.target.checked })
-                        }
-                      />
-                      Enabled
-                    </label>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="flex items-center gap-2 text-sm font-medium text-[#3c4043]">
+                        <input
+                          type="checkbox"
+                          checked={link.enabled}
+                          onChange={(event) =>
+                            updateLink(link.id, { enabled: event.target.checked })
+                          }
+                        />
+                        Enabled
+                      </label>
+                      {isCustom && (
+                        <span className="rounded-full bg-[#e8f0fe] px-2 py-0.5 text-xs font-semibold text-[#1a73e8]">
+                          Custom
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
+                      {isCustom && (
+                        <button
+                          type="button"
+                          onClick={() => removeCustomButton(link.id)}
+                          className="rounded-full border border-[#fce8e6] px-3 py-1 text-xs font-medium text-[#c5221f]"
+                        >
+                          Remove
+                        </button>
+                      )}
                       <button
                         type="button"
                         disabled={index === 0}
@@ -617,8 +687,14 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
                     </label>
                   </div>
                 </li>
-              ))}
+              );
+              })}
           </ul>
+          {customButtonCount > 0 && (
+            <p className="mt-3 text-xs text-[#80868b]">
+              {customButtonCount} of {MAX_CUSTOM_PROFILE_GUIDE_LINKS} custom buttons used.
+            </p>
+          )}
         </section>
 
         <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">

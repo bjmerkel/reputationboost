@@ -10,6 +10,11 @@ import type {
   ProfileGuideUpdateInput,
   ProfileGuideWithLinks,
 } from "./types";
+import {
+  countCustomProfileGuideLinks,
+  isNewProfileGuideLinkId,
+  MAX_CUSTOM_PROFILE_GUIDE_LINKS,
+} from "./link-helpers";
 import { buildTextUsUrl } from "./theme";
 
 function formatStorageError(message: string): string {
@@ -233,9 +238,64 @@ export async function updateProfileGuide(
   const textMessage = input.textMessage !== undefined ? input.textMessage : current.guide.text_message;
   const phone = business?.phone;
 
+  if (input.deletedLinkIds?.length) {
+    for (const linkId of input.deletedLinkIds) {
+      const existing = current.links.find((link) => link.id === linkId);
+      if (!existing || existing.link_type !== "custom") continue;
+
+      const { error: deleteError } = await supabase
+        .from("profile_guide_links")
+        .delete()
+        .eq("id", linkId)
+        .eq("guide_id", current.guide.id);
+
+      if (deleteError) throw new Error(formatStorageError(deleteError.message));
+    }
+  }
+
   if (input.links) {
+    const existingCustomCount = countCustomProfileGuideLinks(current.links);
+    const deletedCustomCount =
+      input.deletedLinkIds?.filter((id) =>
+        current.links.some((link) => link.id === id && link.link_type === "custom")
+      ).length ?? 0;
+    const newCustomLinks = input.links.filter(
+      (link) => isNewProfileGuideLinkId(link.id) && link.linkType === "custom"
+    );
+    const nextCustomCount = existingCustomCount - deletedCustomCount + newCustomLinks.length;
+
+    if (nextCustomCount > MAX_CUSTOM_PROFILE_GUIDE_LINKS) {
+      throw new Error(
+        `You can add up to ${MAX_CUSTOM_PROFILE_GUIDE_LINKS} custom buttons.`
+      );
+    }
+
+    const inserts: Array<{
+      guide_id: string;
+      link_type: "custom";
+      label: string;
+      url: string;
+      sort_order: number;
+      enabled: boolean;
+    }> = [];
+
     for (const link of input.links) {
-      if (!link.id) continue;
+      if (isNewProfileGuideLinkId(link.id)) {
+        if (link.linkType !== "custom") continue;
+        inserts.push({
+          guide_id: current.guide.id,
+          link_type: "custom",
+          label: link.label.trim() || "Custom link",
+          url: link.url.trim(),
+          sort_order: link.sortOrder,
+          enabled: link.enabled,
+        });
+        continue;
+      }
+
+      const existing = current.links.find((row) => row.id === link.id);
+      if (!existing) continue;
+
       let url = link.url;
       if (link.linkType === "text" && phone?.trim()) {
         url = buildTextUsUrl(phone, textMessage);
@@ -254,6 +314,11 @@ export async function updateProfileGuide(
         .eq("guide_id", current.guide.id);
 
       if (linkError) throw new Error(formatStorageError(linkError.message));
+    }
+
+    if (inserts.length > 0) {
+      const { error: insertError } = await supabase.from("profile_guide_links").insert(inserts);
+      if (insertError) throw new Error(formatStorageError(insertError.message));
     }
   } else if (input.textMessage !== undefined && phone?.trim()) {
     const textLink = current.links.find((link) => link.link_type === "text");

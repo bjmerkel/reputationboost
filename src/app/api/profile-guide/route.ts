@@ -111,6 +111,9 @@ function parseUpdate(body: unknown): ProfileGuideUpdateInput {
           : undefined,
     displayName: typeof record.displayName === "string" ? record.displayName : undefined,
     links: parseLinks(record.links),
+    deletedLinkIds: Array.isArray(record.deletedLinkIds)
+      ? record.deletedLinkIds.filter((id): id is string => typeof id === "string")
+      : undefined,
   };
 }
 
