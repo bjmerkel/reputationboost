@@ -19,7 +19,7 @@ import {
   googlePostShowsSchedulePicker,
   taskPrimaryActionLabel,
 } from "./plan-ux-copy";
-import { googlePostAwaitingScheduledPublish, googlePostIsScheduled, googlePostPublishFailed } from "@/lib/google/google-post-schedule";
+import { googlePostAwaitingScheduledPublish, googlePostCanManageSchedule, googlePostIsScheduled, googlePostPublishFailed } from "@/lib/google/google-post-schedule";
 import GooglePostSchedulePicker, { useGooglePostScheduleState } from "./GooglePostSchedulePicker";
 
 const EDIT_STATUS_STYLES: Record<GbpEditStatus, string> = {
@@ -114,7 +114,7 @@ export default function PlanStepTaskRow({
       ? formatPlanTimestamp(task.scheduledFor)
       : null;
   const awaitingScheduledPublish = googlePostAwaitingScheduledPublish(task);
-  const isScheduledPost = googlePostIsScheduled(task);
+  const canManageSchedule = googlePostCanManageSchedule(task);
   const publishFailed = googlePostPublishFailed(task);
   const showSchedulePicker = isGooglePost && googlePostShowsSchedulePicker(task) && gbpConnected;
   const scheduleChanged =
@@ -163,7 +163,7 @@ export default function PlanStepTaskRow({
                 ? "bg-[#fef7e0] text-[#e37400]"
                 : task.status === "rejected"
                   ? "bg-[#f1f3f4] text-[#5f6368]"
-                  : isScheduledPost || awaitingScheduledPublish
+                  : canManageSchedule || googlePostIsScheduled(task)
                     ? "bg-[#e8f0fe] text-[#1a73e8]"
                     : "bg-[#e8f0fe] text-[#1a73e8]"
           }`}
@@ -404,7 +404,7 @@ export default function PlanStepTaskRow({
                         {loading ? "Publishing…" : "Publish now"}
                       </button>
                     )}
-                  {isScheduledPost && scheduleChanged && scheduleState.canSchedule && (
+                  {canManageSchedule && scheduleChanged && scheduleState.canSchedule && (
                     <button
                       type="button"
                       disabled={loading || !scheduleState.scheduledForIso}
@@ -421,7 +421,7 @@ export default function PlanStepTaskRow({
                       {loading ? "Saving…" : "Update schedule"}
                     </button>
                   )}
-                  {isScheduledPost && actions.cancelScheduledPost && (
+                  {canManageSchedule && actions.cancelScheduledPost && (
                     <button
                       type="button"
                       disabled={loading}

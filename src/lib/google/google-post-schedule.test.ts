@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   addDays,
+  buildMonthCalendarCells,
   datetimeLocalValueToIso,
   defaultGooglePostScheduledFor,
+  groupUpcomingGooglePostsByDate,
   googlePostAwaitingScheduledPublish,
   googlePostShouldScheduleOnly,
   isoToDatetimeLocalValue,
@@ -98,5 +100,20 @@ describe("google-post-schedule", () => {
     assert.equal(googlePostShouldScheduleOnly(task, false, future), true);
     assert.equal(googlePostShouldScheduleOnly(task, false, null), false);
     assert.equal(googlePostShouldScheduleOnly(task, true, future), false);
+  });
+
+  it("buildMonthCalendarCells pads weeks and groups by local date", () => {
+    const cells = buildMonthCalendarCells(2026, 6);
+    assert.equal(cells.length % 7, 0);
+    const grouped = groupUpcomingGooglePostsByDate([
+      googlePostTask({
+        id: "july",
+        scheduledFor: "2026-07-15T15:00:00.000Z",
+        status: "scheduled",
+      }),
+    ]);
+    const keys = [...grouped.keys()];
+    assert.equal(keys.length, 1);
+    assert.ok(keys[0].startsWith("2026-07-"));
   });
 });

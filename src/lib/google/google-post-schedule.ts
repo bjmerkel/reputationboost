@@ -176,3 +176,75 @@ export function failedGooglePostTasks(tasks: ExecutionTask[]): ExecutionTask[] {
         new Date(a.completedAt ?? a.createdAt).getTime()
     );
 }
+
+export function googlePostCanManageSchedule(task: ExecutionTask): boolean {
+  return googlePostIsScheduled(task) || googlePostAwaitingScheduledPublish(task);
+}
+
+/** Local calendar date key (YYYY-MM-DD) for grouping scheduled posts. */
+export function localDateKeyFromIso(iso: string): string {
+  return localDateKeyFromDate(new Date(iso));
+}
+
+export function localDateKeyFromDate(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+export function groupUpcomingGooglePostsByDate(tasks: ExecutionTask[]): Map<string, ExecutionTask[]> {
+  const grouped = new Map<string, ExecutionTask[]>();
+  for (const task of upcomingGooglePostTasks(tasks)) {
+    if (!task.scheduledFor) continue;
+    const key = localDateKeyFromIso(task.scheduledFor);
+    const bucket = grouped.get(key) ?? [];
+    bucket.push(task);
+    grouped.set(key, bucket);
+  }
+  return grouped;
+}
+
+export function monthStart(year: number, monthIndex: number): Date {
+  return new Date(year, monthIndex, 1);
+}
+
+export function addMonths(date: Date, months: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
+}
+
+export interface CalendarCell {
+  date: Date | null;
+  dateKey: string | null;
+}
+
+/** Month grid cells including leading/trailing blanks (Sunday-start week). */
+export function buildMonthCalendarCells(year: number, monthIndex: number): CalendarCell[] {
+  const first = new Date(year, monthIndex, 1);
+  const startOffset = first.getDay();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const cells: CalendarCell[] = [];
+
+  for (let i = 0; i < startOffset; i++) {
+    cells.push({ date: null, dateKey: null });
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, monthIndex, day);
+    cells.push({ date, dateKey: localDateKeyFromDate(date) });
+  }
+
+  while (cells.length % 7 !== 0) {
+    cells.push({ date: null, dateKey: null });
+  }
+
+  return cells;
+}
+
+export function initialCalendarMonth(tasks: ExecutionTask[]): Date {
+  const upcoming = upcomingGooglePostTasks(tasks);
+  if (upcoming[0]?.scheduledFor) {
+    const date = new Date(upcoming[0].scheduledFor);
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+}
