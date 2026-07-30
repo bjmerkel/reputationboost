@@ -21,6 +21,7 @@ export default function PlanKeywordPlaybooks({
   onFocusKeyword,
   auditId,
   businessId,
+  profileGuideUnpublished = false,
 }: {
   audit: FullAuditPayload;
   plan: Plan;
@@ -33,6 +34,7 @@ export default function PlanKeywordPlaybooks({
   onFocusKeyword?: (keyword: string, stepNumber?: number) => void;
   auditId?: string;
   businessId?: string;
+  profileGuideUnpublished?: boolean;
 }) {
   const isLight = variant === "light";
   const [expandedKeyword, setExpandedKeyword] = useState<string | null>(null);
@@ -45,9 +47,19 @@ export default function PlanKeywordPlaybooks({
         marketIndex,
         winningStepsByKeyword,
         currency,
+        profileGuideUnpublished,
         limit: 5,
       }),
-    [audit, plan, avgCustomerValue, calibration, marketIndex, winningStepsByKeyword, currency]
+    [
+      audit,
+      plan,
+      avgCustomerValue,
+      calibration,
+      marketIndex,
+      winningStepsByKeyword,
+      currency,
+      profileGuideUnpublished,
+    ]
   );
 
   if (playbooks.length === 0) return null;

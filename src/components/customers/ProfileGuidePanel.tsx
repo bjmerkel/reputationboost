@@ -7,6 +7,7 @@ import ProfileGuideSectionTooltip from "@/components/profile-guide/ProfileGuideS
 import { useLeavePageWarning } from "@/hooks/useLeavePageWarning";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
 import { customersTabHref } from "@/lib/customers/tabs";
+import { planReviewRequestsHref } from "@/lib/profile-guide/readiness";
 import { formatSourceLabel } from "@/lib/profile-guide/analytics";
 import {
   MAX_CUSTOM_PROFILE_GUIDE_LINKS,
@@ -214,6 +215,7 @@ export default function ProfileGuidePanel({
   const [flyerQualityMessages, setFlyerQualityMessages] = useState<string[]>([]);
   const [flyerFeedbackRating, setFlyerFeedbackRating] = useState<-1 | 1 | null>(null);
   const [flyerFeedbackSubmitting, setFlyerFeedbackSubmitting] = useState(false);
+  const [showPlanReturnBanner, setShowPlanReturnBanner] = useState(false);
 
   const activeFlyerArchetypeLabel = useMemo(() => {
     const archetype =
@@ -322,6 +324,7 @@ export default function ProfileGuidePanel({
     setError(null);
     setMessage(null);
 
+    const wasPublished = published;
     const nextLinks = overrides?.links ?? links;
     const nextDeletedLinkIds = overrides?.deletedLinkIds ?? deletedLinkIds;
     const payload = {
@@ -356,6 +359,9 @@ export default function ProfileGuidePanel({
       setData(json);
       setLinks(json.links);
       setPublished(json.guide.published);
+      if (!wasPublished && json.guide.published) {
+        setShowPlanReturnBanner(true);
+      }
       setDeletedLinkIds([]);
       setLogoUrl(json.guide.logoUrl);
       setBackgroundImageUrl(json.guide.backgroundImageUrl ?? null);
@@ -620,6 +626,7 @@ export default function ProfileGuidePanel({
     : "/platform/audit?view=audit";
 
   const outreachHref = customersTabHref("review-requests", businessId);
+  const planReviewHref = planReviewRequestsHref(businessId);
   const showPlanEntryBanner = entryFrom === "plan" && !published;
 
   useEffect(() => {
@@ -655,6 +662,17 @@ export default function ProfileGuidePanel({
             <div className="mb-4 rounded-lg border border-[#d2e3fc] bg-[#e8f0fe] px-4 py-3 text-sm text-[#3c4043]">
               You&apos;re here from your Plan — publish your Profile Guide to unlock review
               requests with a branded link customers trust.
+            </div>
+          )}
+          {showPlanReturnBanner && published && (
+            <div className="mb-4 rounded-lg border border-[#ceead6] bg-[#e6f4ea] px-4 py-3 text-sm text-[#137333]">
+              <p>Your Profile Guide is live — branded review links are ready for outreach.</p>
+              <Link
+                href={planReviewHref}
+                className="mt-2 inline-flex font-semibold text-[#137333] underline underline-offset-2 hover:text-[#0d652d]"
+              >
+                Continue to review requests in your Plan →
+              </Link>
             </div>
           )}
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -756,6 +774,15 @@ export default function ProfileGuidePanel({
               <Link href={outreachHref} className="font-medium text-[#1a73e8] hover:underline">
                 send it via SMS or email
               </Link>
+              {showPlanReturnBanner || entryFrom === "plan" ? (
+                <>
+                  {" "}
+                  or{" "}
+                  <Link href={planReviewHref} className="font-medium text-[#1a73e8] hover:underline">
+                    return to your Plan
+                  </Link>
+                </>
+              ) : null}
               .
             </p>
           )}
