@@ -20,6 +20,8 @@ export const FLYER_IMAGE_NEVER_DO_RULES = [
   "Do NOT include people, faces, products, tools, food, or literal business objects unless using abstract photographic atmosphere only.",
   "Do NOT use busy patterns, stretched elements, distorted squares, or generic template frames.",
   "Do NOT create a finished flyer layout — only a premium background atmosphere with intentional zones for overlay content.",
+  "Do NOT draw white panels, rounded rectangles, placeholder boxes, frames, cards, or shadow panels for text or QR placement.",
+  "Do NOT leave empty geometric shapes, mock UI fields, or visible placeholder zones in the image.",
 ].join("\n");
 
 export const FLYER_IMAGE_QUALITY_ENDING = `The final background should feel indistinguishable from a professionally designed flyer produced by a top-tier branding agency.
