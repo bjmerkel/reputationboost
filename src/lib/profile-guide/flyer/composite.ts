@@ -7,6 +7,7 @@ import { computeFlyerLayout, getFlyerFormatSpec, type FlyerLayout } from "./form
 import {
   getArchetypeLayoutTokens,
   type ArchetypeLayoutTokens,
+  type CoverTreatment,
 } from "./layout-variants";
 import { buildFlyerFooter } from "./options";
 
@@ -88,7 +89,48 @@ function wrapSvgLines(text: string, maxChars: number, maxLines: number): string[
 
 function effectiveCoverHeight(layout: FlyerLayout, tokens: ArchetypeLayoutTokens): number {
   if (tokens.coverTreatment === "none") return 0;
-  return Math.round(layout.coverHeight * tokens.coverHeightRatio);
+  const base = Math.round(layout.coverHeight * tokens.coverHeightRatio);
+  return layout.orientation === "landscape" ? Math.round(base * 0.72) : base;
+}
+
+function buildCoverFadeSvg(
+  width: number,
+  height: number,
+  treatment: CoverTreatment,
+  fadeOpacity: number
+): Buffer {
+  const bottomOpacity = Math.min(fadeOpacity + 0.12, 0.72);
+  const midOpacity = Math.min(fadeOpacity, 0.42);
+  const vignetteOpacity =
+    treatment === "full-bleed-fade" ? Math.min(fadeOpacity + 0.06, 0.38) : 0;
+
+  const parts = [
+    `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`,
+    `<defs>`,
+    `<linearGradient id="coverFade" x1="0" y1="0" x2="0" y2="1">`,
+    `<stop offset="0%" stop-color="#000000" stop-opacity="0"/>`,
+    `<stop offset="55%" stop-color="#000000" stop-opacity="${midOpacity * 0.35}"/>`,
+    `<stop offset="100%" stop-color="#000000" stop-opacity="${bottomOpacity}"/>`,
+    `</linearGradient>`,
+  ];
+
+  if (vignetteOpacity > 0) {
+    parts.push(
+      `<radialGradient id="coverVignette" cx="50%" cy="35%" r="75%">`,
+      `<stop offset="35%" stop-color="#000000" stop-opacity="0"/>`,
+      `<stop offset="100%" stop-color="#000000" stop-opacity="${vignetteOpacity}"/>`,
+      `</radialGradient>`
+    );
+  }
+
+  parts.push(`</defs>`, `<rect width="100%" height="100%" fill="url(#coverFade)"/>`);
+
+  if (vignetteOpacity > 0) {
+    parts.push(`<rect width="100%" height="100%" fill="url(#coverVignette)"/>`);
+  }
+
+  parts.push(`</svg>`);
+  return Buffer.from(parts.join(""));
 }
 
 function effectiveCardRadius(layout: FlyerLayout, tokens: ArchetypeLayoutTokens): number {
@@ -511,9 +553,11 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
   const showStars = brief.displayOptions.showStars;
   const coverHeight = effectiveCoverHeight(layout, tokens);
 
+  const coverSource = brief.resolvedCoverUrl ?? brief.coverImageUrl;
+
   const [logoBuffer, coverBuffer] = await Promise.all([
     loadImageBuffer(brief.logoUrl),
-    loadImageBuffer(brief.coverImageUrl),
+    loadImageBuffer(coverSource),
   ]);
 
   const qrBuffer = await QRCode.toBuffer(
@@ -538,26 +582,16 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
 
   const layers: OverlayOptions[] = [];
 
-  if (coverBuffer && layout.orientation === "portrait" && coverHeight > 0) {
+  if (coverBuffer && coverHeight > 0) {
     const cover = await sharp(coverBuffer)
       .resize(layout.width, coverHeight, { fit: "cover", position: "centre" })
       .png()
       .toBuffer();
     layers.push({ input: cover, top: 0, left: 0 });
 
-    const fadeAlpha =
-      tokens.coverTreatment === "full-bleed-fade"
-        ? Math.min(tokens.coverFadeOpacity + 0.08, 0.5)
-        : tokens.coverFadeOpacity;
-
-    const coverFade = await sharp({
-      create: {
-        width: layout.width,
-        height: coverHeight,
-        channels: 4,
-        background: { r: 0, g: 0, b: 0, alpha: fadeAlpha },
-      },
-    })
+    const coverFade = await sharp(
+      buildCoverFadeSvg(layout.width, coverHeight, tokens.coverTreatment, tokens.coverFadeOpacity)
+    )
       .png()
       .toBuffer();
     layers.push({ input: coverFade, top: 0, left: 0 });

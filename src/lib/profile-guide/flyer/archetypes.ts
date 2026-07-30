@@ -216,6 +216,15 @@ export function getArchetypeDefinition(archetype: FlyerDesignArchetype): Archety
   return ARCHETYPE_DEFINITIONS[archetype];
 }
 
+export function parseFlyerArchetypeOverride(
+  value: unknown
+): FlyerDesignArchetype | null {
+  if (typeof value !== "string") return null;
+  return FLYER_DESIGN_ARCHETYPES.includes(value as FlyerDesignArchetype)
+    ? (value as FlyerDesignArchetype)
+    : null;
+}
+
 export function resolveFlyerDesignArchetype(input: {
   primaryCategory: string;
   industry: string;

@@ -1,4 +1,4 @@
-import type { FullAuditPayload } from "@/audit/types";
+import type { FullAuditPayload, GbpMediaPreview } from "@/audit/types";
 import type { ClientConfig } from "@/audit/types";
 import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin";
 import type { ProfileGuideWithLinks } from "../types";
@@ -9,6 +9,11 @@ import {
   type FlyerDesignArchetype,
 } from "./archetypes";
 import { buildFlyerBrief, type FlyerBrief } from "./brief";
+import {
+  extractFlyerGbpPhotos,
+  selectFlyerCoverPhoto,
+  type FlyerGbpPhoto,
+} from "./photo-picker";
 
 export interface FlyerDesignBrief extends FlyerBrief {
   primaryCategory: string;
@@ -17,6 +22,9 @@ export interface FlyerDesignBrief extends FlyerBrief {
   reviewCount?: number | null;
   profileGuideActions: string[];
   photoUrls: string[];
+  gbpPhotos: FlyerGbpPhoto[];
+  selectedCoverUrl?: string | null;
+  resolvedCoverUrl: string | null;
   archetype: FlyerDesignArchetype;
   archetypeStyle: ArchetypeDefinition;
 }
@@ -27,6 +35,7 @@ export interface FlyerGbpEnrichment {
   averageRating?: number | null;
   reviewCount?: number | null;
   photoUrls?: string[];
+  mediaPreviews?: GbpMediaPreview[];
 }
 
 function uniqueStrings(values: Array<string | null | undefined>): string[] {
@@ -38,10 +47,9 @@ export function extractFlyerGbpEnrichment(
 ): FlyerGbpEnrichment {
   if (!audit?.gbp) return {};
 
-  const mediaUrls =
-    audit.gbp.content.mediaPreviews
-      ?.map((item) => item.googleUrl || item.thumbnailUrl)
-      .filter(Boolean) ?? [];
+  const mediaPreviews = audit.gbp.content.mediaPreviews ?? [];
+  const gbpPhotos = extractFlyerGbpPhotos(mediaPreviews);
+  const mediaUrls = gbpPhotos.map((photo) => photo.url);
 
   return {
     primaryCategory: audit.gbp.identity.primaryCategory || undefined,
@@ -49,6 +57,7 @@ export function extractFlyerGbpEnrichment(
     averageRating: audit.gbp.engagement.averageRating ?? null,
     reviewCount: audit.gbp.engagement.reviewCount ?? null,
     photoUrls: mediaUrls.slice(0, 6),
+    mediaPreviews,
   };
 }
 
@@ -67,6 +76,8 @@ export function buildFlyerDesignBrief(input: {
   format: FlyerBrief["format"];
   displayOptions?: FlyerBrief["displayOptions"];
   enrichment?: FlyerGbpEnrichment;
+  archetypeOverride?: FlyerDesignArchetype | null;
+  selectedCoverUrl?: string | null;
 }): FlyerDesignBrief {
   const brief = buildFlyerBrief(
     input.guide,
@@ -82,15 +93,23 @@ export function buildFlyerDesignBrief(input: {
     enrichment.primaryCategory?.trim() ||
     brief.categories[0]?.trim() ||
     brief.industry;
+  const gbpPhotos = extractFlyerGbpPhotos(enrichment.mediaPreviews);
   const photoUrls = uniqueStrings([
     brief.coverImageUrl,
-    ...(enrichment.photoUrls ?? []),
+    ...(enrichment.photoUrls ?? gbpPhotos.map((photo) => photo.url)),
   ]).slice(0, 6);
-  const archetype = resolveFlyerDesignArchetype({
+  const detectedArchetype = resolveFlyerDesignArchetype({
     primaryCategory,
     industry: brief.industry,
     categories: brief.categories,
     keywords: brief.keywords,
+  });
+  const archetype = input.archetypeOverride ?? detectedArchetype;
+  const resolvedCoverUrl = selectFlyerCoverPhoto({
+    archetype,
+    photos: gbpPhotos,
+    guideCoverUrl: brief.coverImageUrl,
+    selectedCoverUrl: input.selectedCoverUrl,
   });
 
   return {
@@ -101,6 +120,9 @@ export function buildFlyerDesignBrief(input: {
     reviewCount: enrichment.reviewCount ?? null,
     profileGuideActions: buildProfileGuideActions(input.guide),
     photoUrls,
+    gbpPhotos,
+    selectedCoverUrl: input.selectedCoverUrl ?? null,
+    resolvedCoverUrl,
     archetype,
     archetypeStyle: getArchetypeDefinition(archetype),
   };
@@ -133,6 +155,8 @@ export async function buildFlyerDesignBriefWithEnrichment(input: {
   template: FlyerBrief["template"];
   format: FlyerBrief["format"];
   displayOptions?: FlyerBrief["displayOptions"];
+  archetypeOverride?: FlyerDesignArchetype | null;
+  selectedCoverUrl?: string | null;
 }): Promise<FlyerDesignBrief> {
   const enrichment = await loadFlyerGbpEnrichment({
     userId: input.userId,
