@@ -39,6 +39,10 @@ import {
 } from "@/lib/profile-guide/flyer/archetypes";
 import type { FlyerGbpPhoto } from "@/lib/profile-guide/flyer/photo-picker";
 import {
+  flyerQualityMessagesFromWarnings,
+  type FlyerQualityWarningCode,
+} from "@/lib/profile-guide/flyer/quality-check";
+import {
   type FlyerCopyPayload,
   type FlyerHistoryEntry,
   type FlyerStudioCache,
@@ -64,6 +68,11 @@ interface FlyerStudioClient {
   archetype?: FlyerDesignArchetype | null;
   archetypeOverride?: FlyerDesignArchetype | null;
   selectedCoverUrl?: string | null;
+  promptVersion?: string;
+  qualityWarnings?: FlyerQualityWarningCode[];
+  feedbackRating?: -1 | 1 | null;
+  feedbackAt?: string | null;
+  feedbackHistoryId?: string | null;
   updatedAt: string;
 }
 
@@ -130,6 +139,10 @@ function applyFlyerStudioState(studio: FlyerStudioClient | null | undefined) {
       archetype: null as FlyerDesignArchetype | null,
       archetypeOverride: null as FlyerDesignArchetype | null,
       selectedCoverUrl: null as string | null,
+      promptVersion: null as string | null,
+      qualityWarnings: [] as FlyerQualityWarningCode[],
+      qualityMessages: [] as string[],
+      feedbackRating: null as -1 | 1 | null,
       restored: false,
     };
   }
@@ -146,6 +159,10 @@ function applyFlyerStudioState(studio: FlyerStudioClient | null | undefined) {
     archetype: studio.archetype ?? null,
     archetypeOverride: studio.archetypeOverride ?? null,
     selectedCoverUrl: studio.selectedCoverUrl ?? null,
+    promptVersion: studio.promptVersion ?? null,
+    qualityWarnings: studio.qualityWarnings ?? [],
+    qualityMessages: flyerQualityMessagesFromWarnings(studio.qualityWarnings ?? []),
+    feedbackRating: studio.feedbackRating ?? null,
     restored: Boolean(studio.preview),
   };
 }
@@ -188,6 +205,9 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   const [flyerSelectedCoverUrl, setFlyerSelectedCoverUrl] = useState<string | null>(null);
   const [flyerContext, setFlyerContext] = useState<FlyerStudioContextClient | null>(null);
   const [showFlyerImagePrompt, setShowFlyerImagePrompt] = useState(false);
+  const [flyerQualityMessages, setFlyerQualityMessages] = useState<string[]>([]);
+  const [flyerFeedbackRating, setFlyerFeedbackRating] = useState<-1 | 1 | null>(null);
+  const [flyerFeedbackSubmitting, setFlyerFeedbackSubmitting] = useState(false);
 
   const activeFlyerArchetypeLabel = useMemo(() => {
     const archetype =
@@ -236,6 +256,8 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       setSelectedFlyerHistoryId(flyerStudio.selectedHistoryId);
       setFlyerArchetypeOverride(flyerStudio.archetypeOverride);
       setFlyerSelectedCoverUrl(flyerStudio.selectedCoverUrl);
+      setFlyerFeedbackRating(flyerStudio.feedbackRating);
+      setFlyerQualityMessages(flyerStudio.qualityMessages);
       setFlyerContext(json.flyerContext ?? null);
       if (flyerStudio.restored) {
         setMessage("Restored your saved flyer.");
@@ -489,6 +511,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         template: string;
         format: string;
         flyerStudio?: FlyerStudioClient | null;
+        quality?: { warnings: FlyerQualityWarningCode[]; messages: string[] };
         archetypeLabel?: string;
       }>(res);
 
@@ -504,6 +527,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         setSelectedFlyerHistoryId(flyerStudio.selectedHistoryId);
         setFlyerArchetypeOverride(flyerStudio.archetypeOverride);
         setFlyerSelectedCoverUrl(flyerStudio.selectedCoverUrl);
+        setFlyerFeedbackRating(flyerStudio.feedbackRating);
       } else {
         setFlyerPreview(json.imageDataUrl);
         setFlyerStudioCache({
@@ -511,6 +535,11 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
           imagePrompt: json.imagePrompt,
           copy: json.copy,
         });
+      }
+
+      setFlyerQualityMessages(json.quality?.messages ?? []);
+      if (mode !== "recompose") {
+        setFlyerFeedbackRating(null);
       }
 
       setMessage(
@@ -548,6 +577,36 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
     link.href = flyerPreview;
     link.download = `profile-guide-flyer-${flyerTemplate}-${flyerFormat}.png`;
     link.click();
+  }
+
+  async function submitFlyerFeedback(rating: -1 | 1) {
+    if (!flyerPreview || flyerFeedbackSubmitting) return;
+    setFlyerFeedbackSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/profile-guide/flyer/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating,
+          historyId: selectedFlyerHistoryId,
+        }),
+      });
+      const json = await parseJsonResponse<{
+        ok: boolean;
+        flyerStudio?: FlyerStudioClient | null;
+      }>(res);
+      setFlyerFeedbackRating(rating);
+      if (json.flyerStudio) {
+        const flyerStudio = applyFlyerStudioState(json.flyerStudio);
+        setFlyerFeedbackRating(flyerStudio.feedbackRating);
+      }
+      setMessage(rating === 1 ? "Thanks for the feedback!" : "Thanks — we'll use this to improve flyers.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save feedback");
+    } finally {
+      setFlyerFeedbackSubmitting(false);
+    }
   }
 
   const auditPhotosHref = businessId
@@ -1112,6 +1171,17 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
             </div>
           )}
 
+          {flyerQualityMessages.length > 0 && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-medium">Quality suggestions</p>
+              <ul className="mt-1 list-disc pl-5 text-amber-800">
+                {flyerQualityMessages.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {flyerPreview && (
             <div className="mt-4 overflow-hidden rounded-xl border border-[#e8eaed] bg-[#f8f9fa] p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#80868b]">
@@ -1123,6 +1193,33 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
                 alt="AI-generated review flyer preview"
                 className="mx-auto max-h-[520px] w-auto rounded-lg shadow-sm"
               />
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <p className="text-sm text-[#5f6368]">Was this flyer helpful?</p>
+                <button
+                  type="button"
+                  disabled={flyerFeedbackSubmitting}
+                  onClick={() => void submitFlyerFeedback(1)}
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold disabled:opacity-60 ${
+                    flyerFeedbackRating === 1
+                      ? "border-[#1a73e8] bg-[#e8f0fe] text-[#1a73e8]"
+                      : "border-[#dadce0] text-[#5f6368]"
+                  }`}
+                >
+                  👍 Yes
+                </button>
+                <button
+                  type="button"
+                  disabled={flyerFeedbackSubmitting}
+                  onClick={() => void submitFlyerFeedback(-1)}
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold disabled:opacity-60 ${
+                    flyerFeedbackRating === -1
+                      ? "border-[#1a73e8] bg-[#e8f0fe] text-[#1a73e8]"
+                      : "border-[#dadce0] text-[#5f6368]"
+                  }`}
+                >
+                  👎 Not really
+                </button>
+              </div>
             </div>
           )}
 

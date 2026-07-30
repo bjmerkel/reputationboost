@@ -124,8 +124,10 @@ export async function POST(request: Request) {
       template: result.template,
       format: result.format,
       recomposedOnly: result.recomposedOnly,
+      promptVersion: result.promptVersion,
     });
     const updatedAt = new Date().toISOString();
+    const clearFeedback = !result.recomposedOnly;
     const flyerStudio = {
       version: 1 as const,
       template: result.template,
@@ -147,6 +149,11 @@ export async function POST(request: Request) {
           : existing?.archetypeOverride ?? null,
       selectedCoverUrl:
         selectedCoverUrl !== undefined ? selectedCoverUrl : existing?.selectedCoverUrl ?? null,
+      promptVersion: result.promptVersion,
+      qualityWarnings: result.quality.warnings,
+      feedbackRating: clearFeedback ? null : existing?.feedbackRating ?? null,
+      feedbackAt: clearFeedback ? null : existing?.feedbackAt ?? null,
+      feedbackHistoryId: clearFeedback ? null : existing?.feedbackHistoryId ?? null,
       updatedAt,
     };
 

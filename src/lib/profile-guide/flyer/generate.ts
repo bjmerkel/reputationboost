@@ -20,6 +20,8 @@ import {
   type FlyerDisplayOptions,
 } from "./options";
 import { buildFlyerImagePrompt } from "./prompt";
+import { FLYER_PROMPT_VERSION } from "./prompt-version";
+import { checkFlyerQuality, type FlyerQualityReport } from "./quality-check";
 
 export interface GeneratedFlyerResult {
   imageBuffer: Buffer;
@@ -32,6 +34,8 @@ export interface GeneratedFlyerResult {
   recomposedOnly: boolean;
   archetype: FlyerDesignArchetype;
   archetypeLabel: string;
+  promptVersion: string;
+  quality: FlyerQualityReport;
 }
 
 export function isAiFlyerGenerationConfigured(): boolean {
@@ -106,6 +110,7 @@ export async function generateAiProfileGuideFlyer(input: {
   }
 
   const imageBuffer = await compositeFlyerImage({ brief: designBrief, background });
+  const quality = checkFlyerQuality({ brief: designBrief, copy: designBrief.copy });
 
   return {
     imageBuffer,
@@ -118,6 +123,8 @@ export async function generateAiProfileGuideFlyer(input: {
     recomposedOnly,
     archetype: designBrief.archetype,
     archetypeLabel: designBrief.archetypeStyle.label,
+    promptVersion: FLYER_PROMPT_VERSION,
+    quality,
   };
 }
 
@@ -133,6 +140,8 @@ export function serializeGeneratedFlyer(result: GeneratedFlyerResult) {
     recomposedOnly: result.recomposedOnly,
     archetype: result.archetype,
     archetypeLabel: result.archetypeLabel,
+    promptVersion: result.promptVersion,
+    quality: result.quality,
   };
 }
 

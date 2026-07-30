@@ -12,6 +12,8 @@ import {
   parseFlyerArchetypeOverride,
   type FlyerDesignArchetype,
 } from "./archetypes";
+import type { FlyerQualityWarningCode } from "./quality-check";
+import { FLYER_PROMPT_VERSION } from "./prompt-version";
 
 export interface FlyerCopyPayload {
   headline: string;
@@ -34,6 +36,7 @@ export interface FlyerHistoryEntry {
   template: string;
   format: string;
   createdAt: string;
+  promptVersion?: string;
 }
 
 export interface FlyerStudioPersistedState {
@@ -49,6 +52,11 @@ export interface FlyerStudioPersistedState {
   archetype: FlyerDesignArchetype | null;
   archetypeOverride: FlyerDesignArchetype | null;
   selectedCoverUrl: string | null;
+  promptVersion: string;
+  qualityWarnings: FlyerQualityWarningCode[];
+  feedbackRating: -1 | 1 | null;
+  feedbackAt: string | null;
+  feedbackHistoryId: string | null;
   updatedAt: string;
 }
 
@@ -119,6 +127,19 @@ function parseHistoryEntry(value: unknown): FlyerHistoryEntry | null {
   };
 }
 
+function parseQualityWarnings(value: unknown): FlyerQualityWarningCode[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is FlyerQualityWarningCode =>
+      item === "qr_low_contrast" || item === "text_near_qr_zone"
+  );
+}
+
+function parseFeedbackRating(value: unknown): -1 | 1 | null {
+  if (value === -1 || value === 1) return value;
+  return null;
+}
+
 function parseTemplate(value: unknown): (typeof PROFILE_GUIDE_FLYER_TEMPLATES)[number] {
   if (
     typeof value === "string" &&
@@ -162,6 +183,13 @@ export function parseFlyerStudioState(value: unknown): FlyerStudioPersistedState
     archetypeOverride: parseFlyerArchetypeOverride(parsed.archetypeOverride),
     selectedCoverUrl:
       typeof parsed.selectedCoverUrl === "string" ? parsed.selectedCoverUrl : null,
+    promptVersion:
+      typeof parsed.promptVersion === "string" ? parsed.promptVersion : FLYER_PROMPT_VERSION,
+    qualityWarnings: parseQualityWarnings(parsed.qualityWarnings),
+    feedbackRating: parseFeedbackRating(parsed.feedbackRating),
+    feedbackAt: typeof parsed.feedbackAt === "string" ? parsed.feedbackAt : null,
+    feedbackHistoryId:
+      typeof parsed.feedbackHistoryId === "string" ? parsed.feedbackHistoryId : null,
     updatedAt:
       typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date().toISOString(),
   };
