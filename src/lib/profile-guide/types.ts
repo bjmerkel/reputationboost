@@ -114,4 +114,5 @@ export interface ProfileGuideUpdateInput {
   textMessage?: string | null;
   displayName?: string;
   links?: ProfileGuideLinkInput[];
+  deletedLinkIds?: string[];
 }
