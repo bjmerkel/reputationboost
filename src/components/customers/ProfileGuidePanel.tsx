@@ -32,31 +32,23 @@ import {
   DEFAULT_FLYER_DISPLAY_OPTIONS,
   type FlyerDisplayOptions,
 } from "@/lib/profile-guide/flyer/options";
+import {
+  type FlyerCopyPayload,
+  type FlyerHistoryEntry,
+  type FlyerStudioCache,
+} from "@/lib/profile-guide/flyer/studio-storage";
 
-interface FlyerCopyPayload {
-  headline: string;
-  subhead: string;
-  cta: string;
-  qrLabel: string;
-  supportLine: string;
+interface FlyerStudioClient {
+  template: (typeof PROFILE_GUIDE_FLYER_TEMPLATES)[number];
+  format: ProfileGuideFlyerFormat;
+  promptRefinement: string;
+  displayOptions: FlyerDisplayOptions;
+  preview: string | null;
+  studioCache: FlyerStudioCache | null;
+  history: FlyerHistoryEntry[];
+  selectedHistoryId: string | null;
+  updatedAt: string;
 }
-
-interface FlyerStudioCache {
-  backgroundDataUrl: string;
-  imagePrompt: string;
-  copy: FlyerCopyPayload;
-}
-
-interface FlyerHistoryEntry {
-  id: string;
-  imageDataUrl: string;
-  label: string;
-  template: string;
-  format: string;
-  createdAt: string;
-}
-
-const MAX_FLYER_HISTORY = 3;
 
 interface GuideLink {
   id: string;
@@ -86,6 +78,7 @@ interface GuideData {
     publicUrl: string;
   };
   links: GuideLink[];
+  flyerStudio?: FlyerStudioClient | null;
 }
 
 interface AnalyticsData {
@@ -104,6 +97,34 @@ interface ProfileGuidePanelProps {
 }
 
 const PERIODS: ProfileGuideAnalyticsPeriod[] = [7, 30, 90];
+
+function applyFlyerStudioState(studio: FlyerStudioClient | null | undefined) {
+  if (!studio?.preview && !studio?.studioCache) {
+    return {
+      template: "professional" as const,
+      format: "letter" as ProfileGuideFlyerFormat,
+      promptRefinement: "",
+      displayOptions: DEFAULT_FLYER_DISPLAY_OPTIONS,
+      preview: null,
+      studioCache: null,
+      history: [] as FlyerHistoryEntry[],
+      selectedHistoryId: null,
+      restored: false,
+    };
+  }
+
+  return {
+    template: studio.template,
+    format: studio.format,
+    promptRefinement: studio.promptRefinement,
+    displayOptions: studio.displayOptions,
+    preview: studio.preview,
+    studioCache: studio.studioCache,
+    history: studio.history,
+    selectedHistoryId: studio.selectedHistoryId,
+    restored: Boolean(studio.preview),
+  };
+}
 
 export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps) {
   const [data, setData] = useState<GuideData | null>(null);
@@ -160,6 +181,19 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       setGbpSyncedAt(json.guide.gbpSyncedAt ?? null);
       setPublished(json.guide.published);
       setDeletedLinkIds([]);
+
+      const flyerStudio = applyFlyerStudioState(json.flyerStudio);
+      setFlyerTemplate(flyerStudio.template);
+      setFlyerFormat(flyerStudio.format);
+      setFlyerPromptRefinement(flyerStudio.promptRefinement);
+      setFlyerDisplayOptions(flyerStudio.displayOptions);
+      setFlyerPreview(flyerStudio.preview);
+      setFlyerStudioCache(flyerStudio.studioCache);
+      setFlyerHistory(flyerStudio.history);
+      setSelectedFlyerHistoryId(flyerStudio.selectedHistoryId);
+      if (flyerStudio.restored) {
+        setMessage("Restored your saved flyer.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load Profile Guide");
     } finally {
@@ -406,26 +440,26 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         recomposedOnly: boolean;
         template: string;
         format: string;
+        flyerStudio?: FlyerStudioClient | null;
       }>(res);
 
-      setFlyerPreview(json.imageDataUrl);
-      setFlyerStudioCache({
-        backgroundDataUrl: json.backgroundDataUrl,
-        imagePrompt: json.imagePrompt,
-        copy: json.copy,
-      });
-
-      if (!json.recomposedOnly) {
-        const entry: FlyerHistoryEntry = {
-          id: crypto.randomUUID(),
-          imageDataUrl: json.imageDataUrl,
-          label: `${json.template} · ${FLYER_FORMAT_SPECS[flyerFormat].label}`,
-          template: json.template,
-          format: json.format,
-          createdAt: new Date().toISOString(),
-        };
-        setFlyerHistory((current) => [entry, ...current].slice(0, MAX_FLYER_HISTORY));
-        setSelectedFlyerHistoryId(entry.id);
+      if (json.flyerStudio) {
+        const flyerStudio = applyFlyerStudioState(json.flyerStudio);
+        setFlyerTemplate(flyerStudio.template);
+        setFlyerFormat(flyerStudio.format);
+        setFlyerPromptRefinement(flyerStudio.promptRefinement);
+        setFlyerDisplayOptions(flyerStudio.displayOptions);
+        setFlyerPreview(flyerStudio.preview);
+        setFlyerStudioCache(flyerStudio.studioCache);
+        setFlyerHistory(flyerStudio.history);
+        setSelectedFlyerHistoryId(flyerStudio.selectedHistoryId);
+      } else {
+        setFlyerPreview(json.imageDataUrl);
+        setFlyerStudioCache({
+          backgroundDataUrl: json.backgroundDataUrl,
+          imagePrompt: json.imagePrompt,
+          copy: json.copy,
+        });
       }
 
       setMessage(

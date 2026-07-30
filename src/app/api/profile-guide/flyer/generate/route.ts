@@ -5,6 +5,12 @@ import { generateAiProfileGuideFlyer, serializeGeneratedFlyer } from "@/lib/prof
 import { parseProfileGuideFlyerFormat } from "@/lib/profile-guide/flyer/formats";
 import type { FlyerCopy } from "@/lib/profile-guide/flyer/copy";
 import { parseFlyerDisplayOptions } from "@/lib/profile-guide/flyer/options";
+import {
+  appendFlyerHistoryEntry,
+  getProfileGuideFlyerStudio,
+  saveProfileGuideFlyerStudio,
+  serializeFlyerStudioForClient,
+} from "@/lib/profile-guide/flyer/studio-db";
 import { profileGuidePublicUrl } from "@/lib/profile-guide/slug";
 import { getProfileGuideByBusinessId } from "@/lib/profile-guide/storage";
 import { PROFILE_GUIDE_FLYER_TEMPLATES } from "@/lib/profile-guide/theme";
@@ -92,7 +98,43 @@ export async function POST(request: Request) {
       cachedImagePrompt,
     });
 
-    return NextResponse.json(serializeGeneratedFlyer(result));
+    const serialized = serializeGeneratedFlyer(result);
+    const existing = await getProfileGuideFlyerStudio(user.id, guide.guide.id);
+    const historyUpdate = appendFlyerHistoryEntry({
+      existing,
+      imageDataUrl: serialized.imageDataUrl,
+      template: result.template,
+      format: result.format,
+      recomposedOnly: result.recomposedOnly,
+    });
+    const updatedAt = new Date().toISOString();
+    const flyerStudio = {
+      version: 1 as const,
+      template: result.template,
+      format: result.format,
+      promptRefinement: promptRefinement ?? existing?.promptRefinement ?? "",
+      displayOptions,
+      preview: serialized.imageDataUrl,
+      studioCache: {
+        backgroundDataUrl: serialized.backgroundDataUrl,
+        imagePrompt: serialized.imagePrompt,
+        copy: serialized.copy,
+      },
+      history: historyUpdate.history,
+      selectedHistoryId: historyUpdate.selectedHistoryId,
+      updatedAt,
+    };
+
+    try {
+      await saveProfileGuideFlyerStudio(guide.guide.id, flyerStudio);
+    } catch (saveError) {
+      console.error("Failed to persist flyer studio state:", saveError);
+    }
+
+    return NextResponse.json({
+      ...serialized,
+      flyerStudio: serializeFlyerStudioForClient(flyerStudio),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to generate AI flyer";
     const status = /not configured|invalid image data url/i.test(message) ? 400 : 502;

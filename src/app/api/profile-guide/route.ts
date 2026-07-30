@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getActiveBusiness } from "@/lib/business/active-business";
 import {
+  getProfileGuideFlyerStudio,
+  serializeFlyerStudioForClient,
+} from "@/lib/profile-guide/flyer/studio-db";
+import {
   getOrCreateProfileGuide,
   syncProfileGuideFromBusiness,
   updateProfileGuide,
@@ -13,7 +17,10 @@ import {
 } from "@/lib/profile-guide/theme";
 import { getUser } from "@/lib/supabase/server";
 
-function serializeGuide(data: Awaited<ReturnType<typeof getOrCreateProfileGuide>>) {
+function serializeGuide(
+  data: Awaited<ReturnType<typeof getOrCreateProfileGuide>>,
+  flyerStudio: ReturnType<typeof serializeFlyerStudioForClient> = null
+) {
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? "";
   return {
     guide: {
@@ -41,6 +48,7 @@ function serializeGuide(data: Awaited<ReturnType<typeof getOrCreateProfileGuide>
       sortOrder: link.sort_order,
       enabled: link.enabled,
     })),
+    flyerStudio,
   };
 }
 
@@ -130,7 +138,10 @@ export async function GET() {
 
   try {
     const data = await getOrCreateProfileGuide(user.id, business);
-    return NextResponse.json(serializeGuide(data));
+    const flyerStudio = await getProfileGuideFlyerStudio(user.id, data.guide.id);
+    return NextResponse.json(
+      serializeGuide(data, serializeFlyerStudioForClient(flyerStudio))
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load Profile Guide";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -163,7 +174,10 @@ export async function PUT(request: Request) {
       parseUpdate(body),
       business
     );
-    return NextResponse.json(serializeGuide(data));
+    const flyerStudio = await getProfileGuideFlyerStudio(user.id, data.guide.id);
+    return NextResponse.json(
+      serializeGuide(data, serializeFlyerStudioForClient(flyerStudio))
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update Profile Guide";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -191,7 +205,10 @@ export async function POST(request: Request) {
   try {
     await getOrCreateProfileGuide(user.id, business);
     const data = await syncProfileGuideFromBusiness(user.id, business, { force: true });
-    return NextResponse.json(serializeGuide(data));
+    const flyerStudio = await getProfileGuideFlyerStudio(user.id, data.guide.id);
+    return NextResponse.json(
+      serializeGuide(data, serializeFlyerStudioForClient(flyerStudio))
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to sync Profile Guide";
     return NextResponse.json({ error: message }, { status: 500 });
