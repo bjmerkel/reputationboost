@@ -90,13 +90,22 @@ export function googlePostAwaitingScheduledPublish(task: ExecutionTask): boolean
 
 export function googlePostShouldScheduleOnly(
   task: ExecutionTask,
-  publishNow?: boolean
+  publishNow?: boolean,
+  scheduledFor?: string | null
 ): boolean {
-  return (
-    task.type === "google_post" &&
-    !publishNow &&
-    (task.status === "scheduled" || isFutureScheduled(task.scheduledFor))
-  );
+  if (task.type !== "google_post" || publishNow) return false;
+  if (task.status === "scheduled") return true;
+  const effectiveScheduledFor = scheduledFor ?? task.scheduledFor;
+  return isFutureScheduled(effectiveScheduledFor);
+}
+
+/** True when a google post should be queued, not published via execute. */
+export function googlePostShouldQueue(
+  task: ExecutionTask,
+  options?: { publishNow?: boolean; scheduledFor?: string | null }
+): boolean {
+  const scheduledFor = options?.scheduledFor ?? task.scheduledFor;
+  return googlePostShouldScheduleOnly(task, options?.publishNow, scheduledFor);
 }
 
 export function googlePostScheduleSummary(tasks: ExecutionTask[]): string | null {

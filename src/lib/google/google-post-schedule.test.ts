@@ -91,4 +91,12 @@ describe("google-post-schedule", () => {
     assert.equal(upcoming[0]?.id, "b");
     assert.equal(upcoming[1]?.id, "a");
   });
+
+  it("googlePostShouldScheduleOnly uses picker scheduledFor when task has none", () => {
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const task = googlePostTask({ scheduledFor: null });
+    assert.equal(googlePostShouldScheduleOnly(task, false, future), true);
+    assert.equal(googlePostShouldScheduleOnly(task, false, null), false);
+    assert.equal(googlePostShouldScheduleOnly(task, true, future), false);
+  });
 });
