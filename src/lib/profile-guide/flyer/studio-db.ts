@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import { logFlyerEvent } from "@/lib/analytics/flyer-events";
 import { FLYER_FORMAT_SPECS, parseProfileGuideFlyerFormat } from "./formats";
+import { FLYER_PROMPT_VERSION } from "./prompt-version";
 import {
   parseFlyerStudioState,
   type FlyerHistoryEntry,
@@ -39,6 +41,11 @@ function rowToFlyerStudioState(row: Record<string, unknown>): FlyerStudioPersist
     archetype: row.archetype,
     archetypeOverride: row.archetype_override,
     selectedCoverUrl: row.selected_cover_url,
+    promptVersion: row.prompt_version,
+    qualityWarnings: row.quality_warnings,
+    feedbackRating: row.feedback_rating,
+    feedbackAt: row.feedback_at,
+    feedbackHistoryId: row.feedback_history_id,
     updatedAt: row.updated_at,
   });
 }
@@ -97,6 +104,11 @@ export async function saveProfileGuideFlyerStudio(
       archetype: state.archetype,
       archetype_override: state.archetypeOverride,
       selected_cover_url: state.selectedCoverUrl,
+      prompt_version: state.promptVersion,
+      quality_warnings: state.qualityWarnings,
+      feedback_rating: state.feedbackRating,
+      feedback_at: state.feedbackAt,
+      feedback_history_id: state.feedbackHistoryId,
       updated_at: state.updatedAt,
     },
     { onConflict: "guide_id" }
@@ -111,6 +123,7 @@ export function appendFlyerHistoryEntry(input: {
   template: string;
   format: string;
   recomposedOnly: boolean;
+  promptVersion?: string;
 }): Pick<FlyerStudioPersistedState, "history" | "selectedHistoryId"> {
   if (input.recomposedOnly) {
     return {
@@ -126,12 +139,51 @@ export function appendFlyerHistoryEntry(input: {
     template: input.template,
     format: input.format,
     createdAt: new Date().toISOString(),
+    promptVersion: input.promptVersion ?? FLYER_PROMPT_VERSION,
   };
 
   return {
     history: [entry, ...(input.existing?.history ?? [])].slice(0, MAX_FLYER_HISTORY),
     selectedHistoryId: entry.id,
   };
+}
+
+export async function saveProfileGuideFlyerFeedback(input: {
+  userId: string;
+  guideId: string;
+  businessId: string;
+  rating: -1 | 1;
+  historyId?: string | null;
+  archetype?: string | null;
+  format?: string | null;
+  promptVersion?: string | null;
+}): Promise<FlyerStudioPersistedState | null> {
+  const existing = await getProfileGuideFlyerStudio(input.userId, input.guideId);
+  if (!existing) return null;
+
+  const updatedAt = new Date().toISOString();
+  const nextState: FlyerStudioPersistedState = {
+    ...existing,
+    feedbackRating: input.rating,
+    feedbackAt: updatedAt,
+    feedbackHistoryId: input.historyId ?? existing.selectedHistoryId,
+    updatedAt,
+  };
+
+  await saveProfileGuideFlyerStudio(input.guideId, nextState);
+
+  logFlyerEvent({
+    name: "flyer_feedback",
+    guideId: input.guideId,
+    businessId: input.businessId,
+    rating: input.rating,
+    historyId: nextState.feedbackHistoryId,
+    archetype: input.archetype ?? existing.archetype,
+    format: input.format ?? existing.format,
+    promptVersion: input.promptVersion ?? existing.promptVersion,
+  });
+
+  return nextState;
 }
 
 export function serializeFlyerStudioForClient(state: FlyerStudioPersistedState | null) {
@@ -149,6 +201,11 @@ export function serializeFlyerStudioForClient(state: FlyerStudioPersistedState |
     archetype: state.archetype,
     archetypeOverride: state.archetypeOverride,
     selectedCoverUrl: state.selectedCoverUrl,
+    promptVersion: state.promptVersion,
+    qualityWarnings: state.qualityWarnings,
+    feedbackRating: state.feedbackRating,
+    feedbackAt: state.feedbackAt,
+    feedbackHistoryId: state.feedbackHistoryId,
     updatedAt: state.updatedAt,
   };
 }
