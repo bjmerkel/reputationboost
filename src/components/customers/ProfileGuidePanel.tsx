@@ -278,6 +278,10 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
     window.location.href = "/api/profile-guide/qr";
   }
 
+  const qrPreviewSrc = data
+    ? `/api/profile-guide/qr?inline=1&v=${encodeURIComponent(primaryColor)}`
+    : null;
+
   async function syncFromGoogle() {
     setSaving(true);
     setError(null);
@@ -767,7 +771,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         </section>
       </div>
 
-      <aside className="lg:sticky lg:top-6 lg:self-start">
+      <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
         <div className="rounded-[2rem] border border-[#dadce0] bg-white p-3 shadow-sm">
           <div className="rounded-[1.5rem] border border-[#e8eaed] bg-[#f8f9fa] p-4">
             <p className="text-center text-xs font-semibold uppercase tracking-widest text-[#80868b]">
@@ -786,6 +790,35 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
             />
           </div>
         </div>
+
+        {qrPreviewSrc && (
+          <div className="rounded-[2rem] border border-[#dadce0] bg-white p-3 shadow-sm">
+            <div className="rounded-[1.5rem] border border-[#e8eaed] bg-[#f8f9fa] p-4">
+              <p className="text-center text-xs font-semibold uppercase tracking-widest text-[#80868b]">
+                QR code
+              </p>
+              <div className="mt-3 flex justify-center rounded-xl bg-white p-3">
+                <img
+                  src={qrPreviewSrc}
+                  alt="QR code for your Profile Guide"
+                  width={192}
+                  height={192}
+                  className="h-48 w-48"
+                />
+              </div>
+              <p className="mt-3 text-center text-sm text-[#5f6368]">
+                Customers scan this to open your Profile Guide.
+              </p>
+              <button
+                type="button"
+                onClick={downloadQr}
+                className="btn-secondary mt-3 w-full rounded-full px-4 py-2 text-sm font-semibold"
+              >
+                Download QR code
+              </button>
+            </div>
+          </div>
+        )}
       </aside>
 
       {previewOpen && data && (

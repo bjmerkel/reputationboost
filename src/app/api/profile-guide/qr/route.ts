@@ -24,11 +24,12 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? url.origin;
   const target = `${profileGuidePublicUrl(guide.guide.slug, origin)}?src=qr`;
+  const inline = url.searchParams.get("inline") === "1";
 
   try {
     const png = await QRCode.toBuffer(target, {
       type: "png",
-      width: 512,
+      width: inline ? 256 : 512,
       margin: 2,
       color: {
         dark: guide.guide.primary_color || "#1a73e8",
@@ -39,7 +40,9 @@ export async function GET(request: Request) {
     return new NextResponse(new Uint8Array(png), {
       headers: {
         "Content-Type": "image/png",
-        "Content-Disposition": `attachment; filename="profile-guide-${guide.guide.slug}.png"`,
+        "Content-Disposition": inline
+          ? "inline"
+          : `attachment; filename="profile-guide-${guide.guide.slug}.png"`,
         "Cache-Control": "private, max-age=60",
       },
     });
