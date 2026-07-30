@@ -1,1 +1,1 @@
-export const FLYER_PROMPT_VERSION = "6.2.0";
+export const FLYER_PROMPT_VERSION = "6.3.0";

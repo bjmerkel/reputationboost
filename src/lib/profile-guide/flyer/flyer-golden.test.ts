@@ -32,7 +32,7 @@ describe("golden flyer businesses", () => {
       const prompt = buildFlyerBackgroundPromptTemplate(brief);
       assert.match(prompt, new RegExp(business.client.name, "i"));
       assert.match(prompt, /Do NOT include any text/i);
-      assert.equal(FLYER_PROMPT_VERSION, "6.2.0");
+      assert.equal(FLYER_PROMPT_VERSION, "6.3.0");
     });
 
     it(`keeps QR inside content zone for ${business.id}`, () => {

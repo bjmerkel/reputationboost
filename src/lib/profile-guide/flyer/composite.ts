@@ -10,7 +10,7 @@ import {
   type CoverTreatment,
 } from "./layout-variants";
 import { buildFlyerFooter } from "./options";
-import { renderFlyerTextOverlay } from "./text-overlay-canvas";
+import { renderFlyerTextOverlay } from "./text-overlay";
 
 export interface CompositeFlyerInput {
   brief: FlyerDesignBrief;
@@ -24,11 +24,6 @@ function escapeXml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
-}
-
-function truncate(value: string, max: number): string {
-  if (value.length <= max) return value;
-  return `${value.slice(0, max - 1).trim()}…`;
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -63,29 +58,6 @@ async function loadImageBuffer(source?: string | null): Promise<Buffer | null> {
   } catch {
     return null;
   }
-}
-
-function wrapSvgLines(text: string, maxChars: number, maxLines: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (candidate.length <= maxChars) {
-      current = candidate;
-      continue;
-    }
-    if (current) lines.push(current);
-    current = word;
-    if (lines.length >= maxLines - 1) break;
-  }
-
-  if (current && lines.length < maxLines) {
-    lines.push(current);
-  }
-
-  return lines.slice(0, maxLines);
 }
 
 function effectiveCoverHeight(layout: FlyerLayout, tokens: ArchetypeLayoutTokens): number {
@@ -154,302 +126,6 @@ function buildContentScrimSvg(layout: FlyerLayout): Buffer {
   return Buffer.from(parts.join(""));
 }
 
-function buildStarLine(
-  tokens: ArchetypeLayoutTokens,
-  showStars: boolean,
-  averageRating?: number | null,
-  reviewCount?: number | null
-): string | null {
-  if (!showStars) return null;
-
-  if (tokens.starStyle === "badge" && averageRating != null) {
-    return `★★★★★ ${averageRating.toFixed(1)} on Google`;
-  }
-
-  if (tokens.showRatingInStars && averageRating != null && reviewCount != null && reviewCount > 0) {
-    return `★★★★★ ${averageRating.toFixed(1)} · ${reviewCount} reviews`;
-  }
-
-  return "★★★★★";
-}
-
-interface TextOverlayInput {
-  layout: FlyerLayout;
-  tokens: ArchetypeLayoutTokens;
-  businessName: string;
-  eyebrow: string | null;
-  headline: string;
-  subhead: string;
-  supportLine: string;
-  address: string | null;
-  qrLabel: string;
-  cta: string;
-  footer: string;
-  primaryColor: string;
-  template: FlyerDesignBrief["template"];
-  showStars: boolean;
-  averageRating?: number | null;
-  reviewCount?: number | null;
-  qrTop: number;
-  qrLeft: number;
-  qrCardSize: number;
-}
-
-function appendCenteredText(
-  parts: string[],
-  centerX: number,
-  y: number,
-  text: string,
-  size: number,
-  options: { weight?: number; fill?: string; letterSpacing?: number; uppercase?: boolean } = {}
-): number {
-  const weight = options.weight ?? 400;
-  const fill = options.fill ?? "#5f6368";
-  const letterSpacing = options.letterSpacing ?? 0;
-  const displayText = options.uppercase ? text.toUpperCase() : text;
-
-  parts.push(
-    `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${size}" font-weight="${weight}" fill="${escapeXml(fill)}"${letterSpacing ? ` letter-spacing="${letterSpacing}"` : ""}>${escapeXml(displayText)}</text>`
-  );
-
-  return y + size + 10;
-}
-
-function buildPortraitTextOverlaySvg(input: TextOverlayInput): Buffer {
-  const { layout, tokens } = input;
-  const headlineSize =
-    input.template === "bold" ? layout.headlineSize + 10 : layout.headlineSize;
-  const centerX = Math.round(layout.width / 2);
-  const textBottomLimit = input.qrTop - 16;
-  const starLine = buildStarLine(
-    tokens,
-    input.showStars,
-    input.averageRating,
-    input.reviewCount
-  );
-
-  const headlineLines = wrapSvgLines(input.headline, layout.headlineMaxChars, 2);
-  const subheadLines = wrapSvgLines(input.subhead, layout.subheadMaxChars, 2);
-
-  let y = layout.textTop;
-  const parts: string[] = [
-    `<svg width="${layout.width}" height="${layout.height}" xmlns="http://www.w3.org/2000/svg">`,
-    `<rect width="100%" height="100%" fill="none"/>`,
-  ];
-
-  if (input.eyebrow) {
-    y = appendCenteredText(parts, centerX, y, truncate(input.eyebrow, 56), layout.eyebrowSize, {
-      weight: 700,
-      fill: input.primaryColor,
-      letterSpacing: tokens.eyebrowUppercase ? 1.2 : 0.6,
-      uppercase: tokens.eyebrowUppercase,
-    });
-    y += 4;
-  }
-
-  y = appendCenteredText(
-    parts,
-    centerX,
-    y,
-    truncate(input.businessName, 48),
-    layout.businessNameSize,
-    { weight: tokens.businessNameWeight, fill: "#202124" }
-  );
-  y += 6;
-
-  for (const line of headlineLines) {
-    parts.push(
-      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="${tokens.headlineWeight}" fill="${escapeXml(input.primaryColor)}">${escapeXml(line)}</text>`
-    );
-    y += headlineSize + 6;
-  }
-
-  y += 4;
-  for (const line of subheadLines) {
-    parts.push(
-      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.subheadSize}" fill="#5f6368">${escapeXml(line)}</text>`
-    );
-    y += layout.subheadSize + 4;
-  }
-
-  if (input.supportLine) {
-    y += 4;
-    y = appendCenteredText(
-      parts,
-      centerX,
-      y,
-      truncate(input.supportLine, 72),
-      layout.supportLineSize,
-      { weight: 600, fill: "#3c4043" }
-    );
-  }
-
-  if (input.address) {
-    y += 2;
-    y = appendCenteredText(
-      parts,
-      centerX,
-      y,
-      truncate(input.address, 64),
-      layout.addressSize,
-      { fill: "#80868b" }
-    );
-  }
-
-  if (starLine && y < textBottomLimit - 28) {
-    y += 6;
-    if (tokens.starStyle === "badge") {
-      const badgeWidth = Math.round(layout.contentCardWidth * 0.62);
-      const badgeX = centerX - Math.round(badgeWidth / 2);
-      parts.push(
-        `<rect x="${badgeX}" y="${y - Math.round(layout.subheadSize * 0.9)}" width="${badgeWidth}" height="${Math.round(layout.subheadSize * 1.5)}" rx="12" fill="#fff8e1"/>`,
-        `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.05)}" font-weight="600" fill="#b06000">${escapeXml(starLine)}</text>`
-      );
-      y += Math.round(layout.subheadSize * 1.15) + 4;
-    } else {
-      parts.push(
-        `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.05)}" font-weight="600" fill="#f9ab00">${escapeXml(starLine)}</text>`
-      );
-      y += Math.round(layout.subheadSize * 1.05) + 4;
-    }
-  }
-
-  const qrLabelY = input.qrTop + input.qrCardSize + Math.round(layout.qrLabelSize * 1.4);
-  appendCenteredText(parts, centerX, qrLabelY, truncate(input.qrLabel, 56), layout.qrLabelSize, {
-    weight: 600,
-    fill: "#3c4043",
-  });
-
-  const ctaY = qrLabelY + layout.qrLabelSize + 22;
-  appendCenteredText(parts, centerX, ctaY, truncate(input.cta, 80), layout.ctaSize, {
-    fill: "#3c4043",
-  });
-
-  const footerY = Math.min(
-    layout.contentCardTop + layout.contentCardHeight - layout.contentCardPadding,
-    ctaY + layout.ctaSize + 28
-  );
-  appendCenteredText(parts, centerX, footerY, truncate(input.footer, 72), layout.footerSize, {
-    fill: "#80868b",
-  });
-
-  parts.push("</svg>");
-  return Buffer.from(parts.join(""));
-}
-
-function buildLandscapeTextOverlaySvg(input: TextOverlayInput): Buffer {
-  const { layout, tokens } = input;
-  const headlineSize =
-    input.template === "bold" ? layout.headlineSize + 8 : layout.headlineSize;
-  const textX = layout.contentCardLeft + layout.contentCardPadding;
-  const textWidth = layout.contentCardWidth - layout.contentCardPadding * 2;
-  const centerX = textX + Math.round(textWidth / 2);
-  const qrLabelX = input.qrLeft + Math.round(input.qrCardSize / 2);
-  const starLine = buildStarLine(
-    tokens,
-    input.showStars,
-    input.averageRating,
-    input.reviewCount
-  );
-
-  const headlineLines = wrapSvgLines(input.headline, layout.headlineMaxChars, 2);
-  const subheadLines = wrapSvgLines(input.subhead, layout.subheadMaxChars, 2);
-
-  let y = layout.textTop;
-  const parts: string[] = [
-    `<svg width="${layout.width}" height="${layout.height}" xmlns="http://www.w3.org/2000/svg">`,
-    `<rect width="100%" height="100%" fill="none"/>`,
-  ];
-
-  if (input.eyebrow) {
-    y = appendCenteredText(parts, centerX, y, truncate(input.eyebrow, 44), layout.eyebrowSize, {
-      weight: 700,
-      fill: input.primaryColor,
-      letterSpacing: tokens.eyebrowUppercase ? 1.2 : 0.6,
-      uppercase: tokens.eyebrowUppercase,
-    });
-    y += 4;
-  }
-
-  y = appendCenteredText(
-    parts,
-    centerX,
-    y,
-    truncate(input.businessName, 40),
-    layout.businessNameSize,
-    { weight: tokens.businessNameWeight, fill: "#202124" }
-  );
-  y += 6;
-
-  for (const line of headlineLines) {
-    parts.push(
-      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="${tokens.headlineWeight}" fill="${escapeXml(input.primaryColor)}">${escapeXml(line)}</text>`
-    );
-    y += headlineSize + 6;
-  }
-
-  y += 4;
-  for (const line of subheadLines) {
-    parts.push(
-      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.subheadSize}" fill="#5f6368">${escapeXml(line)}</text>`
-    );
-    y += layout.subheadSize + 4;
-  }
-
-  if (input.supportLine) {
-    y += 4;
-    y = appendCenteredText(
-      parts,
-      centerX,
-      y,
-      truncate(input.supportLine, 60),
-      layout.supportLineSize,
-      { weight: 600, fill: "#3c4043" }
-    );
-  }
-
-  if (input.address) {
-    y += 2;
-    y = appendCenteredText(
-      parts,
-      centerX,
-      y,
-      truncate(input.address, 56),
-      layout.addressSize,
-      { fill: "#80868b" }
-    );
-  }
-
-  if (starLine) {
-    y += 8;
-    parts.push(
-      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.05)}" font-weight="600" fill="#f9ab00">${escapeXml(starLine)}</text>`
-    );
-    y += Math.round(layout.subheadSize * 1.05) + 8;
-  }
-
-  const ctaY = Math.min(
-    layout.contentCardTop + layout.contentCardHeight - layout.contentCardPadding - 48,
-    y + 16
-  );
-  appendCenteredText(parts, centerX, ctaY, truncate(input.cta, 64), layout.ctaSize, {
-    fill: "#3c4043",
-  });
-
-  const footerY = layout.contentCardTop + layout.contentCardHeight - layout.contentCardPadding;
-  appendCenteredText(parts, centerX, footerY, truncate(input.footer, 56), layout.footerSize, {
-    fill: "#80868b",
-  });
-
-  const qrLabelY = input.qrTop + input.qrCardSize + Math.round(layout.qrLabelSize * 1.3);
-  appendCenteredText(parts, qrLabelX, qrLabelY, truncate(input.qrLabel, 40), layout.qrLabelSize, {
-    weight: 600,
-    fill: "#3c4043",
-  });
-
-  parts.push("</svg>");
-  return Buffer.from(parts.join(""));
-}
 
 async function buildQrCard(
   qrBuffer: Buffer,
@@ -660,50 +336,20 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
     left: qrPresentationLeft,
   });
 
-  if (layout.orientation === "portrait") {
-    layers.push({
-      input: renderFlyerTextOverlay({
-        layout,
-        tokens,
-        brief,
-        copy,
-        footer,
-        eyebrow,
-        address,
-        showStars,
-      }),
-      top: 0,
-      left: 0,
-    });
-  } else {
-    const textOverlayInput: TextOverlayInput = {
+  layers.push({
+    input: renderFlyerTextOverlay({
       layout,
       tokens,
-      businessName: brief.businessName,
-      eyebrow,
-      headline: copy.headline,
-      subhead: copy.subhead,
-      supportLine: copy.supportLine,
-      address,
-      qrLabel: copy.qrLabel,
-      cta: copy.cta,
+      brief,
+      copy,
       footer,
-      primaryColor: brief.primaryColor,
-      template: brief.template,
+      eyebrow,
+      address,
       showStars,
-      averageRating: brief.averageRating,
-      reviewCount: brief.reviewCount,
-      qrTop: layout.qrTop,
-      qrLeft: layout.qrLeft,
-      qrCardSize: layout.qrCardSize,
-    };
-
-    layers.push({
-      input: buildLandscapeTextOverlaySvg(textOverlayInput),
-      top: 0,
-      left: 0,
-    });
-  }
+    }),
+    top: 0,
+    left: 0,
+  });
 
   return sharp(background).composite(layers).png().toBuffer();
 }
