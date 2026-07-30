@@ -1,13 +1,17 @@
 import QRCode from "qrcode";
 import sharp, { type OverlayOptions } from "sharp";
-import type { FlyerBrief } from "./brief";
+import type { FlyerDesignBrief } from "./design-brief";
 import { buildFlyerEyebrow, buildFlyerSupportLine } from "./context";
 import { resolveFlyerCopy } from "./copy";
 import { computeFlyerLayout, getFlyerFormatSpec, type FlyerLayout } from "./formats";
+import {
+  getArchetypeLayoutTokens,
+  type ArchetypeLayoutTokens,
+} from "./layout-variants";
 import { buildFlyerFooter } from "./options";
 
 export interface CompositeFlyerInput {
-  brief: FlyerBrief;
+  brief: FlyerDesignBrief;
   background: Buffer;
 }
 
@@ -23,6 +27,22 @@ function escapeXml(value: string): string {
 function truncate(value: string, max: number): string {
   if (value.length <= max) return value;
   return `${value.slice(0, max - 1).trim()}…`;
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const normalized = hex.replace("#", "").trim();
+  if (normalized.length === 3) {
+    return {
+      r: parseInt(normalized[0] + normalized[0], 16),
+      g: parseInt(normalized[1] + normalized[1], 16),
+      b: parseInt(normalized[2] + normalized[2], 16),
+    };
+  }
+  return {
+    r: parseInt(normalized.slice(0, 2), 16) || 26,
+    g: parseInt(normalized.slice(2, 4), 16) || 115,
+    b: parseInt(normalized.slice(4, 6), 16) || 232,
+  };
 }
 
 async function loadImageBuffer(source?: string | null): Promise<Buffer | null> {
@@ -66,26 +86,86 @@ function wrapSvgLines(text: string, maxChars: number, maxLines: number): string[
   return lines.slice(0, maxLines);
 }
 
-function buildContentCardSvg(layout: FlyerLayout): Buffer {
-  const { contentCardLeft, contentCardTop, contentCardWidth, contentCardHeight, contentCardRadius } =
-    layout;
+function effectiveCoverHeight(layout: FlyerLayout, tokens: ArchetypeLayoutTokens): number {
+  if (tokens.coverTreatment === "none") return 0;
+  return Math.round(layout.coverHeight * tokens.coverHeightRatio);
+}
 
-  const svg = [
+function effectiveCardRadius(layout: FlyerLayout, tokens: ArchetypeLayoutTokens): number {
+  return Math.round(layout.contentCardRadius * tokens.cardRadiusScale);
+}
+
+function buildContentCardSvg(
+  layout: FlyerLayout,
+  tokens: ArchetypeLayoutTokens,
+  primaryColor: string
+): Buffer {
+  const {
+    contentCardLeft,
+    contentCardTop,
+    contentCardWidth,
+    contentCardHeight,
+  } = layout;
+  const radius = effectiveCardRadius(layout, tokens);
+  const shadowOpacity = tokens.cardStyle === "glass-panel" ? 0.08 : 0.12;
+  const fillOpacity = tokens.cardFillOpacity;
+  const border = tokens.cardBorderColor
+    ? `stroke="${escapeXml(tokens.cardBorderColor)}" stroke-width="2"`
+    : "";
+
+  const parts = [
     `<svg width="${layout.width}" height="${layout.height}" xmlns="http://www.w3.org/2000/svg">`,
     `<defs>`,
     `<filter id="cardShadow" x="-8%" y="-4%" width="116%" height="112%">`,
-    `<feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000000" flood-opacity="0.12"/>`,
+    `<feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000000" flood-opacity="${shadowOpacity}"/>`,
     `</filter>`,
     `</defs>`,
-    `<rect x="${contentCardLeft}" y="${contentCardTop}" width="${contentCardWidth}" height="${contentCardHeight}" rx="${contentCardRadius}" ry="${contentCardRadius}" fill="#ffffff" fill-opacity="0.97" filter="url(#cardShadow)"/>`,
-    `</svg>`,
-  ].join("");
+  ];
 
-  return Buffer.from(svg);
+  if (tokens.accentBarStyle === "diagonal") {
+    parts.push(
+      `<polygon points="${contentCardLeft},${contentCardTop + contentCardHeight} ${contentCardLeft + contentCardWidth},${contentCardTop} ${contentCardLeft + contentCardWidth},${contentCardTop + Math.round(contentCardHeight * 0.18)}" fill="${escapeXml(primaryColor)}" fill-opacity="0.12"/>`
+    );
+  }
+
+  parts.push(
+    `<rect x="${contentCardLeft}" y="${contentCardTop}" width="${contentCardWidth}" height="${contentCardHeight}" rx="${radius}" ry="${radius}" fill="#ffffff" fill-opacity="${fillOpacity}" filter="url(#cardShadow)" ${border}/>`
+  );
+
+  if (tokens.accentBarStyle === "top") {
+    const barWidth = Math.round(contentCardWidth * 0.22);
+    const barX = contentCardLeft + Math.round((contentCardWidth - barWidth) / 2);
+    parts.push(
+      `<rect x="${barX}" y="${contentCardTop + 18}" width="${barWidth}" height="5" rx="2.5" fill="${escapeXml(primaryColor)}"/>`
+    );
+  }
+
+  parts.push("</svg>");
+  return Buffer.from(parts.join(""));
+}
+
+function buildStarLine(
+  tokens: ArchetypeLayoutTokens,
+  showStars: boolean,
+  averageRating?: number | null,
+  reviewCount?: number | null
+): string | null {
+  if (!showStars) return null;
+
+  if (tokens.starStyle === "badge" && averageRating != null) {
+    return `★★★★★ ${averageRating.toFixed(1)} on Google`;
+  }
+
+  if (tokens.showRatingInStars && averageRating != null && reviewCount != null && reviewCount > 0) {
+    return `★★★★★ ${averageRating.toFixed(1)} · ${reviewCount} reviews`;
+  }
+
+  return "★★★★★";
 }
 
 interface TextOverlayInput {
   layout: FlyerLayout;
+  tokens: ArchetypeLayoutTokens;
   businessName: string;
   eyebrow: string | null;
   headline: string;
@@ -96,8 +176,10 @@ interface TextOverlayInput {
   cta: string;
   footer: string;
   primaryColor: string;
-  template: FlyerBrief["template"];
+  template: FlyerDesignBrief["template"];
   showStars: boolean;
+  averageRating?: number | null;
+  reviewCount?: number | null;
   qrTop: number;
   qrLeft: number;
   qrCardSize: number;
@@ -124,11 +206,17 @@ function appendCenteredText(
 }
 
 function buildPortraitTextOverlaySvg(input: TextOverlayInput): Buffer {
-  const { layout } = input;
+  const { layout, tokens } = input;
   const headlineSize =
     input.template === "bold" ? layout.headlineSize + 10 : layout.headlineSize;
   const centerX = Math.round(layout.width / 2);
   const textBottomLimit = input.qrTop - 16;
+  const starLine = buildStarLine(
+    tokens,
+    input.showStars,
+    input.averageRating,
+    input.reviewCount
+  );
 
   const headlineLines = wrapSvgLines(input.headline, layout.headlineMaxChars, 2);
   const subheadLines = wrapSvgLines(input.subhead, layout.subheadMaxChars, 2);
@@ -143,8 +231,8 @@ function buildPortraitTextOverlaySvg(input: TextOverlayInput): Buffer {
     y = appendCenteredText(parts, centerX, y, truncate(input.eyebrow, 56), layout.eyebrowSize, {
       weight: 700,
       fill: input.primaryColor,
-      letterSpacing: 1.2,
-      uppercase: true,
+      letterSpacing: tokens.eyebrowUppercase ? 1.2 : 0.6,
+      uppercase: tokens.eyebrowUppercase,
     });
     y += 4;
   }
@@ -155,13 +243,13 @@ function buildPortraitTextOverlaySvg(input: TextOverlayInput): Buffer {
     y,
     truncate(input.businessName, 48),
     layout.businessNameSize,
-    { weight: 700, fill: "#202124" }
+    { weight: tokens.businessNameWeight, fill: "#202124" }
   );
   y += 6;
 
   for (const line of headlineLines) {
     parts.push(
-      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="800" fill="${escapeXml(input.primaryColor)}">${escapeXml(line)}</text>`
+      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="${tokens.headlineWeight}" fill="${escapeXml(input.primaryColor)}">${escapeXml(line)}</text>`
     );
     y += headlineSize + 6;
   }
@@ -198,12 +286,22 @@ function buildPortraitTextOverlaySvg(input: TextOverlayInput): Buffer {
     );
   }
 
-  if (input.showStars && y < textBottomLimit - 28) {
+  if (starLine && y < textBottomLimit - 28) {
     y += 6;
-    parts.push(
-      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.15)}" fill="#f9ab00">★★★★★</text>`
-    );
-    y += Math.round(layout.subheadSize * 1.15) + 4;
+    if (tokens.starStyle === "badge") {
+      const badgeWidth = Math.round(layout.contentCardWidth * 0.62);
+      const badgeX = centerX - Math.round(badgeWidth / 2);
+      parts.push(
+        `<rect x="${badgeX}" y="${y - Math.round(layout.subheadSize * 0.9)}" width="${badgeWidth}" height="${Math.round(layout.subheadSize * 1.5)}" rx="12" fill="#fff8e1"/>`,
+        `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.05)}" font-weight="600" fill="#b06000">${escapeXml(starLine)}</text>`
+      );
+      y += Math.round(layout.subheadSize * 1.15) + 4;
+    } else {
+      parts.push(
+        `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.05)}" font-weight="600" fill="#f9ab00">${escapeXml(starLine)}</text>`
+      );
+      y += Math.round(layout.subheadSize * 1.05) + 4;
+    }
   }
 
   const qrLabelY = input.qrTop + input.qrCardSize + Math.round(layout.qrLabelSize * 1.4);
@@ -230,13 +328,19 @@ function buildPortraitTextOverlaySvg(input: TextOverlayInput): Buffer {
 }
 
 function buildLandscapeTextOverlaySvg(input: TextOverlayInput): Buffer {
-  const { layout } = input;
+  const { layout, tokens } = input;
   const headlineSize =
     input.template === "bold" ? layout.headlineSize + 8 : layout.headlineSize;
   const textX = layout.contentCardLeft + layout.contentCardPadding;
   const textWidth = layout.contentCardWidth - layout.contentCardPadding * 2;
   const centerX = textX + Math.round(textWidth / 2);
   const qrLabelX = input.qrLeft + Math.round(input.qrCardSize / 2);
+  const starLine = buildStarLine(
+    tokens,
+    input.showStars,
+    input.averageRating,
+    input.reviewCount
+  );
 
   const headlineLines = wrapSvgLines(input.headline, layout.headlineMaxChars, 2);
   const subheadLines = wrapSvgLines(input.subhead, layout.subheadMaxChars, 2);
@@ -251,8 +355,8 @@ function buildLandscapeTextOverlaySvg(input: TextOverlayInput): Buffer {
     y = appendCenteredText(parts, centerX, y, truncate(input.eyebrow, 44), layout.eyebrowSize, {
       weight: 700,
       fill: input.primaryColor,
-      letterSpacing: 1.2,
-      uppercase: true,
+      letterSpacing: tokens.eyebrowUppercase ? 1.2 : 0.6,
+      uppercase: tokens.eyebrowUppercase,
     });
     y += 4;
   }
@@ -263,13 +367,13 @@ function buildLandscapeTextOverlaySvg(input: TextOverlayInput): Buffer {
     y,
     truncate(input.businessName, 40),
     layout.businessNameSize,
-    { weight: 700, fill: "#202124" }
+    { weight: tokens.businessNameWeight, fill: "#202124" }
   );
   y += 6;
 
   for (const line of headlineLines) {
     parts.push(
-      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="800" fill="${escapeXml(input.primaryColor)}">${escapeXml(line)}</text>`
+      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="${tokens.headlineWeight}" fill="${escapeXml(input.primaryColor)}">${escapeXml(line)}</text>`
     );
     y += headlineSize + 6;
   }
@@ -306,12 +410,12 @@ function buildLandscapeTextOverlaySvg(input: TextOverlayInput): Buffer {
     );
   }
 
-  if (input.showStars) {
+  if (starLine) {
     y += 8;
     parts.push(
-      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.1)}" fill="#f9ab00">★★★★★</text>`
+      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.05)}" font-weight="600" fill="#f9ab00">${escapeXml(starLine)}</text>`
     );
-    y += Math.round(layout.subheadSize * 1.1) + 8;
+    y += Math.round(layout.subheadSize * 1.05) + 8;
   }
 
   const ctaY = Math.min(
@@ -337,6 +441,60 @@ function buildLandscapeTextOverlaySvg(input: TextOverlayInput): Buffer {
   return Buffer.from(parts.join(""));
 }
 
+async function buildQrCard(
+  qrBuffer: Buffer,
+  layout: FlyerLayout,
+  tokens: ArchetypeLayoutTokens,
+  primaryColor: string
+): Promise<Buffer> {
+  const padding = Math.round((layout.qrCardSize - layout.qrCodeSize) / 2);
+  const ringWidth = tokens.qrFrame === "branded-ring" ? 5 : 0;
+  const rgb = hexToRgb(primaryColor);
+
+  if (tokens.qrFrame === "branded-ring") {
+    const innerPadding = padding;
+    return sharp({
+      create: {
+        width: layout.qrCardSize,
+        height: layout.qrCardSize,
+        channels: 4,
+        background: { ...rgb, alpha: 1 },
+      },
+    })
+      .composite([
+        {
+          input: await sharp({
+            create: {
+              width: layout.qrCardSize - ringWidth * 2,
+              height: layout.qrCardSize - ringWidth * 2,
+              channels: 4,
+              background: { r: 255, g: 255, b: 255, alpha: 1 },
+            },
+          })
+            .png()
+            .toBuffer(),
+          top: ringWidth,
+          left: ringWidth,
+        },
+        { input: qrBuffer, top: innerPadding, left: innerPadding },
+      ])
+      .png()
+      .toBuffer();
+  }
+
+  return sharp({
+    create: {
+      width: layout.qrCardSize,
+      height: layout.qrCardSize,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
+    },
+  })
+    .composite([{ input: qrBuffer, top: padding, left: padding }])
+    .png()
+    .toBuffer();
+}
+
 export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<Buffer> {
   const { brief } = input;
   const tagline = brief.displayOptions.showTagline ? brief.tagline : null;
@@ -349,14 +507,15 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
     brief.displayOptions.showAddress && brief.address?.trim() ? brief.address.trim() : null;
   const format = getFlyerFormatSpec(brief.format);
   const layout = computeFlyerLayout(format);
+  const tokens = getArchetypeLayoutTokens(brief.archetype);
   const showStars = brief.displayOptions.showStars;
+  const coverHeight = effectiveCoverHeight(layout, tokens);
 
   const [logoBuffer, coverBuffer] = await Promise.all([
     loadImageBuffer(brief.logoUrl),
     loadImageBuffer(brief.coverImageUrl),
   ]);
 
-  const qrPadding = Math.round((layout.qrCardSize - layout.qrCodeSize) / 2);
   const qrBuffer = await QRCode.toBuffer(
     `${brief.publicUrl}?src=flyer-${brief.template}-${brief.format}`,
     {
@@ -370,17 +529,7 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
     }
   );
 
-  const qrCard = await sharp({
-    create: {
-      width: layout.qrCardSize,
-      height: layout.qrCardSize,
-      channels: 4,
-      background: { r: 255, g: 255, b: 255, alpha: 1 },
-    },
-  })
-    .composite([{ input: qrBuffer, top: qrPadding, left: qrPadding }])
-    .png()
-    .toBuffer();
+  const qrCard = await buildQrCard(qrBuffer, layout, tokens, brief.primaryColor);
 
   const background = await sharp(input.background)
     .resize(layout.width, layout.height, { fit: "cover", position: "centre" })
@@ -389,19 +538,24 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
 
   const layers: OverlayOptions[] = [];
 
-  if (coverBuffer && layout.orientation === "portrait") {
+  if (coverBuffer && layout.orientation === "portrait" && coverHeight > 0) {
     const cover = await sharp(coverBuffer)
-      .resize(layout.width, layout.coverHeight, { fit: "cover", position: "centre" })
+      .resize(layout.width, coverHeight, { fit: "cover", position: "centre" })
       .png()
       .toBuffer();
     layers.push({ input: cover, top: 0, left: 0 });
 
+    const fadeAlpha =
+      tokens.coverTreatment === "full-bleed-fade"
+        ? Math.min(tokens.coverFadeOpacity + 0.08, 0.5)
+        : tokens.coverFadeOpacity;
+
     const coverFade = await sharp({
       create: {
         width: layout.width,
-        height: layout.coverHeight,
+        height: coverHeight,
         channels: 4,
-        background: { r: 0, g: 0, b: 0, alpha: 0.32 },
+        background: { r: 0, g: 0, b: 0, alpha: fadeAlpha },
       },
     })
       .png()
@@ -409,7 +563,11 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
     layers.push({ input: coverFade, top: 0, left: 0 });
   }
 
-  layers.push({ input: buildContentCardSvg(layout), top: 0, left: 0 });
+  layers.push({
+    input: buildContentCardSvg(layout, tokens, brief.primaryColor),
+    top: 0,
+    left: 0,
+  });
 
   if (logoBuffer) {
     const logo = await sharp(logoBuffer)
@@ -430,8 +588,8 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
     const logoTop =
       layout.orientation === "landscape"
         ? layout.logoTop
-        : coverBuffer
-          ? layout.logoTop
+        : coverBuffer && coverHeight > 0
+          ? Math.max(12, coverHeight - Math.round(layout.logoMaxHeight * 0.55))
           : layout.contentCardTop + layout.contentCardPadding;
 
     layers.push({
@@ -443,44 +601,32 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
 
   layers.push({ input: qrCard, top: layout.qrTop, left: layout.qrLeft });
 
+  const textOverlayInput: TextOverlayInput = {
+    layout,
+    tokens,
+    businessName: brief.businessName,
+    eyebrow,
+    headline: copy.headline,
+    subhead: copy.subhead,
+    supportLine: copy.supportLine,
+    address,
+    qrLabel: copy.qrLabel,
+    cta: copy.cta,
+    footer,
+    primaryColor: brief.primaryColor,
+    template: brief.template,
+    showStars,
+    averageRating: brief.averageRating,
+    reviewCount: brief.reviewCount,
+    qrTop: layout.qrTop,
+    qrLeft: layout.qrLeft,
+    qrCardSize: layout.qrCardSize,
+  };
+
   const textOverlay =
     layout.orientation === "landscape"
-      ? buildLandscapeTextOverlaySvg({
-          layout,
-          businessName: brief.businessName,
-          eyebrow,
-          headline: copy.headline,
-          subhead: copy.subhead,
-          supportLine: copy.supportLine,
-          address,
-          qrLabel: copy.qrLabel,
-          cta: copy.cta,
-          footer,
-          primaryColor: brief.primaryColor,
-          template: brief.template,
-          showStars,
-          qrTop: layout.qrTop,
-          qrLeft: layout.qrLeft,
-          qrCardSize: layout.qrCardSize,
-        })
-      : buildPortraitTextOverlaySvg({
-          layout,
-          businessName: brief.businessName,
-          eyebrow,
-          headline: copy.headline,
-          subhead: copy.subhead,
-          supportLine: copy.supportLine,
-          address,
-          qrLabel: copy.qrLabel,
-          cta: copy.cta,
-          footer,
-          primaryColor: brief.primaryColor,
-          template: brief.template,
-          showStars,
-          qrTop: layout.qrTop,
-          qrLeft: layout.qrLeft,
-          qrCardSize: layout.qrCardSize,
-        });
+      ? buildLandscapeTextOverlaySvg(textOverlayInput)
+      : buildPortraitTextOverlaySvg(textOverlayInput);
 
   layers.push({ input: textOverlay, top: 0, left: 0 });
 
