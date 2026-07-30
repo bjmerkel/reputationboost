@@ -11,6 +11,7 @@ import {
   resolveBestPlanStepForKeyword,
   resolveStepPrimaryKeyword,
 } from "./keyword-action-binding";
+import { PROFILE_GUIDE_PLAN_STEP } from "@/lib/profile-guide/plan-step";
 
 function stubStep(
   overrides: Partial<PlanStep> & Pick<PlanStep, "stepNumber" | "title" | "context">
@@ -228,5 +229,60 @@ describe("keyword-action-binding", () => {
     const label = playbooks[0].actionExpectedImpactLabel ?? "";
     assert.match(label, /3 leads\/mo/);
     assert.doesNotMatch(label, /\$3/);
+  });
+
+  it("prioritizes Profile Guide publish for review-velocity keywords when guide is unpublished", () => {
+    const audit = createTestAudit();
+    audit.rankings.keywordsInPack = 1;
+    audit.rankings.totalKeywords = 3;
+    const kw = audit.rankings.keywords[0]!;
+    audit.gbp.performance.searchKeywords = [
+      { keyword: kw.keyword, impressions: 1200, belowThreshold: false },
+      { keyword: "low volume term", impressions: 100, belowThreshold: false },
+    ];
+
+    const bindings = buildKeywordActionBindings(audit, { profileGuideUnpublished: true });
+    const reviewVelocityBinding = bindings.find(
+      (binding) => binding.keyword.toLowerCase() === kw.keyword.toLowerCase()
+    );
+    assert.ok(reviewVelocityBinding);
+    assert.equal(reviewVelocityBinding!.primaryStep, PROFILE_GUIDE_PLAN_STEP);
+
+    const plan = planFromSteps([
+      stubStep({
+        stepNumber: PROFILE_GUIDE_PLAN_STEP,
+        title: "Publish Profile Guide",
+        status: "pending",
+        context: {
+          targetKeywords: [kw.keyword],
+          primaryKeyword: kw.keyword,
+          expectedEffect: "Publish guide",
+          revenueImpact: 200,
+          leadsImpact: 0,
+          engagementImpact: 0,
+        },
+      }),
+      stubStep({
+        stepNumber: 10,
+        title: "Request reviews",
+        status: "pending",
+        context: {
+          targetKeywords: [kw.keyword],
+          primaryKeyword: kw.keyword,
+          expectedEffect: "More reviews",
+          revenueImpact: 300,
+          leadsImpact: 0,
+          engagementImpact: 0,
+        },
+      }),
+    ]);
+
+    const playbooks = buildKeywordPlaybooks(audit, plan, {
+      limit: 1,
+      profileGuideUnpublished: true,
+    });
+    assert.ok(playbooks.length >= 1);
+    assert.equal(playbooks[0].primaryStep, PROFILE_GUIDE_PLAN_STEP);
+    assert.equal(playbooks[0].ctaLabel, "Publish Profile Guide");
   });
 });

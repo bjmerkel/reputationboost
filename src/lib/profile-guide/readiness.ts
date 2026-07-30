@@ -54,6 +54,15 @@ export function profileGuideEditorHref(
   return `/platform/customers?${params.toString()}`;
 }
 
+/** Deep link back to Plan step 10 after publishing Profile Guide. */
+export function planReviewRequestsHref(businessId?: string | null): string {
+  const params = new URLSearchParams();
+  if (businessId) params.set("businessId", businessId);
+  params.set("view", "strategy");
+  params.set("focusStep", "10");
+  return `/platform/audit?${params.toString()}`;
+}
+
 export function reviewLinkEnabled(links: ProfileGuideLinkRecord[]): boolean {
   return links.some((link) => link.link_type === "review" && link.enabled);
 }

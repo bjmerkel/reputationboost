@@ -204,6 +204,23 @@ export default function AuditDashboard({
     setViewState(normalizedView);
   }, [paramView, normalizedView, router, searchParams]);
 
+  useEffect(() => {
+    const focusParam = searchParams.get("focusStep");
+    if (!focusParam) return;
+    const stepNumber = Number(focusParam);
+    if (!Number.isFinite(stepNumber) || stepNumber <= 0) return;
+
+    setFocusPlanStep(stepNumber);
+    setViewState("strategy");
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("focusStep");
+    if (!params.has("view")) {
+      params.set("view", "strategy");
+    }
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [router, searchParams]);
+
   const tasks = audit ? liveTasks : initialExecutionTasks;
 
   const planPendingCount = planApprovalBadgeCount(tasks);

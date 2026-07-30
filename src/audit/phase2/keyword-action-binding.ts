@@ -18,6 +18,7 @@ import {
   formatLeaderDeltaSummary,
 } from "@/audit/autopilot/leader-delta-engine";
 import type { MarketCalibrationIndex } from "@/audit/autopilot/market-calibration";
+import { PROFILE_GUIDE_PLAN_STEP } from "@/lib/profile-guide/plan-step";
 
 const CONVERSION_GAP_ID_SET = new Set<string>(CONVERSION_GAP_IDS);
 
@@ -55,6 +56,8 @@ export interface KeywordBindingOptions {
   marketIndex?: MarketCalibrationIndex;
   /** Winning experiment steps per keyword (Phase F). */
   winningStepsByKeyword?: ReadonlyMap<string, number> | Map<string, number>;
+  /** When true, prefer Profile Guide publish before review-request step 10. */
+  profileGuideUnpublished?: boolean;
 }
 
 function uniqueSteps(steps: number[]): number[] {
@@ -84,6 +87,9 @@ function leverPoolForKeyword(
       snapshot &&
       keywordQualifiesForReviewVelocityGap(snapshot, searchKeywords)
     ) {
+      if (options.profileGuideUnpublished) {
+        return uniqueSteps([PROFILE_GUIDE_PLAN_STEP, 10, ...OUTSIDE_PACK_LEVERS]);
+      }
       return uniqueSteps([10, ...OUTSIDE_PACK_LEVERS]);
     }
     return [...OUTSIDE_PACK_LEVERS];
@@ -106,11 +112,18 @@ function rationaleForKeyword(
   packFragile: boolean,
   primaryStep: number,
   conversionBoost: boolean,
-  reviewVelocityBoost: boolean
+  reviewVelocityBoost: boolean,
+  profileGuideUnpublished: boolean
 ): string {
   if (!inLocalPack) {
+    if (reviewVelocityBoost && primaryStep === PROFILE_GUIDE_PLAN_STEP) {
+      return `"${keyword}" is outside the 3-Pack — publish your Profile Guide first so review requests use a branded link customers trust.`;
+    }
     if (reviewVelocityBoost && primaryStep === 10) {
       return `"${keyword}" is outside the 3-Pack — close the review gap with step 10 before other rank levers.`;
+    }
+    if (profileGuideUnpublished && primaryStep === PROFILE_GUIDE_PLAN_STEP) {
+      return `"${keyword}" is outside the 3-Pack — publish your Profile Guide before other reputation levers.`;
     }
     return `"${keyword}" is outside the 3-Pack — start with step ${primaryStep}.`;
   }
@@ -192,7 +205,8 @@ export function buildKeywordActionBindings(
         packFragile,
         primaryStep,
         conversionBoost,
-        reviewVelocityBoost
+        reviewVelocityBoost,
+        options.profileGuideUnpublished === true
       ),
     };
   });
@@ -364,6 +378,8 @@ export function ctaLabelForPlanStep(stepNumber: number, title?: string | null): 
       return "Publish CTA post";
     case 10:
       return "Request reviews";
+    case PROFILE_GUIDE_PLAN_STEP:
+      return "Publish Profile Guide";
     case 11:
       return "Respond to reviews";
     case 13:

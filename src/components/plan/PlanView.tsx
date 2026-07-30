@@ -47,6 +47,7 @@ import { shouldShowPlanAcvReminder } from "./plan-acv-reminder";
 import { useAcvEstimate } from "@/hooks/useAcvEstimate";
 import { useProfileGuideReadiness } from "@/hooks/useProfileGuideReadiness";
 import { mergeProfileGuideIntoPlan } from "@/lib/profile-guide/plan-step";
+import { applyProfileGuideReviewCalibrationBoost } from "@/lib/profile-guide/attribution-calibration-boost";
 import { isProfileGuideReviewReady } from "@/lib/profile-guide/readiness";
 import { parseLocationFromAddress } from "@/lib/llm/acv-estimate";
 import { resolveAcvCopyFromAudit } from "@/lib/business/acv-copy";
@@ -397,18 +398,22 @@ export default function PlanView({
   );
   const calibration = useMemo(
     () =>
-      mergeExperimentCalibrations(
-        mergeMarketCalibrations(
-          mergeCalibrations(businessCalibration, globalCalibration),
-          marketStepCalibration
+      applyProfileGuideReviewCalibrationBoost(
+        mergeExperimentCalibrations(
+          mergeMarketCalibrations(
+            mergeCalibrations(businessCalibration, globalCalibration),
+            marketStepCalibration
+          ),
+          experimentStepCalibration
         ),
-        experimentStepCalibration
+        profileGuideReadiness
       ),
     [
       businessCalibration,
       globalCalibration,
       marketStepCalibration,
       experimentStepCalibration,
+      profileGuideReadiness,
     ]
   );
   const path = useMemo(
@@ -594,6 +599,7 @@ export default function PlanView({
         variant={variant}
         auditId={audit.auditId}
         businessId={businessId}
+        profileGuideUnpublished={!isProfileGuideReviewReady(profileGuideReadiness)}
         onFocusKeyword={(_keyword, stepNumber) => {
           if (stepNumber == null) return;
           setLocalFocusStep(stepNumber);

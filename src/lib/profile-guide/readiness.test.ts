@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildProfileGuideReadiness,
   isProfileGuideReviewReady,
+  planReviewRequestsHref,
   profileGuideEditorHref,
 } from "./readiness";
 import type { ProfileGuideWithLinks } from "./types";
@@ -75,6 +76,15 @@ describe("profileGuideEditorHref", () => {
     assert.equal(
       profileGuideEditorHref("biz-1", { from: "plan", focus: "publish" }),
       "/platform/customers?businessId=biz-1&tab=profile-guide&from=plan&focus=publish"
+    );
+  });
+});
+
+describe("planReviewRequestsHref", () => {
+  it("builds audit plan deep link to review requests step", () => {
+    assert.equal(
+      planReviewRequestsHref("biz-1"),
+      "/platform/audit?businessId=biz-1&view=strategy&focusStep=10"
     );
   });
 });
