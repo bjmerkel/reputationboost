@@ -7,6 +7,7 @@ import { compositeFlyerImage } from "./composite";
 import type { FlyerCopy } from "./copy";
 import { resolveFlyerCopy } from "./copy";
 import { buildFlyerCopy } from "./copy-builder";
+import { buildFlyerSupportLine } from "./context";
 import {
   getFlyerFormatSpec,
   type ProfileGuideFlyerFormat,
@@ -70,7 +71,8 @@ export async function generateAiProfileGuideFlyer(input: {
       input.cachedCopy ??
       resolveFlyerCopy(
         brief.template,
-        displayOptions.showTagline ? brief.tagline : null
+        displayOptions.showTagline ? brief.tagline : null,
+        buildFlyerSupportLine(brief)
       );
   } else {
     brief.copy = await buildFlyerCopy(brief);

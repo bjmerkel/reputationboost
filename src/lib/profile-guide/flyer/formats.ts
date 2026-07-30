@@ -72,6 +72,12 @@ export interface FlyerLayout {
   logoTop: number;
   logoMaxWidth: number;
   logoMaxHeight: number;
+  contentCardTop: number;
+  contentCardLeft: number;
+  contentCardWidth: number;
+  contentCardHeight: number;
+  contentCardPadding: number;
+  contentCardRadius: number;
   qrCardSize: number;
   qrCodeSize: number;
   qrTop: number;
@@ -82,68 +88,103 @@ export interface FlyerLayout {
   subheadSize: number;
   ctaSize: number;
   footerSize: number;
-  starsY: number;
-  ctaY: number;
-  footerY: number;
+  eyebrowSize: number;
+  qrLabelSize: number;
+  supportLineSize: number;
+  addressSize: number;
   headlineMaxChars: number;
   subheadMaxChars: number;
 }
 
 export function computeFlyerLayout(spec: FlyerFormatSpec): FlyerLayout {
   if (spec.orientation === "landscape") {
+    const margin = Math.round(spec.height * 0.06);
+    const cardLeft = Math.round(spec.width * 0.05);
+    const cardTop = margin;
+    const cardWidth = Math.round(spec.width * 0.52);
+    const cardHeight = spec.height - margin * 2;
+    const qrCardSize = Math.round(Math.min(spec.height * 0.58, spec.width * 0.26));
+    const qrCodeSize = Math.round(qrCardSize * 0.82);
+    const qrLeft = Math.round(spec.width * 0.66);
+    const qrTop = Math.round((spec.height - qrCardSize) / 2);
+
     return {
       width: spec.width,
       height: spec.height,
       orientation: "landscape",
-      coverHeight: Math.round(spec.height * 0.42),
-      logoTop: Math.round(spec.height * 0.1),
-      logoMaxWidth: Math.round(spec.width * 0.18),
-      logoMaxHeight: Math.round(spec.height * 0.14),
-      qrCardSize: Math.round(Math.min(spec.height * 0.62, spec.width * 0.28)),
-      qrCodeSize: Math.round(Math.min(spec.height * 0.52, spec.width * 0.24)),
-      qrTop: Math.round(spec.height * 0.2),
-      qrLeft: Math.round(spec.width * 0.66),
-      textTop: Math.round(spec.height * 0.16),
-      headlineSize: 52,
-      businessNameSize: 24,
-      subheadSize: 22,
-      ctaSize: 18,
-      footerSize: 16,
-      starsY: Math.round(spec.height * 0.78),
-      ctaY: Math.round(spec.height * 0.86),
-      footerY: Math.round(spec.height * 0.93),
-      headlineMaxChars: 18,
-      subheadMaxChars: 24,
+      coverHeight: Math.round(spec.height * 0.34),
+      logoTop: cardTop + Math.round(spec.height * 0.04),
+      logoMaxWidth: Math.round(spec.width * 0.14),
+      logoMaxHeight: Math.round(spec.height * 0.12),
+      contentCardTop: cardTop,
+      contentCardLeft: cardLeft,
+      contentCardWidth: cardWidth,
+      contentCardHeight: cardHeight,
+      contentCardPadding: Math.round(spec.height * 0.05),
+      contentCardRadius: Math.round(spec.height * 0.025),
+      qrCardSize,
+      qrCodeSize,
+      qrTop,
+      qrLeft,
+      textTop: cardTop + Math.round(spec.height * 0.14),
+      headlineSize: 44,
+      businessNameSize: 22,
+      subheadSize: 20,
+      ctaSize: 17,
+      footerSize: 15,
+      eyebrowSize: 14,
+      qrLabelSize: 16,
+      supportLineSize: 17,
+      addressSize: 15,
+      headlineMaxChars: 20,
+      subheadMaxChars: 28,
     };
   }
 
   const scaleY = spec.height / 1536;
   const scaleX = spec.width / 1024;
   const scale = Math.min(scaleX, scaleY);
-  const qrTop = Math.round(860 * scaleY);
+  const margin = Math.round(36 * scale);
+  const coverHeight = Math.round(spec.height * 0.16);
+  const contentCardTop = coverHeight - Math.round(10 * scaleY);
+  const contentCardLeft = margin;
+  const contentCardWidth = spec.width - margin * 2;
+  const contentCardHeight = spec.height - contentCardTop - margin;
+  const contentCardPadding = Math.round(32 * scale);
+  const qrCardSize = Math.round(248 * scale);
+  const qrCodeSize = Math.round(210 * scale);
+  const qrTop = contentCardTop + Math.round(contentCardHeight * 0.46);
+  const qrLeft = Math.round((spec.width - qrCardSize) / 2);
 
   return {
     width: spec.width,
     height: spec.height,
     orientation: "portrait",
-    coverHeight: Math.round(300 * scaleY),
-    logoTop: Math.round(48 * scaleY),
-    logoMaxWidth: Math.round(180 * scale),
-    logoMaxHeight: Math.round(90 * scale),
-    qrCardSize: Math.round(320 * scale),
-    qrCodeSize: Math.round(280 * scale),
+    coverHeight,
+    logoTop: coverHeight - Math.round(36 * scaleY),
+    logoMaxWidth: Math.round(150 * scale),
+    logoMaxHeight: Math.round(76 * scale),
+    contentCardTop,
+    contentCardLeft,
+    contentCardWidth,
+    contentCardHeight,
+    contentCardPadding,
+    contentCardRadius: Math.round(18 * scale),
+    qrCardSize,
+    qrCodeSize,
     qrTop,
-    qrLeft: Math.round((spec.width - 320 * scale) / 2),
-    textTop: Math.round(160 * scaleY),
-    headlineSize: Math.round(46 * scale),
-    businessNameSize: Math.round(28 * scale),
-    subheadSize: Math.round(24 * scale),
-    ctaSize: Math.round(20 * scale),
-    footerSize: Math.round(18 * scale),
-    starsY: qrTop + Math.round(360 * scaleY),
-    ctaY: qrTop + Math.round(404 * scaleY),
-    footerY: qrTop + Math.round(438 * scaleY),
+    qrLeft,
+    textTop: contentCardTop + contentCardPadding + Math.round(52 * scaleY),
+    headlineSize: Math.round(42 * scale),
+    businessNameSize: Math.round(26 * scale),
+    subheadSize: Math.round(22 * scale),
+    ctaSize: Math.round(18 * scale),
+    footerSize: Math.round(16 * scale),
+    eyebrowSize: Math.round(14 * scale),
+    qrLabelSize: Math.round(16 * scale),
+    supportLineSize: Math.round(17 * scale),
+    addressSize: Math.round(15 * scale),
     headlineMaxChars: 22,
-    subheadMaxChars: 28,
+    subheadMaxChars: 30,
   };
 }

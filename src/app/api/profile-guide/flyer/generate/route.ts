@@ -24,6 +24,8 @@ function parseCachedCopy(value: unknown): FlyerCopy | undefined {
     headline: record.headline,
     subhead: record.subhead,
     cta: record.cta,
+    qrLabel: typeof record.qrLabel === "string" ? record.qrLabel : "Scan to leave a Google review",
+    supportLine: typeof record.supportLine === "string" ? record.supportLine : "",
   };
 }
 
