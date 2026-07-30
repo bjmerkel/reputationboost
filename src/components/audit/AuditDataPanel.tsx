@@ -36,6 +36,10 @@ import {
   fetchProfileGuideBackgroundImage,
   setProfileGuideBackgroundImage,
 } from "@/lib/profile-guide/background-image";
+import {
+  isProfileGuideCoverImage,
+  profileGuideCoverImageUrl,
+} from "@/lib/profile-guide/cover-image";
 import { buildMediaHealthReport } from "@/lib/google/gbp-media-health";
 import { buildPerformanceHealthReport } from "@/lib/google/gbp-performance-health";
 import { buildReviewsHealthReport } from "@/lib/google/gbp-reviews-health";
@@ -236,6 +240,9 @@ export default function AuditDataPanel({
     : "grid grid-cols-1 gap-4";
   const [profileGuideBackgroundUrl, setProfileGuideBackgroundUrl] = useState<string | null>(null);
   const [profileGuideBackgroundSaving, setProfileGuideBackgroundSaving] = useState(false);
+  const [profileGuideBackgroundMessage, setProfileGuideBackgroundMessage] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     void fetchProfileGuideBackgroundImage().then(setProfileGuideBackgroundUrl);
@@ -243,11 +250,17 @@ export default function AuditDataPanel({
 
   async function handleSelectProfileGuideBackground(url: string | null) {
     setProfileGuideBackgroundSaving(true);
+    setProfileGuideBackgroundMessage(null);
     try {
       await setProfileGuideBackgroundImage(url);
       setProfileGuideBackgroundUrl(url);
+      setProfileGuideBackgroundMessage(
+        url ? "Profile Guide cover updated — stay on this page to pick another." : "Profile Guide cover removed."
+      );
     } catch (error) {
-      console.error("[audit] profile guide background update failed:", error);
+      setProfileGuideBackgroundMessage(
+        error instanceof Error ? error.message : "Failed to update Profile Guide cover"
+      );
     } finally {
       setProfileGuideBackgroundSaving(false);
     }
@@ -485,6 +498,7 @@ export default function AuditDataPanel({
                   photosByType={audit.gbp.content.photosByType}
                   previews={mediaPreviews}
                   coverage={audit.gbp.content.mediaCoverage}
+                  profileGuideBackgroundMessage={profileGuideBackgroundMessage}
                   profileGuideBackgroundUrl={profileGuideBackgroundUrl}
                   profileGuideBackgroundSaving={profileGuideBackgroundSaving}
                   onSelectProfileGuideBackground={handleSelectProfileGuideBackground}
@@ -1355,6 +1369,7 @@ function MediaGallery({
   light = false,
   profileGuideBackgroundUrl = null,
   profileGuideBackgroundSaving = false,
+  profileGuideBackgroundMessage = null,
   onSelectProfileGuideBackground,
   profileGuidePreviewHref = "/platform/customers?tab=profile-guide",
 }: {
@@ -1366,6 +1381,7 @@ function MediaGallery({
   light?: boolean;
   profileGuideBackgroundUrl?: string | null;
   profileGuideBackgroundSaving?: boolean;
+  profileGuideBackgroundMessage?: string | null;
   onSelectProfileGuideBackground?: (url: string | null) => void;
   profileGuidePreviewHref?: string;
 }) {
@@ -1415,11 +1431,15 @@ function MediaGallery({
           {missingSummary && <p className={`mt-2 text-xs ${theme.recommend}`}>Missing categories: {missingSummary}</p>}
           {onSelectProfileGuideBackground && (
             <p className={`mt-2 text-xs ${theme.label}`}>
-              Click <span className="font-medium">Guide cover</span> on any photo to set your Profile Guide
-              background.{" "}
+              Click any photo to set it as your Profile Guide cover — you&apos;ll stay on this page.{" "}
               <a href={profileGuidePreviewHref} className="font-medium text-[#1a73e8] hover:underline">
                 Preview your guide
               </a>
+            </p>
+          )}
+          {profileGuideBackgroundMessage && (
+            <p className={`mt-2 text-xs font-medium ${light ? "text-[#137333]" : "text-emerald-400"}`}>
+              {profileGuideBackgroundMessage}
             </p>
           )}
         </div>
@@ -1430,9 +1450,10 @@ function MediaGallery({
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
           {previews.map((item, i) => {
             const isGuideBackground =
-              Boolean(profileGuideBackgroundUrl) &&
               item.mediaFormat === "PHOTO" &&
-              item.thumbnailUrl === profileGuideBackgroundUrl;
+              isProfileGuideCoverImage(profileGuideBackgroundUrl, item);
+            const coverEnabled =
+              item.mediaFormat === "PHOTO" && Boolean(onSelectProfileGuideBackground);
 
             return (
               <div
@@ -1445,19 +1466,48 @@ function MediaGallery({
                       : "border-white/10 bg-slate-900/50"
                 }`}
               >
-                <a
-                  href={item.googleUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block h-full w-full"
-                  title={item.description || item.category || undefined}
-                >
-                  <ExternalImage
-                    src={item.thumbnailUrl}
-                    alt={item.description || item.category || "GBP media"}
-                    className="h-full w-full object-cover transition group-hover:scale-105"
-                  />
-                </a>
+                {coverEnabled ? (
+                  <button
+                    type="button"
+                    disabled={profileGuideBackgroundSaving}
+                    onClick={() =>
+                      onSelectProfileGuideBackground?.(
+                        isGuideBackground ? null : profileGuideCoverImageUrl(item)
+                      )
+                    }
+                    className="block h-full w-full cursor-pointer disabled:cursor-wait"
+                    title={
+                      isGuideBackground
+                        ? "Remove as Profile Guide cover"
+                        : "Set as Profile Guide cover"
+                    }
+                  >
+                    <ExternalImage
+                      src={item.thumbnailUrl}
+                      alt={item.description || item.category || "GBP media"}
+                      className="h-full w-full object-cover transition group-hover:scale-105"
+                    />
+                  </button>
+                ) : (
+                  <a
+                    href={item.googleUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block h-full w-full"
+                    title={item.description || item.category || undefined}
+                  >
+                    <ExternalImage
+                      src={item.thumbnailUrl}
+                      alt={item.description || item.category || "GBP media"}
+                      className="h-full w-full object-cover transition group-hover:scale-105"
+                    />
+                  </a>
+                )}
+                {coverEnabled && isGuideBackground && (
+                  <span className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#1a73e8] px-2 py-1 text-[10px] font-semibold text-white shadow">
+                    Guide cover
+                  </span>
+                )}
                 {item.mediaFormat === "VIDEO" && (
                   <span className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
                     Video
@@ -1480,22 +1530,6 @@ function MediaGallery({
                   <span className="pointer-events-none absolute bottom-1 left-1 max-w-[70%] truncate rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
                     {item.category.replace(/_/g, " ").toLowerCase()}
                   </span>
-                )}
-                {item.mediaFormat === "PHOTO" && onSelectProfileGuideBackground && (
-                  <button
-                    type="button"
-                    disabled={profileGuideBackgroundSaving}
-                    onClick={() =>
-                      onSelectProfileGuideBackground(isGuideBackground ? null : item.thumbnailUrl)
-                    }
-                    className={`absolute bottom-1 right-1 z-10 rounded px-1.5 py-0.5 text-[10px] font-semibold transition ${
-                      isGuideBackground
-                        ? "bg-[#1a73e8] text-white"
-                        : "bg-white/95 text-[#1a73e8] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-                    }`}
-                  >
-                    {isGuideBackground ? "Guide cover ✓" : "Guide cover"}
-                  </button>
                 )}
               </div>
             );

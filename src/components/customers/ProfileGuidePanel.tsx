@@ -482,11 +482,11 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
             <label className="block text-sm sm:col-span-2">
               <span className="font-medium text-[#3c4043]">Cover photo</span>
               <p className="mt-1 text-xs text-[#80868b]">
-                Choose a photo from{" "}
+                Click any photo in{" "}
                 <Link href={auditPhotosHref} className="font-medium text-[#1a73e8] hover:underline">
                   Audit → Photos &amp; videos
                 </Link>{" "}
-                and click <span className="font-medium">Guide cover</span>.
+                to set your Profile Guide cover. You&apos;ll stay on the audit page.
               </p>
               {backgroundImageUrl ? (
                 <div className="mt-3 flex items-center gap-3">
