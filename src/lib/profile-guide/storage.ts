@@ -1,7 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ClientConfig } from "@/audit/types";
 import { buildDefaultProfileGuideLinks } from "./defaults";
-import { buildProfileGuideSlug } from "./slug";
+import {
+  allProfileGuideSlugCandidates,
+  hasLegacyProfileGuideSlug,
+  profileGuideSlugWithoutLegacySuffix,
+} from "./slug";
 import { mergeSyncedGuide, shouldAutoSyncGuide } from "./sync";
 import type {
   ProfileGuideLinkInput,
@@ -44,6 +48,78 @@ function rowToGuide(row: Record<string, unknown>): ProfileGuideRecord {
 
 function rowToLink(row: Record<string, unknown>): ProfileGuideLinkRecord {
   return row as unknown as ProfileGuideLinkRecord;
+}
+
+async function isProfileGuideSlugTaken(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  slug: string,
+  excludeGuideId?: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("profile_guides")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (error) throw new Error(formatStorageError(error.message));
+  if (!data) return false;
+  if (excludeGuideId && data.id === excludeGuideId) return false;
+  return true;
+}
+
+async function resolveAvailableProfileGuideSlug(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  name: string,
+  excludeGuideId?: string
+): Promise<string> {
+  for (const candidate of allProfileGuideSlugCandidates(name)) {
+    const taken = await isProfileGuideSlugTaken(supabase, candidate, excludeGuideId);
+    if (!taken) return candidate;
+  }
+
+  throw new Error("Could not find an available Profile Guide URL");
+}
+
+async function maybeMigrateLegacyProfileGuideSlug(
+  userId: string,
+  guide: ProfileGuideWithLinks,
+  businessName: string
+): Promise<ProfileGuideWithLinks> {
+  if (!hasLegacyProfileGuideSlug(guide.guide.slug)) {
+    return guide;
+  }
+
+  const supabase = await createClient();
+  const nextSlug = await resolveAvailableProfileGuideSlug(
+    supabase,
+    businessName,
+    guide.guide.id
+  );
+
+  if (nextSlug === guide.guide.slug) {
+    return guide;
+  }
+
+  const { error } = await supabase
+    .from("profile_guides")
+    .update({
+      slug: nextSlug,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", guide.guide.id)
+    .eq("user_id", userId);
+
+  if (error) {
+    return guide;
+  }
+
+  return {
+    ...guide,
+    guide: {
+      ...guide.guide,
+      slug: nextSlug,
+    },
+  };
 }
 
 async function insertDefaultLinks(
@@ -168,14 +244,19 @@ export async function getOrCreateProfileGuide(
 
   const existing = await getProfileGuideByBusinessId(userId, business.businessId);
   if (existing) {
-    if (shouldAutoSyncGuide(existing.guide.gbp_synced_at)) {
+    const migrated = await maybeMigrateLegacyProfileGuideSlug(
+      userId,
+      existing,
+      business.name
+    );
+    if (shouldAutoSyncGuide(migrated.guide.gbp_synced_at)) {
       return syncProfileGuideFromBusiness(userId, business, { force: true });
     }
-    return existing;
+    return migrated;
   }
 
   const supabase = await createClient();
-  const slug = buildProfileGuideSlug(business.name, business.businessId);
+  const slug = await resolveAvailableProfileGuideSlug(supabase, business.name);
   const defaultLinks = buildDefaultProfileGuideLinks(business);
 
   const { data: guide, error } = await supabase
@@ -346,29 +427,37 @@ export async function getPublishedProfileGuideBySlug(
   slug: string
 ): Promise<ProfileGuideWithLinks | null> {
   const supabase = await createClient();
-  const { data: guide, error } = await supabase
-    .from("profile_guides")
-    .select("*")
-    .eq("slug", slug)
-    .eq("published", true)
-    .maybeSingle();
+  const slugCandidates = hasLegacyProfileGuideSlug(slug)
+    ? [slug, profileGuideSlugWithoutLegacySuffix(slug)]
+    : [slug];
 
-  if (error) throw new Error(formatStorageError(error.message));
-  if (!guide) return null;
+  for (const candidate of slugCandidates) {
+    const { data: guide, error } = await supabase
+      .from("profile_guides")
+      .select("*")
+      .eq("slug", candidate)
+      .eq("published", true)
+      .maybeSingle();
 
-  const { data: links, error: linksError } = await supabase
-    .from("profile_guide_links")
-    .select("*")
-    .eq("guide_id", guide.id)
-    .eq("enabled", true)
-    .order("sort_order", { ascending: true });
+    if (error) throw new Error(formatStorageError(error.message));
+    if (!guide) continue;
 
-  if (linksError) throw new Error(formatStorageError(linksError.message));
+    const { data: links, error: linksError } = await supabase
+      .from("profile_guide_links")
+      .select("*")
+      .eq("guide_id", guide.id)
+      .eq("enabled", true)
+      .order("sort_order", { ascending: true });
 
-  return {
-    guide: rowToGuide(guide),
-    links: (links ?? []).map(rowToLink),
-  };
+    if (linksError) throw new Error(formatStorageError(linksError.message));
+
+    return {
+      guide: rowToGuide(guide),
+      links: (links ?? []).map(rowToLink),
+    };
+  }
+
+  return null;
 }
 
 export async function getProfileGuidePublicUrlForBusiness(

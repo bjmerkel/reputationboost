@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildDefaultProfileGuideLinks } from "./defaults";
-import { buildProfileGuideSlug } from "./slug";
 import type { ClientConfig } from "@/audit/types";
 
 function sampleBusiness(overrides: Partial<ClientConfig> = {}): ClientConfig {
@@ -26,15 +25,6 @@ function sampleBusiness(overrides: Partial<ClientConfig> = {}): ClientConfig {
     ...overrides,
   };
 }
-
-describe("buildProfileGuideSlug", () => {
-  it("slugifies business name with id suffix", () => {
-    assert.equal(
-      buildProfileGuideSlug("Joe's Plumbing", "11111111-2222-3333-4444-555555555555"),
-      "joe-s-plumbing-11111111"
-    );
-  });
-});
 
 describe("buildDefaultProfileGuideLinks", () => {
   it("creates six default links from business data", () => {
