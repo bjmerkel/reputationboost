@@ -1,8 +1,10 @@
 import { completeJson } from "@/lib/llm/client";
 import { isLlmConfigured } from "@/lib/llm/config";
-import type { FlyerBrief } from "./brief";
-import { buildFlyerBusinessContext, buildFlyerSupportLine } from "./context";
+import type { FlyerDesignBrief } from "./design-brief";
+import { FLYER_COPY_SYSTEM_PROMPT } from "./design-system";
+import { buildFlyerSupportLine } from "./context";
 import { FLYER_TEMPLATE_COPY, resolveFlyerCopy, type FlyerCopy } from "./copy";
+import { buildFlyerCopyPromptTemplate } from "./prompt-template";
 
 function trimField(value: string, max: number): string {
   const trimmed = value.trim();
@@ -10,7 +12,7 @@ function trimField(value: string, max: number): string {
   return `${trimmed.slice(0, max - 1).trim()}…`;
 }
 
-function sanitizeCopy(copy: Partial<FlyerCopy>, brief: FlyerBrief): FlyerCopy {
+function sanitizeCopy(copy: Partial<FlyerCopy>, brief: FlyerDesignBrief): FlyerCopy {
   const fallback = resolveFlyerCopy(
     brief.template,
     brief.displayOptions.showTagline ? brief.tagline : null,
@@ -26,7 +28,7 @@ function sanitizeCopy(copy: Partial<FlyerCopy>, brief: FlyerBrief): FlyerCopy {
   };
 }
 
-export async function buildFlyerCopy(brief: FlyerBrief): Promise<FlyerCopy> {
+export async function buildFlyerCopy(brief: FlyerDesignBrief): Promise<FlyerCopy> {
   const fallback = resolveFlyerCopy(
     brief.template,
     brief.displayOptions.showTagline ? brief.tagline : null,
@@ -44,29 +46,17 @@ export async function buildFlyerCopy(brief: FlyerBrief): Promise<FlyerCopy> {
       [
         {
           role: "system",
-          content:
-            "You write polished review-request flyer copy for local businesses. Return JSON with headline, subhead, cta, qrLabel, and supportLine.",
+          content: FLYER_COPY_SYSTEM_PROMPT,
         },
         {
           role: "user",
           content: [
-            buildFlyerBusinessContext(brief),
-            `Tone: ${brief.template}`,
+            buildFlyerCopyPromptTemplate(brief),
             `Baseline headline: ${templateBase.headline}`,
-            "",
-            "Write copy for a professional printed review flyer.",
-            "Use the real business details above. Mention the city or service type when helpful.",
-            "headline: bold, under 8 words.",
-            "subhead: one sentence about leaving a Google review.",
-            "cta: warm closing line.",
-            "qrLabel: short scan instruction above the QR code.",
-            "supportLine: one line with industry/service plus city or neighborhood.",
-          ]
-            .filter(Boolean)
-            .join("\n"),
+          ].join("\n\n"),
         },
       ],
-      { temperature: 0.7, maxTokens: 400 }
+      { temperature: 0.65, maxTokens: 400 }
     );
 
     return sanitizeCopy(result, brief);

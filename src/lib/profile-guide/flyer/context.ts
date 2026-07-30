@@ -1,11 +1,19 @@
 import type { FlyerBrief } from "./brief";
+import type { FlyerDesignBrief } from "./design-brief";
 
-export function buildFlyerBusinessContext(brief: FlyerBrief): string {
+type BriefLike = FlyerBrief | FlyerDesignBrief;
+
+function isDesignBrief(brief: BriefLike): brief is FlyerDesignBrief {
+  return "archetype" in brief && "primaryCategory" in brief;
+}
+
+export function buildFlyerBusinessContext(brief: BriefLike): string {
   const location = [brief.city, brief.state].filter(Boolean).join(", ");
 
-  return [
+  const lines = [
     `Business name: ${brief.businessName}`,
     `Industry: ${brief.industry}`,
+    isDesignBrief(brief) ? `Primary category: ${brief.primaryCategory}` : "",
     brief.categories.length ? `Categories: ${brief.categories.join(", ")}` : "",
     brief.keywords.length ? `Keywords: ${brief.keywords.join(", ")}` : "",
     location ? `City/region: ${location}` : "",
@@ -14,21 +22,41 @@ export function buildFlyerBusinessContext(brief: FlyerBrief): string {
     brief.phone ? `Phone: ${brief.phone}` : "",
     brief.website ? `Website: ${brief.website}` : "",
     `Brand colors: primary ${brief.primaryColor}, background ${brief.backgroundColor}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ];
+
+  if (isDesignBrief(brief)) {
+    lines.push(
+      brief.description ? `Description: ${brief.description}` : "",
+      brief.averageRating != null && brief.reviewCount != null
+        ? `Google rating: ${brief.averageRating} (${brief.reviewCount} reviews)`
+        : "",
+      brief.profileGuideActions.length
+        ? `Profile Guide actions: ${brief.profileGuideActions.join(", ")}`
+        : "",
+      brief.photoUrls.length ? `Photo assets available: ${brief.photoUrls.length}` : "",
+      `Design archetype: ${brief.archetypeStyle.label}`,
+      `Archetype mood: ${brief.archetypeStyle.mood}`
+    );
+  }
+
+  return lines.filter(Boolean).join("\n");
 }
 
-export function buildFlyerSupportLine(brief: FlyerBrief): string {
+export function buildFlyerSupportLine(brief: BriefLike): string {
   const location = [brief.city, brief.state].filter(Boolean).join(", ");
-  const category = brief.categories.slice(0, 2).join(" · ") || brief.industry;
+  const category =
+    (isDesignBrief(brief) ? brief.primaryCategory : brief.categories[0]) ||
+    brief.industry;
   if (location) return `${category} · ${location}`;
   return category;
 }
 
-export function buildFlyerEyebrow(brief: FlyerBrief): string | null {
+export function buildFlyerEyebrow(brief: BriefLike): string | null {
   if (brief.displayOptions.showTagline && brief.tagline?.trim()) {
     return brief.tagline.trim();
+  }
+  if (isDesignBrief(brief) && brief.primaryCategory) {
+    return brief.primaryCategory;
   }
   if (brief.categories.length > 0) {
     return brief.categories.slice(0, 2).join(" · ");

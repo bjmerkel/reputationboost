@@ -86,6 +86,7 @@ export async function POST(request: Request) {
 
   try {
     const result = await generateAiProfileGuideFlyer({
+      userId: user.id,
       guide,
       business,
       publicUrl,
