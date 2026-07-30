@@ -49,6 +49,10 @@ export default function InfoTooltip({
   title,
   calculation,
   importance,
+  examples,
+  calculationLabel = "How it's calculated:",
+  importanceLabel = "Why it matters:",
+  examplesLabel = "Examples:",
   variant = "light",
   className = "",
 }: ScoreTooltipContent & {
@@ -98,7 +102,7 @@ export default function InfoTooltip({
     }
     updatePosition();
     setPositioned(true);
-  }, [open, updatePosition, title, calculation, importance]);
+  }, [open, updatePosition, title, calculation, importance, examples]);
 
   useEffect(() => {
     if (!open) return;
@@ -160,16 +164,24 @@ export default function InfoTooltip({
       </p>
       <p className="mt-2 text-[11px] leading-relaxed">
         <span className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
-          How it&apos;s calculated:{" "}
+          {calculationLabel}{" "}
         </span>
         {calculation}
       </p>
       <p className="mt-2 text-[11px] leading-relaxed">
         <span className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
-          Why it matters:{" "}
+          {importanceLabel}{" "}
         </span>
         {importance}
       </p>
+      {examples ? (
+        <p className="mt-2 text-[11px] leading-relaxed">
+          <span className={`font-semibold ${isLight ? "text-[#202124]" : "text-white"}`}>
+            {examplesLabel}{" "}
+          </span>
+          {examples}
+        </p>
+      ) : null}
     </div>
   ) : null;
 

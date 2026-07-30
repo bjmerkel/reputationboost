@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import ProfileGuidePhonePreview from "@/components/profile-guide/ProfileGuidePhonePreview";
+import ProfileGuideSectionTooltip from "@/components/profile-guide/ProfileGuideSectionTooltip";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
 import { customersTabHref } from "@/lib/customers/tabs";
 import { formatSourceLabel } from "@/lib/profile-guide/analytics";
@@ -18,6 +19,8 @@ import {
   type ProfileGuideButtonStyle,
   type ProfileGuideFontPreset,
 } from "@/lib/profile-guide/theme";
+import { PROFILE_GUIDE_SECTION_TOOLTIPS } from "@/lib/profile-guide/section-tooltips";
+import type { ProfileGuideSectionTooltip as ProfileGuideSectionTooltipContent } from "@/lib/profile-guide/section-tooltips";
 
 interface GuideLink {
   id: string;
@@ -331,7 +334,13 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-[#202124]">Your Profile Guide</h2>
+              <SectionTitle
+                as="h2"
+                className="text-lg font-bold text-[#202124]"
+                tooltip={PROFILE_GUIDE_SECTION_TOOLTIPS.overview}
+              >
+                Your Profile Guide
+              </SectionTitle>
               <p className="mt-1 max-w-xl text-sm text-[#5f6368]">
                 Share a branded mobile page and QR code so customers can review you, get directions,
                 call, or book — all from one scan.
@@ -437,7 +446,12 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         </section>
 
         <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
-          <h3 className="text-base font-semibold text-[#202124]">Branding & theme</h3>
+          <SectionTitle
+            tooltip={PROFILE_GUIDE_SECTION_TOOLTIPS.branding}
+            className="text-base font-semibold text-[#202124]"
+          >
+            Branding & theme
+          </SectionTitle>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="block text-sm">
               <span className="font-medium text-[#3c4043]">Primary color</span>
@@ -576,7 +590,12 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         </section>
 
         <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
-          <h3 className="text-base font-semibold text-[#202124]">Review flyer</h3>
+          <SectionTitle
+            tooltip={PROFILE_GUIDE_SECTION_TOOLTIPS.reviewFlyer}
+            className="text-base font-semibold text-[#202124]"
+          >
+            Review flyer
+          </SectionTitle>
           <p className="mt-1 text-sm text-[#5f6368]">
             Generate a print-ready flyer with your QR code. Pick a style and print from your browser.
           </p>
@@ -597,7 +616,12 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="text-base font-semibold text-[#202124]">Action buttons</h3>
+              <SectionTitle
+                tooltip={PROFILE_GUIDE_SECTION_TOOLTIPS.actionButtons}
+                className="text-base font-semibold text-[#202124]"
+              >
+                Action buttons
+              </SectionTitle>
               <p className="mt-1 text-sm text-[#5f6368]">
                 Add custom buttons, reorder, toggle, and edit the links on your public guide.
               </p>
@@ -703,7 +727,12 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
 
         <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-base font-semibold text-[#202124]">Analytics</h3>
+            <SectionTitle
+              tooltip={PROFILE_GUIDE_SECTION_TOOLTIPS.analytics}
+              className="text-base font-semibold text-[#202124]"
+            >
+              Analytics
+            </SectionTitle>
             <div className="flex rounded-full border border-[#dadce0] p-1">
               {PERIODS.map((days) => (
                 <button
@@ -774,9 +803,12 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
         <div className="rounded-[2rem] border border-[#dadce0] bg-white p-3 shadow-sm">
           <div className="rounded-[1.5rem] border border-[#e8eaed] bg-[#f8f9fa] p-4">
-            <p className="text-center text-xs font-semibold uppercase tracking-widest text-[#80868b]">
-              Live mobile preview
-            </p>
+            <div className="flex items-center justify-center gap-1.5">
+              <p className="text-center text-xs font-semibold uppercase tracking-widest text-[#80868b]">
+                Live mobile preview
+              </p>
+              <ProfileGuideSectionTooltip content={PROFILE_GUIDE_SECTION_TOOLTIPS.livePreview} />
+            </div>
             <ProfileGuidePhonePreview
               displayName={data?.guide.displayName ?? "Your business"}
               primaryColor={primaryColor}
@@ -794,9 +826,12 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         {qrPreviewSrc && (
           <div className="rounded-[2rem] border border-[#dadce0] bg-white p-3 shadow-sm">
             <div className="rounded-[1.5rem] border border-[#e8eaed] bg-[#f8f9fa] p-4">
-              <p className="text-center text-xs font-semibold uppercase tracking-widest text-[#80868b]">
-                QR code
-              </p>
+              <div className="flex items-center justify-center gap-1.5">
+                <p className="text-center text-xs font-semibold uppercase tracking-widest text-[#80868b]">
+                  QR code
+                </p>
+                <ProfileGuideSectionTooltip content={PROFILE_GUIDE_SECTION_TOOLTIPS.qrCode} />
+              </div>
               <div className="mt-3 flex justify-center rounded-xl bg-white p-3">
                 <img
                   src={qrPreviewSrc}
@@ -860,6 +895,25 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SectionTitle({
+  children,
+  tooltip,
+  className = "",
+  as: Tag = "h3",
+}: {
+  children: ReactNode;
+  tooltip: ProfileGuideSectionTooltipContent;
+  className?: string;
+  as?: "h2" | "h3" | "h4";
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Tag className={className}>{children}</Tag>
+      <ProfileGuideSectionTooltip content={tooltip} />
     </div>
   );
 }
