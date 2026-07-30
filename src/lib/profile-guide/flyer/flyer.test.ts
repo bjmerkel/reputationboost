@@ -122,7 +122,7 @@ describe("flyer business context helpers", () => {
 
   it("includes qrLabel and supportLine in resolved copy", () => {
     const copy = resolveFlyerCopy("professional", "Your trusted local plumber", "Plumber · Austin, TX");
-    assert.equal(copy.qrLabel, "Scan to leave a Google review");
+    assert.equal(copy.qrLabel, "Scan the QR code with your phone");
     assert.equal(copy.supportLine, "Plumber · Austin, TX");
     assert.equal(copy.subhead, "Your trusted local plumber");
   });

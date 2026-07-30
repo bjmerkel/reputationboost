@@ -151,9 +151,9 @@ export function computeFlyerLayout(spec: FlyerFormatSpec): FlyerLayout {
   const contentCardWidth = spec.width - margin * 2;
   const contentCardHeight = spec.height - contentCardTop - margin;
   const contentCardPadding = Math.round(32 * scale);
-  const qrCardSize = Math.round(248 * scale);
-  const qrCodeSize = Math.round(210 * scale);
-  const qrTop = contentCardTop + Math.round(contentCardHeight * 0.46);
+  const qrCardSize = Math.round(278 * scale);
+  const qrCodeSize = Math.round(232 * scale);
+  const qrTop = contentCardTop + Math.round(contentCardHeight * 0.57);
   const qrLeft = Math.round((spec.width - qrCardSize) / 2);
 
   return {
@@ -161,9 +161,9 @@ export function computeFlyerLayout(spec: FlyerFormatSpec): FlyerLayout {
     height: spec.height,
     orientation: "portrait",
     coverHeight,
-    logoTop: coverHeight - Math.round(36 * scaleY),
-    logoMaxWidth: Math.round(150 * scale),
-    logoMaxHeight: Math.round(76 * scale),
+    logoTop: coverHeight - Math.round(40 * scaleY),
+    logoMaxWidth: Math.round(176 * scale),
+    logoMaxHeight: Math.round(90 * scale),
     contentCardTop,
     contentCardLeft,
     contentCardWidth,
@@ -174,17 +174,17 @@ export function computeFlyerLayout(spec: FlyerFormatSpec): FlyerLayout {
     qrCodeSize,
     qrTop,
     qrLeft,
-    textTop: contentCardTop + contentCardPadding + Math.round(52 * scaleY),
-    headlineSize: Math.round(42 * scale),
+    textTop: contentCardTop + contentCardPadding + Math.round(20 * scaleY),
+    headlineSize: Math.round(44 * scale),
     businessNameSize: Math.round(26 * scale),
     subheadSize: Math.round(22 * scale),
     ctaSize: Math.round(18 * scale),
     footerSize: Math.round(16 * scale),
     eyebrowSize: Math.round(14 * scale),
-    qrLabelSize: Math.round(16 * scale),
+    qrLabelSize: Math.round(18 * scale),
     supportLineSize: Math.round(17 * scale),
     addressSize: Math.round(15 * scale),
-    headlineMaxChars: 22,
-    subheadMaxChars: 30,
+    headlineMaxChars: 26,
+    subheadMaxChars: 38,
   };
 }

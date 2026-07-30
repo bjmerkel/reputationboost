@@ -10,10 +10,10 @@ export interface FlyerCopy {
 
 export const FLYER_TEMPLATE_COPY: Record<ProfileGuideFlyerTemplate, FlyerCopy> = {
   professional: {
-    headline: "We'd love your feedback",
-    subhead: "Your experience matters to our team",
-    cta: "Thank you for helping us serve our community.",
-    qrLabel: "Scan to leave a Google review",
+    headline: "Love your experience?",
+    subhead: "Your feedback helps other families discover us",
+    cta: "Thank you for supporting our local business!",
+    qrLabel: "Scan the QR code with your phone",
     supportLine: "",
   },
   friendly: {
