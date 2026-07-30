@@ -10,6 +10,7 @@ import {
   type PlaybookItem,
   type ProductPlaybook,
 } from "@/lib/platform/product-playbook";
+import { useProfileGuideReadiness } from "@/hooks/useProfileGuideReadiness";
 
 const STORAGE_KEY = "rb-playbook-dismissed-tips";
 const OPENED_KEY = "rb-playbook-opened";
@@ -79,6 +80,11 @@ export default function ProductPlaybookWizard({
     setHydrated(true);
   }, []);
 
+  const { readiness: profileGuideReadiness } = useProfileGuideReadiness({
+    enabled: gbpConnected,
+    businessId,
+  });
+
   const playbook = useMemo(
     () =>
       buildProductPlaybook({
@@ -89,8 +95,18 @@ export default function ProductPlaybookWizard({
         avgCustomerValue,
         industry,
         dismissedTips,
+        profileGuidePublished: profileGuideReadiness.published,
       }),
-    [gbpConnected, businessId, audit, tasks, avgCustomerValue, industry, dismissedTips]
+    [
+      gbpConnected,
+      businessId,
+      audit,
+      tasks,
+      avgCustomerValue,
+      industry,
+      dismissedTips,
+      profileGuideReadiness.published,
+    ]
   );
 
   useEffect(() => {

@@ -6,6 +6,7 @@
 export type PlanAnalyticsEventName =
   | "plan_nba_click"
   | "plan_keyword_playbook_cta"
+  | "plan_profile_guide_cta_click"
   | "plan_publish_success"
   | "plan_reconcile_live";
 

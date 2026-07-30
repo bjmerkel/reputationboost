@@ -33,7 +33,7 @@ function minimalAudit(overrides: Partial<FullAuditPayload> = {}): FullAuditPaylo
     },
     rankings: { keywords: [] },
     competitors: [],
-    reviews: { unrespondedNegative: 0, pendingReplies: [], reviews: [] },
+    reviews: { unrespondedNegative: 0, pendingReplies: [], reviews: [], disputeCandidates: [] },
     strategy: {
       scores: { overall: 55, grade: "needs_work", drivers: {}, outcomes: {} },
       gaps: [],
@@ -169,5 +169,18 @@ describe("buildProductPlaybook", () => {
     });
     const roiItem = playbook.items.find((item) => item.id === "set-roi");
     assert.match(roiItem?.title ?? "", /visit value/i);
+  });
+
+  it("keeps Profile Guide setup pending until published", () => {
+    const playbook = buildProductPlaybook({
+      gbpConnected: true,
+      audit: minimalAudit(),
+      tasks: [],
+      profileGuidePublished: false,
+    });
+
+    const item = playbook.items.find((entry) => entry.id === "setup-profile-guide");
+    assert.ok(item);
+    assert.equal(item?.status, "pending");
   });
 });

@@ -14,6 +14,7 @@ import {
   planProgressPercent,
   resolvePlanProjectionDisplay,
 } from "./plan-display";
+import { PROFILE_GUIDE_PLAN_HEADER_HINT } from "./plan-ux-copy";
 
 export default function PlanProgressHeader({
   plan,
@@ -37,6 +38,7 @@ export default function PlanProgressHeader({
   currency = "USD",
   planReconciledAt,
   calibrationConfidence,
+  profileGuidePublished = true,
 }: {
   plan: Plan;
   variant?: "light" | "dark";
@@ -59,6 +61,7 @@ export default function PlanProgressHeader({
   currency?: string;
   planReconciledAt?: string | null;
   calibrationConfidence?: "high" | "medium" | "low" | "default";
+  profileGuidePublished?: boolean;
 }) {
   const isLight = variant === "light";
   const { progress } = plan;
@@ -203,6 +206,9 @@ export default function PlanProgressHeader({
               · {progress.completedSteps} of {progress.totalSteps} steps complete
             </span>
           </p>
+          {!profileGuidePublished && (
+            <p className={`mt-1 text-xs ${mutedText}`}>{PROFILE_GUIDE_PLAN_HEADER_HINT}</p>
+          )}
           {confidenceLabel ? (
             <p className={`mt-1 text-xs ${subtleText}`}>{confidenceLabel}</p>
           ) : (

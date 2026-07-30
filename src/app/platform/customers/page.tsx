@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 interface PageProps {
-  searchParams: Promise<{ businessId?: string; tab?: string }>;
+  searchParams: Promise<{ businessId?: string; tab?: string; from?: string; focus?: string }>;
 }
 
 export default async function CustomersPage({ searchParams }: PageProps) {
@@ -88,7 +88,11 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             resendConfigured={isResendConfigured()}
           />
         ) : (
-          <ProfileGuidePanel businessId={business.businessId} />
+          <ProfileGuidePanel
+            businessId={business.businessId}
+            entryFrom={params.from ?? null}
+            entryFocus={params.focus ?? null}
+          />
         )}
       </div>
     </main>

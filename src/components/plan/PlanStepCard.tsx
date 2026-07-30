@@ -19,6 +19,7 @@ import PlanStepHours from "./PlanStepHours";
 import PlanStepPlaceActions from "./PlanStepPlaceActions";
 import ReviewRequestPanel from "@/components/review-requests/ReviewRequestPanel";
 import ReviewDisputePanel from "@/components/review-disputes/ReviewDisputePanel";
+import PlanProfileGuidePreflight from "./PlanProfileGuidePreflight";
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
 import {
   MANUAL_STEP_HELPER,
@@ -27,6 +28,8 @@ import {
 } from "./plan-ux-copy";
 import { formatStepAttributionTrackingLabel } from "./plan-display";
 import { googlePostScheduleSummary } from "@/lib/google/google-post-schedule";
+import type { ProfileGuideReadiness } from "@/lib/profile-guide/readiness";
+import { isProfileGuideReviewReady } from "@/lib/profile-guide/readiness";
 
 const STATUS_STYLES = {
   completed: "border-[#ceead6] bg-[#f6faf7]",
@@ -59,6 +62,8 @@ export default function PlanStepCard({
   initialFocusKeyword,
   onReviewRequestSent,
   onSeeResults,
+  businessId,
+  profileGuideReadiness,
 }: {
   step: PlanStep;
   totalSteps: number;
@@ -81,6 +86,8 @@ export default function PlanStepCard({
   initialFocusKeyword?: string | null;
   onReviewRequestSent?: () => void;
   onSeeResults?: (stepNumber: number) => void;
+  businessId?: string | null;
+  profileGuideReadiness?: ProfileGuideReadiness | null;
 }) {
   const isLight = variant === "light";
   const isCompleted = step.status === "completed";
@@ -157,6 +164,11 @@ export default function PlanStepCard({
     !((step.context.engagementImpact ?? 0) > 0)
       ? formatCustomPlanStepSignal(step)
       : null;
+  const showProfileGuidePreflight =
+    step.stepNumber === 10 &&
+    reviewRequestTask != null &&
+    profileGuideReadiness != null &&
+    !isProfileGuideReviewReady(profileGuideReadiness);
 
   return (
     <article
@@ -402,6 +414,9 @@ export default function PlanStepCard({
 
           {reviewRequestTask && businessName && (
             <div className="mt-4">
+              {showProfileGuidePreflight && (
+                <PlanProfileGuidePreflight businessId={businessId} variant={variant} />
+              )}
               <ReviewRequestPanel
                 businessName={businessName}
                 reviewUrl={reviewUrl}

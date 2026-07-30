@@ -145,6 +145,17 @@ export const MANUAL_STEP_REFRESH_LABEL = "Mark done & refresh plan";
 
 export const MANUAL_STEP_SYNCING_LABEL = "Checking Google for updates…";
 
+export const PROFILE_GUIDE_STEP10_PREFLIGHT_TITLE =
+  "Review requests work best with a Profile Guide";
+
+export const PROFILE_GUIDE_STEP10_PREFLIGHT_BODY =
+  "Customers get a branded page with your logo and a one-tap review button — not a raw Google link. Published guides make it easier to track which scans turn into reviews.";
+
+export const PROFILE_GUIDE_STEP10_PREFLIGHT_CTA = "Set up Profile Guide";
+
+export const PROFILE_GUIDE_PLAN_HEADER_HINT =
+  "Publishing your Profile Guide unlocks higher review-request conversion.";
+
 export function liveSyncFeedbackMessage(options: {
   gbpRefreshed: boolean;
   completedTasks: number;

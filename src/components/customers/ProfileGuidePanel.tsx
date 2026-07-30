@@ -121,6 +121,8 @@ interface AnalyticsData {
 
 interface ProfileGuidePanelProps {
   businessId?: string;
+  entryFrom?: string | null;
+  entryFocus?: string | null;
 }
 
 const PERIODS: ProfileGuideAnalyticsPeriod[] = [7, 30, 90];
@@ -167,7 +169,11 @@ function applyFlyerStudioState(studio: FlyerStudioClient | null | undefined) {
   };
 }
 
-export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps) {
+export default function ProfileGuidePanel({
+  businessId,
+  entryFrom,
+  entryFocus,
+}: ProfileGuidePanelProps) {
   const [data, setData] = useState<GuideData | null>(null);
   const [links, setLinks] = useState<GuideLink[]>([]);
   const [primaryColor, setPrimaryColor] = useState("#1a73e8");
@@ -614,6 +620,13 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
     : "/platform/audit?view=audit";
 
   const outreachHref = customersTabHref("review-requests", businessId);
+  const showPlanEntryBanner = entryFrom === "plan" && !published;
+
+  useEffect(() => {
+    if (entryFocus !== "publish" || loading) return;
+    const publishSection = document.getElementById("profile-guide-publish-section");
+    publishSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [entryFocus, loading]);
 
   if (loading) {
     return (
@@ -634,7 +647,16 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-6">
-        <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
+        <section
+          id="profile-guide-publish-section"
+          className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm"
+        >
+          {showPlanEntryBanner && (
+            <div className="mb-4 rounded-lg border border-[#d2e3fc] bg-[#e8f0fe] px-4 py-3 text-sm text-[#3c4043]">
+              You&apos;re here from your Plan — publish your Profile Guide to unlock review
+              requests with a branded link customers trust.
+            </div>
+          )}
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <SectionTitle

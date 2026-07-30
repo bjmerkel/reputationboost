@@ -518,6 +518,7 @@ export default function AuditDashboard({
               avgCustomerValue={avgCustomerValue}
               avgCustomerValueCurrency={avgCustomerValueCurrency}
               businessId={businessId}
+              gbpConnected={gbpConnected}
               liveScores={scoreHistory.liveScores}
               liveScoreDate={scoreCalculatedAt}
               scoreChangelog={scoreHistory.changelog}
