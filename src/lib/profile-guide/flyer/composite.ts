@@ -10,6 +10,7 @@ import {
   type CoverTreatment,
 } from "./layout-variants";
 import { buildFlyerFooter } from "./options";
+import { renderFlyerTextOverlay } from "./text-overlay-canvas";
 
 export interface CompositeFlyerInput {
   brief: FlyerDesignBrief;
@@ -537,6 +538,53 @@ async function buildQrCard(
     .toBuffer();
 }
 
+async function buildQrPresentationCard(
+  qrCard: Buffer,
+  layout: FlyerLayout,
+  primaryColor: string
+): Promise<Buffer> {
+  const border = 3;
+  const shadowPad = 10;
+  const borderedSize = layout.qrCardSize + border * 2;
+  const frameSize = borderedSize + shadowPad * 2;
+  const rgb = hexToRgb(primaryColor);
+
+  const bordered = await sharp({
+    create: {
+      width: borderedSize,
+      height: borderedSize,
+      channels: 4,
+      background: { ...rgb, alpha: 1 },
+    },
+  })
+    .composite([{ input: qrCard, top: border, left: border }])
+    .png()
+    .toBuffer();
+
+  const shadow = await sharp(
+    Buffer.from(
+      `<svg width="${frameSize}" height="${frameSize}" xmlns="http://www.w3.org/2000/svg"><rect x="${shadowPad + 2}" y="${shadowPad + 4}" width="${borderedSize}" height="${borderedSize}" rx="12" fill="#000000" fill-opacity="0.14"/></svg>`
+    )
+  )
+    .png()
+    .toBuffer();
+
+  return sharp({
+    create: {
+      width: frameSize,
+      height: frameSize,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([
+      { input: shadow, top: 0, left: 0 },
+      { input: bordered, top: shadowPad, left: shadowPad },
+    ])
+    .png()
+    .toBuffer();
+}
+
 export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<Buffer> {
   const { brief } = input;
   const tagline = brief.displayOptions.showTagline ? brief.tagline : null;
@@ -574,6 +622,12 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
   );
 
   const qrCard = await buildQrCard(qrBuffer, layout, tokens, brief.primaryColor);
+  const qrPresentation = await buildQrPresentationCard(qrCard, layout, brief.primaryColor);
+  const presentationMeta = await sharp(qrPresentation).metadata();
+  const presentationSize = presentationMeta.width ?? layout.qrCardSize;
+  const presentationInset = Math.round((presentationSize - layout.qrCardSize) / 2);
+  const qrPresentationTop = layout.qrTop - presentationInset;
+  const qrPresentationLeft = layout.qrLeft - presentationInset;
 
   const background = await sharp(input.background)
     .resize(layout.width, layout.height, { fit: "cover", position: "centre" })
@@ -623,7 +677,7 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
       layout.orientation === "landscape"
         ? layout.logoTop
         : coverBuffer && coverHeight > 0
-          ? Math.max(12, coverHeight - Math.round(layout.logoMaxHeight * 0.55))
+          ? Math.max(12, coverHeight - Math.round(layout.logoMaxHeight * 0.62))
           : layout.contentCardTop + layout.contentCardPadding;
 
     layers.push({
@@ -633,36 +687,56 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
     });
   }
 
-  layers.push({ input: qrCard, top: layout.qrTop, left: layout.qrLeft });
+  layers.push({
+    input: qrPresentation,
+    top: qrPresentationTop,
+    left: qrPresentationLeft,
+  });
 
-  const textOverlayInput: TextOverlayInput = {
-    layout,
-    tokens,
-    businessName: brief.businessName,
-    eyebrow,
-    headline: copy.headline,
-    subhead: copy.subhead,
-    supportLine: copy.supportLine,
-    address,
-    qrLabel: copy.qrLabel,
-    cta: copy.cta,
-    footer,
-    primaryColor: brief.primaryColor,
-    template: brief.template,
-    showStars,
-    averageRating: brief.averageRating,
-    reviewCount: brief.reviewCount,
-    qrTop: layout.qrTop,
-    qrLeft: layout.qrLeft,
-    qrCardSize: layout.qrCardSize,
-  };
+  if (layout.orientation === "portrait") {
+    layers.push({
+      input: renderFlyerTextOverlay({
+        layout,
+        tokens,
+        brief,
+        copy,
+        footer,
+        eyebrow,
+        address,
+        showStars,
+      }),
+      top: 0,
+      left: 0,
+    });
+  } else {
+    const textOverlayInput: TextOverlayInput = {
+      layout,
+      tokens,
+      businessName: brief.businessName,
+      eyebrow,
+      headline: copy.headline,
+      subhead: copy.subhead,
+      supportLine: copy.supportLine,
+      address,
+      qrLabel: copy.qrLabel,
+      cta: copy.cta,
+      footer,
+      primaryColor: brief.primaryColor,
+      template: brief.template,
+      showStars,
+      averageRating: brief.averageRating,
+      reviewCount: brief.reviewCount,
+      qrTop: layout.qrTop,
+      qrLeft: layout.qrLeft,
+      qrCardSize: layout.qrCardSize,
+    };
 
-  const textOverlay =
-    layout.orientation === "landscape"
-      ? buildLandscapeTextOverlaySvg(textOverlayInput)
-      : buildPortraitTextOverlaySvg(textOverlayInput);
-
-  layers.push({ input: textOverlay, top: 0, left: 0 });
+    layers.push({
+      input: buildLandscapeTextOverlaySvg(textOverlayInput),
+      top: 0,
+      left: 0,
+    });
+  }
 
   return sharp(background).composite(layers).png().toBuffer();
 }

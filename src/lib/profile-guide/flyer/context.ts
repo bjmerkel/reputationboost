@@ -53,7 +53,11 @@ export function buildFlyerSupportLine(brief: BriefLike): string {
 
 export function buildFlyerEyebrow(brief: BriefLike): string | null {
   if (brief.displayOptions.showTagline && brief.tagline?.trim()) {
-    return brief.tagline.trim();
+    return brief.tagline
+      .split(/[,|/]/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(" • ");
   }
   if (isDesignBrief(brief) && brief.primaryCategory) {
     return brief.primaryCategory;

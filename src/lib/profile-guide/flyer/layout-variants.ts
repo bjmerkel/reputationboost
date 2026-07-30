@@ -50,6 +50,7 @@ const ARCHETYPE_LAYOUT_TOKENS: Record<FlyerDesignArchetype, ArchetypeLayoutToken
     qrFrame: "rounded-card",
     headlineWeight: 800,
     showRatingInStars: true,
+    eyebrowUppercase: false,
   },
   "industrial-modern": {
     ...DEFAULT_TOKENS,
