@@ -1,9 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ProfileGuidePhonePreview from "@/components/profile-guide/ProfileGuidePhonePreview";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
-import type { ProfileGuideAnalyticsPeriod } from "@/lib/profile-guide/types";
+import { customersTabHref } from "@/lib/customers/tabs";
+import { formatSourceLabel } from "@/lib/profile-guide/analytics";
+import type { ProfileGuideAnalyticsPeriod, ProfileGuideSourceStats } from "@/lib/profile-guide/types";
+import {
+  PROFILE_GUIDE_BUTTON_STYLES,
+  PROFILE_GUIDE_FLYER_TEMPLATES,
+  PROFILE_GUIDE_FONT_PRESETS,
+  type ProfileGuideButtonStyle,
+  type ProfileGuideFontPreset,
+} from "@/lib/profile-guide/theme";
 
 interface GuideLink {
   id: string;
@@ -22,8 +32,13 @@ interface GuideData {
     published: boolean;
     publishedAt: string | null;
     primaryColor: string;
+    backgroundColor: string;
+    buttonStyle: ProfileGuideButtonStyle;
+    fontPreset: ProfileGuideFontPreset;
     logoUrl: string | null;
     tagline: string | null;
+    textMessage: string | null;
+    gbpSyncedAt: string | null;
     publicUrl: string;
   };
   links: GuideLink[];
@@ -35,7 +50,9 @@ interface AnalyticsData {
   totalClicks: number;
   topLink: { id: string; label: string; clicks: number } | null;
   linkClicks: Array<{ id: string; label: string; linkType: string; clicks: number }>;
+  sourceBreakdown: ProfileGuideSourceStats[];
   narrative: string;
+  attributedReviews: number;
 }
 
 interface ProfileGuidePanelProps {
@@ -48,8 +65,13 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   const [data, setData] = useState<GuideData | null>(null);
   const [links, setLinks] = useState<GuideLink[]>([]);
   const [primaryColor, setPrimaryColor] = useState("#1a73e8");
+  const [backgroundColor, setBackgroundColor] = useState("#f8f9fa");
+  const [buttonStyle, setButtonStyle] = useState<ProfileGuideButtonStyle>("rounded");
+  const [fontPreset, setFontPreset] = useState<ProfileGuideFontPreset>("professional");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [tagline, setTagline] = useState("");
+  const [textMessage, setTextMessage] = useState("");
+  const [gbpSyncedAt, setGbpSyncedAt] = useState<string | null>(null);
   const [published, setPublished] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -68,8 +90,13 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       setData(json);
       setLinks(json.links);
       setPrimaryColor(json.guide.primaryColor);
+      setBackgroundColor(json.guide.backgroundColor ?? "#f8f9fa");
+      setButtonStyle(json.guide.buttonStyle ?? "rounded");
+      setFontPreset(json.guide.fontPreset ?? "professional");
       setLogoUrl(json.guide.logoUrl);
       setTagline(json.guide.tagline ?? "");
+      setTextMessage(json.guide.textMessage ?? "");
+      setGbpSyncedAt(json.guide.gbpSyncedAt ?? null);
       setPublished(json.guide.published);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load Profile Guide");
@@ -126,8 +153,12 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
     const payload = {
       published: overrides?.published ?? published,
       primaryColor: overrides?.primaryColor ?? primaryColor,
+      backgroundColor,
+      buttonStyle,
+      fontPreset,
       logoUrl: overrides?.logoUrl !== undefined ? overrides.logoUrl : logoUrl,
       tagline: overrides?.tagline ?? tagline,
+      textMessage,
       links: nextLinks.map((link, index) => ({
         id: link.id,
         linkType: link.linkType,
@@ -199,6 +230,29 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   function downloadQr() {
     window.location.href = "/api/profile-guide/qr";
   }
+
+  async function syncFromGoogle() {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/profile-guide?action=sync", { method: "POST" });
+      const json = await parseJsonResponse<GuideData>(res);
+      setData(json);
+      setLinks(json.links);
+      setGbpSyncedAt(json.guide.gbpSyncedAt ?? null);
+      setMessage("Synced links from your Google Business Profile.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sync from Google");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openFlyer(template: (typeof PROFILE_GUIDE_FLYER_TEMPLATES)[number]) {
+    window.open(`/api/profile-guide/flyer?template=${template}`, "_blank", "noopener,noreferrer");
+  }
+
+  const outreachHref = customersTabHref("review-requests", businessId);
 
   if (loading) {
     return (
@@ -291,7 +345,31 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
             >
               Copy link
             </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void syncFromGoogle()}
+              className="btn-secondary rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
+            >
+              Refresh from Google
+            </button>
           </div>
+
+          {gbpSyncedAt && (
+            <p className="mt-3 text-xs text-[#80868b]">
+              Last synced from Google: {new Date(gbpSyncedAt).toLocaleString()}
+            </p>
+          )}
+
+          {published && (
+            <p className="mt-3 text-sm text-[#5f6368]">
+              Use your Profile Guide in review outreach —{" "}
+              <Link href={outreachHref} className="font-medium text-[#1a73e8] hover:underline">
+                send it via SMS or email
+              </Link>
+              .
+            </p>
+          )}
 
           {(error || message) && (
             <p
@@ -304,7 +382,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         </section>
 
         <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
-          <h3 className="text-base font-semibold text-[#202124]">Branding</h3>
+          <h3 className="text-base font-semibold text-[#202124]">Branding & theme</h3>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="block text-sm">
               <span className="font-medium text-[#3c4043]">Primary color</span>
@@ -324,12 +402,69 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
               </div>
             </label>
             <label className="block text-sm">
+              <span className="font-medium text-[#3c4043]">Background color</span>
+              <div className="mt-2 flex items-center gap-3">
+                <input
+                  type="color"
+                  value={backgroundColor}
+                  onChange={(event) => setBackgroundColor(event.target.value)}
+                  className="h-10 w-14 cursor-pointer rounded border border-[#dadce0]"
+                />
+                <input
+                  type="text"
+                  value={backgroundColor}
+                  onChange={(event) => setBackgroundColor(event.target.value)}
+                  className="w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
+                />
+              </div>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium text-[#3c4043]">Button style</span>
+              <select
+                value={buttonStyle}
+                onChange={(event) =>
+                  setButtonStyle(event.target.value as ProfileGuideButtonStyle)
+                }
+                className="mt-2 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
+              >
+                {PROFILE_GUIDE_BUTTON_STYLES.map((style) => (
+                  <option key={style} value={style}>
+                    {style.charAt(0).toUpperCase() + style.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium text-[#3c4043]">Font preset</span>
+              <select
+                value={fontPreset}
+                onChange={(event) => setFontPreset(event.target.value as ProfileGuideFontPreset)}
+                className="mt-2 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
+              >
+                {PROFILE_GUIDE_FONT_PRESETS.map((preset) => (
+                  <option key={preset} value={preset}>
+                    {preset.charAt(0).toUpperCase() + preset.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm sm:col-span-2">
               <span className="font-medium text-[#3c4043]">Tagline</span>
               <input
                 type="text"
                 value={tagline}
                 onChange={(event) => setTagline(event.target.value)}
                 placeholder="Your local business guide"
+                className="mt-2 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block text-sm sm:col-span-2">
+              <span className="font-medium text-[#3c4043]">Text Us default message</span>
+              <input
+                type="text"
+                value={textMessage}
+                onChange={(event) => setTextMessage(event.target.value)}
+                placeholder="Hi, I'd like to get in touch…"
                 className="mt-2 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
               />
             </label>
@@ -353,6 +488,25 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
                 )}
               </div>
             </label>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
+          <h3 className="text-base font-semibold text-[#202124]">Review flyer</h3>
+          <p className="mt-1 text-sm text-[#5f6368]">
+            Generate a print-ready flyer with your QR code. Pick a style and print from your browser.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {PROFILE_GUIDE_FLYER_TEMPLATES.map((template) => (
+              <button
+                key={template}
+                type="button"
+                onClick={() => openFlyer(template)}
+                className="btn-secondary rounded-full px-4 py-2 text-sm font-semibold capitalize"
+              >
+                {template} flyer
+              </button>
+            ))}
           </div>
         </section>
 
@@ -453,11 +607,33 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
               "Analytics will appear once customers start visiting your guide."}
           </p>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-4">
             <StatCard label="Total visits" value={analytics?.totalViews ?? 0} />
             <StatCard label="Total clicks" value={analytics?.totalClicks ?? 0} />
             <StatCard label="Top button" value={analytics?.topLink?.label ?? "—"} isText />
+            <StatCard label="Attributed reviews" value={analytics?.attributedReviews ?? 0} />
           </div>
+
+          {analytics && analytics.sourceBreakdown.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-sm font-semibold text-[#3c4043]">Traffic sources</h4>
+              <ul className="mt-2 divide-y divide-[#e8eaed] rounded-lg border border-[#e8eaed]">
+                {analytics.sourceBreakdown.map((row) => (
+                  <li
+                    key={row.source}
+                    className="flex items-center justify-between px-4 py-3 text-sm"
+                  >
+                    <span className="font-medium text-[#3c4043]">
+                      {formatSourceLabel(row.source)}
+                    </span>
+                    <span className="text-[#5f6368]">
+                      {row.views} visits · {row.clicks} clicks
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {analytics && analytics.linkClicks.length > 0 && (
             <ul className="mt-4 divide-y divide-[#e8eaed] rounded-lg border border-[#e8eaed]">
@@ -484,6 +660,9 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
             <ProfileGuidePhonePreview
               displayName={data?.guide.displayName ?? "Your business"}
               primaryColor={primaryColor}
+              backgroundColor={backgroundColor}
+              buttonStyle={buttonStyle}
+              fontPreset={fontPreset}
               logoUrl={logoUrl}
               tagline={tagline}
               links={previewLinks}
@@ -520,6 +699,9 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
             <ProfileGuidePhonePreview
               displayName={data.guide.displayName}
               primaryColor={primaryColor}
+              backgroundColor={backgroundColor}
+              buttonStyle={buttonStyle}
+              fontPreset={fontPreset}
               logoUrl={logoUrl}
               tagline={tagline}
               links={previewLinks}

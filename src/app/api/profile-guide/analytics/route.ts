@@ -35,7 +35,9 @@ export async function GET(request: Request) {
           totalViews: 0,
           totalClicks: 0,
           linkClicks: [],
+          sourceBreakdown: [],
           viewsByDay: [],
+          attributedReviews: 0,
         }),
       });
     }
