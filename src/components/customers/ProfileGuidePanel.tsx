@@ -1,45 +1,220 @@
 "use client";
 
-import { useState } from "react";
-import { googleMapsUrlForBusiness } from "@/lib/google/maps-url";
-import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import ProfileGuidePhonePreview from "@/components/profile-guide/ProfileGuidePhonePreview";
+import { parseJsonResponse } from "@/lib/http/parse-json-response";
+import type { ProfileGuideAnalyticsPeriod } from "@/lib/profile-guide/types";
 
-interface ProfileGuidePanelProps {
-  businessName: string;
-  placeId?: string | null;
-  mapsUrl?: string | null;
-  website?: string | null;
-  phone?: string | null;
-  address: string;
+interface GuideLink {
+  id: string;
+  linkType: string;
+  label: string;
+  url: string;
+  sortOrder: number;
+  enabled: boolean;
 }
 
-const DEFAULT_LINKS = [
-  { id: "review", label: "Leave a Review", icon: "⭐" },
-  { id: "directions", label: "Get Directions", icon: "📍" },
-  { id: "website", label: "Visit Website", icon: "🌐" },
-  { id: "book", label: "Book Appointment", icon: "📅" },
-  { id: "services", label: "View Services", icon: "📋" },
-  { id: "call", label: "Call Us", icon: "📞" },
-  { id: "text", label: "Text Us", icon: "💬" },
-] as const;
+interface GuideData {
+  guide: {
+    id: string;
+    slug: string;
+    displayName: string;
+    published: boolean;
+    publishedAt: string | null;
+    primaryColor: string;
+    logoUrl: string | null;
+    tagline: string | null;
+    publicUrl: string;
+  };
+  links: GuideLink[];
+}
 
-export default function ProfileGuidePanel({
-  businessName,
-  placeId,
-  mapsUrl,
-  website,
-  phone,
-  address,
-}: ProfileGuidePanelProps) {
+interface AnalyticsData {
+  periodDays: ProfileGuideAnalyticsPeriod;
+  totalViews: number;
+  totalClicks: number;
+  topLink: { id: string; label: string; clicks: number } | null;
+  linkClicks: Array<{ id: string; label: string; linkType: string; clicks: number }>;
+  narrative: string;
+}
+
+interface ProfileGuidePanelProps {
+  businessId?: string;
+}
+
+const PERIODS: ProfileGuideAnalyticsPeriod[] = [7, 30, 90];
+
+export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps) {
+  const [data, setData] = useState<GuideData | null>(null);
+  const [links, setLinks] = useState<GuideLink[]>([]);
+  const [primaryColor, setPrimaryColor] = useState("#1a73e8");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [tagline, setTagline] = useState("");
+  const [published, setPublished] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [period, setPeriod] = useState<ProfileGuideAnalyticsPeriod>(30);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
 
-  const reviewUrl = googleReviewUrlForBusiness({
-    placeId,
-    mapsUrl,
-    name: businessName,
-    address,
-  });
-  const directionsUrl = googleMapsUrlForBusiness({ mapsUrl, name: businessName, address });
+  const loadGuide = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/profile-guide");
+      const json = await parseJsonResponse<GuideData>(res);
+      setData(json);
+      setLinks(json.links);
+      setPrimaryColor(json.guide.primaryColor);
+      setLogoUrl(json.guide.logoUrl);
+      setTagline(json.guide.tagline ?? "");
+      setPublished(json.guide.published);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load Profile Guide");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadAnalytics = useCallback(async (days: ProfileGuideAnalyticsPeriod) => {
+    try {
+      const res = await fetch(`/api/profile-guide/analytics?period=${days}`);
+      const json = await parseJsonResponse<{ analytics: AnalyticsData }>(res);
+      setAnalytics(json.analytics);
+    } catch {
+      setAnalytics(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadGuide();
+  }, [loadGuide, businessId]);
+
+  useEffect(() => {
+    if (!loading && data) {
+      void loadAnalytics(period);
+    }
+  }, [loading, data, period, loadAnalytics]);
+
+  const previewLinks = useMemo(
+    () =>
+      [...links]
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((link) => ({
+          id: link.id,
+          label: link.label,
+          url: link.url,
+          enabled: link.enabled,
+        })),
+    [links]
+  );
+
+  async function saveGuide(overrides?: {
+    published?: boolean;
+    links?: GuideLink[];
+    primaryColor?: string;
+    logoUrl?: string | null;
+    tagline?: string;
+  }) {
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+
+    const nextLinks = overrides?.links ?? links;
+    const payload = {
+      published: overrides?.published ?? published,
+      primaryColor: overrides?.primaryColor ?? primaryColor,
+      logoUrl: overrides?.logoUrl !== undefined ? overrides.logoUrl : logoUrl,
+      tagline: overrides?.tagline ?? tagline,
+      links: nextLinks.map((link, index) => ({
+        id: link.id,
+        linkType: link.linkType,
+        label: link.label,
+        url: link.url,
+        sortOrder: index,
+        enabled: link.enabled,
+      })),
+    };
+
+    try {
+      const res = await fetch("/api/profile-guide", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await parseJsonResponse<GuideData>(res);
+      setData(json);
+      setLinks(json.links);
+      setPublished(json.guide.published);
+      setMessage(json.guide.published ? "Profile Guide published." : "Changes saved.");
+      void loadAnalytics(period);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save Profile Guide");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function updateLink(id: string, patch: Partial<GuideLink>) {
+    setLinks((current) => current.map((link) => (link.id === id ? { ...link, ...patch } : link)));
+  }
+
+  function moveLink(id: string, direction: -1 | 1) {
+    setLinks((current) => {
+      const sorted = [...current].sort((a, b) => a.sortOrder - b.sortOrder);
+      const index = sorted.findIndex((link) => link.id === id);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= sorted.length) return current;
+
+      const next = [...sorted];
+      const [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      return next.map((link, sortOrder) => ({ ...link, sortOrder }));
+    });
+  }
+
+  async function handleLogoUpload(file: File | null) {
+    if (!file) return;
+    if (file.size > 200_000) {
+      setError("Logo must be under 200 KB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : null;
+      setLogoUrl(result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function copyPublicUrl() {
+    if (!data?.guide.publicUrl) return;
+    await navigator.clipboard.writeText(data.guide.publicUrl);
+    setMessage("Public link copied.");
+  }
+
+  function downloadQr() {
+    window.location.href = "/api/profile-guide/qr";
+  }
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-[#dadce0] bg-white p-8 text-center text-sm text-[#5f6368]">
+        Loading your Profile Guide…
+      </div>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <div className="rounded-xl border border-[#fce8e6] bg-[#fef7f7] p-6 text-sm text-[#c5221f]">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -53,18 +228,47 @@ export default function ProfileGuidePanel({
                 call, or book — all from one scan.
               </p>
             </div>
-            <span className="rounded-full bg-[#fef7e0] px-3 py-1 text-xs font-semibold text-[#b06000]">
-              Coming soon
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                published
+                  ? "bg-[#e6f4ea] text-[#137333]"
+                  : "bg-[#fef7e0] text-[#b06000]"
+              }`}
+            >
+              {published ? "Live" : "Draft"}
             </span>
           </div>
+
+          {data?.guide.publicUrl && (
+            <p className="mt-4 break-all text-sm text-[#5f6368]">
+              Public URL:{" "}
+              <a
+                href={data.guide.publicUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-[#1a73e8] hover:underline"
+              >
+                {data.guide.publicUrl}
+              </a>
+            </p>
+          )}
 
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               type="button"
-              className="btn-primary rounded-full px-5 py-2.5 text-sm font-semibold opacity-60"
-              disabled
+              disabled={saving}
+              onClick={() => void saveGuide({ published: !published })}
+              className="btn-primary rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
             >
-              Publish guide
+              {published ? "Unpublish" : "Publish guide"}
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void saveGuide()}
+              className="btn-secondary rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Save changes"}
             </button>
             <button
               type="button"
@@ -75,54 +279,199 @@ export default function ProfileGuidePanel({
             </button>
             <button
               type="button"
-              className="btn-secondary rounded-full px-5 py-2.5 text-sm font-semibold opacity-60"
-              disabled
+              onClick={downloadQr}
+              className="btn-secondary rounded-full px-5 py-2.5 text-sm font-semibold"
             >
               Download QR code
             </button>
+            <button
+              type="button"
+              onClick={() => void copyPublicUrl()}
+              className="btn-secondary rounded-full px-5 py-2.5 text-sm font-semibold"
+            >
+              Copy link
+            </button>
+          </div>
+
+          {(error || message) && (
+            <p
+              className={`mt-4 text-sm ${error ? "text-[#c5221f]" : "text-[#137333]"}`}
+              role="status"
+            >
+              {error ?? message}
+            </p>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
+          <h3 className="text-base font-semibold text-[#202124]">Branding</h3>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="font-medium text-[#3c4043]">Primary color</span>
+              <div className="mt-2 flex items-center gap-3">
+                <input
+                  type="color"
+                  value={primaryColor}
+                  onChange={(event) => setPrimaryColor(event.target.value)}
+                  className="h-10 w-14 cursor-pointer rounded border border-[#dadce0]"
+                />
+                <input
+                  type="text"
+                  value={primaryColor}
+                  onChange={(event) => setPrimaryColor(event.target.value)}
+                  className="w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
+                />
+              </div>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium text-[#3c4043]">Tagline</span>
+              <input
+                type="text"
+                value={tagline}
+                onChange={(event) => setTagline(event.target.value)}
+                placeholder="Your local business guide"
+                className="mt-2 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block text-sm sm:col-span-2">
+              <span className="font-medium text-[#3c4043]">Logo</span>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => void handleLogoUpload(event.target.files?.[0] ?? null)}
+                  className="text-sm text-[#5f6368]"
+                />
+                {logoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setLogoUrl(null)}
+                    className="text-sm font-medium text-[#1a73e8]"
+                  >
+                    Remove logo
+                  </button>
+                )}
+              </div>
+            </label>
           </div>
         </section>
 
         <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
           <h3 className="text-base font-semibold text-[#202124]">Action buttons</h3>
           <p className="mt-1 text-sm text-[#5f6368]">
-            These links will appear on your public guide. We&apos;ll auto-fill them from your Google
-            Business Profile.
+            Reorder, toggle, and edit the links on your public guide.
           </p>
 
-          <ul className="mt-4 divide-y divide-[#e8eaed]">
-            {DEFAULT_LINKS.map((link) => (
-              <li key={link.id} className="flex items-center justify-between gap-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span aria-hidden className="text-lg">
-                    {link.icon}
-                  </span>
-                  <span className="text-sm font-medium text-[#3c4043]">{link.label}</span>
-                </div>
-                <span className="text-xs font-medium text-[#80868b]">Auto from GBP</span>
-              </li>
-            ))}
+          <ul className="mt-4 space-y-3">
+            {[...links]
+              .sort((a, b) => a.sortOrder - b.sortOrder)
+              .map((link, index, sorted) => (
+                <li
+                  key={link.id}
+                  className="rounded-lg border border-[#e8eaed] bg-[#f8f9fa] p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-[#3c4043]">
+                      <input
+                        type="checkbox"
+                        checked={link.enabled}
+                        onChange={(event) =>
+                          updateLink(link.id, { enabled: event.target.checked })
+                        }
+                      />
+                      Enabled
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={index === 0}
+                        onClick={() => moveLink(link.id, -1)}
+                        className="rounded-full border border-[#dadce0] px-2 py-1 text-xs disabled:opacity-40"
+                        aria-label="Move up"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        disabled={index === sorted.length - 1}
+                        onClick={() => moveLink(link.id, 1)}
+                        className="rounded-full border border-[#dadce0] px-2 py-1 text-xs disabled:opacity-40"
+                        aria-label="Move down"
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="block text-sm">
+                      <span className="text-[#5f6368]">Label</span>
+                      <input
+                        type="text"
+                        value={link.label}
+                        onChange={(event) => updateLink(link.id, { label: event.target.value })}
+                        className="mt-1 w-full rounded-lg border border-[#dadce0] bg-white px-3 py-2"
+                      />
+                    </label>
+                    <label className="block text-sm sm:col-span-1">
+                      <span className="text-[#5f6368]">URL</span>
+                      <input
+                        type="text"
+                        value={link.url}
+                        onChange={(event) => updateLink(link.id, { url: event.target.value })}
+                        className="mt-1 w-full rounded-lg border border-[#dadce0] bg-white px-3 py-2"
+                      />
+                    </label>
+                  </div>
+                </li>
+              ))}
           </ul>
         </section>
 
         <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
-          <h3 className="text-base font-semibold text-[#202124]">Analytics preview</h3>
-          <p className="mt-3 text-sm leading-relaxed text-[#5f6368]">
-            Your Profile Guide received <span className="font-semibold text-[#202124]">—</span> visits
-            this month. Track total scans and see which buttons customers click over the last 7, 30,
-            or 90 days.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            {["Total scans", "Visits (30d)", "Top button"].map((label) => (
-              <div
-                key={label}
-                className="rounded-lg border border-[#e8eaed] bg-[#f8f9fa] px-4 py-3 text-center"
-              >
-                <p className="text-xs font-medium uppercase tracking-wide text-[#80868b]">{label}</p>
-                <p className="mt-1 text-2xl font-bold text-[#dadce0]">—</p>
-              </div>
-            ))}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-base font-semibold text-[#202124]">Analytics</h3>
+            <div className="flex rounded-full border border-[#dadce0] p-1">
+              {PERIODS.map((days) => (
+                <button
+                  key={days}
+                  type="button"
+                  onClick={() => setPeriod(days)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    period === days
+                      ? "bg-[#e8f0fe] text-[#1a73e8]"
+                      : "text-[#5f6368] hover:text-[#3c4043]"
+                  }`}
+                >
+                  {days}d
+                </button>
+              ))}
+            </div>
           </div>
+
+          <p className="mt-3 text-sm leading-relaxed text-[#5f6368]">
+            {analytics?.narrative ??
+              "Analytics will appear once customers start visiting your guide."}
+          </p>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <StatCard label="Total visits" value={analytics?.totalViews ?? 0} />
+            <StatCard label="Total clicks" value={analytics?.totalClicks ?? 0} />
+            <StatCard label="Top button" value={analytics?.topLink?.label ?? "—"} isText />
+          </div>
+
+          {analytics && analytics.linkClicks.length > 0 && (
+            <ul className="mt-4 divide-y divide-[#e8eaed] rounded-lg border border-[#e8eaed]">
+              {analytics.linkClicks.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex items-center justify-between px-4 py-3 text-sm"
+                >
+                  <span className="font-medium text-[#3c4043]">{row.label}</span>
+                  <span className="text-[#5f6368]">{row.clicks} clicks</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
 
@@ -130,20 +479,20 @@ export default function ProfileGuidePanel({
         <div className="rounded-[2rem] border border-[#dadce0] bg-white p-3 shadow-sm">
           <div className="rounded-[1.5rem] border border-[#e8eaed] bg-[#f8f9fa] p-4">
             <p className="text-center text-xs font-semibold uppercase tracking-widest text-[#80868b]">
-              Mobile preview
+              Live mobile preview
             </p>
             <ProfileGuidePhonePreview
-              businessName={businessName}
-              reviewUrl={reviewUrl}
-              directionsUrl={directionsUrl}
-              website={website}
-              phone={phone}
+              displayName={data?.guide.displayName ?? "Your business"}
+              primaryColor={primaryColor}
+              logoUrl={logoUrl}
+              tagline={tagline}
+              links={previewLinks}
             />
           </div>
         </div>
       </aside>
 
-      {previewOpen && (
+      {previewOpen && data && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
           role="dialog"
@@ -169,11 +518,11 @@ export default function ProfileGuidePanel({
               </button>
             </div>
             <ProfileGuidePhonePreview
-              businessName={businessName}
-              reviewUrl={reviewUrl}
-              directionsUrl={directionsUrl}
-              website={website}
-              phone={phone}
+              displayName={data.guide.displayName}
+              primaryColor={primaryColor}
+              logoUrl={logoUrl}
+              tagline={tagline}
+              links={previewLinks}
             />
           </div>
         </div>
@@ -182,52 +531,25 @@ export default function ProfileGuidePanel({
   );
 }
 
-function ProfileGuidePhonePreview({
-  businessName,
-  reviewUrl,
-  directionsUrl,
-  website,
-  phone,
+function StatCard({
+  label,
+  value,
+  isText = false,
 }: {
-  businessName: string;
-  reviewUrl: string | null;
-  directionsUrl: string | null;
-  website?: string | null;
-  phone?: string | null;
+  label: string;
+  value: number | string;
+  isText?: boolean;
 }) {
-  const previewLinks = [
-    { label: "Leave a Review", href: reviewUrl },
-    { label: "Get Directions", href: directionsUrl },
-    { label: "Visit Website", href: website },
-    { label: "Call Us", href: phone ? `tel:${phone}` : null },
-    { label: "Text Us", href: phone ? `sms:${phone}` : null },
-  ].filter((link) => Boolean(link.href));
-
   return (
-    <div className="mx-auto mt-3 max-w-[260px] overflow-hidden rounded-2xl border border-[#dadce0] bg-white shadow-sm">
-      <div className="bg-[#1a73e8] px-4 py-5 text-center text-white">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white/20 text-xl font-bold">
-          {businessName.charAt(0).toUpperCase()}
-        </div>
-        <p className="mt-3 text-base font-semibold">{businessName}</p>
-        <p className="mt-1 text-xs text-white/80">Your local business guide</p>
-      </div>
-      <div className="space-y-2 p-3">
-        {previewLinks.length > 0 ? (
-          previewLinks.map((link) => (
-            <div
-              key={link.label}
-              className="rounded-xl border border-[#dadce0] bg-white px-3 py-2.5 text-center text-sm font-medium text-[#3c4043]"
-            >
-              {link.label}
-            </div>
-          ))
-        ) : (
-          <p className="px-2 py-6 text-center text-sm text-[#80868b]">
-            Connect your Google Business Profile to preview your guide links.
-          </p>
-        )}
-      </div>
+    <div className="rounded-lg border border-[#e8eaed] bg-[#f8f9fa] px-4 py-3 text-center">
+      <p className="text-xs font-medium uppercase tracking-wide text-[#80868b]">{label}</p>
+      <p
+        className={`mt-1 font-bold text-[#202124] ${
+          isText ? "truncate text-sm" : "text-2xl"
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }

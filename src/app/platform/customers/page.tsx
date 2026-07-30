@@ -88,14 +88,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             resendConfigured={isResendConfigured()}
           />
         ) : (
-          <ProfileGuidePanel
-            businessName={business.name}
-            placeId={business.gbpPlaceId}
-            mapsUrl={business.gbpMapsUrl}
-            website={business.website}
-            phone={business.phone}
-            address={address}
-          />
+          <ProfileGuidePanel businessId={business.businessId} />
         )}
       </div>
     </main>
