@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildFlyerBrief } from "./brief";
 import { buildFlyerBackgroundRequestBody } from "./generate-image";
+import { buildFlyerBusinessContext, buildFlyerSupportLine } from "./context";
+import { resolveFlyerCopy } from "./copy";
 import { buildFallbackFlyerImagePrompt } from "./prompt";
 import {
   computeFlyerLayout,
@@ -91,6 +93,37 @@ describe("computeFlyerLayout", () => {
     const layout = computeFlyerLayout(FLYER_FORMAT_SPECS.postcard);
     assert.equal(layout.orientation, "landscape");
     assert.ok(layout.qrLeft > layout.width / 2);
+    assert.ok(layout.contentCardWidth > 0);
+  });
+
+  it("places portrait QR inside the content card", () => {
+    const layout = computeFlyerLayout(FLYER_FORMAT_SPECS.letter);
+    assert.equal(layout.orientation, "portrait");
+    assert.ok(layout.qrTop > layout.contentCardTop);
+    assert.ok(layout.qrTop + layout.qrCardSize < layout.contentCardTop + layout.contentCardHeight);
+  });
+});
+
+describe("flyer business context helpers", () => {
+  it("builds support line from categories and city", () => {
+    const brief = buildFlyerBrief(
+      sampleGuide(),
+      sampleBusiness(),
+      "https://example.com/g/acme-plumbing",
+      "professional",
+      "letter"
+    );
+
+    assert.match(buildFlyerSupportLine(brief), /Plumber/i);
+    assert.match(buildFlyerSupportLine(brief), /Austin/i);
+    assert.match(buildFlyerBusinessContext(brief), /emergency plumber/i);
+  });
+
+  it("includes qrLabel and supportLine in resolved copy", () => {
+    const copy = resolveFlyerCopy("professional", "Your trusted local plumber", "Plumber · Austin, TX");
+    assert.equal(copy.qrLabel, "Scan to leave a Google review");
+    assert.equal(copy.supportLine, "Plumber · Austin, TX");
+    assert.equal(copy.subhead, "Your trusted local plumber");
   });
 });
 
@@ -107,8 +140,8 @@ describe("buildFallbackFlyerImagePrompt", () => {
     );
 
     assert.match(prompt, /Acme Plumbing/i);
-    assert.match(prompt, /Do not include any text/i);
-    assert.match(prompt, /drain cleaning/i);
+    assert.match(prompt, /Do NOT include text/i);
+    assert.match(prompt, /Water heater repair/i);
   });
 });
 

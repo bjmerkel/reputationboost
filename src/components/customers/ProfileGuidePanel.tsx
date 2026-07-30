@@ -36,6 +36,8 @@ interface FlyerCopyPayload {
   headline: string;
   subhead: string;
   cta: string;
+  qrLabel: string;
+  supportLine: string;
 }
 
 interface FlyerStudioCache {
