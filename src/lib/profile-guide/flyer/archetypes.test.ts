@@ -147,6 +147,8 @@ describe("buildFlyerBackgroundPromptTemplate", () => {
     assert.match(prompt, /Do NOT include any text/i);
     assert.match(prompt, /4\.9 stars/i);
     assert.match(prompt, /QR code \(composited separately\)/i);
+    assert.match(prompt, /never draw a square, frame, placeholder box, or shadow panel/i);
+    assert.match(prompt, /Do NOT draw white panels/i);
     assert.match(prompt, /top-tier branding agency/i);
   });
 });
