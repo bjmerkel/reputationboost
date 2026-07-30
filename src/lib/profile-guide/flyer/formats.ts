@@ -64,7 +64,6 @@ export function getFlyerFormatSpec(format: ProfileGuideFlyerFormat): FlyerFormat
   return FLYER_FORMAT_SPECS[format];
 }
 
-export const FLYER_QR_PRESENTATION_PAD = 8;
 
 export interface FlyerLayout {
   width: number;
