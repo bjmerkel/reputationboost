@@ -192,10 +192,10 @@ Protected routes: `/platform/*`, `/api/audit/*`, `/api/execution/*`, `/api/place
 
 1. Create a project at [supabase.com](https://supabase.com)
 2. Copy `.env.example` → `.env.local` and add your URL + anon key
-3. Run migrations in order via the Supabase SQL Editor:
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/migrations/002_execution_queue.sql`
-   - `supabase/migrations/003_gbp_oauth.sql`
+3. Run migrations in order via the Supabase SQL Editor (or `supabase db push`):
+   - `supabase/migrations/001_initial_schema.sql` through the latest file in `supabase/migrations/`
+   - GBP onboarding requires `028_gbp_identity.sql` (`gbp_address`, `gbp_open_status`, etc.)
+   - To apply just the GBP identity columns: `npm run db:apply-gbp-identity` (prints SQL without `DATABASE_URL`, or runs via `psql` when set)
 4. In Supabase **Authentication → URL Configuration**, set:
    - Site URL: `http://localhost:3000` (or your Vercel URL)
    - Redirect URLs: `http://localhost:3000/auth/callback`, `https://your-domain.vercel.app/auth/callback`
