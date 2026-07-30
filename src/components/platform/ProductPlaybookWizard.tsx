@@ -150,6 +150,7 @@ export default function ProductPlaybookWizard({
           break;
         case "open_settings_roi":
         case "open_settings_permissions":
+        case "open_profile_guide":
           if (item.href) router.push(item.href);
           break;
         default:
@@ -401,6 +402,8 @@ function actionLabel(action: PlaybookActionKind, loading: boolean): string {
     case "open_settings_roi":
     case "open_settings_permissions":
       return "Open settings →";
+    case "open_profile_guide":
+      return "Set up guide →";
     default:
       return "Go →";
   }

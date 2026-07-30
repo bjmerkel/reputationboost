@@ -21,6 +21,7 @@ export type PlaybookActionKind =
   | "open_map"
   | "open_settings_roi"
   | "open_settings_permissions"
+  | "open_profile_guide"
   | "refresh_audit"
   | "open_results";
 
@@ -370,6 +371,26 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
       priority: PRIORITY.medium,
       status: dismissed.has("map-weak-zones") ? "done" : "pending",
       action: "open_map",
+      estimatedMinutes: 5,
+    });
+  }
+
+  if (input.gbpConnected) {
+    const profileGuideHref = input.businessId
+      ? `/platform/customers?businessId=${input.businessId}&tab=profile-guide`
+      : "/platform/customers?tab=profile-guide";
+
+    items.push({
+      id: "setup-profile-guide",
+      stage: "grow",
+      title: "Set up your Profile Guide",
+      description:
+        "Publish a branded QR page so customers can leave reviews, get directions, and contact you.",
+      why: "One scan turns foot traffic into Google reviews and calls you can measure.",
+      priority: PRIORITY.high,
+      status: dismissed.has("setup-profile-guide") ? "done" : "pending",
+      action: "open_profile_guide",
+      href: profileGuideHref,
       estimatedMinutes: 5,
     });
   }

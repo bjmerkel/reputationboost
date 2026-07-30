@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import CustomersPageClient from "@/components/customers/CustomersPageClient";
-import OutreachActivityPanel from "@/components/customers/OutreachActivityPanel";
-import WebhookIntegrationPanel from "@/components/customers/WebhookIntegrationPanel";
+import CustomersTabNav from "@/components/customers/CustomersTabNav";
+import ProfileGuidePanel from "@/components/customers/ProfileGuidePanel";
+import ReviewRequestsPanel from "@/components/customers/ReviewRequestsPanel";
 import { getActiveBusiness } from "@/lib/business/active-business";
+import { CUSTOMERS_TABS, parseCustomersTab } from "@/lib/customers/tabs";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isResendConfigured } from "@/lib/email/resend";
 import { isTwilioConfigured } from "@/lib/sms/twilio";
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 interface PageProps {
-  searchParams: Promise<{ businessId?: string }>;
+  searchParams: Promise<{ businessId?: string; tab?: string }>;
 }
 
 export default async function CustomersPage({ searchParams }: PageProps) {
@@ -28,6 +29,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   if (!business) {
     redirect("/platform/onboard");
   }
+
+  const activeTab = parseCustomersTab(params.tab);
+  const activeTabMeta = CUSTOMERS_TABS.find((tab) => tab.id === activeTab)!;
 
   const address = [
     business.location.address,
@@ -59,32 +63,33 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           ← Back to dashboard
         </Link>
 
-        <div className="mb-8">
+        <div className="mb-6">
           <span className="text-sm font-semibold uppercase tracking-widest text-[#1a73e8]">
-            Review requests
+            Customers
           </span>
           <h1 className="mt-2 text-3xl font-bold text-[#202124] sm:text-4xl">
-            Customer outreach
+            {activeTabMeta.label}
           </h1>
-          <p className="mt-3 max-w-2xl text-[#5f6368]">
-            Import your customer list, personalize a Google review request, and send it by SMS or
-            email — the fastest path to more 5-star reviews.
-          </p>
+          <p className="mt-3 max-w-2xl text-[#5f6368]">{activeTabMeta.description}</p>
           <p className="mt-2 text-sm text-[#80868b]">
             Active location: <span className="font-medium text-[#3c4043]">{business.name}</span>
           </p>
         </div>
 
-        <div className="space-y-6">
-          <WebhookIntegrationPanel />
-          <OutreachActivityPanel />
-          <CustomersPageClient
+        <div className="mb-6 rounded-xl border border-[#dadce0] bg-white shadow-sm">
+          <CustomersTabNav activeTab={activeTab} businessId={business.businessId} />
+        </div>
+
+        {activeTab === "review-requests" ? (
+          <ReviewRequestsPanel
             businessName={business.name}
             reviewUrl={reviewUrl}
             twilioConfigured={isTwilioConfigured()}
             resendConfigured={isResendConfigured()}
           />
-        </div>
+        ) : (
+          <ProfileGuidePanel businessId={business.businessId} />
+        )}
       </div>
     </main>
   );
