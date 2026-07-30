@@ -158,6 +158,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
     logoUrl?: string | null;
     backgroundImageUrl?: string | null;
     tagline?: string;
+    successMessage?: string;
   }) {
     setSaving(true);
     setError(null);
@@ -198,8 +199,12 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       setLinks(json.links);
       setPublished(json.guide.published);
       setDeletedLinkIds([]);
+      setLogoUrl(json.guide.logoUrl);
       setBackgroundImageUrl(json.guide.backgroundImageUrl ?? null);
-      setMessage(json.guide.published ? "Profile Guide published." : "Changes saved.");
+      setMessage(
+        overrides?.successMessage ??
+          (json.guide.published ? "Profile Guide published." : "Changes saved.")
+      );
       void loadAnalytics(period);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save Profile Guide");
@@ -266,7 +271,12 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
     const reader = new FileReader();
     reader.onload = () => {
       const result = typeof reader.result === "string" ? reader.result : null;
+      if (!result) return;
       setLogoUrl(result);
+      void saveGuide({
+        logoUrl: result,
+        successMessage: published ? "Logo saved." : "Logo saved as draft.",
+      });
     };
     reader.readAsDataURL(file);
   }
