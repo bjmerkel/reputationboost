@@ -3,6 +3,7 @@ import sharp, { type OverlayOptions } from "sharp";
 import type { FlyerBrief } from "./brief";
 import { resolveFlyerCopy } from "./copy";
 import { computeFlyerLayout, getFlyerFormatSpec, type FlyerLayout } from "./formats";
+import { buildFlyerFooter } from "./options";
 
 export interface CompositeFlyerInput {
   brief: FlyerBrief;
@@ -75,6 +76,7 @@ function buildPortraitTextOverlaySvg(input: {
   template: FlyerBrief["template"];
   hasLogo: boolean;
   hasCover: boolean;
+  showStars: boolean;
 }): Buffer {
   const { layout } = input;
   const headlineSize = input.template === "bold" ? layout.headlineSize + 12 : layout.headlineSize;
@@ -112,7 +114,11 @@ function buildPortraitTextOverlaySvg(input: {
   }
 
   parts.push(
-    `<text x="${centerX}" y="${layout.starsY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.2)}" fill="#f9ab00">★★★★★</text>`,
+    ...(input.showStars
+      ? [
+          `<text x="${centerX}" y="${layout.starsY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.2)}" fill="#f9ab00">★★★★★</text>`,
+        ]
+      : []),
     `<text x="${centerX}" y="${layout.ctaY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.ctaSize}" fill="#3c4043">${escapeXml(truncate(input.cta, 64))}</text>`,
     `<text x="${centerX}" y="${layout.footerY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.footerSize}" fill="#80868b">${escapeXml(truncate(input.footer, 56))}</text>`,
     "</svg>"
@@ -130,6 +136,7 @@ function buildLandscapeTextOverlaySvg(input: {
   footer: string;
   primaryColor: string;
   template: FlyerBrief["template"];
+  showStars: boolean;
 }): Buffer {
   const { layout } = input;
   const headlineSize = input.template === "bold" ? layout.headlineSize + 8 : layout.headlineSize;
@@ -164,7 +171,11 @@ function buildLandscapeTextOverlaySvg(input: {
   }
 
   parts.push(
-    `<text x="${centerX}" y="${layout.starsY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.1)}" fill="#f9ab00">★★★★★</text>`,
+    ...(input.showStars
+      ? [
+          `<text x="${centerX}" y="${layout.starsY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.1)}" fill="#f9ab00">★★★★★</text>`,
+        ]
+      : []),
     `<text x="${centerX}" y="${layout.ctaY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.ctaSize}" fill="#3c4043">${escapeXml(truncate(input.cta, 56))}</text>`,
     `<text x="${centerX}" y="${layout.footerY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.footerSize}" fill="#80868b">${escapeXml(truncate(input.footer, 48))}</text>`,
     "</svg>"
@@ -175,10 +186,12 @@ function buildLandscapeTextOverlaySvg(input: {
 
 export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<Buffer> {
   const { brief } = input;
-  const copy = brief.copy ?? resolveFlyerCopy(brief.template, brief.tagline);
-  const footer = brief.phone?.trim() || brief.website?.trim() || brief.publicUrl;
+  const tagline = brief.displayOptions.showTagline ? brief.tagline : null;
+  const copy = brief.copy ?? resolveFlyerCopy(brief.template, tagline);
+  const footer = buildFlyerFooter(brief, brief.displayOptions);
   const format = getFlyerFormatSpec(brief.format);
   const layout = computeFlyerLayout(format);
+  const showStars = brief.displayOptions.showStars;
 
   const [logoBuffer, coverBuffer] = await Promise.all([
     loadImageBuffer(brief.logoUrl),
@@ -276,6 +289,7 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
           footer,
           primaryColor: brief.primaryColor,
           template: brief.template,
+          showStars,
         })
       : buildPortraitTextOverlaySvg({
           layout,
@@ -288,6 +302,7 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
           template: brief.template,
           hasLogo: Boolean(logoBuffer),
           hasCover: Boolean(coverBuffer),
+          showStars,
         });
 
   layers.push({ input: textOverlay, top: 0, left: 0 });

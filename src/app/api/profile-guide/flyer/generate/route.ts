@@ -1,12 +1,31 @@
 import { NextResponse } from "next/server";
 import { getActiveBusiness } from "@/lib/business/active-business";
 import { isImageGenerationConfigured } from "@/lib/llm/config";
-import { generateAiProfileGuideFlyer } from "@/lib/profile-guide/flyer/generate";
+import { generateAiProfileGuideFlyer, serializeGeneratedFlyer } from "@/lib/profile-guide/flyer/generate";
 import { parseProfileGuideFlyerFormat } from "@/lib/profile-guide/flyer/formats";
+import type { FlyerCopy } from "@/lib/profile-guide/flyer/copy";
+import { parseFlyerDisplayOptions } from "@/lib/profile-guide/flyer/options";
 import { profileGuidePublicUrl } from "@/lib/profile-guide/slug";
 import { getProfileGuideByBusinessId } from "@/lib/profile-guide/storage";
 import { PROFILE_GUIDE_FLYER_TEMPLATES } from "@/lib/profile-guide/theme";
 import { getUser } from "@/lib/supabase/server";
+
+function parseCachedCopy(value: unknown): FlyerCopy | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.headline !== "string" ||
+    typeof record.subhead !== "string" ||
+    typeof record.cta !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    headline: record.headline,
+    subhead: record.subhead,
+    cta: record.cta,
+  };
+}
 
 export async function POST(request: Request) {
   const user = await getUser();
@@ -42,8 +61,17 @@ export async function POST(request: Request) {
   )
     ? (templateParam as (typeof PROFILE_GUIDE_FLYER_TEMPLATES)[number])
     : "professional";
-  const formatParam = typeof record.format === "string" ? record.format : "letter";
-  const format = parseProfileGuideFlyerFormat(formatParam);
+  const format = parseProfileGuideFlyerFormat(
+    typeof record.format === "string" ? record.format : "letter"
+  );
+  const promptRefinement =
+    typeof record.promptRefinement === "string" ? record.promptRefinement : undefined;
+  const displayOptions = parseFlyerDisplayOptions(record.displayOptions);
+  const backgroundDataUrl =
+    typeof record.backgroundDataUrl === "string" ? record.backgroundDataUrl : undefined;
+  const cachedImagePrompt =
+    typeof record.imagePrompt === "string" ? record.imagePrompt : undefined;
+  const cachedCopy = parseCachedCopy(record.copy);
 
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
   const publicUrl = profileGuidePublicUrl(guide.guide.slug, origin);
@@ -55,20 +83,17 @@ export async function POST(request: Request) {
       publicUrl,
       template,
       format,
+      promptRefinement,
+      displayOptions,
+      backgroundDataUrl,
+      cachedCopy,
+      cachedImagePrompt,
     });
 
-    const imageDataUrl = `data:image/png;base64,${result.imageBuffer.toString("base64")}`;
-
-    return NextResponse.json({
-      imageDataUrl,
-      template: result.template,
-      format: result.format,
-      revisedPrompt: result.revisedPrompt ?? null,
-      imagePrompt: result.imagePrompt,
-    });
+    return NextResponse.json(serializeGeneratedFlyer(result));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to generate AI flyer";
-    const status = /not configured/i.test(message) ? 503 : 502;
+    const status = /not configured|invalid image data url/i.test(message) ? 400 : 502;
     return NextResponse.json({ error: message }, { status });
   }
 }

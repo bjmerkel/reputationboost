@@ -73,6 +73,7 @@ describe("buildFlyerBrief", () => {
     assert.equal(brief.city, "Austin");
     assert.equal(brief.template, "professional");
     assert.equal(brief.format, "story");
+    assert.equal(brief.displayOptions.showPhone, true);
     assert.deepEqual(brief.categories, ["Plumber", "Water heater repair"]);
     assert.deepEqual(brief.keywords, ["emergency plumber", "drain cleaning"]);
   });

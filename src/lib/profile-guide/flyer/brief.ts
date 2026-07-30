@@ -1,5 +1,8 @@
 import type { ClientConfig } from "@/audit/types";
+import { buildBusinessAddress } from "../defaults";
 import type { ProfileGuideFlyerFormat } from "./formats";
+import type { FlyerDisplayOptions } from "./options";
+import { DEFAULT_FLYER_DISPLAY_OPTIONS } from "./options";
 import type { ProfileGuideFlyerTemplate } from "../theme";
 import type { ProfileGuideWithLinks } from "../types";
 import type { FlyerCopy } from "./copy";
@@ -11,6 +14,7 @@ export interface FlyerBrief {
   keywords: string[];
   city: string;
   state: string;
+  address?: string | null;
   phone?: string | null;
   website?: string | null;
   tagline?: string | null;
@@ -22,6 +26,7 @@ export interface FlyerBrief {
   template: ProfileGuideFlyerTemplate;
   format: ProfileGuideFlyerFormat;
   copy?: FlyerCopy;
+  displayOptions: FlyerDisplayOptions;
 }
 
 export function buildFlyerBrief(
@@ -29,7 +34,8 @@ export function buildFlyerBrief(
   business: ClientConfig,
   publicUrl: string,
   template: ProfileGuideFlyerTemplate,
-  format: ProfileGuideFlyerFormat
+  format: ProfileGuideFlyerFormat,
+  displayOptions: FlyerDisplayOptions = DEFAULT_FLYER_DISPLAY_OPTIONS
 ): FlyerBrief {
   const categories = [
     business.industry?.trim(),
@@ -43,6 +49,7 @@ export function buildFlyerBrief(
     keywords: (business.keywords ?? []).map((keyword) => keyword.trim()).filter(Boolean).slice(0, 6),
     city: business.location.city?.trim() || "your area",
     state: business.location.state?.trim() || "",
+    address: buildBusinessAddress(business),
     phone: business.phone,
     website: business.website,
     tagline: guide.guide.tagline,
@@ -53,5 +60,6 @@ export function buildFlyerBrief(
     publicUrl,
     template,
     format,
+    displayOptions,
   };
 }
