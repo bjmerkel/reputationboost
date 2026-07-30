@@ -3,7 +3,7 @@ import sharp, { type OverlayOptions } from "sharp";
 import type { FlyerDesignBrief } from "./design-brief";
 import { buildFlyerEyebrow, buildFlyerSupportLine } from "./context";
 import { resolveFlyerCopy } from "./copy";
-import { computeFlyerLayout, getFlyerFormatSpec, type FlyerLayout } from "./formats";
+import { computeFlyerLayout, FLYER_QR_PRESENTATION_PAD, getFlyerFormatSpec, type FlyerLayout } from "./formats";
 import {
   getArchetypeLayoutTokens,
   type ArchetypeLayoutTokens,
@@ -24,22 +24,6 @@ function escapeXml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
-}
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const normalized = hex.replace("#", "").trim();
-  if (normalized.length === 3) {
-    return {
-      r: parseInt(normalized[0] + normalized[0], 16),
-      g: parseInt(normalized[1] + normalized[1], 16),
-      b: parseInt(normalized[2] + normalized[2], 16),
-    };
-  }
-  return {
-    r: parseInt(normalized.slice(0, 2), 16) || 26,
-    g: parseInt(normalized.slice(2, 4), 16) || 115,
-    b: parseInt(normalized.slice(4, 6), 16) || 232,
-  };
 }
 
 async function loadImageBuffer(source?: string | null): Promise<Buffer | null> {
@@ -127,105 +111,42 @@ function buildContentScrimSvg(layout: FlyerLayout): Buffer {
 }
 
 
-async function buildQrCard(
+async function buildQrPresentation(
   qrBuffer: Buffer,
   layout: FlyerLayout,
   tokens: ArchetypeLayoutTokens,
   primaryColor: string
-): Promise<Buffer> {
-  const padding = Math.round((layout.qrCardSize - layout.qrCodeSize) / 2);
-  const ringWidth = tokens.qrFrame === "branded-ring" ? 5 : 0;
-  const rgb = hexToRgb(primaryColor);
+): Promise<{ buffer: Buffer; size: number }> {
+  const cardSize = layout.qrCardSize;
+  const qrSize = layout.qrCodeSize;
+  const padding = Math.round((cardSize - qrSize) / 2);
+  const borderWidth = tokens.qrFrame === "branded-ring" ? 5 : 3;
+  const radius = tokens.qrFrame === "white-square" ? 6 : 14;
+  const shadowPad = FLYER_QR_PRESENTATION_PAD;
+  const totalSize = cardSize + shadowPad * 2;
+  const strokeColor = escapeXml(primaryColor);
 
-  if (tokens.qrFrame === "branded-ring") {
-    const innerPadding = padding;
-    return sharp({
-      create: {
-        width: layout.qrCardSize,
-        height: layout.qrCardSize,
-        channels: 4,
-        background: { ...rgb, alpha: 1 },
-      },
-    })
-      .composite([
-        {
-          input: await sharp({
-            create: {
-              width: layout.qrCardSize - ringWidth * 2,
-              height: layout.qrCardSize - ringWidth * 2,
-              channels: 4,
-              background: { r: 255, g: 255, b: 255, alpha: 1 },
-            },
-          })
-            .png()
-            .toBuffer(),
-          top: ringWidth,
-          left: ringWidth,
-        },
-        { input: qrBuffer, top: innerPadding, left: innerPadding },
-      ])
-      .png()
-      .toBuffer();
-  }
+  const qr = await sharp(qrBuffer).resize(qrSize, qrSize, { fit: "fill" }).png().toBuffer();
 
-  return sharp({
-    create: {
-      width: layout.qrCardSize,
-      height: layout.qrCardSize,
-      channels: 4,
-      background: { r: 255, g: 255, b: 255, alpha: 1 },
-    },
-  })
-    .composite([{ input: qrBuffer, top: padding, left: padding }])
-    .png()
-    .toBuffer();
-}
+  const frameSvg = Buffer.from(
+    [
+      `<svg width="${totalSize}" height="${totalSize}" xmlns="http://www.w3.org/2000/svg">`,
+      `<defs>`,
+      `<filter id="qrShadow" x="-12%" y="-8%" width="124%" height="132%">`,
+      `<feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#000000" flood-opacity="0.16"/>`,
+      `</filter>`,
+      `</defs>`,
+      `<rect x="${shadowPad}" y="${shadowPad}" width="${cardSize}" height="${cardSize}" rx="${radius}" ry="${radius}" fill="#ffffff" stroke="${strokeColor}" stroke-width="${borderWidth}" filter="url(#qrShadow)"/>`,
+      `</svg>`,
+    ].join("")
+  );
 
-async function buildQrPresentationCard(
-  qrCard: Buffer,
-  layout: FlyerLayout,
-  primaryColor: string
-): Promise<Buffer> {
-  const border = 3;
-  const shadowPad = 10;
-  const borderedSize = layout.qrCardSize + border * 2;
-  const frameSize = borderedSize + shadowPad * 2;
-  const rgb = hexToRgb(primaryColor);
-
-  const bordered = await sharp({
-    create: {
-      width: borderedSize,
-      height: borderedSize,
-      channels: 4,
-      background: { ...rgb, alpha: 1 },
-    },
-  })
-    .composite([{ input: qrCard, top: border, left: border }])
+  const buffer = await sharp(frameSvg)
+    .composite([{ input: qr, top: shadowPad + padding, left: shadowPad + padding }])
     .png()
     .toBuffer();
 
-  const shadow = await sharp(
-    Buffer.from(
-      `<svg width="${frameSize}" height="${frameSize}" xmlns="http://www.w3.org/2000/svg"><rect x="${shadowPad + 2}" y="${shadowPad + 4}" width="${borderedSize}" height="${borderedSize}" rx="12" fill="#000000" fill-opacity="0.14"/></svg>`
-    )
-  )
-    .png()
-    .toBuffer();
-
-  return sharp({
-    create: {
-      width: frameSize,
-      height: frameSize,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    },
-  })
-    .composite([
-      { input: shadow, top: 0, left: 0 },
-      { input: bordered, top: shadowPad, left: shadowPad },
-    ])
-    .png()
-    .toBuffer();
+  return { buffer, size: totalSize };
 }
 
 export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<Buffer> {
@@ -264,13 +185,16 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
     }
   );
 
-  const qrCard = await buildQrCard(qrBuffer, layout, tokens, brief.primaryColor);
-  const qrPresentation = await buildQrPresentationCard(qrCard, layout, brief.primaryColor);
-  const presentationMeta = await sharp(qrPresentation).metadata();
-  const presentationSize = presentationMeta.width ?? layout.qrCardSize;
-  const presentationInset = Math.round((presentationSize - layout.qrCardSize) / 2);
-  const qrPresentationTop = layout.qrTop - presentationInset;
-  const qrPresentationLeft = layout.qrLeft - presentationInset;
+  const { buffer: qrPresentation, size: presentationSize } = await buildQrPresentation(
+    qrBuffer,
+    layout,
+    tokens,
+    brief.primaryColor
+  );
+  const qrCenterX = layout.qrLeft + layout.qrCardSize / 2;
+  const qrCenterY = layout.qrTop + layout.qrCardSize / 2;
+  const qrPresentationTop = Math.round(qrCenterY - presentationSize / 2);
+  const qrPresentationLeft = Math.round(qrCenterX - presentationSize / 2);
 
   const background = await sharp(input.background)
     .resize(layout.width, layout.height, { fit: "cover", position: "centre" })

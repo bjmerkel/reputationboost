@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { FlyerDesignBrief } from "./design-brief";
 import type { FlyerCopy } from "./copy";
 import type { FlyerLayout } from "./formats";
+import { FLYER_QR_PRESENTATION_PAD } from "./formats";
 import type { ArchetypeLayoutTokens } from "./layout-variants";
 
 export interface FlyerTextOverlayInput {
@@ -266,7 +267,8 @@ function drawPortraitOverlay(
     });
   }
 
-  const qrLabelY = layout.qrTop + layout.qrCardSize + Math.round(layout.qrLabelSize * 1.35);
+  const qrLabelY =
+    layout.qrTop + layout.qrCardSize + FLYER_QR_PRESENTATION_PAD + Math.round(layout.qrLabelSize * 0.9);
   drawCenteredText(ctx, truncate(copy.qrLabel, 56), centerX, qrLabelY, {
     size: layout.qrLabelSize,
     weight: "bold",
@@ -418,7 +420,8 @@ function drawLandscapeOverlay(
     strokeWidth: 3,
   });
 
-  const qrLabelY = layout.qrTop + layout.qrCardSize + Math.round(layout.qrLabelSize * 1.3);
+  const qrLabelY =
+    layout.qrTop + layout.qrCardSize + FLYER_QR_PRESENTATION_PAD + Math.round(layout.qrLabelSize * 0.85);
   drawCenteredText(ctx, truncate(copy.qrLabel, 40), qrLabelX, qrLabelY, {
     size: layout.qrLabelSize,
     weight: "bold",
