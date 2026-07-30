@@ -79,6 +79,7 @@ const TOOL_ICONS: Record<string, string> = {
   "jobber-job-completed": "🔧",
   "hcp-job-completed": "🏠",
   "square-payment-received": "💳",
+  "podium-invoice-paid": "💬",
   custom: "⚡",
 };
 
@@ -90,6 +91,8 @@ function getTriggerLabel(template: ZapierTemplate): string {
       return "Job Completed";
     case "square-payment-received":
       return "New Payment";
+    case "podium-invoice-paid":
+      return "New Paid Invoice";
     default:
       return "your trigger event";
   }
@@ -113,6 +116,16 @@ function getNativeZapierSteps(template: ZapierTemplate): string[] {
     ];
   }
 
+  if (template.id === "podium-invoice-paid") {
+    return [
+      `Click "Set up in Zapier" below — your webhook URL is copied automatically.`,
+      `Set Podium → ${triggerLabel} as the trigger.`,
+      "Map contact phone or email from the paid invoice. Podium only fires this trigger when the customer pays via the invoice link — not when you mark an invoice paid manually.",
+      `Add Reputation Boost → ${actionName}, paste your webhook URL, and map phone or email, name, service, amount, and currency.`,
+      "Test the Zap with a real paid invoice, then turn it on.",
+    ];
+  }
+
   return [
     `Click "Set up in Zapier" below — your webhook URL is copied automatically.`,
     `In Zapier, set ${toolName} → ${triggerLabel} as the trigger.`,
@@ -130,7 +143,9 @@ function getManualZapierSteps(template: ZapierTemplate, webhookUrl: string): str
         ? "Map Housecall Pro customer phone, email, name, job description, and job site address into phone, email, firstName/lastName, service, jobAddress, jobCity, and jobZip."
         : template.id === "square-payment-received"
           ? "Use Square → New Payment as the trigger. Map buyer phone or email into phone/email, customer name into name, payment note or order line into service, and amount into amount."
-          : "Map customer phone, email, name, and job or service description into the matching JSON fields.";
+          : template.id === "podium-invoice-paid"
+            ? "Use Podium → New Paid Invoice as the trigger. Map contact phone or email into phone/email, contact name into name, invoice line or description into service, and amount into amount."
+            : "Map customer phone, email, name, and job or service description into the matching JSON fields.";
 
   return [
     `Open the ${template.label.split("—")[0]?.trim() ?? "integration"} template in Zapier (button below).`,
@@ -155,6 +170,21 @@ function buildSamplePayload(
       email: "jane@example.com",
       service: "service call",
       amount: 425,
+      currency: "USD",
+      paidAt: "2026-07-05",
+    };
+  }
+  if (template.id === "podium-invoice-paid") {
+    return {
+      ...base,
+      event: "invoice.paid",
+      source: "podium",
+      phone: "2145550100",
+      email: "jane@example.com",
+      firstName: "Jane",
+      lastName: "Doe",
+      service: "hvac tune-up",
+      amount: 275,
       currency: "USD",
       paidAt: "2026-07-05",
     };
@@ -355,7 +385,7 @@ export default function WebhookSetupWizard() {
           <div>
             <h2 className="text-lg font-bold text-[#202124]">Connect your field service tool</h2>
             <p className="mt-1 max-w-2xl text-sm text-[#5f6368]">
-              A guided setup for Jobber, Housecall Pro, Square, or any tool via Zapier/Make.
+              A guided setup for Jobber, Housecall Pro, Square, Podium, or any tool via Zapier/Make.
               We&apos;ll walk you through copying your webhook URL and wiring up review requests.
             </p>
           </div>

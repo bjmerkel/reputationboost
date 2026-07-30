@@ -18,12 +18,14 @@ const TEMPLATE_ENV_KEYS: Record<string, string> = {
   "jobber-job-completed": "ZAPIER_TEMPLATE_JOBBER",
   "hcp-job-completed": "ZAPIER_TEMPLATE_HCP",
   "square-payment-received": "ZAPIER_TEMPLATE_SQUARE",
+  "podium-invoice-paid": "ZAPIER_TEMPLATE_PODIUM",
 };
 
 const TRIGGER_APP_SLUGS: Record<string, string> = {
   "jobber-job-completed": "jobber",
   "hcp-job-completed": "housecall-pro",
   "square-payment-received": "square",
+  "podium-invoice-paid": "podium",
   custom: "webhook",
 };
 
@@ -39,6 +41,10 @@ const TEMPLATE_LABELS: Record<string, { label: string; description: string }> = 
   "square-payment-received": {
     label: "Square → Reputation Boost",
     description: "When a Square payment is received, send a review request.",
+  },
+  "podium-invoice-paid": {
+    label: "Podium → Reputation Boost",
+    description: "When a Podium invoice is paid, send a review request.",
   },
 };
 

@@ -68,6 +68,23 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
       "paidAt",
     ]),
   },
+  {
+    id: "podium-invoice-paid",
+    label: "Podium — Invoice Paid",
+    description: "Request a review when a Podium invoice is paid by the customer.",
+    templateUrl: "https://zapier.com/apps/podium/integrations/reputation-boost",
+    eventType: "invoice.paid",
+    sampleFields: withZapierContactFields([
+      "firstName",
+      "lastName",
+      "name",
+      "service",
+      "externalId",
+      "amount",
+      "currency",
+      "paidAt",
+    ]),
+  },
 ];
 
 export const ZAPIER_SETUP_STEPS = [
