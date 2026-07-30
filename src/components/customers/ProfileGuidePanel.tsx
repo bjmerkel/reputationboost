@@ -90,6 +90,10 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   const [period, setPeriod] = useState<ProfileGuideAnalyticsPeriod>(30);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [deletedLinkIds, setDeletedLinkIds] = useState<string[]>([]);
+  const [flyerTemplate, setFlyerTemplate] =
+    useState<(typeof PROFILE_GUIDE_FLYER_TEMPLATES)[number]>("professional");
+  const [flyerGenerating, setFlyerGenerating] = useState(false);
+  const [flyerPreview, setFlyerPreview] = useState<string | null>(null);
 
   const loadGuide = useCallback(async () => {
     setLoading(true);
@@ -314,6 +318,38 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
 
   function openFlyer(template: (typeof PROFILE_GUIDE_FLYER_TEMPLATES)[number]) {
     window.open(`/api/profile-guide/flyer?template=${template}`, "_blank", "noopener,noreferrer");
+  }
+
+  async function generateAiFlyer() {
+    setFlyerGenerating(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const res = await fetch("/api/profile-guide/flyer/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template: flyerTemplate }),
+      });
+      const json = await parseJsonResponse<{
+        imageDataUrl: string;
+        template: string;
+      }>(res);
+      setFlyerPreview(json.imageDataUrl);
+      setMessage("AI review flyer generated.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate AI flyer");
+    } finally {
+      setFlyerGenerating(false);
+    }
+  }
+
+  function downloadFlyerPreview() {
+    if (!flyerPreview) return;
+    const link = document.createElement("a");
+    link.href = flyerPreview;
+    link.download = `profile-guide-flyer-${flyerTemplate}.png`;
+    link.click();
   }
 
   const auditPhotosHref = businessId
@@ -607,20 +643,80 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
             Review flyer
           </SectionTitle>
           <p className="mt-1 text-sm text-[#5f6368]">
-            Generate a print-ready flyer with your QR code. Pick a style and print from your browser.
+            Generate a professional AI flyer with your logo, cover photo, QR code, and business
+            details — or use a simple printable template.
           </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {PROFILE_GUIDE_FLYER_TEMPLATES.map((template) => (
-              <button
-                key={template}
-                type="button"
-                onClick={() => openFlyer(template)}
-                className="btn-secondary rounded-full px-4 py-2 text-sm font-semibold capitalize"
-              >
-                {template} flyer
-              </button>
-            ))}
+
+          <div className="mt-4">
+            <p className="text-sm font-medium text-[#3c4043]">Style</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {PROFILE_GUIDE_FLYER_TEMPLATES.map((template) => (
+                <button
+                  key={template}
+                  type="button"
+                  onClick={() => setFlyerTemplate(template)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold capitalize ${
+                    flyerTemplate === template
+                      ? "bg-[#e8f0fe] text-[#1a73e8]"
+                      : "border border-[#dadce0] text-[#5f6368] hover:text-[#3c4043]"
+                  }`}
+                >
+                  {template}
+                </button>
+              ))}
+            </div>
           </div>
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={flyerGenerating}
+              onClick={() => void generateAiFlyer()}
+              className="btn-primary rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
+            >
+              {flyerGenerating ? "Generating AI flyer…" : "Generate AI flyer"}
+            </button>
+            <button
+              type="button"
+              onClick={() => openFlyer(flyerTemplate)}
+              className="btn-secondary rounded-full px-5 py-2.5 text-sm font-semibold"
+            >
+              Simple template
+            </button>
+            {flyerPreview && (
+              <button
+                type="button"
+                onClick={downloadFlyerPreview}
+                className="btn-secondary rounded-full px-5 py-2.5 text-sm font-semibold"
+              >
+                Download PNG
+              </button>
+            )}
+          </div>
+
+          {flyerGenerating && (
+            <p className="mt-3 text-sm text-[#5f6368]">
+              Designing your flyer with AI… this usually takes 15–30 seconds.
+            </p>
+          )}
+
+          {flyerPreview && (
+            <div className="mt-4 overflow-hidden rounded-xl border border-[#e8eaed] bg-[#f8f9fa] p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#80868b]">
+                AI flyer preview
+              </p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={flyerPreview}
+                alt="AI-generated review flyer preview"
+                className="mx-auto max-h-[520px] w-auto rounded-lg shadow-sm"
+              />
+            </div>
+          )}
+
+          <p className="mt-3 text-xs text-[#80868b]">
+            AI flyers require OpenAI image generation. Simple templates work without AI.
+          </p>
         </section>
 
         <section className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
