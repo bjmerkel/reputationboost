@@ -10,6 +10,7 @@ import {
 import { logPlanEvent } from "@/lib/analytics/plan-events";
 import {
   googlePostShouldScheduleOnly,
+  isFutureScheduled,
   validateGooglePostScheduleTime,
 } from "@/lib/google/google-post-schedule";
 import { getValidGbpConnection } from "@/lib/google/token-store";
@@ -62,9 +63,11 @@ export async function PATCH(
   const nextScheduledFor =
     body.scheduledFor !== undefined
       ? body.scheduledFor
-      : requestedStatus === "approved"
+      : requestedStatus === "approved" && task.type !== "google_post"
         ? task.scheduledFor ?? new Date().toISOString()
-        : task.scheduledFor;
+        : requestedStatus === "approved" && !isFutureScheduled(task.scheduledFor)
+          ? task.scheduledFor ?? new Date().toISOString()
+          : task.scheduledFor;
 
   const updated = await updateExecutionTask(user.id, taskId, {
     status: requestedStatus,

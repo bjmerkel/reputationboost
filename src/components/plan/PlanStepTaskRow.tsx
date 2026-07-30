@@ -378,6 +378,7 @@ export default function PlanStepTaskRow({
                   >
                     {taskPrimaryActionLabel(task, {
                       loading,
+                      scheduledFor: scheduleState.scheduledForIso,
                       publishNow:
                         isGooglePost &&
                         googlePostShowsPublishNow(task) &&

@@ -4,7 +4,7 @@ import type { MarketActionCalibration } from "@/audit/autopilot/market-calibrati
 import type { UserNotification } from "@/audit/storage-notifications";
 import { isValidReviewId } from "@/audit/phase3/plan-task-utils";
 import { needsGbpDescriptionRepublish } from "@/lib/google/gbp-description";
-import { googlePostShouldScheduleOnly } from "@/lib/google/google-post-schedule";
+import { googlePostShouldScheduleOnly, validateGooglePostScheduleTime } from "@/lib/google/google-post-schedule";
 import { pendingRoutineTasks } from "./pending-tasks";
 
 type ExecutionState = {
@@ -253,8 +253,8 @@ export async function approveAndPublishTask(
   const draftContent = options?.draftContent?.trim();
   const retry = options?.retry ?? needsGbpDescriptionRepublish(task);
   const publishNow = options?.publishNow === true;
-  const scheduleOnly = googlePostShouldScheduleOnly(task, publishNow);
   const scheduledFor = options?.scheduledFor ?? task.scheduledFor;
+  const scheduleOnly = googlePostShouldScheduleOnly(task, publishNow, scheduledFor);
 
   if (draftContent && draftContent !== task.draftContent) {
     await patchExecutionTask(task.id, { draftContent });
@@ -292,6 +292,10 @@ export async function approveAndPublishTask(
   if (scheduleOnly) {
     if (!scheduledFor) {
       throw new Error("Choose a publish date and time to schedule this post.");
+    }
+    const scheduleError = validateGooglePostScheduleTime(scheduledFor);
+    if (scheduleError) {
+      throw new Error(scheduleError);
     }
     return patchExecutionTask(task.id, {
       status: "scheduled",

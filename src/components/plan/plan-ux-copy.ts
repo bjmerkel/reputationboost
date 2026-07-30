@@ -20,13 +20,20 @@ export function taskUsesLocalCompletion(task: ExecutionTask): boolean {
 
 export function taskPrimaryActionLabel(
   task: ExecutionTask,
-  options?: { loading?: boolean; republish?: boolean; publishNow?: boolean }
+  options?: {
+    loading?: boolean;
+    republish?: boolean;
+    publishNow?: boolean;
+    scheduledFor?: string | null;
+  }
 ): string {
+  const effectiveScheduledFor = options?.scheduledFor ?? task.scheduledFor;
+  const futureScheduled = isFutureScheduled(effectiveScheduledFor);
   if (options?.loading) {
     if (options.publishNow || options.republish) return "Publishing…";
     if (
       task.type === "google_post" &&
-      isFutureScheduled(task.scheduledFor) &&
+      futureScheduled &&
       task.status === "pending_approval"
     ) {
       return "Scheduling…";
@@ -37,7 +44,7 @@ export function taskPrimaryActionLabel(
   if (taskUsesLocalCompletion(task)) return "Mark complete";
   if (
     task.type === "google_post" &&
-    isFutureScheduled(task.scheduledFor) &&
+    futureScheduled &&
     task.status === "pending_approval"
   ) {
     return "Schedule post";
