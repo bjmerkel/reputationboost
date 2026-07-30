@@ -85,6 +85,42 @@ function formatEyebrow(value: string, tokens: ArchetypeLayoutTokens): string {
   return normalized;
 }
 
+function drawCenteredText(
+  ctx: SKRSContext2D,
+  text: string,
+  centerX: number,
+  y: number,
+  options: {
+    fill: string;
+    stroke?: string;
+    strokeWidth?: number;
+    shadow?: boolean;
+  }
+): void {
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+
+  if (options.shadow) {
+    ctx.save();
+    ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = options.fill;
+    ctx.fillText(text, centerX, y);
+    ctx.restore();
+    return;
+  }
+
+  if (options.stroke) {
+    ctx.lineWidth = options.strokeWidth ?? 4;
+    ctx.strokeStyle = options.stroke;
+    ctx.strokeText(text, centerX, y);
+  }
+
+  ctx.fillStyle = options.fill;
+  ctx.fillText(text, centerX, y);
+}
+
 export function renderFlyerTextOverlay(input: CanvasTextOverlayInput): Buffer {
   const { layout, tokens, brief, copy, footer, eyebrow, address, showStars } = input;
   const canvas = createCanvas(layout.width, layout.height);
@@ -99,29 +135,36 @@ export function renderFlyerTextOverlay(input: CanvasTextOverlayInput): Buffer {
 
   if (eyebrow) {
     ctx.font = `700 ${layout.eyebrowSize}px sans-serif`;
-    ctx.fillStyle = brief.primaryColor;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
     const eyebrowText = truncate(formatEyebrow(eyebrow, tokens), 56);
-    ctx.fillText(eyebrowText, centerX, y);
+    drawCenteredText(ctx, eyebrowText, centerX, y, {
+      fill: brief.primaryColor,
+      stroke: "rgba(255, 255, 255, 0.92)",
+      strokeWidth: 3,
+    });
     y += layout.eyebrowSize + 10;
   }
 
   ctx.font = `${tokens.headlineWeight} ${headlineSize}px sans-serif`;
-  ctx.fillStyle = brief.primaryColor;
-  ctx.textAlign = "center";
   const headlineLines = wrapLines(ctx, truncate(copy.headline, 80), textWidth, 2);
   for (const line of headlineLines) {
-    ctx.fillText(line, centerX, y);
+    drawCenteredText(ctx, line, centerX, y, {
+      fill: brief.primaryColor,
+      stroke: "rgba(255, 255, 255, 0.95)",
+      strokeWidth: 5,
+    });
     y += headlineSize + 8;
   }
 
   y += 6;
   ctx.font = `400 ${layout.subheadSize}px sans-serif`;
-  ctx.fillStyle = "#5f6368";
   const subheadLines = wrapLines(ctx, truncate(copy.subhead, 140), textWidth, 3);
   for (const line of subheadLines) {
-    ctx.fillText(line, centerX, y);
+    drawCenteredText(ctx, line, centerX, y, {
+      fill: "#f8f9fa",
+      stroke: "rgba(0, 0, 0, 0.55)",
+      strokeWidth: 3,
+      shadow: true,
+    });
     y += layout.subheadSize + 6;
   }
 
@@ -149,28 +192,42 @@ export function renderFlyerTextOverlay(input: CanvasTextOverlayInput): Buffer {
 
   if (copy.supportLine?.trim() && y < textBottomLimit - 24) {
     ctx.font = `600 ${layout.supportLineSize}px sans-serif`;
-    ctx.fillStyle = "#3c4043";
-    ctx.fillText(truncate(copy.supportLine, 72), centerX, y);
+    drawCenteredText(ctx, truncate(copy.supportLine, 72), centerX, y, {
+      fill: "#ffffff",
+      stroke: "rgba(0, 0, 0, 0.45)",
+      strokeWidth: 3,
+      shadow: true,
+    });
     y += layout.supportLineSize + 8;
   }
 
   if (address && y < textBottomLimit - 20) {
     ctx.font = `400 ${layout.addressSize}px sans-serif`;
-    ctx.fillStyle = "#80868b";
-    ctx.fillText(truncate(address, 64), centerX, y);
+    drawCenteredText(ctx, truncate(address, 64), centerX, y, {
+      fill: "#f1f3f4",
+      shadow: true,
+    });
   }
 
   const qrLabelY = layout.qrTop + layout.qrCardSize + Math.round(layout.qrLabelSize * 1.35);
   ctx.font = `600 ${layout.qrLabelSize}px sans-serif`;
-  ctx.fillStyle = "#202124";
-  ctx.fillText(truncate(copy.qrLabel, 56), centerX, qrLabelY);
+  drawCenteredText(ctx, truncate(copy.qrLabel, 56), centerX, qrLabelY, {
+    fill: "#ffffff",
+    stroke: "rgba(0, 0, 0, 0.5)",
+    strokeWidth: 3,
+    shadow: true,
+  });
 
   const ctaY = qrLabelY + layout.qrLabelSize + 18;
   ctx.font = `500 ${layout.ctaSize}px sans-serif`;
-  ctx.fillStyle = "#3c4043";
   const ctaLines = wrapLines(ctx, truncate(copy.cta, 100), textWidth, 2);
   for (const line of ctaLines) {
-    ctx.fillText(line, centerX, ctaY);
+    drawCenteredText(ctx, line, centerX, ctaY, {
+      fill: "#ffffff",
+      stroke: "rgba(0, 0, 0, 0.45)",
+      strokeWidth: 3,
+      shadow: true,
+    });
     y = ctaY + layout.ctaSize + 6;
   }
 
@@ -179,8 +236,10 @@ export function renderFlyerTextOverlay(input: CanvasTextOverlayInput): Buffer {
     (ctaLines.length > 1 ? ctaY + layout.ctaSize * 2 : ctaY + layout.ctaSize) + 24
   );
   ctx.font = `400 ${layout.footerSize}px sans-serif`;
-  ctx.fillStyle = "#80868b";
-  ctx.fillText(truncate(footer, 72), centerX, footerY);
+  drawCenteredText(ctx, truncate(footer, 72), centerX, footerY, {
+    fill: "#e8eaed",
+    shadow: true,
+  });
 
   return canvas.toBuffer("image/png");
 }

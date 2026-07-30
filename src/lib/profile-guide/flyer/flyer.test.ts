@@ -97,7 +97,7 @@ describe("computeFlyerLayout", () => {
     assert.ok(layout.contentCardWidth > 0);
   });
 
-  it("places portrait QR inside the content card", () => {
+  it("places portrait QR inside the content zone", () => {
     const layout = computeFlyerLayout(FLYER_FORMAT_SPECS.letter);
     assert.equal(layout.orientation, "portrait");
     assert.ok(layout.qrTop > layout.contentCardTop);
