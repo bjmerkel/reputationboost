@@ -4,7 +4,7 @@
  * Usage: node scripts/print-embed-urls.js <webhook-url> [template-id]
  *
  * After creating a public Zap template in Zapier Partner, set the returned ID in Vercel:
- * ZAPIER_TEMPLATE_JOBBER, ZAPIER_TEMPLATE_HCP, ZAPIER_TEMPLATE_SQUARE
+ * ZAPIER_TEMPLATE_JOBBER, ZAPIER_TEMPLATE_HCP, ZAPIER_TEMPLATE_SQUARE, ZAPIER_TEMPLATE_PODIUM
  */
 
 const TEMPLATES = [
@@ -14,6 +14,11 @@ const TEMPLATES = [
     key: "square-payment-received",
     env: "ZAPIER_TEMPLATE_SQUARE",
     trigger: "Square — New Payment",
+  },
+  {
+    key: "podium-invoice-paid",
+    env: "ZAPIER_TEMPLATE_PODIUM",
+    trigger: "Podium — New Paid Invoice",
   },
 ];
 
