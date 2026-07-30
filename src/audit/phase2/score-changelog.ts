@@ -185,6 +185,25 @@ export function buildScoreChangelogFromSnapshots(
   return entries.slice(0, 8);
 }
 
+export function buildProfileGuideChangelogEntries(
+  attributions: Array<{ reviewDetectedAt: string; reviewRating: number | null }>
+): ScoreChangelogEntry[] {
+  if (attributions.length === 0) return [];
+
+  const label =
+    attributions.length === 1
+      ? "1 review attributed to Profile Guide"
+      : `${attributions.length} reviews attributed to Profile Guide`;
+
+  return [
+    {
+      component: "driver",
+      delta: attributions.length,
+      label,
+    },
+  ];
+}
+
 export function buildScoreChangelogFromHealthScores(
   current: HealthScores,
   prior: HealthScores,

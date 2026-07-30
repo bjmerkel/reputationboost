@@ -260,6 +260,63 @@ describe("selectNextBestPlanSteps", () => {
       [15, 8]
     );
   });
+
+  it("prioritizes Profile Guide publish when unpublished and review velocity is weak", () => {
+    const plan: Plan = {
+      title: "Plan",
+      businessName: "Test",
+      objective: "Win pack",
+      targetKeywords: [],
+      phases: [],
+      progress: {
+        totalSteps: 4,
+        completedSteps: 0,
+        needsApproval: 0,
+        currentHealthScore: 50,
+        projectedHealthScore: 70,
+      },
+      steps: [
+        stubStep({
+          stepNumber: 16,
+          title: "Publish your Profile Guide",
+          displayOrder: 0,
+          status: "pending",
+          context: {
+            targetKeywords: ["plumber"],
+            expectedEffect: "Branded review link",
+            healthScoreImpact: 3,
+            outcomeScoreImpact: 2,
+          },
+        }),
+        stubStep({
+          stepNumber: 10,
+          title: "Request more reviews",
+          displayOrder: 1,
+          status: "pending",
+          context: {
+            targetKeywords: ["plumber"],
+            expectedEffect: "More reviews",
+            healthScoreImpact: 2,
+            outcomeScoreImpact: 4,
+          },
+        }),
+        stubStep({
+          stepNumber: 1,
+          title: "Category",
+          displayOrder: 2,
+          status: "pending",
+        }),
+      ],
+    };
+
+    const next = selectNextBestPlanSteps(plan, 2, {
+      reviewVelocityBoost: true,
+      profileGuideUnpublished: true,
+    });
+
+    assert.equal(next[0]?.stepNumber, 16);
+    assert.ok(next.some((step) => step.stepNumber === 10));
+  });
 });
 
 describe("resolveStepActionPriority", () => {

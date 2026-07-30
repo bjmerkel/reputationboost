@@ -4,6 +4,7 @@ import type { ConversionChannelBias } from "../phase2/conversion-channel";
 import { conversionLeversForChannel } from "../phase2/conversion-channel";
 import { isConversionPlanStep } from "../phase2/conversion-constants";
 import { planStepPriorityScore } from "../phase2/plan-prioritization";
+import { PROFILE_GUIDE_PLAN_STEP } from "@/lib/profile-guide/plan-step";
 
 const ACTIONABLE: ReadonlySet<PlanStep["status"]> = new Set([
   "pending",
@@ -28,6 +29,8 @@ export interface NextBestPlanStepsOptions {
    * request campaigns so step 10 can appear in the top 3.
    */
   reviewVelocityBoost?: boolean;
+  /** When true, elevate Profile Guide publish ahead of step 10 review requests. */
+  profileGuideUnpublished?: boolean;
   calibration?: AttributionCalibration;
   preferredConversionChannel?: ConversionChannelBias;
   revenueContext?: import("../revenue-attribution/types").RevenueContext;
@@ -48,10 +51,14 @@ function conversionBoostForStep(
   preferConversionSteps: boolean,
   preferredConversionChannel?: ConversionChannelBias,
   softConversionBoost = false,
-  reviewVelocityBoost = false
+  reviewVelocityBoost = false,
+  profileGuideUnpublished = false
 ): number {
   if (softConversionBoost && isConversionPlanStep(step.stepNumber)) {
     return 1.15;
+  }
+  if (profileGuideUnpublished && step.stepNumber === PROFILE_GUIDE_PLAN_STEP) {
+    return 3;
   }
   if (reviewVelocityBoost && step.stepNumber === 10) {
     return 2.5;
@@ -87,6 +94,7 @@ export function selectNextBestPlanSteps(
   const preferConversionSteps = options.preferConversionSteps === true;
   const softConversionBoost = options.softConversionBoost === true;
   const reviewVelocityBoost = options.reviewVelocityBoost === true;
+  const profileGuideUnpublished = options.profileGuideUnpublished === true;
 
   const actionable = plan.steps.filter(
     (step) =>
@@ -103,7 +111,8 @@ export function selectNextBestPlanSteps(
           preferConversionSteps,
           options.preferredConversionChannel,
           softConversionBoost,
-          reviewVelocityBoost
+          reviewVelocityBoost,
+          profileGuideUnpublished
         ),
       }) -
       planStepPriorityScore(a, {
@@ -114,7 +123,8 @@ export function selectNextBestPlanSteps(
           preferConversionSteps,
           options.preferredConversionChannel,
           softConversionBoost,
-          reviewVelocityBoost
+          reviewVelocityBoost,
+          profileGuideUnpublished
         ),
       });
     if (priorityDiff !== 0) return priorityDiff;
@@ -125,6 +135,14 @@ export function selectNextBestPlanSteps(
   });
 
   const top = sorted.slice(0, limit);
+  if (profileGuideUnpublished && !preferConversionSteps) {
+    const profileGuideStep = sorted.find(
+      (step) => step.stepNumber === PROFILE_GUIDE_PLAN_STEP
+    );
+    if (profileGuideStep && !top.some((step) => step.stepNumber === PROFILE_GUIDE_PLAN_STEP)) {
+      top[top.length - 1] = profileGuideStep;
+    }
+  }
   if (reviewVelocityBoost && !preferConversionSteps) {
     const step10 = sorted.find((step) => step.stepNumber === 10);
     if (step10 && !top.some((step) => step.stepNumber === 10)) {
@@ -139,7 +157,8 @@ export function selectNextBestPlanSteps(
               preferConversionSteps,
               options.preferredConversionChannel,
               softConversionBoost,
-              reviewVelocityBoost
+              reviewVelocityBoost,
+              profileGuideUnpublished
             ),
           }) -
           planStepPriorityScore(a, {
@@ -150,7 +169,8 @@ export function selectNextBestPlanSteps(
               preferConversionSteps,
               options.preferredConversionChannel,
               softConversionBoost,
-              reviewVelocityBoost
+              reviewVelocityBoost,
+              profileGuideUnpublished
             ),
           })
       );

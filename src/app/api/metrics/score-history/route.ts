@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   buildRankMovementsForChangelog,
   buildScoreChangelogFromSnapshots,
+  buildProfileGuideChangelogEntries,
 } from "@/audit/phase2/score-changelog";
 import {
   applyGridSnapshotsToAudit,
@@ -25,6 +26,7 @@ import {
   listScoreDailyForUser,
 } from "@/audit/storage-score-daily";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
+import { listProfileGuideAttributionsBetween } from "@/lib/profile-guide/storage-admin";
 import { HEATMAP_FLAGS } from "@/lib/feature-flags";
 import { getUser } from "@/lib/supabase/server";
 
@@ -163,6 +165,16 @@ export async function GET(request: Request) {
         rankMovements,
         keywordRanks
       );
+
+      const profileGuideAttributions = await listProfileGuideAttributionsBetween(
+        businessId,
+        `${prior.date}T00:00:00.000Z`,
+        `${latest.date}T23:59:59.999Z`
+      );
+      const profileGuideEntries = buildProfileGuideChangelogEntries(profileGuideAttributions);
+      if (profileGuideEntries.length > 0) {
+        changelog = [...profileGuideEntries, ...changelog].slice(0, 8);
+      }
     }
   }
 
