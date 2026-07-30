@@ -46,6 +46,8 @@ import {
 import { shouldShowPlanAcvReminder } from "./plan-acv-reminder";
 import { useAcvEstimate } from "@/hooks/useAcvEstimate";
 import { useProfileGuideReadiness } from "@/hooks/useProfileGuideReadiness";
+import { mergeProfileGuideIntoPlan } from "@/lib/profile-guide/plan-step";
+import { isProfileGuideReviewReady } from "@/lib/profile-guide/readiness";
 import { parseLocationFromAddress } from "@/lib/llm/acv-estimate";
 import { resolveAcvCopyFromAudit } from "@/lib/business/acv-copy";
 import {
@@ -110,6 +112,10 @@ export default function PlanView({
     enabled: gbpConnected,
     businessId,
   });
+  const mergedPlan = useMemo(
+    () => (plan ? mergeProfileGuideIntoPlan(plan, audit, profileGuideReadiness) : null),
+    [audit, plan, profileGuideReadiness]
+  );
   const internalPlanTasks = usePlanTasks({
     clientId,
     auditId: audit.auditId,
@@ -460,7 +466,7 @@ export default function PlanView({
     );
   }
 
-  if (!plan) {
+  if (!plan || !mergedPlan) {
     return (
       <p className={`text-sm ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
         Optimization plan will appear after your audit completes.
@@ -477,7 +483,7 @@ export default function PlanView({
       )}
 
       <PlanProgressHeader
-        plan={plan}
+        plan={mergedPlan}
         variant={variant}
         onReviewPending={onReviewPending}
         pendingApprovalCount={pendingApprovalCount}
@@ -561,7 +567,7 @@ export default function PlanView({
       )}
 
       <PlanNextBestActions
-        plan={plan}
+        plan={mergedPlan}
         currency={currency}
         variant={variant}
         calibration={calibration}
@@ -570,6 +576,7 @@ export default function PlanView({
         reviewVelocityBoost={
           PLAN_TAB_FLAGS.reviewVelocityGap && auditNeedsReviewVelocityBoost(audit)
         }
+        profileGuideUnpublished={!isProfileGuideReviewReady(profileGuideReadiness)}
         auditId={audit.auditId}
         businessId={businessId}
         onFocusStep={(stepNumber) => setLocalFocusStep(stepNumber)}
@@ -577,7 +584,7 @@ export default function PlanView({
 
       <PlanKeywordPlaybooks
         audit={audit}
-        plan={plan}
+        plan={mergedPlan}
         avgCustomerValue={effectiveAvgCustomerValue}
         calibration={calibration}
         marketIndex={marketIndex}
@@ -603,7 +610,7 @@ export default function PlanView({
         />
       )}
 
-      {(plan.planRationale || plan.objective) && (
+      {(mergedPlan.planRationale || mergedPlan.objective) && (
         <aside
           className={`rounded-xl border px-4 py-3 ${
             isLight ? "border-[#e8f0fe] bg-[#f8fbff]" : "border-sky-400/20 bg-sky-400/10"
@@ -621,7 +628,7 @@ export default function PlanView({
               isLight ? "text-[#3c4043]" : "text-slate-200"
             }`}
           >
-            {plan.planRationale || plan.objective}
+            {mergedPlan.planRationale || mergedPlan.objective}
           </p>
         </aside>
       )}
@@ -638,8 +645,8 @@ export default function PlanView({
 
       {error && <p className="text-sm text-[#d93025]">{error}</p>}
 
-      {plan.phases.map((phase) => {
-        const phaseSteps = plan.steps
+      {mergedPlan.phases.map((phase) => {
+        const phaseSteps = mergedPlan.steps
           .filter((s) => s.phaseId === phase.id)
           .sort(
             (a, b) =>
@@ -650,7 +657,7 @@ export default function PlanView({
             key={phase.id}
             phase={phase}
             steps={phaseSteps}
-            totalSteps={plan.progress.totalSteps}
+            totalSteps={mergedPlan.progress.totalSteps}
             gbpConnected={gbpConnected}
             actions={actions}
             attributionByTaskId={attributionByTaskId}

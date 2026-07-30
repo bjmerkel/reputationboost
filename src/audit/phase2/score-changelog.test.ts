@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildScoreChangelogFromSnapshots,
   buildRankMovementsFromSnapshots,
+  buildProfileGuideChangelogEntries,
 } from "./score-changelog";
 import { applyRankSnapshotsToAudit } from "./score-snapshot";
 import { mergeCalibrations } from "./attribution-calibration";
@@ -265,6 +266,17 @@ describe("mergeCalibrations", () => {
     assert.ok(merged?.[3]);
     assert.ok(merged?.[8]);
     assert.ok(merged![3].estimatedScoreImpact >= 5);
+  });
+});
+
+describe("buildProfileGuideChangelogEntries", () => {
+  it("creates a driver changelog entry for attributed reviews", () => {
+    const entries = buildProfileGuideChangelogEntries([
+      { reviewDetectedAt: "2026-07-02T12:00:00.000Z", reviewRating: 5 },
+    ]);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0]?.component, "driver");
+    assert.match(entries[0]?.label ?? "", /Profile Guide/);
   });
 });
 

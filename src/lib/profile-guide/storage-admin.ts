@@ -169,3 +169,29 @@ export async function findRecentProfileGuideReviewClick(
     occurredAt: data.occurred_at as string,
   };
 }
+
+export async function listProfileGuideAttributionsBetween(
+  businessId: string,
+  startIso: string,
+  endIso: string
+): Promise<Array<{ reviewDetectedAt: string; reviewRating: number | null }>> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("review_outreach_attributions")
+    .select("review_detected_at, review_rating")
+    .eq("business_id", businessId)
+    .not("profile_guide_id", "is", null)
+    .gte("review_detected_at", startIso)
+    .lte("review_detected_at", endIso)
+    .order("review_detected_at", { ascending: false });
+
+  if (error) {
+    if (error.message.includes("profile_guide_id")) return [];
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => ({
+    reviewDetectedAt: row.review_detected_at as string,
+    reviewRating: (row.review_rating as number | null) ?? null,
+  }));
+}

@@ -14,6 +14,7 @@ export default function PlanNextBestActions({
   preferConversionSteps = false,
   softConversionBoost = false,
   reviewVelocityBoost = false,
+  profileGuideUnpublished = false,
   calibration,
   onFocusStep,
   auditId,
@@ -28,6 +29,8 @@ export default function PlanNextBestActions({
   softConversionBoost?: boolean;
   /** Outside-pack listings where review velocity blocks pack entry. */
   reviewVelocityBoost?: boolean;
+  /** Profile Guide is not published — prioritize setup before review requests. */
+  profileGuideUnpublished?: boolean;
   calibration?: AttributionCalibration;
   onFocusStep?: (stepNumber: number) => void;
   auditId?: string;
@@ -38,6 +41,7 @@ export default function PlanNextBestActions({
     preferConversionSteps,
     softConversionBoost,
     reviewVelocityBoost,
+    profileGuideUnpublished,
     calibration,
   });
   if (nextSteps.length === 0) return null;

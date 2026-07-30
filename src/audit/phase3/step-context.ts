@@ -222,7 +222,7 @@ function buildExpectedEffect(audit: FullAuditPayload, step: GbpPlanStep): string
     case 15:
       return "Add appointment, call, or directions links customers can tap directly from Google Maps to convert views into leads.";
     case 16:
-      return "Execute the weekly cadence consistently to move keywords into the Top 3.";
+      return "Publish a branded Profile Guide with a Review button and QR code so review requests and in-person asks convert into measurable Google reviews.";
     case 17:
       return "Rotate tracked keywords toward GBP search terms that actually drive impressions.";
     default:

@@ -20,7 +20,9 @@ import PlanStepPlaceActions from "./PlanStepPlaceActions";
 import ReviewRequestPanel from "@/components/review-requests/ReviewRequestPanel";
 import ReviewDisputePanel from "@/components/review-disputes/ReviewDisputePanel";
 import PlanProfileGuidePreflight from "./PlanProfileGuidePreflight";
+import PlanProfileGuideStepPanel from "./PlanProfileGuideStepPanel";
 import DriverImpactComparison from "@/components/attribution/DriverImpactComparison";
+import { PROFILE_GUIDE_PLAN_STEP } from "@/lib/profile-guide/plan-step";
 import {
   MANUAL_STEP_HELPER,
   MANUAL_STEP_REFRESH_LABEL,
@@ -408,6 +410,16 @@ export default function PlanStepCard({
                 onDisputeUpdated={() => {
                   void actions.refresh?.();
                 }}
+              />
+            </div>
+          )}
+
+          {step.stepNumber === PROFILE_GUIDE_PLAN_STEP && (
+            <div className="mt-4">
+              <PlanProfileGuideStepPanel
+                businessId={businessId}
+                published={profileGuideReadiness?.published === true}
+                variant={variant}
               />
             </div>
           )}
