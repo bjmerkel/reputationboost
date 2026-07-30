@@ -1,16 +1,15 @@
 import { getOpenAiApiKey, getOpenAiImageModel } from "@/lib/llm/config";
+import type { FlyerFormatSpec } from "./formats";
 
 interface OpenAiImageResponse {
   data?: Array<{ b64_json?: string; revised_prompt?: string }>;
   error?: { message?: string };
 }
 
-export const FLYER_CANVAS_WIDTH = 1024;
-export const FLYER_CANVAS_HEIGHT = 1536;
-
 export function buildFlyerBackgroundRequestBody(
   prompt: string,
-  model: string
+  model: string,
+  format: FlyerFormatSpec
 ): Record<string, unknown> {
   const isGptImage = model.includes("gpt-image");
 
@@ -18,7 +17,7 @@ export function buildFlyerBackgroundRequestBody(
     model,
     prompt: prompt.trim(),
     n: 1,
-    size: `${FLYER_CANVAS_WIDTH}x${FLYER_CANVAS_HEIGHT}`,
+    size: format.imageSize,
     quality: "high",
   };
 
@@ -30,13 +29,14 @@ export function buildFlyerBackgroundRequestBody(
 }
 
 export async function generateFlyerBackgroundImage(
-  prompt: string
+  prompt: string,
+  format: FlyerFormatSpec
 ): Promise<{ buffer: Buffer; revisedPrompt?: string }> {
   const key = getOpenAiApiKey();
   if (!key) throw new Error("OPENAI_API_KEY is not configured.");
 
   const model = getOpenAiImageModel();
-  const body = buildFlyerBackgroundRequestBody(prompt, model);
+  const body = buildFlyerBackgroundRequestBody(prompt, model, format);
 
   const res = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
