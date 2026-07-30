@@ -2,6 +2,10 @@ export interface ScoreTooltipContent {
   title: string;
   calculation: string;
   importance: string;
+  examples?: string;
+  calculationLabel?: string;
+  importanceLabel?: string;
+  examplesLabel?: string;
 }
 
 export const SCORE_TOOLTIPS = {
