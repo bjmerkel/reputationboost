@@ -10,7 +10,7 @@ import {
 } from "@/audit/phase3/plan-impact-label";
 import { isCustomPlanStep } from "@/audit/phase3/plan-custom-steps";
 import PlanStepDiff from "./PlanStepDiff";
-import GooglePostScheduleQueue from "./GooglePostScheduleQueue";
+import GooglePostSchedulePanel from "./GooglePostSchedulePanel";
 import PlanStepPhotos from "./PlanStepPhotos";
 import PlanStepVideos from "./PlanStepVideos";
 import PlanStepTaskRow from "./PlanStepTaskRow";
@@ -356,8 +356,9 @@ export default function PlanStepCard({
           ))}
 
           {step.stepNumber === 8 && step.tasks.some((t) => t.type === "google_post") && (
-            <GooglePostScheduleQueue
+            <GooglePostSchedulePanel
               tasks={step.tasks}
+              actions={actions}
               variant={variant}
               onSelectTask={(taskId) => {
                 const el = document.getElementById(`plan-task-${taskId}`);
