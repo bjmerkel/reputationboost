@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getActiveBusiness } from "@/lib/business/active-business";
 import { isImageGenerationConfigured } from "@/lib/llm/config";
 import { generateAiProfileGuideFlyer } from "@/lib/profile-guide/flyer/generate";
+import { parseProfileGuideFlyerFormat } from "@/lib/profile-guide/flyer/formats";
 import { profileGuidePublicUrl } from "@/lib/profile-guide/slug";
 import { getProfileGuideByBusinessId } from "@/lib/profile-guide/storage";
 import { PROFILE_GUIDE_FLYER_TEMPLATES } from "@/lib/profile-guide/theme";
@@ -41,6 +42,8 @@ export async function POST(request: Request) {
   )
     ? (templateParam as (typeof PROFILE_GUIDE_FLYER_TEMPLATES)[number])
     : "professional";
+  const formatParam = typeof record.format === "string" ? record.format : "letter";
+  const format = parseProfileGuideFlyerFormat(formatParam);
 
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
   const publicUrl = profileGuidePublicUrl(guide.guide.slug, origin);
@@ -51,6 +54,7 @@ export async function POST(request: Request) {
       business,
       publicUrl,
       template,
+      format,
     });
 
     const imageDataUrl = `data:image/png;base64,${result.imageBuffer.toString("base64")}`;
@@ -58,6 +62,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       imageDataUrl,
       template: result.template,
+      format: result.format,
       revisedPrompt: result.revisedPrompt ?? null,
       imagePrompt: result.imagePrompt,
     });

@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildFlyerBrief } from "./brief";
-import {
-  buildFlyerBackgroundRequestBody,
-  FLYER_CANVAS_HEIGHT,
-  FLYER_CANVAS_WIDTH,
-} from "./generate-image";
+import { buildFlyerBackgroundRequestBody } from "./generate-image";
 import { buildFallbackFlyerImagePrompt } from "./prompt";
+import {
+  computeFlyerLayout,
+  FLYER_FORMAT_SPECS,
+  parseProfileGuideFlyerFormat,
+} from "./formats";
 import type { ClientConfig } from "@/audit/types";
 import type { ProfileGuideWithLinks } from "../types";
 
@@ -42,6 +43,7 @@ function sampleBusiness(): ClientConfig {
     businessId: "biz-1",
     name: "Acme Plumbing",
     industry: "Plumber",
+    gbpSecondaryCategories: ["Water heater repair"],
     location: {
       address: "1 Main St",
       city: "Austin",
@@ -50,25 +52,44 @@ function sampleBusiness(): ClientConfig {
       lat: 0,
       lng: 0,
     },
-    keywords: [],
+    keywords: ["emergency plumber", "drain cleaning"],
     phone: "+15125550100",
     website: "https://acme.example",
   };
 }
 
 describe("buildFlyerBrief", () => {
-  it("maps guide and business fields", () => {
+  it("maps guide and business fields including categories and keywords", () => {
     const brief = buildFlyerBrief(
       sampleGuide(),
       sampleBusiness(),
       "https://example.com/g/acme-plumbing",
-      "professional"
+      "professional",
+      "story"
     );
 
     assert.equal(brief.businessName, "Acme Plumbing");
     assert.equal(brief.industry, "Plumber");
     assert.equal(brief.city, "Austin");
     assert.equal(brief.template, "professional");
+    assert.equal(brief.format, "story");
+    assert.deepEqual(brief.categories, ["Plumber", "Water heater repair"]);
+    assert.deepEqual(brief.keywords, ["emergency plumber", "drain cleaning"]);
+  });
+});
+
+describe("parseProfileGuideFlyerFormat", () => {
+  it("defaults to letter for unknown values", () => {
+    assert.equal(parseProfileGuideFlyerFormat("invalid"), "letter");
+    assert.equal(parseProfileGuideFlyerFormat("postcard"), "postcard");
+  });
+});
+
+describe("computeFlyerLayout", () => {
+  it("uses landscape positions for postcard format", () => {
+    const layout = computeFlyerLayout(FLYER_FORMAT_SPECS.postcard);
+    assert.equal(layout.orientation, "landscape");
+    assert.ok(layout.qrLeft > layout.width / 2);
   });
 });
 
@@ -79,21 +100,26 @@ describe("buildFallbackFlyerImagePrompt", () => {
         sampleGuide(),
         sampleBusiness(),
         "https://example.com/g/acme-plumbing",
-        "friendly"
+        "friendly",
+        "a4"
       )
     );
 
     assert.match(prompt, /Acme Plumbing/i);
     assert.match(prompt, /Do not include any text/i);
-    assert.match(prompt, /warm/i);
+    assert.match(prompt, /drain cleaning/i);
   });
 });
 
 describe("buildFlyerBackgroundRequestBody", () => {
-  it("requests portrait flyer dimensions for gpt-image models", () => {
-    const body = buildFlyerBackgroundRequestBody("A warm flyer background", "gpt-image-2");
+  it("requests format-specific dimensions for gpt-image models", () => {
+    const body = buildFlyerBackgroundRequestBody(
+      "A warm flyer background",
+      "gpt-image-2",
+      FLYER_FORMAT_SPECS.story
+    );
 
-    assert.equal(body.size, `${FLYER_CANVAS_WIDTH}x${FLYER_CANVAS_HEIGHT}`);
+    assert.equal(body.size, "1080x1920");
     assert.equal(body.quality, "high");
     assert.equal(body.response_format, undefined);
   });

@@ -2,7 +2,7 @@ import QRCode from "qrcode";
 import sharp, { type OverlayOptions } from "sharp";
 import type { FlyerBrief } from "./brief";
 import { resolveFlyerCopy } from "./copy";
-import { FLYER_CANVAS_HEIGHT, FLYER_CANVAS_WIDTH } from "./generate-image";
+import { computeFlyerLayout, getFlyerFormatSpec, type FlyerLayout } from "./formats";
 
 export interface CompositeFlyerInput {
   brief: FlyerBrief;
@@ -64,7 +64,8 @@ function wrapSvgLines(text: string, maxChars: number, maxLines: number): string[
   return lines.slice(0, maxLines);
 }
 
-function buildTextOverlaySvg(input: {
+function buildPortraitTextOverlaySvg(input: {
+  layout: FlyerLayout;
   businessName: string;
   headline: string;
   subhead: string;
@@ -75,27 +76,29 @@ function buildTextOverlaySvg(input: {
   hasLogo: boolean;
   hasCover: boolean;
 }): Buffer {
-  const topOffset = input.hasCover ? 360 : input.hasLogo ? 220 : 160;
-  const headlineSize = input.template === "bold" ? 58 : 46;
-  const businessSize = 28;
-  const subheadSize = 24;
-  const ctaSize = 20;
-  const footerSize = 18;
+  const { layout } = input;
+  const headlineSize = input.template === "bold" ? layout.headlineSize + 12 : layout.headlineSize;
+  const topOffset = input.hasCover
+    ? layout.coverHeight + (input.hasLogo ? 120 : 72)
+    : input.hasLogo
+      ? layout.logoTop + layout.logoMaxHeight + 48
+      : layout.textTop;
 
-  const headlineLines = wrapSvgLines(input.headline, 22, 2);
-  const subheadLines = wrapSvgLines(input.subhead, 28, 2);
+  const headlineLines = wrapSvgLines(input.headline, layout.headlineMaxChars, 2);
+  const subheadLines = wrapSvgLines(input.subhead, layout.subheadMaxChars, 2);
+  const centerX = Math.round(layout.width / 2);
 
   let y = topOffset;
   const parts: string[] = [
-    `<svg width="${FLYER_CANVAS_WIDTH}" height="${FLYER_CANVAS_HEIGHT}" xmlns="http://www.w3.org/2000/svg">`,
+    `<svg width="${layout.width}" height="${layout.height}" xmlns="http://www.w3.org/2000/svg">`,
     `<rect width="100%" height="100%" fill="none"/>`,
-    `<text x="512" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${businessSize}" font-weight="700" fill="#202124">${escapeXml(truncate(input.businessName, 48))}</text>`,
+    `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.businessNameSize}" font-weight="700" fill="#202124">${escapeXml(truncate(input.businessName, 48))}</text>`,
   ];
 
-  y += 56;
+  y += layout.businessNameSize + 28;
   for (const line of headlineLines) {
     parts.push(
-      `<text x="512" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="800" fill="${escapeXml(input.primaryColor)}">${escapeXml(line)}</text>`
+      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="800" fill="${escapeXml(input.primaryColor)}">${escapeXml(line)}</text>`
     );
     y += headlineSize + 8;
   }
@@ -103,16 +106,67 @@ function buildTextOverlaySvg(input: {
   y += 8;
   for (const line of subheadLines) {
     parts.push(
-      `<text x="512" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${subheadSize}" fill="#5f6368">${escapeXml(line)}</text>`
+      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.subheadSize}" fill="#5f6368">${escapeXml(line)}</text>`
     );
-    y += subheadSize + 6;
+    y += layout.subheadSize + 6;
   }
 
-  const qrTop = 860;
   parts.push(
-    `<text x="512" y="${qrTop + 360}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="#f9ab00">★★★★★</text>`,
-    `<text x="512" y="${qrTop + 404}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${ctaSize}" fill="#3c4043">${escapeXml(truncate(input.cta, 64))}</text>`,
-    `<text x="512" y="${qrTop + 438}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${footerSize}" fill="#80868b">${escapeXml(truncate(input.footer, 56))}</text>`,
+    `<text x="${centerX}" y="${layout.starsY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.2)}" fill="#f9ab00">★★★★★</text>`,
+    `<text x="${centerX}" y="${layout.ctaY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.ctaSize}" fill="#3c4043">${escapeXml(truncate(input.cta, 64))}</text>`,
+    `<text x="${centerX}" y="${layout.footerY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.footerSize}" fill="#80868b">${escapeXml(truncate(input.footer, 56))}</text>`,
+    "</svg>"
+  );
+
+  return Buffer.from(parts.join(""));
+}
+
+function buildLandscapeTextOverlaySvg(input: {
+  layout: FlyerLayout;
+  businessName: string;
+  headline: string;
+  subhead: string;
+  cta: string;
+  footer: string;
+  primaryColor: string;
+  template: FlyerBrief["template"];
+}): Buffer {
+  const { layout } = input;
+  const headlineSize = input.template === "bold" ? layout.headlineSize + 8 : layout.headlineSize;
+  const textX = Math.round(layout.width * 0.08);
+  const textWidth = Math.round(layout.width * 0.52);
+  const centerX = textX + Math.round(textWidth / 2);
+
+  const headlineLines = wrapSvgLines(input.headline, layout.headlineMaxChars, 2);
+  const subheadLines = wrapSvgLines(input.subhead, layout.subheadMaxChars, 2);
+
+  let y = layout.textTop;
+  const parts: string[] = [
+    `<svg width="${layout.width}" height="${layout.height}" xmlns="http://www.w3.org/2000/svg">`,
+    `<rect width="100%" height="100%" fill="none"/>`,
+    `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.businessNameSize}" font-weight="700" fill="#202124">${escapeXml(truncate(input.businessName, 40))}</text>`,
+  ];
+
+  y += layout.businessNameSize + 24;
+  for (const line of headlineLines) {
+    parts.push(
+      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="800" fill="${escapeXml(input.primaryColor)}">${escapeXml(line)}</text>`
+    );
+    y += headlineSize + 8;
+  }
+
+  y += 8;
+  for (const line of subheadLines) {
+    parts.push(
+      `<text x="${centerX}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.subheadSize}" fill="#5f6368">${escapeXml(line)}</text>`
+    );
+    y += layout.subheadSize + 6;
+  }
+
+  parts.push(
+    `<text x="${centerX}" y="${layout.starsY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${Math.round(layout.subheadSize * 1.1)}" fill="#f9ab00">★★★★★</text>`,
+    `<text x="${centerX}" y="${layout.ctaY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.ctaSize}" fill="#3c4043">${escapeXml(truncate(input.cta, 56))}</text>`,
+    `<text x="${centerX}" y="${layout.footerY}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${layout.footerSize}" fill="#80868b">${escapeXml(truncate(input.footer, 48))}</text>`,
     "</svg>"
   );
 
@@ -121,33 +175,39 @@ function buildTextOverlaySvg(input: {
 
 export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<Buffer> {
   const { brief } = input;
-  const copy = resolveFlyerCopy(brief.template, brief.tagline);
+  const copy = brief.copy ?? resolveFlyerCopy(brief.template, brief.tagline);
   const footer = brief.phone?.trim() || brief.website?.trim() || brief.publicUrl;
+  const format = getFlyerFormatSpec(brief.format);
+  const layout = computeFlyerLayout(format);
 
   const [logoBuffer, coverBuffer] = await Promise.all([
     loadImageBuffer(brief.logoUrl),
     loadImageBuffer(brief.coverImageUrl),
   ]);
 
-  const qrBuffer = await QRCode.toBuffer(`${brief.publicUrl}?src=flyer-${brief.template}`, {
-    type: "png",
-    width: 280,
-    margin: 1,
-    color: {
-      dark: brief.primaryColor,
-      light: "#ffffff",
-    },
-  });
+  const qrPadding = Math.round((layout.qrCardSize - layout.qrCodeSize) / 2);
+  const qrBuffer = await QRCode.toBuffer(
+    `${brief.publicUrl}?src=flyer-${brief.template}-${brief.format}`,
+    {
+      type: "png",
+      width: layout.qrCodeSize,
+      margin: 1,
+      color: {
+        dark: brief.primaryColor,
+        light: "#ffffff",
+      },
+    }
+  );
 
   const qrCard = await sharp({
     create: {
-      width: 320,
-      height: 320,
+      width: layout.qrCardSize,
+      height: layout.qrCardSize,
       channels: 4,
       background: { r: 255, g: 255, b: 255, alpha: 0.96 },
     },
   })
-    .composite([{ input: qrBuffer, top: 20, left: 20 }])
+    .composite([{ input: qrBuffer, top: qrPadding, left: qrPadding }])
     .png()
     .toBuffer();
 
@@ -155,15 +215,15 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
 
   if (coverBuffer) {
     const cover = await sharp(coverBuffer)
-      .resize(FLYER_CANVAS_WIDTH, 300, { fit: "cover", position: "centre" })
+      .resize(layout.width, layout.coverHeight, { fit: "cover", position: "centre" })
       .png()
       .toBuffer();
     layers.push({ input: cover, top: 0, left: 0 });
 
     const coverFade = await sharp({
       create: {
-        width: FLYER_CANVAS_WIDTH,
-        height: 300,
+        width: layout.width,
+        height: layout.coverHeight,
         channels: 4,
         background: { r: 0, g: 0, b: 0, alpha: 0.28 },
       },
@@ -175,38 +235,65 @@ export async function compositeFlyerImage(input: CompositeFlyerInput): Promise<B
 
   if (logoBuffer) {
     const logo = await sharp(logoBuffer)
-      .resize({ width: 180, height: 90, fit: "inside", withoutEnlargement: true })
+      .resize({
+        width: layout.logoMaxWidth,
+        height: layout.logoMaxHeight,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
       .png()
       .toBuffer();
     const metadata = await sharp(logo).metadata();
-    const logoWidth = metadata.width ?? 180;
-    const logoHeight = metadata.height ?? 90;
+    const logoWidth = metadata.width ?? layout.logoMaxWidth;
+    const logoLeft =
+      layout.orientation === "landscape"
+        ? Math.round(layout.width * 0.08)
+        : Math.round((layout.width - logoWidth) / 2);
+    const logoTop =
+      layout.orientation === "landscape"
+        ? layout.logoTop
+        : coverBuffer
+          ? layout.coverHeight + 16
+          : layout.logoTop;
+
     layers.push({
       input: logo,
-      top: coverBuffer ? 320 : 48,
-      left: Math.round((FLYER_CANVAS_WIDTH - logoWidth) / 2),
+      top: logoTop,
+      left: logoLeft,
     });
-    void logoHeight;
   }
 
-  layers.push({ input: qrCard, top: 860, left: 352 });
+  layers.push({ input: qrCard, top: layout.qrTop, left: layout.qrLeft });
 
-  const textOverlay = buildTextOverlaySvg({
-    businessName: brief.businessName,
-    headline: copy.headline,
-    subhead: copy.subhead,
-    cta: copy.cta,
-    footer,
-    primaryColor: brief.primaryColor,
-    template: brief.template,
-    hasLogo: Boolean(logoBuffer),
-    hasCover: Boolean(coverBuffer),
-  });
+  const textOverlay =
+    layout.orientation === "landscape"
+      ? buildLandscapeTextOverlaySvg({
+          layout,
+          businessName: brief.businessName,
+          headline: copy.headline,
+          subhead: copy.subhead,
+          cta: copy.cta,
+          footer,
+          primaryColor: brief.primaryColor,
+          template: brief.template,
+        })
+      : buildPortraitTextOverlaySvg({
+          layout,
+          businessName: brief.businessName,
+          headline: copy.headline,
+          subhead: copy.subhead,
+          cta: copy.cta,
+          footer,
+          primaryColor: brief.primaryColor,
+          template: brief.template,
+          hasLogo: Boolean(logoBuffer),
+          hasCover: Boolean(coverBuffer),
+        });
 
   layers.push({ input: textOverlay, top: 0, left: 0 });
 
   const background = await sharp(input.background)
-    .resize(FLYER_CANVAS_WIDTH, FLYER_CANVAS_HEIGHT, { fit: "cover", position: "centre" })
+    .resize(layout.width, layout.height, { fit: "cover", position: "centre" })
     .png()
     .toBuffer();
 

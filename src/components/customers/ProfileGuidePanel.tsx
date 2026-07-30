@@ -21,6 +21,11 @@ import {
 } from "@/lib/profile-guide/theme";
 import { PROFILE_GUIDE_SECTION_TOOLTIPS } from "@/lib/profile-guide/section-tooltips";
 import type { ProfileGuideSectionTooltip as ProfileGuideSectionTooltipContent } from "@/lib/profile-guide/section-tooltips";
+import {
+  FLYER_FORMAT_SPECS,
+  PROFILE_GUIDE_FLYER_FORMATS,
+  type ProfileGuideFlyerFormat,
+} from "@/lib/profile-guide/flyer/formats";
 
 interface GuideLink {
   id: string;
@@ -92,6 +97,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   const [deletedLinkIds, setDeletedLinkIds] = useState<string[]>([]);
   const [flyerTemplate, setFlyerTemplate] =
     useState<(typeof PROFILE_GUIDE_FLYER_TEMPLATES)[number]>("professional");
+  const [flyerFormat, setFlyerFormat] = useState<ProfileGuideFlyerFormat>("letter");
   const [flyerGenerating, setFlyerGenerating] = useState(false);
   const [flyerPreview, setFlyerPreview] = useState<string | null>(null);
 
@@ -329,7 +335,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       const res = await fetch("/api/profile-guide/flyer/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template: flyerTemplate }),
+        body: JSON.stringify({ template: flyerTemplate, format: flyerFormat }),
       });
       const json = await parseJsonResponse<{
         imageDataUrl: string;
@@ -348,7 +354,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
     if (!flyerPreview) return;
     const link = document.createElement("a");
     link.href = flyerPreview;
-    link.download = `profile-guide-flyer-${flyerTemplate}.png`;
+    link.download = `profile-guide-flyer-${flyerTemplate}-${flyerFormat}.png`;
     link.click();
   }
 
@@ -648,6 +654,29 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
           </p>
 
           <div className="mt-4">
+            <p className="text-sm font-medium text-[#3c4043]">Format</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {PROFILE_GUIDE_FLYER_FORMATS.map((format) => (
+                <button
+                  key={format}
+                  type="button"
+                  onClick={() => setFlyerFormat(format)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                    flyerFormat === format
+                      ? "bg-[#e8f0fe] text-[#1a73e8]"
+                      : "border border-[#dadce0] text-[#5f6368] hover:text-[#3c4043]"
+                  }`}
+                >
+                  {FLYER_FORMAT_SPECS[format].label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-[#80868b]">
+              {FLYER_FORMAT_SPECS[flyerFormat].description}
+            </p>
+          </div>
+
+          <div className="mt-4">
             <p className="text-sm font-medium text-[#3c4043]">Style</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {PROFILE_GUIDE_FLYER_TEMPLATES.map((template) => (
@@ -715,7 +744,8 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
           )}
 
           <p className="mt-3 text-xs text-[#80868b]">
-            AI flyers require OpenAI image generation. Simple templates work without AI.
+            AI flyers use industry-specific copy and your GBP categories. Simple templates work
+            without AI.
           </p>
         </section>
 
