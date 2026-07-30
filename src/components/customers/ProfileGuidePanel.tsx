@@ -32,29 +32,13 @@ import {
   DEFAULT_FLYER_DISPLAY_OPTIONS,
   type FlyerDisplayOptions,
 } from "@/lib/profile-guide/flyer/options";
-
-interface FlyerCopyPayload {
-  headline: string;
-  subhead: string;
-  cta: string;
-  qrLabel: string;
-  supportLine: string;
-}
-
-interface FlyerStudioCache {
-  backgroundDataUrl: string;
-  imagePrompt: string;
-  copy: FlyerCopyPayload;
-}
-
-interface FlyerHistoryEntry {
-  id: string;
-  imageDataUrl: string;
-  label: string;
-  template: string;
-  format: string;
-  createdAt: string;
-}
+import {
+  loadFlyerStudioState,
+  saveFlyerStudioState,
+  type FlyerHistoryEntry,
+  type FlyerStudioCache,
+  type FlyerCopyPayload,
+} from "@/lib/profile-guide/flyer/studio-storage";
 
 const MAX_FLYER_HISTORY = 3;
 
@@ -138,8 +122,60 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   const [flyerStudioCache, setFlyerStudioCache] = useState<FlyerStudioCache | null>(null);
   const [flyerHistory, setFlyerHistory] = useState<FlyerHistoryEntry[]>([]);
   const [selectedFlyerHistoryId, setSelectedFlyerHistoryId] = useState<string | null>(null);
+  const [flyerHydrated, setFlyerHydrated] = useState(false);
 
   useLeavePageWarning(flyerGenerating);
+
+  useEffect(() => {
+    const saved = loadFlyerStudioState(businessId);
+    if (saved) {
+      setFlyerTemplate(saved.template);
+      setFlyerFormat(saved.format);
+      setFlyerPromptRefinement(saved.promptRefinement);
+      setFlyerDisplayOptions(saved.displayOptions);
+      setFlyerPreview(saved.preview);
+      setFlyerStudioCache(saved.studioCache);
+      setFlyerHistory(saved.history);
+      setSelectedFlyerHistoryId(saved.selectedHistoryId);
+      if (saved.preview) {
+        setMessage("Restored your flyer from this browser session.");
+      }
+    } else {
+      setFlyerPreview(null);
+      setFlyerStudioCache(null);
+      setFlyerHistory([]);
+      setSelectedFlyerHistoryId(null);
+    }
+    setFlyerHydrated(true);
+  }, [businessId]);
+
+  useEffect(() => {
+    if (!flyerHydrated) return;
+
+    saveFlyerStudioState(businessId, {
+      version: 1,
+      template: flyerTemplate,
+      format: flyerFormat,
+      promptRefinement: flyerPromptRefinement,
+      displayOptions: flyerDisplayOptions,
+      preview: flyerPreview,
+      studioCache: flyerStudioCache,
+      history: flyerHistory,
+      selectedHistoryId: selectedFlyerHistoryId,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [
+    businessId,
+    flyerHydrated,
+    flyerTemplate,
+    flyerFormat,
+    flyerPromptRefinement,
+    flyerDisplayOptions,
+    flyerPreview,
+    flyerStudioCache,
+    flyerHistory,
+    selectedFlyerHistoryId,
+  ]);
 
   const loadGuide = useCallback(async () => {
     setLoading(true);
