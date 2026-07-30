@@ -2,9 +2,11 @@
 
 import type { PlanPhase, PlanStep, GbpAttributeCoverage, GbpMediaCoverage, GbpPlaceActionCoverage, GbpPlaceActionLinkSummary } from "@/audit/types";
 import PlanStepCard from "./PlanStepCard";
+import PlanReputationGuidePanel from "./PlanReputationGuidePanel";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import { partitionVisiblePlanSteps } from "./plan-display";
+import type { ProfileGuideReadiness } from "@/lib/profile-guide/readiness";
 
 export default function PlanPhaseSection({
   phase,
@@ -28,6 +30,8 @@ export default function PlanPhaseSection({
   reviewUrl,
   onReviewRequestSent,
   onSeeResults,
+  businessId,
+  profileGuideReadiness,
 }: {
   phase: PlanPhase;
   steps: PlanStep[];
@@ -50,6 +54,8 @@ export default function PlanPhaseSection({
   reviewUrl?: string | null;
   onReviewRequestSent?: () => void;
   onSeeResults?: (stepNumber: number) => void;
+  businessId?: string | null;
+  profileGuideReadiness?: ProfileGuideReadiness | null;
 }) {
   const isLight = variant === "light";
   const { visible: visibleSteps, open: openSteps, completed: completedSteps, phaseNeedsApproval } =
@@ -90,6 +96,8 @@ export default function PlanPhaseSection({
       }
       onReviewRequestSent={onReviewRequestSent}
       onSeeResults={onSeeResults}
+      businessId={businessId}
+      profileGuideReadiness={profileGuideReadiness}
     />
   );
 
@@ -105,6 +113,14 @@ export default function PlanPhaseSection({
           </span>
         )}
       </div>
+
+      {phase.id === "reputation" && profileGuideReadiness && (
+        <PlanReputationGuidePanel
+          businessId={businessId}
+          readiness={profileGuideReadiness}
+          variant={variant}
+        />
+      )}
 
       {openSteps.length > 0 && (
         <div className="space-y-3">

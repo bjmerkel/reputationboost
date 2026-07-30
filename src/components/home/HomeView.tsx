@@ -18,6 +18,7 @@ import { resolveAcvCopyFromAudit } from "@/lib/business/acv-copy";
 import type { LiveScoreSlice } from "@/lib/scores/resolve-display-scores";
 import type { AttributionCalibration } from "@/audit/phase2/attribution-calibration";
 import { useAcvReminder } from "@/hooks/useAcvReminder";
+import { useProfileGuideReadiness } from "@/hooks/useProfileGuideReadiness";
 
 export default function HomeView({
   audit,
@@ -41,6 +42,7 @@ export default function HomeView({
   onReviewPending,
   onNavigateToPlan,
   onKeywordsUpdated,
+  gbpConnected = true,
 }: {
   audit: FullAuditPayload;
   tasks: ExecutionTask[];
@@ -63,6 +65,7 @@ export default function HomeView({
   onKeywordsUpdated?: (keywords: string[]) => void;
   clientId: string;
   businessId?: string | null;
+  gbpConnected?: boolean;
 }) {
   const pendingCounts = getPendingApprovalCounts(tasks);
   const approvalCount = planApprovalBadgeCount(tasks);
@@ -88,6 +91,10 @@ export default function HomeView({
     currency: avgCustomerValueCurrency,
     autoShow: !attributionLoading,
   });
+  const { readiness: profileGuideReadiness } = useProfileGuideReadiness({
+    enabled: gbpConnected,
+    businessId,
+  });
 
   return (
     <div className="space-y-6 min-w-0">
@@ -103,6 +110,10 @@ export default function HomeView({
         estimatedMonthlyRevenue={estimatedMonthlyRevenue}
         currency={avgCustomerValueCurrency}
         demandAlignmentScore={keywordPortfolio.demandAlignmentScore}
+        gbpConnected={gbpConnected}
+        businessId={businessId}
+        profileGuideReadiness={profileGuideReadiness}
+        onNavigateToPlan={onNavigateToPlan}
       />
 
       <KeywordPortfolioPanel

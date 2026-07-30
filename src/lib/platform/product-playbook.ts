@@ -58,6 +58,8 @@ export interface PlaybookInput {
   avgCustomerValue?: number | null;
   industry?: string | null;
   dismissedTips?: string[];
+  /** When true, the Profile Guide is published for this business. */
+  profileGuidePublished?: boolean;
 }
 
 const STAGE_META: Record<
@@ -388,7 +390,7 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
         "Publish a branded QR page so customers can leave reviews, get directions, and contact you.",
       why: "One scan turns foot traffic into Google reviews and calls you can measure.",
       priority: PRIORITY.high,
-      status: dismissed.has("setup-profile-guide") ? "done" : "pending",
+      status: input.profileGuidePublished ? "done" : "pending",
       action: "open_profile_guide",
       href: profileGuideHref,
       estimatedMinutes: 5,

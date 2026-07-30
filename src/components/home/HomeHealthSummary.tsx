@@ -9,6 +9,7 @@ import { formatAvgCoverageLabel } from "@/components/platform/heatmap/coverage-l
 import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
 import ScoreChangelog from "@/components/audit/ScoreChangelog";
 import EngagementPeriodCard from "@/components/engagement/EngagementPeriodCard";
+import ReputationLeversCard from "@/components/home/ReputationLeversCard";
 import InfoTooltip from "@/components/ui/InfoTooltip";
 import { formatScoreCalculatedAt } from "@/lib/scores/format-score-date";
 import {
@@ -16,6 +17,7 @@ import {
   type LiveScoreSlice,
 } from "@/lib/scores/resolve-display-scores";
 import { SCORE_TOOLTIPS } from "@/lib/scores/score-tooltips";
+import type { ProfileGuideReadiness } from "@/lib/profile-guide/readiness";
 
 function formatDelta(change: number, suffix = ""): string {
   if (change === 0) return `0${suffix}`;
@@ -40,6 +42,10 @@ export default function HomeHealthSummary({
   estimatedMonthlyRevenue,
   currency = "USD",
   demandAlignmentScore,
+  gbpConnected = true,
+  businessId,
+  profileGuideReadiness,
+  onNavigateToPlan,
 }: {
   audit: FullAuditPayload;
   summary: AttributionSummary | null;
@@ -53,6 +59,10 @@ export default function HomeHealthSummary({
   currency?: string;
   /** Live portfolio demand alignment; overrides stale audit-time score after keyword edits. */
   demandAlignmentScore?: number;
+  gbpConnected?: boolean;
+  businessId?: string | null;
+  profileGuideReadiness?: ProfileGuideReadiness | null;
+  onNavigateToPlan?: (stepNumber: number) => void;
 }) {
   const mom = audit.strategy?.monthOverMonth;
   const resolved = resolveDisplayScores(audit, liveScores);
@@ -167,6 +177,16 @@ export default function HomeHealthSummary({
           )}
         </div>
       </div>
+
+      {profileGuideReadiness && (
+        <ReputationLeversCard
+          audit={audit}
+          readiness={profileGuideReadiness}
+          businessId={businessId}
+          gbpConnected={gbpConnected}
+          onNavigateToPlan={onNavigateToPlan}
+        />
+      )}
 
       <div className="mt-4 border-t border-[#e8eaed] pt-4">
         <ScoreBreakdown scores={displayScores} />

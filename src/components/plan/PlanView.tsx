@@ -45,6 +45,7 @@ import {
 } from "./plan-viewport";
 import { shouldShowPlanAcvReminder } from "./plan-acv-reminder";
 import { useAcvEstimate } from "@/hooks/useAcvEstimate";
+import { useProfileGuideReadiness } from "@/hooks/useProfileGuideReadiness";
 import { parseLocationFromAddress } from "@/lib/llm/acv-estimate";
 import { resolveAcvCopyFromAudit } from "@/lib/business/acv-copy";
 import {
@@ -105,6 +106,10 @@ export default function PlanView({
   const [acvReminderDismissed, setAcvReminderDismissed] = useState(false);
   const acvRefreshStartedRef = useRef(false);
   const manualLiveSyncInFlightRef = useRef(false);
+  const { readiness: profileGuideReadiness } = useProfileGuideReadiness({
+    enabled: gbpConnected,
+    businessId,
+  });
   const internalPlanTasks = usePlanTasks({
     clientId,
     auditId: audit.auditId,
@@ -493,6 +498,7 @@ export default function PlanView({
         currency={currency}
         planReconciledAt={planReconciledAt ?? audit.strategy?.planReconciledAt ?? null}
         calibrationConfidence={path?.calibrationConfidence}
+        profileGuidePublished={profileGuideReadiness.published}
       />
 
       {reconcileNotice && !error && (
@@ -663,6 +669,8 @@ export default function PlanView({
             reviewUrl={reviewUrl}
             onReviewRequestSent={handleReviewRequestSent}
             onSeeResults={onSeeResults}
+            businessId={businessId}
+            profileGuideReadiness={profileGuideReadiness}
           />
         );
       })}
