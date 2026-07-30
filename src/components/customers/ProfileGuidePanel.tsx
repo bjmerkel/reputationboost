@@ -24,8 +24,36 @@ import type { ProfileGuideSectionTooltip as ProfileGuideSectionTooltipContent } 
 import {
   FLYER_FORMAT_SPECS,
   PROFILE_GUIDE_FLYER_FORMATS,
+  parseProfileGuideFlyerFormat,
   type ProfileGuideFlyerFormat,
 } from "@/lib/profile-guide/flyer/formats";
+import {
+  DEFAULT_FLYER_DISPLAY_OPTIONS,
+  type FlyerDisplayOptions,
+} from "@/lib/profile-guide/flyer/options";
+
+interface FlyerCopyPayload {
+  headline: string;
+  subhead: string;
+  cta: string;
+}
+
+interface FlyerStudioCache {
+  backgroundDataUrl: string;
+  imagePrompt: string;
+  copy: FlyerCopyPayload;
+}
+
+interface FlyerHistoryEntry {
+  id: string;
+  imageDataUrl: string;
+  label: string;
+  template: string;
+  format: string;
+  createdAt: string;
+}
+
+const MAX_FLYER_HISTORY = 3;
 
 interface GuideLink {
   id: string;
@@ -100,6 +128,13 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   const [flyerFormat, setFlyerFormat] = useState<ProfileGuideFlyerFormat>("letter");
   const [flyerGenerating, setFlyerGenerating] = useState(false);
   const [flyerPreview, setFlyerPreview] = useState<string | null>(null);
+  const [flyerPromptRefinement, setFlyerPromptRefinement] = useState("");
+  const [flyerDisplayOptions, setFlyerDisplayOptions] = useState<FlyerDisplayOptions>(
+    DEFAULT_FLYER_DISPLAY_OPTIONS
+  );
+  const [flyerStudioCache, setFlyerStudioCache] = useState<FlyerStudioCache | null>(null);
+  const [flyerHistory, setFlyerHistory] = useState<FlyerHistoryEntry[]>([]);
+  const [selectedFlyerHistoryId, setSelectedFlyerHistoryId] = useState<string | null>(null);
 
   const loadGuide = useCallback(async () => {
     setLoading(true);
@@ -326,28 +361,95 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
     window.open(`/api/profile-guide/flyer?template=${template}`, "_blank", "noopener,noreferrer");
   }
 
-  async function generateAiFlyer() {
+  async function generateAiFlyer(mode: "generate" | "regenerate" | "recompose" = "generate") {
     setFlyerGenerating(true);
     setError(null);
     setMessage(null);
+
+    const payload: Record<string, unknown> = {
+      template: flyerTemplate,
+      format: flyerFormat,
+      displayOptions: flyerDisplayOptions,
+    };
+
+    if (mode === "generate" || mode === "regenerate") {
+      if (flyerPromptRefinement.trim()) {
+        payload.promptRefinement = flyerPromptRefinement.trim();
+      }
+    } else if (mode === "recompose") {
+      if (!flyerStudioCache) {
+        setError("Generate a flyer first before updating the layout.");
+        setFlyerGenerating(false);
+        return;
+      }
+      payload.backgroundDataUrl = flyerStudioCache.backgroundDataUrl;
+      payload.imagePrompt = flyerStudioCache.imagePrompt;
+      payload.copy = flyerStudioCache.copy;
+    }
 
     try {
       const res = await fetch("/api/profile-guide/flyer/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template: flyerTemplate, format: flyerFormat }),
+        body: JSON.stringify(payload),
       });
       const json = await parseJsonResponse<{
         imageDataUrl: string;
+        backgroundDataUrl: string;
+        imagePrompt: string;
+        copy: FlyerCopyPayload;
+        recomposedOnly: boolean;
         template: string;
+        format: string;
       }>(res);
+
       setFlyerPreview(json.imageDataUrl);
-      setMessage("AI review flyer generated.");
+      setFlyerStudioCache({
+        backgroundDataUrl: json.backgroundDataUrl,
+        imagePrompt: json.imagePrompt,
+        copy: json.copy,
+      });
+
+      if (!json.recomposedOnly) {
+        const entry: FlyerHistoryEntry = {
+          id: crypto.randomUUID(),
+          imageDataUrl: json.imageDataUrl,
+          label: `${json.template} · ${FLYER_FORMAT_SPECS[flyerFormat].label}`,
+          template: json.template,
+          format: json.format,
+          createdAt: new Date().toISOString(),
+        };
+        setFlyerHistory((current) => [entry, ...current].slice(0, MAX_FLYER_HISTORY));
+        setSelectedFlyerHistoryId(entry.id);
+      }
+
+      setMessage(
+        mode === "recompose"
+          ? "Flyer layout updated."
+          : mode === "regenerate"
+            ? "Flyer background regenerated."
+            : "AI review flyer generated."
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate AI flyer");
     } finally {
       setFlyerGenerating(false);
     }
+  }
+
+  function updateFlyerDisplayOption<K extends keyof FlyerDisplayOptions>(
+    key: K,
+    value: FlyerDisplayOptions[K]
+  ) {
+    setFlyerDisplayOptions((current) => ({ ...current, [key]: value }));
+  }
+
+  function restoreFlyerHistory(entry: FlyerHistoryEntry) {
+    setFlyerPreview(entry.imageDataUrl);
+    setFlyerTemplate(entry.template as (typeof PROFILE_GUIDE_FLYER_TEMPLATES)[number]);
+    setFlyerFormat(parseProfileGuideFlyerFormat(entry.format));
+    setSelectedFlyerHistoryId(entry.id);
+    setMessage("Restored a previous flyer version.");
   }
 
   function downloadFlyerPreview() {
@@ -696,15 +798,87 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
             </div>
           </div>
 
+          <div className="mt-4">
+            <p className="text-sm font-medium text-[#3c4043]">Flyer studio</p>
+            <label className="mt-2 block text-sm">
+              <span className="text-[#5f6368]">Creative direction (optional)</span>
+              <textarea
+                value={flyerPromptRefinement}
+                onChange={(event) => setFlyerPromptRefinement(event.target.value)}
+                placeholder="e.g. Make it warmer, more minimalist, or add subtle fall colors"
+                rows={3}
+                className="mt-2 w-full rounded-lg border border-[#dadce0] px-3 py-2 text-sm"
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-4 text-sm text-[#3c4043]">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={flyerDisplayOptions.showPhone}
+                  onChange={(event) => updateFlyerDisplayOption("showPhone", event.target.checked)}
+                />
+                Show phone
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={flyerDisplayOptions.showAddress}
+                  onChange={(event) =>
+                    updateFlyerDisplayOption("showAddress", event.target.checked)
+                  }
+                />
+                Show address
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={flyerDisplayOptions.showStars}
+                  onChange={(event) => updateFlyerDisplayOption("showStars", event.target.checked)}
+                />
+                Show stars
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={flyerDisplayOptions.showTagline}
+                  onChange={(event) =>
+                    updateFlyerDisplayOption("showTagline", event.target.checked)
+                  }
+                />
+                Use tagline
+              </label>
+            </div>
+          </div>
+
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"
               disabled={flyerGenerating}
-              onClick={() => void generateAiFlyer()}
+              onClick={() => void generateAiFlyer("generate")}
               className="btn-primary rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
             >
-              {flyerGenerating ? "Generating AI flyer…" : "Generate AI flyer"}
+              {flyerGenerating ? "Working…" : "Generate AI flyer"}
             </button>
+            {flyerStudioCache && (
+              <>
+                <button
+                  type="button"
+                  disabled={flyerGenerating}
+                  onClick={() => void generateAiFlyer("regenerate")}
+                  className="btn-secondary rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
+                >
+                  Regenerate background
+                </button>
+                <button
+                  type="button"
+                  disabled={flyerGenerating}
+                  onClick={() => void generateAiFlyer("recompose")}
+                  className="btn-secondary rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
+                >
+                  Update layout
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={() => openFlyer(flyerTemplate)}
@@ -725,7 +899,9 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
 
           {flyerGenerating && (
             <p className="mt-3 text-sm text-[#5f6368]">
-              Designing your flyer with AI… this usually takes 15–30 seconds.
+              {flyerStudioCache
+                ? "Updating your flyer…"
+                : "Designing your flyer with AI… this usually takes 15–30 seconds."}
             </p>
           )}
 
@@ -743,9 +919,37 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
             </div>
           )}
 
+          {flyerHistory.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm font-medium text-[#3c4043]">Recent versions</p>
+              <div className="mt-2 flex flex-wrap gap-3">
+                {flyerHistory.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => restoreFlyerHistory(entry)}
+                    className={`overflow-hidden rounded-lg border text-left shadow-sm ${
+                      selectedFlyerHistoryId === entry.id
+                        ? "border-[#1a73e8] ring-2 ring-[#e8f0fe]"
+                        : "border-[#e8eaed]"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={entry.imageDataUrl}
+                      alt={entry.label}
+                      className="h-24 w-16 object-cover"
+                    />
+                    <span className="block px-2 py-1 text-xs text-[#5f6368]">{entry.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <p className="mt-3 text-xs text-[#80868b]">
-            AI flyers use industry-specific copy and your GBP categories. Simple templates work
-            without AI.
+            Use Update layout to apply display toggles without a new AI background. Regenerate uses
+            your creative direction for a fresh design.
           </p>
         </section>
 

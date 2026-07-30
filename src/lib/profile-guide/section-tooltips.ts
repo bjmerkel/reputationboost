@@ -25,7 +25,7 @@ export const PROFILE_GUIDE_SECTION_TOOLTIPS = {
     what: "AI-generated or simple print-ready flyers with your QR code, logo, cover photo, and business details in multiple formats.",
     why: "In-person review asks work best with something professional to scan. A branded flyer at checkout turns a verbal request into an instant Google review.",
     examples:
-      "Generate a Letter flyer for your front desk, a Story for Instagram, or a 4×6 postcard to tuck into receipts.",
+      "Generate a flyer, refine the background with a creative prompt, toggle phone or address, and download the version you like best.",
   },
   actionButtons: {
     title: "Action buttons",
