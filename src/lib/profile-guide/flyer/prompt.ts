@@ -1,47 +1,19 @@
 import { completeText } from "@/lib/llm/client";
 import { isLlmConfigured } from "@/lib/llm/config";
-import type { FlyerBrief } from "./brief";
-import { buildFlyerBusinessContext } from "./context";
+import type { FlyerDesignBrief } from "./design-brief";
+import { FLYER_DESIGN_SYSTEM_PROMPT, FLYER_IMAGE_NEVER_DO_RULES } from "./design-system";
 import { getFlyerFormatSpec } from "./formats";
+import { buildFlyerBackgroundPromptTemplate } from "./prompt-template";
 
-const TEMPLATE_STYLE: Record<FlyerBrief["template"], string> = {
-  professional: "polished, trustworthy, premium local business marketing",
-  friendly: "warm, welcoming, family-friendly and upbeat",
-  bold: "bold, high-impact, confident and energetic",
-};
-
-function formatDescriptor(brief: FlyerBrief): string {
-  const spec = getFlyerFormatSpec(brief.format);
-  if (spec.orientation === "landscape") {
-    return "landscape professional print flyer";
-  }
-  if (brief.format === "story") {
-    return "vertical social-media story flyer";
-  }
-  return "portrait professional print flyer";
+export function buildFallbackFlyerImagePrompt(brief: FlyerDesignBrief): string {
+  return buildFlyerBackgroundPromptTemplate(brief);
 }
 
-export function buildFallbackFlyerImagePrompt(brief: FlyerBrief): string {
-  const location = [brief.city, brief.state].filter(Boolean).join(", ");
-  const categoryHint = brief.categories.length ? brief.categories.join(", ") : brief.industry;
+export async function buildFlyerImagePrompt(brief: FlyerDesignBrief): Promise<string> {
+  const templatePrompt = buildFlyerBackgroundPromptTemplate(brief);
 
-  return [
-    `Create a subtle, premium ${formatDescriptor(brief)} backdrop for "${brief.businessName}", a ${brief.industry} business`,
-    location ? `in ${location}` : "",
-    `using brand colors ${brief.primaryColor} and ${brief.backgroundColor}.`,
-    `Mood should feel appropriate for ${categoryHint} without literal illustrations.`,
-    `Style: ${TEMPLATE_STYLE[brief.template]}.`,
-    "Use only a soft gradient, gentle lighting, and very light abstract texture.",
-    "Do NOT include text, logos, QR codes, icons, clipart, toys, children, faces, objects, mascots, borders, frames, or busy patterns.",
-    "The result should look like a clean corporate print template background ready for typography and a QR code overlay.",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-export async function buildFlyerImagePrompt(brief: FlyerBrief): Promise<string> {
   if (!isLlmConfigured()) {
-    return buildFallbackFlyerImagePrompt(brief);
+    return templatePrompt;
   }
 
   const spec = getFlyerFormatSpec(brief.format);
@@ -51,34 +23,30 @@ export async function buildFlyerImagePrompt(brief: FlyerBrief): Promise<string> 
       [
         {
           role: "system",
-          content:
-            "You write image prompts for gpt-image-2 that produce subtle, professional print flyer backgrounds. The business will overlay its real logo, text, and QR code later. Return only the prompt text.",
+          content: `${FLYER_DESIGN_SYSTEM_PROMPT}
+
+You convert structured flyer briefs into a single gpt-image-2 background prompt.
+Return only the final image prompt text. Preserve all NEVER rules.`,
         },
         {
           role: "user",
           content: [
-            buildFlyerBusinessContext(brief),
-            `Style: ${brief.template} (${TEMPLATE_STYLE[brief.template]})`,
-            `Format: ${spec.label} (${spec.description}, ${spec.orientation})`,
-            brief.coverImageUrl ? "A real cover photo will be placed separately at the top." : "",
+            templatePrompt,
             "",
-            `Write one detailed prompt for a ${formatDescriptor(brief)} BACKGROUND ONLY.`,
-            "Requirements:",
-            "- premium local business flyer backdrop",
-            "- soft brand-colored gradient and minimal abstract texture",
-            "- NO text, logos, QR codes, icons, clipart, people, products, toys, or decorative objects",
-            "- NO busy patterns or childish illustrations",
-            "- full-bleed, clean, professional, ready for typography overlay",
-          ]
-            .filter(Boolean)
-            .join("\n"),
+            `Format: ${spec.label} (${spec.description}, ${spec.orientation})`,
+            "",
+            "Rewrite the brief above into one detailed gpt-image-2 BACKGROUND prompt.",
+            "Keep the archetype mood and industry-specific direction.",
+            "Preserve these constraints:",
+            FLYER_IMAGE_NEVER_DO_RULES,
+          ].join("\n"),
         },
       ],
-      { temperature: 0.5, maxTokens: 500 }
+      { temperature: 0.45, maxTokens: 700 }
     );
 
-    return prompt.trim() || buildFallbackFlyerImagePrompt(brief);
+    return prompt.trim() || templatePrompt;
   } catch {
-    return buildFallbackFlyerImagePrompt(brief);
+    return templatePrompt;
   }
 }

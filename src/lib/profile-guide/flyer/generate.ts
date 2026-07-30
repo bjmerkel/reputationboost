@@ -2,7 +2,8 @@ import type { ClientConfig } from "@/audit/types";
 import { isImageGenerationConfigured } from "@/lib/llm/config";
 import type { ProfileGuideFlyerTemplate } from "../theme";
 import type { ProfileGuideWithLinks } from "../types";
-import { buildFlyerBrief, type FlyerBrief } from "./brief";
+import { buildFlyerDesignBriefWithEnrichment } from "./design-brief";
+import type { FlyerDesignArchetype } from "./archetypes";
 import { compositeFlyerImage } from "./composite";
 import type { FlyerCopy } from "./copy";
 import { resolveFlyerCopy } from "./copy";
@@ -29,6 +30,8 @@ export interface GeneratedFlyerResult {
   imagePrompt: string;
   copy: FlyerCopy;
   recomposedOnly: boolean;
+  archetype: FlyerDesignArchetype;
+  archetypeLabel: string;
 }
 
 export function isAiFlyerGenerationConfigured(): boolean {
@@ -36,6 +39,7 @@ export function isAiFlyerGenerationConfigured(): boolean {
 }
 
 export async function generateAiProfileGuideFlyer(input: {
+  userId: string;
   guide: ProfileGuideWithLinks;
   business: ClientConfig;
   publicUrl: string;
@@ -56,26 +60,27 @@ export async function generateAiProfileGuideFlyer(input: {
     ...DEFAULT_FLYER_DISPLAY_OPTIONS,
     ...input.displayOptions,
   };
-  const brief = buildFlyerBrief(
-    input.guide,
-    input.business,
-    input.publicUrl,
-    input.template,
+  const designBrief = await buildFlyerDesignBriefWithEnrichment({
+    userId: input.userId,
+    guide: input.guide,
+    business: input.business,
+    publicUrl: input.publicUrl,
+    template: input.template,
     format,
-    displayOptions
-  );
+    displayOptions,
+  });
 
   const recomposedOnly = Boolean(input.backgroundDataUrl?.trim());
   if (recomposedOnly) {
-    brief.copy =
+    designBrief.copy =
       input.cachedCopy ??
       resolveFlyerCopy(
-        brief.template,
-        displayOptions.showTagline ? brief.tagline : null,
-        buildFlyerSupportLine(brief)
+        designBrief.template,
+        displayOptions.showTagline ? designBrief.tagline : null,
+        buildFlyerSupportLine(designBrief)
       );
   } else {
-    brief.copy = await buildFlyerCopy(brief);
+    designBrief.copy = await buildFlyerCopy(designBrief);
   }
 
   const formatSpec = getFlyerFormatSpec(format);
@@ -86,17 +91,17 @@ export async function generateAiProfileGuideFlyer(input: {
   if (recomposedOnly && input.backgroundDataUrl) {
     background = dataUrlToBuffer(input.backgroundDataUrl);
     if (!imagePrompt) {
-      imagePrompt = await buildFlyerImagePrompt(brief);
+      imagePrompt = await buildFlyerImagePrompt(designBrief);
     }
   } else {
-    imagePrompt = await buildFlyerImagePrompt(brief);
+    imagePrompt = await buildFlyerImagePrompt(designBrief);
     imagePrompt = applyPromptRefinement(imagePrompt, input.promptRefinement);
     const generated = await generateFlyerBackgroundImage(imagePrompt, formatSpec);
     background = generated.buffer;
     revisedPrompt = generated.revisedPrompt;
   }
 
-  const imageBuffer = await compositeFlyerImage({ brief, background });
+  const imageBuffer = await compositeFlyerImage({ brief: designBrief, background });
 
   return {
     imageBuffer,
@@ -105,8 +110,10 @@ export async function generateAiProfileGuideFlyer(input: {
     format,
     revisedPrompt,
     imagePrompt,
-    copy: brief.copy,
+    copy: designBrief.copy,
     recomposedOnly,
+    archetype: designBrief.archetype,
+    archetypeLabel: designBrief.archetypeStyle.label,
   };
 }
 
@@ -120,7 +127,10 @@ export function serializeGeneratedFlyer(result: GeneratedFlyerResult) {
     imagePrompt: result.imagePrompt,
     copy: result.copy,
     recomposedOnly: result.recomposedOnly,
+    archetype: result.archetype,
+    archetypeLabel: result.archetypeLabel,
   };
 }
 
-export type { FlyerBrief };
+export type { FlyerBrief } from "./brief";
+export type { FlyerDesignBrief } from "./design-brief";

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildFlyerBrief } from "./brief";
+import { buildFlyerDesignBrief } from "./design-brief";
 import { buildFlyerBackgroundRequestBody } from "./generate-image";
 import { buildFlyerBusinessContext, buildFlyerSupportLine } from "./context";
 import { resolveFlyerCopy } from "./copy";
@@ -128,20 +129,26 @@ describe("flyer business context helpers", () => {
 });
 
 describe("buildFallbackFlyerImagePrompt", () => {
-  it("includes business context and forbids text overlays", () => {
-    const prompt = buildFallbackFlyerImagePrompt(
-      buildFlyerBrief(
-        sampleGuide(),
-        sampleBusiness(),
-        "https://example.com/g/acme-plumbing",
-        "friendly",
-        "a4"
-      )
-    );
+  it("includes business context, archetype, and forbids text overlays", () => {
+    const designBrief = buildFlyerDesignBrief({
+      guide: sampleGuide(),
+      business: sampleBusiness(),
+      publicUrl: "https://example.com/g/acme-plumbing",
+      template: "friendly",
+      format: "a4",
+      enrichment: {
+        primaryCategory: "Plumber",
+        averageRating: 4.8,
+        reviewCount: 42,
+      },
+    });
+
+    const prompt = buildFallbackFlyerImagePrompt(designBrief);
 
     assert.match(prompt, /Acme Plumbing/i);
-    assert.match(prompt, /Do NOT include text/i);
-    assert.match(prompt, /Water heater repair/i);
+    assert.match(prompt, /Do NOT include any text/i);
+    assert.match(prompt, /Industrial Modern|Local Trust/i);
+    assert.match(prompt, /4\.8 stars/i);
   });
 });
 

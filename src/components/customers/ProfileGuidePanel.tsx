@@ -159,6 +159,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   const [flyerStudioCache, setFlyerStudioCache] = useState<FlyerStudioCache | null>(null);
   const [flyerHistory, setFlyerHistory] = useState<FlyerHistoryEntry[]>([]);
   const [selectedFlyerHistoryId, setSelectedFlyerHistoryId] = useState<string | null>(null);
+  const [flyerArchetypeLabel, setFlyerArchetypeLabel] = useState<string | null>(null);
 
   useLeavePageWarning(flyerGenerating);
 
@@ -441,6 +442,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
         template: string;
         format: string;
         flyerStudio?: FlyerStudioClient | null;
+        archetypeLabel?: string;
       }>(res);
 
       if (json.flyerStudio) {
@@ -461,6 +463,8 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
           copy: json.copy,
         });
       }
+
+      setFlyerArchetypeLabel(json.archetypeLabel ?? null);
 
       setMessage(
         mode === "recompose"
@@ -835,6 +839,12 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
                 </button>
               ))}
             </div>
+            {flyerArchetypeLabel && (
+              <p className="mt-2 text-xs text-[#5f6368]">
+                Design style: <span className="font-medium text-[#3c4043]">{flyerArchetypeLabel}</span>
+                <span className="text-[#80868b]"> (matched from your Google category)</span>
+              </p>
+            )}
           </div>
 
           <div className="mt-4">
