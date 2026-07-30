@@ -33,6 +33,7 @@ function rowToGuide(row: Record<string, unknown>): ProfileGuideRecord {
     font_preset: (row.font_preset as ProfileGuideRecord["font_preset"]) ?? "professional",
     text_message: (row.text_message as string | null) ?? null,
     gbp_synced_at: (row.gbp_synced_at as string | null) ?? null,
+    background_image_url: (row.background_image_url as string | null) ?? null,
   };
 }
 
@@ -213,6 +214,7 @@ export async function updateProfileGuide(
   if (input.buttonStyle !== undefined) patch.button_style = input.buttonStyle;
   if (input.fontPreset !== undefined) patch.font_preset = input.fontPreset;
   if (input.logoUrl !== undefined) patch.logo_url = input.logoUrl;
+  if (input.backgroundImageUrl !== undefined) patch.background_image_url = input.backgroundImageUrl;
   if (input.tagline !== undefined) patch.tagline = input.tagline;
   if (input.textMessage !== undefined) patch.text_message = input.textMessage;
   if (input.published !== undefined) {

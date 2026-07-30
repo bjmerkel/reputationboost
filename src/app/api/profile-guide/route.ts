@@ -27,6 +27,7 @@ function serializeGuide(data: Awaited<ReturnType<typeof getOrCreateProfileGuide>
       buttonStyle: data.guide.button_style,
       fontPreset: data.guide.font_preset,
       logoUrl: data.guide.logo_url,
+      backgroundImageUrl: data.guide.background_image_url,
       tagline: data.guide.tagline,
       textMessage: data.guide.text_message,
       gbpSyncedAt: data.guide.gbp_synced_at,
@@ -89,6 +90,12 @@ function parseUpdate(body: unknown): ProfileGuideUpdateInput {
         ? null
         : typeof record.logoUrl === "string"
           ? record.logoUrl
+          : undefined,
+    backgroundImageUrl:
+      record.backgroundImageUrl === null
+        ? null
+        : typeof record.backgroundImageUrl === "string"
+          ? record.backgroundImageUrl
           : undefined,
     tagline:
       record.tagline === null

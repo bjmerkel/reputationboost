@@ -19,6 +19,7 @@ export interface ProfileGuidePhonePreviewProps {
   displayName: string;
   primaryColor?: string;
   backgroundColor?: string;
+  backgroundImageUrl?: string | null;
   buttonStyle?: ProfileGuideButtonStyle;
   fontPreset?: ProfileGuideFontPreset;
   logoUrl?: string | null;
@@ -33,6 +34,7 @@ export default function ProfileGuidePhonePreview({
   displayName,
   primaryColor = "#1a73e8",
   backgroundColor = "#f8f9fa",
+  backgroundImageUrl,
   buttonStyle = "rounded",
   fontPreset = "professional",
   logoUrl,
@@ -61,12 +63,27 @@ export default function ProfileGuidePhonePreview({
     window.open(link.url, "_blank", "noopener,noreferrer");
   }
 
+  const heroStyle = backgroundImageUrl ? undefined : { backgroundColor: primaryColor };
+
   return (
     <div
       className="mx-auto mt-3 max-w-[260px] overflow-hidden rounded-2xl border border-[#dadce0] shadow-sm"
       style={{ backgroundColor, fontFamily: fonts.body }}
     >
-      <div className="px-4 py-5 text-center text-white" style={{ backgroundColor: primaryColor }}>
+      <div className="relative px-4 py-5 text-center text-white" style={heroStyle}>
+        {backgroundImageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={backgroundImageUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+        <div
+          className={`absolute inset-0 ${backgroundImageUrl ? "bg-black/50" : ""}`}
+          style={!backgroundImageUrl ? { backgroundColor: primaryColor } : undefined}
+        />
+        <div className="relative z-10">
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -83,6 +100,7 @@ export default function ProfileGuidePhonePreview({
           {displayName}
         </p>
         <p className="mt-1 text-xs text-white/80">{tagline || "Your local business guide"}</p>
+        </div>
       </div>
       <div className="space-y-2 p-3">
         {visibleLinks.length > 0 ? (

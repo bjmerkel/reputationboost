@@ -32,6 +32,7 @@ export interface ProfileGuideRecord {
   button_style: ProfileGuideButtonStyle;
   font_preset: ProfileGuideFontPreset;
   logo_url: string | null;
+  background_image_url: string | null;
   tagline: string | null;
   text_message: string | null;
   gbp_synced_at: string | null;
@@ -73,6 +74,7 @@ export interface ProfileGuidePublicView {
   buttonStyle: ProfileGuideButtonStyle;
   fontPreset: ProfileGuideFontPreset;
   logoUrl: string | null;
+  backgroundImageUrl: string | null;
   tagline: string | null;
   links: Array<{
     id: string;
@@ -107,6 +109,7 @@ export interface ProfileGuideUpdateInput {
   buttonStyle?: ProfileGuideButtonStyle;
   fontPreset?: ProfileGuideFontPreset;
   logoUrl?: string | null;
+  backgroundImageUrl?: string | null;
   tagline?: string | null;
   textMessage?: string | null;
   displayName?: string;

@@ -33,6 +33,7 @@ interface GuideData {
     publishedAt: string | null;
     primaryColor: string;
     backgroundColor: string;
+    backgroundImageUrl: string | null;
     buttonStyle: ProfileGuideButtonStyle;
     fontPreset: ProfileGuideFontPreset;
     logoUrl: string | null;
@@ -66,6 +67,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   const [links, setLinks] = useState<GuideLink[]>([]);
   const [primaryColor, setPrimaryColor] = useState("#1a73e8");
   const [backgroundColor, setBackgroundColor] = useState("#f8f9fa");
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(null);
   const [buttonStyle, setButtonStyle] = useState<ProfileGuideButtonStyle>("rounded");
   const [fontPreset, setFontPreset] = useState<ProfileGuideFontPreset>("professional");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -91,6 +93,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       setLinks(json.links);
       setPrimaryColor(json.guide.primaryColor);
       setBackgroundColor(json.guide.backgroundColor ?? "#f8f9fa");
+      setBackgroundImageUrl(json.guide.backgroundImageUrl ?? null);
       setButtonStyle(json.guide.buttonStyle ?? "rounded");
       setFontPreset(json.guide.fontPreset ?? "professional");
       setLogoUrl(json.guide.logoUrl);
@@ -143,6 +146,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
     links?: GuideLink[];
     primaryColor?: string;
     logoUrl?: string | null;
+    backgroundImageUrl?: string | null;
     tagline?: string;
   }) {
     setSaving(true);
@@ -157,6 +161,8 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       buttonStyle,
       fontPreset,
       logoUrl: overrides?.logoUrl !== undefined ? overrides.logoUrl : logoUrl,
+      backgroundImageUrl:
+        overrides?.backgroundImageUrl !== undefined ? overrides.backgroundImageUrl : backgroundImageUrl,
       tagline: overrides?.tagline ?? tagline,
       textMessage,
       links: nextLinks.map((link, index) => ({
@@ -179,6 +185,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
       setData(json);
       setLinks(json.links);
       setPublished(json.guide.published);
+      setBackgroundImageUrl(json.guide.backgroundImageUrl ?? null);
       setMessage(json.guide.published ? "Profile Guide published." : "Changes saved.");
       void loadAnalytics(period);
     } catch (err) {
@@ -251,6 +258,10 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
   function openFlyer(template: (typeof PROFILE_GUIDE_FLYER_TEMPLATES)[number]) {
     window.open(`/api/profile-guide/flyer?template=${template}`, "_blank", "noopener,noreferrer");
   }
+
+  const auditPhotosHref = businessId
+    ? `/platform/audit?businessId=${businessId}&view=audit`
+    : "/platform/audit?view=audit";
 
   const outreachHref = customersTabHref("review-requests", businessId);
 
@@ -469,6 +480,35 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
               />
             </label>
             <label className="block text-sm sm:col-span-2">
+              <span className="font-medium text-[#3c4043]">Cover photo</span>
+              <p className="mt-1 text-xs text-[#80868b]">
+                Choose a photo from{" "}
+                <Link href={auditPhotosHref} className="font-medium text-[#1a73e8] hover:underline">
+                  Audit → Photos &amp; videos
+                </Link>{" "}
+                and click <span className="font-medium">Guide cover</span>.
+              </p>
+              {backgroundImageUrl ? (
+                <div className="mt-3 flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={backgroundImageUrl}
+                    alt=""
+                    className="h-16 w-16 rounded-lg border border-[#dadce0] object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void saveGuide({ backgroundImageUrl: null })}
+                    className="text-sm font-medium text-[#1a73e8]"
+                  >
+                    Remove cover photo
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-[#80868b]">No cover photo selected.</p>
+              )}
+            </label>
+            <label className="block text-sm sm:col-span-2">
               <span className="font-medium text-[#3c4043]">Logo</span>
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <input
@@ -661,6 +701,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
               displayName={data?.guide.displayName ?? "Your business"}
               primaryColor={primaryColor}
               backgroundColor={backgroundColor}
+              backgroundImageUrl={backgroundImageUrl}
               buttonStyle={buttonStyle}
               fontPreset={fontPreset}
               logoUrl={logoUrl}
@@ -700,6 +741,7 @@ export default function ProfileGuidePanel({ businessId }: ProfileGuidePanelProps
               displayName={data.guide.displayName}
               primaryColor={primaryColor}
               backgroundColor={backgroundColor}
+              backgroundImageUrl={backgroundImageUrl}
               buttonStyle={buttonStyle}
               fontPreset={fontPreset}
               logoUrl={logoUrl}
