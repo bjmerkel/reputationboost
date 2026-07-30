@@ -112,10 +112,6 @@ export default function PlanView({
     enabled: gbpConnected,
     businessId,
   });
-  const mergedPlan = useMemo(
-    () => (plan ? mergeProfileGuideIntoPlan(plan, audit, profileGuideReadiness) : null),
-    [audit, plan, profileGuideReadiness]
-  );
   const internalPlanTasks = usePlanTasks({
     clientId,
     auditId: audit.auditId,
@@ -153,6 +149,11 @@ export default function PlanView({
     refresh,
     reconcilePlanNow,
   } = sharedPlanTasks ?? internalPlanTasks;
+
+  const mergedPlan = useMemo(
+    () => (plan ? mergeProfileGuideIntoPlan(plan, audit, profileGuideReadiness) : null),
+    [audit, plan, profileGuideReadiness]
+  );
 
   const effectiveAvgCustomerValue = savedAcv ?? avgCustomerValue ?? null;
   const acvMissing = effectiveAvgCustomerValue == null || effectiveAvgCustomerValue <= 0;
