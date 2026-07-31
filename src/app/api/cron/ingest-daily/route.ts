@@ -1,44 +1,35 @@
 import { NextResponse } from "next/server";
 import { ingestDailyMetrics } from "@/jobs/ingest-daily";
-import { isAdminSupabaseConfigured } from "@/lib/supabase/admin";
+import {
+  cronFailureResponse,
+  dynamic,
+  verifyCronRequest,
+} from "@/lib/cron/route";
 
-function verifyCronSecret(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    return process.env.NODE_ENV === "development";
-  }
+export { dynamic };
 
-  const auth = request.headers.get("authorization");
-  return auth === `Bearer ${secret}`;
-}
+/** Daily ingest can process every onboarded business sequentially. */
+export const maxDuration = 300;
+
+const JOB_NAME = "ingest-daily";
 
 /** Daily GBP ingest; paid Places rank pulse runs only twice monthly. */
 export async function GET(request: Request) {
-  if (!verifyCronSecret(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (!isAdminSupabaseConfigured()) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY is not configured" },
-      { status: 503 }
-    );
-  }
+  const rejected = verifyCronRequest(request, JOB_NAME);
+  if (rejected) return rejected;
 
   try {
     const result = await ingestDailyMetrics();
+    console.info(`[cron/${JOB_NAME}] completed`, {
+      businessesProcessed: result.businessesProcessed,
+      scoreRowsUpserted: result.scoreRowsUpserted,
+      errorCount: result.errors.length,
+    });
     return NextResponse.json({
       ok: true,
       ...result,
     });
   } catch (error) {
-    console.error("[cron/ingest-daily] failed:", error);
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Ingest failed",
-      },
-      { status: 500 }
-    );
+    return cronFailureResponse(JOB_NAME, error, "Ingest failed");
   }
 }
