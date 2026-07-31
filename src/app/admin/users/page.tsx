@@ -8,6 +8,7 @@ import {
   StatusBadge,
 } from "@/components/admin/AdminBadges";
 import UserFilters from "@/components/admin/UserFilters";
+import BusinessListCell from "@/components/admin/BusinessListCell";
 import { logAdminAction, requireAdminPage } from "@/lib/admin/auth";
 import { listAdminUsers } from "@/lib/admin/users";
 import type { HealthGrade } from "@/audit/types";
@@ -88,7 +89,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
               <tr>
                 <th className="px-4 py-3 font-medium">User</th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Businesses</th>
+                <th className="px-4 py-3 font-medium">Locations</th>
                 <th className="px-4 py-3 font-medium">Score</th>
                 <th className="px-4 py-3 font-medium">Δ 7d</th>
                 <th className="px-4 py-3 font-medium">Tasks</th>
@@ -109,22 +110,26 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                     <td className="px-4 py-3">
                       <Link
                         href={`/admin/users/${user.userId}`}
-                        className="font-medium text-white hover:text-[#a5b4fc]"
+                        className="block font-medium text-white hover:text-[#a5b4fc]"
                       >
-                        {user.fullName || "—"}
+                        {user.fullName || user.email || "Unnamed user"}
                       </Link>
-                      <p className="text-xs text-[#64748b]">{user.email ?? user.userId}</p>
+                      {user.fullName && user.email ? (
+                        <p className="text-xs text-[#64748b]">{user.email}</p>
+                      ) : !user.fullName && !user.email ? (
+                        <p className="font-mono text-xs text-[#64748b]">{user.userId}</p>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={user.status} />
                     </td>
-                    <td className="px-4 py-3 text-[#cbd5e1]">
-                      {user.onboardedCount}/{user.businessCount}
-                      {user.gbpConnectedCount > 0 ? (
-                        <span className="mt-0.5 block text-xs text-[#64748b]">
-                          {user.gbpConnectedCount} GBP connected
-                        </span>
-                      ) : null}
+                    <td className="px-4 py-3">
+                      <BusinessListCell
+                        businesses={user.businesses}
+                        onboardedCount={user.onboardedCount}
+                        businessCount={user.businessCount}
+                        gbpConnectedCount={user.gbpConnectedCount}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

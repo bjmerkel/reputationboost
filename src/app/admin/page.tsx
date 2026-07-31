@@ -185,6 +185,9 @@ export default async function AdminCommandCenterPage() {
                       {user.fullName && user.email ? (
                         <p className="text-xs text-[#64748b]">{user.email}</p>
                       ) : null}
+                      {user.businesses[0] ? (
+                        <p className="text-xs text-[#818cf8]">{user.businesses[0].name}</p>
+                      ) : null}
                     </td>
                     <td className="py-3 pr-4 text-white">{user.avgScore ?? "—"}</td>
                     <td className="py-3 pr-4 text-[#cbd5e1]">{user.pendingTasks}</td>
