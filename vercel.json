@@ -25,6 +25,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/process-customer-imports",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/process-scheduled-posts",
       "schedule": "*/15 * * * *"
     },

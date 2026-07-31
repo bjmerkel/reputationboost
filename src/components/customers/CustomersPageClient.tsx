@@ -74,6 +74,7 @@ export default function CustomersPageClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [channel, setChannel] = useState<OutreachChannel>("auto");
   const [template, setTemplate] = useState("");
@@ -182,10 +183,62 @@ export default function CustomersPageClient({
     await loadMessageTemplate(focusKeyword, nextChannel);
   }
 
+  async function pollImportJob(jobId: string): Promise<void> {
+    const maxAttempts = 120;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const res = await fetch(`/api/customers/import/${jobId}`);
+      const data = await parseJsonResponse<{
+        job?: {
+          status: string;
+          processedRows: number;
+          totalRows: number;
+          importedCount: number;
+          updatedCount: number;
+          failedCount: number;
+          errorMessage?: string | null;
+        };
+        error?: string;
+      }>(res);
+
+      if (!res.ok) throw new Error(data.error ?? "Failed to load import status");
+
+      const job = data.job;
+      if (!job) throw new Error("Import job not found");
+
+      const progressLabel =
+        job.totalRows > 0
+          ? `Importing… ${job.processedRows.toLocaleString()} / ${job.totalRows.toLocaleString()} rows processed`
+          : "Importing…";
+      setImportProgress(progressLabel);
+
+      if (job.status === "completed") {
+        const parts = [
+          `${job.importedCount} imported`,
+          job.updatedCount ? `${job.updatedCount} updated` : null,
+          job.failedCount ? `${job.failedCount} failed` : null,
+        ].filter(Boolean);
+        setSendResult(`Import complete: ${parts.join(", ")}`);
+        setImportProgress(null);
+        await loadCustomers();
+        await loadMessageTemplate();
+        return;
+      }
+
+      if (job.status === "failed" || job.status === "cancelled") {
+        throw new Error(job.errorMessage ?? "Import failed");
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+
+    throw new Error("Import is still running. Refresh the page to check progress.");
+  }
+
   async function handleCsvImport(file: File) {
     setImporting(true);
     setError(null);
     setSendResult(null);
+    setImportProgress(null);
     try {
       const text = await file.text();
       const res = await fetch("/api/customers/import", {
@@ -194,16 +247,24 @@ export default function CustomersPageClient({
         body: JSON.stringify({ csv: text }),
       });
       const data = await parseJsonResponse<{
-        imported: number;
-        updated: number;
-        failed: number;
+        async?: boolean;
+        jobId?: string;
+        imported?: number;
+        updated?: number;
+        failed?: number;
         parseErrors?: string[];
         error?: string;
       }>(res);
       if (!res.ok) throw new Error(data.error ?? "Import failed");
 
+      if (data.async && data.jobId) {
+        setSendResult("Large import queued. Processing in the background…");
+        await pollImportJob(data.jobId);
+        return;
+      }
+
       const parts = [
-        `${data.imported} imported`,
+        `${data.imported ?? 0} imported`,
         data.updated ? `${data.updated} updated` : null,
         data.failed ? `${data.failed} failed` : null,
       ].filter(Boolean);
@@ -213,6 +274,7 @@ export default function CustomersPageClient({
       await loadMessageTemplate();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");
+      setImportProgress(null);
     } finally {
       setImporting(false);
     }
@@ -382,7 +444,8 @@ export default function CustomersPageClient({
             <code className="text-xs">last_name</code>, <code className="text-xs">phone</code>,{" "}
             <code className="text-xs">email</code>, <code className="text-xs">service</code>.
             Include at least one of <code className="text-xs">phone</code> or{" "}
-            <code className="text-xs">email</code> per row.
+            <code className="text-xs">email</code> per row. Lists with 500+ rows import in the
+            background automatically.
           </p>
 
           <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#dadce0] bg-[#f8f9fa] px-6 py-8 transition hover:border-[#1a73e8] hover:bg-[#e8f0fe]">
@@ -401,6 +464,10 @@ export default function CustomersPageClient({
               }}
             />
           </label>
+
+          {importProgress && (
+            <p className="mt-3 text-sm text-[#5f6368]">{importProgress}</p>
+          )}
 
           <button
             type="button"
