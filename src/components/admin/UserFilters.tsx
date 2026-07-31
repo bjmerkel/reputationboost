@@ -34,7 +34,7 @@ export default function UserFilters() {
         <input
           type="search"
           defaultValue={q}
-          placeholder="Email, name, or user ID"
+          placeholder="Email, name, business, or city"
           className="rounded-lg border border-[#334155] bg-[#1e2433] px-3 py-2 text-sm text-white placeholder:text-[#64748b] focus:border-[#6366f1] focus:outline-none"
           onKeyDown={(event) => {
             if (event.key === "Enter") {

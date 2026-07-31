@@ -3,6 +3,7 @@ import { gradeFromScore } from "@/lib/scores/grade";
 import type {
   AdminBusinessSummary,
   AdminTaskSummary,
+  AdminUserBusinessPreview,
   AdminUserDetail,
   AdminUserListResult,
   AdminUserSummary,
@@ -141,6 +142,33 @@ async function fetchAdminBaseData() {
   };
 }
 
+function sortBusinessesForDisplay(
+  businesses: BusinessRow[],
+  scoreByBusiness: Map<string, ScoreRow>
+): AdminUserBusinessPreview[] {
+  return [...businesses]
+    .sort((a, b) => {
+      const aConnected = Boolean(a.gbp_location_id);
+      const bConnected = Boolean(b.gbp_location_id);
+      if (aConnected !== bConnected) return aConnected ? -1 : 1;
+      if (a.onboarding_complete !== b.onboarding_complete) {
+        return a.onboarding_complete ? -1 : 1;
+      }
+      const aScore = scoreByBusiness.get(a.id)?.overall ?? -1;
+      const bScore = scoreByBusiness.get(b.id)?.overall ?? -1;
+      if (aScore !== bScore) return bScore - aScore;
+      return a.name.localeCompare(b.name);
+    })
+    .map((business) => ({
+      id: business.id,
+      name: business.name,
+      location: formatLocation(business.location),
+      score: scoreByBusiness.get(business.id)?.overall ?? null,
+      gbpConnected: Boolean(business.gbp_location_id),
+      onboardingComplete: business.onboarding_complete,
+    }));
+}
+
 function buildUserSummaries(data: Awaited<ReturnType<typeof fetchAdminBaseData>>): AdminUserSummary[] {
   const businessesByUser = new Map<string, BusinessRow[]>();
   for (const business of data.businesses) {
@@ -203,6 +231,7 @@ function buildUserSummaries(data: Awaited<ReturnType<typeof fetchAdminBaseData>>
     const taskCount = taskCounts.get(profile.id) ?? { pending: 0, completed: 0, failed: 0 };
     const lastAuditAt = lastAuditByUser.get(profile.id) ?? null;
     const lastActivityAt = lastAuditAt;
+    const businessPreviews = sortBusinessesForDisplay(businesses, scoreByBusiness);
 
     return {
       userId: profile.id,
@@ -212,6 +241,7 @@ function buildUserSummaries(data: Awaited<ReturnType<typeof fetchAdminBaseData>>
       businessCount: businesses.length,
       onboardedCount: onboarded.length,
       gbpConnectedCount: gbpConnected.length,
+      businesses: businessPreviews,
       avgScore,
       grade,
       scoreDelta7d,
@@ -251,7 +281,12 @@ export async function listAdminUsers(options: ListAdminUsersOptions = {}): Promi
       (user) =>
         user.email?.toLowerCase().includes(q) ||
         user.fullName?.toLowerCase().includes(q) ||
-        user.userId.toLowerCase().includes(q)
+        user.userId.toLowerCase().includes(q) ||
+        user.businesses.some(
+          (business) =>
+            business.name.toLowerCase().includes(q) ||
+            business.location.toLowerCase().includes(q)
+        )
     );
   }
 

@@ -23,6 +23,15 @@ export interface AdminOverview {
   signups30d: number;
 }
 
+export interface AdminUserBusinessPreview {
+  id: string;
+  name: string;
+  location: string;
+  score: number | null;
+  gbpConnected: boolean;
+  onboardingComplete: boolean;
+}
+
 export interface AdminUserSummary {
   userId: string;
   email: string | null;
@@ -31,6 +40,7 @@ export interface AdminUserSummary {
   businessCount: number;
   onboardedCount: number;
   gbpConnectedCount: number;
+  businesses: AdminUserBusinessPreview[];
   avgScore: number | null;
   grade: HealthGrade | null;
   scoreDelta7d: number | null;
