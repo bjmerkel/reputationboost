@@ -29,6 +29,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/process-outreach-campaigns",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/process-scheduled-posts",
       "schedule": "*/15 * * * *"
     },

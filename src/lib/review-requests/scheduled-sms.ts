@@ -81,6 +81,7 @@ export async function scheduleReviewRequestEmail(input: {
   customerEventId?: string;
   focusKeyword?: string | null;
   geoRouting?: GeoRoutingDecision | null;
+  outreachCampaignId?: string | null;
 }): Promise<string> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -91,6 +92,7 @@ export async function scheduleReviewRequestEmail(input: {
       customer_id: input.customerId,
       execution_task_id: input.customerEventId ?? null,
       focus_keyword: input.focusKeyword?.trim() || null,
+      outreach_campaign_id: input.outreachCampaignId ?? null,
       target_grid_north: input.geoRouting?.targetCell.gridNorth ?? null,
       target_grid_east: input.geoRouting?.targetCell.gridEast ?? null,
       target_zone: input.geoRouting?.targetZone ?? null,
@@ -140,6 +142,7 @@ export async function scheduleReviewRequestSms(input: {
   customerEventId?: string;
   focusKeyword?: string | null;
   geoRouting?: GeoRoutingDecision | null;
+  outreachCampaignId?: string | null;
 }): Promise<string> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -150,6 +153,7 @@ export async function scheduleReviewRequestSms(input: {
       customer_id: input.customerId,
       execution_task_id: input.customerEventId ?? null,
       focus_keyword: input.focusKeyword?.trim() || null,
+      outreach_campaign_id: input.outreachCampaignId ?? null,
       target_grid_north: input.geoRouting?.targetCell.gridNorth ?? null,
       target_grid_east: input.geoRouting?.targetCell.gridEast ?? null,
       target_zone: input.geoRouting?.targetZone ?? null,

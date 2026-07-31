@@ -6,6 +6,8 @@ import { updateExecutionTask } from "@/audit/storage-execution";
 import { isResendConfigured } from "@/lib/email/resend";
 import type { OutreachChannel } from "@/lib/review-requests/channel";
 import { auditHasReviewGap } from "@/lib/review-requests/eligibility";
+import { createOutreachCampaign } from "@/lib/review-requests/outreach-campaign";
+import { IMMEDIATE_SEND_BATCH_MAX } from "@/lib/review-requests/bulk-config";
 import { sendOutreachReviewRequests } from "@/lib/review-requests/send-outreach";
 import { isTwilioConfigured } from "@/lib/sms/twilio";
 import { getUser } from "@/lib/supabase/server";
@@ -33,6 +35,7 @@ export async function POST(request: Request) {
       dryRun?: boolean;
       executionTaskId?: string;
       focusKeyword?: string | null;
+      mode?: "immediate" | "campaign";
     }>(request);
 
     const channel: OutreachChannel = body.channel ?? "sms";
@@ -54,6 +57,52 @@ export async function POST(request: Request) {
       businessUuid: business.businessId,
     });
     const audit = rawAudit ? ensureStrategy(rawAudit) : null;
+
+    const sendCount =
+      body.customerIds?.length ??
+      (body.batchSize ?? IMMEDIATE_SEND_BATCH_MAX);
+    const useCampaign =
+      body.mode === "campaign" ||
+      (body.mode !== "immediate" &&
+        !body.dryRun &&
+        sendCount > IMMEDIATE_SEND_BATCH_MAX);
+
+    if (useCampaign) {
+      const { campaign, preview } = await createOutreachCampaign({
+        userId: user.id,
+        business,
+        channel,
+        smsTemplate: body.smsTemplate?.trim() || body.template.trim(),
+        emailTemplate: body.template.trim(),
+        emailSubject: body.subject?.trim(),
+        customerIds: body.customerIds,
+        focusKeyword: body.focusKeyword,
+        dryRun: body.dryRun,
+        auditHasReviewGap: auditHasReviewGap(audit),
+      });
+
+      return NextResponse.json({
+        mode: "campaign",
+        campaign,
+        preview: {
+          eligible: preview.eligible,
+          smsCount: preview.smsCount,
+          emailCount: preview.emailCount,
+          estimatedDays: preview.estimatedDays,
+          skipped: preview.skipped,
+        },
+        sent: 0,
+        failed: 0,
+        skipped: 0,
+        simulated: false,
+        channel,
+        keywordFilterApplied: preview.keywordFilterApplied,
+        geoFilterApplied: preview.geoFilterApplied,
+        reviewUrl: preview.reviewUrl,
+        twilioConfigured: isTwilioConfigured(),
+        resendConfigured: isResendConfigured(),
+      });
+    }
 
     const result = await sendOutreachReviewRequests({
       userId: user.id,
