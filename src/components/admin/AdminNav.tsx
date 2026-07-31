@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/admin/scores", label: "Scores", exact: false },
   { href: "/admin/operations", label: "Operations", exact: false },
   { href: "/admin/tasks", label: "Tasks", exact: false },
+  { href: "/admin/audit-log", label: "Audit log", exact: false },
 ] as const;
 
 export default function AdminNav() {

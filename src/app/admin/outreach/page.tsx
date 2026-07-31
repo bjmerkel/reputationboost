@@ -121,12 +121,20 @@ export default async function AdminOutreachPage() {
                       {item.lastNoteAt ? formatRelativeDate(item.lastNoteAt) : "Never"}
                     </td>
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/users/${item.user.userId}`}
-                        className="text-[#818cf8] hover:text-[#a5b4fc]"
-                      >
-                        View →
-                      </Link>
+                      <div className="flex flex-wrap gap-3">
+                        <Link
+                          href={`/admin/users/${item.user.userId}`}
+                          className="text-[#818cf8] hover:text-[#a5b4fc]"
+                        >
+                          View →
+                        </Link>
+                        <Link
+                          href={`/admin/tasks?userId=${item.user.userId}&status=pending_approval`}
+                          className="text-[#94a3b8] hover:text-[#a5b4fc]"
+                        >
+                          Tasks
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))
