@@ -1,6 +1,5 @@
 import { normalizeCustomerContact } from "@/lib/customers/contact";
-import { normalizeEmail } from "@/lib/email/resend";
-import { normalizePhoneE164 } from "@/lib/sms/phone";
+import { MAX_CSV_ROWS } from "@/lib/review-requests/bulk-config";
 import type { ImportCustomerRow } from "./types";
 
 const HEADER_ALIASES: Record<string, keyof ImportCustomerRow> = {
@@ -101,6 +100,11 @@ export interface CsvParseResult {
   rows: ImportCustomerRow[];
   skipped: number;
   errors: string[];
+}
+
+export function enforceImportRowLimit(rowCount: number): string | null {
+  if (rowCount <= MAX_CSV_ROWS) return null;
+  return `Import exceeds the maximum of ${MAX_CSV_ROWS.toLocaleString()} rows. Split the file or contact support for larger imports.`;
 }
 
 export function parseCustomerCsv(text: string): CsvParseResult {

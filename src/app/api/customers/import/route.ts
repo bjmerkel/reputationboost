@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { getActiveBusiness } from "@/lib/business/active-business";
 import { importCustomers } from "@/lib/customers/storage";
-import { parseCustomerCsv, parseCustomerJson } from "@/lib/customers/parse-import";
+import {
+  enforceImportRowLimit,
+  parseCustomerCsv,
+  parseCustomerJson,
+} from "@/lib/customers/parse-import";
+import { LARGE_IMPORT_ROW_THRESHOLD } from "@/lib/review-requests/bulk-config";
 import { getUser } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -29,8 +34,18 @@ export async function POST(request: Request) {
         );
       }
 
+      const rowLimitError = enforceImportRowLimit(parsed.rows.length);
+      if (rowLimitError) {
+        return NextResponse.json({ error: rowLimitError }, { status: 400 });
+      }
+
       const result = await importCustomers(user.id, business.businessId, parsed.rows);
-      return NextResponse.json({ ...result, skipped: parsed.skipped, parseErrors: parsed.errors });
+      return NextResponse.json({
+        ...result,
+        skipped: parsed.skipped,
+        parseErrors: parsed.errors,
+        largeImport: parsed.rows.length >= LARGE_IMPORT_ROW_THRESHOLD,
+      });
     }
 
     const body = (await request.json()) as { csv?: string; customers?: unknown[] };
@@ -43,8 +58,19 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
+
+      const rowLimitError = enforceImportRowLimit(parsed.rows.length);
+      if (rowLimitError) {
+        return NextResponse.json({ error: rowLimitError }, { status: 400 });
+      }
+
       const result = await importCustomers(user.id, business.businessId, parsed.rows);
-      return NextResponse.json({ ...result, skipped: parsed.skipped, parseErrors: parsed.errors });
+      return NextResponse.json({
+        ...result,
+        skipped: parsed.skipped,
+        parseErrors: parsed.errors,
+        largeImport: parsed.rows.length >= LARGE_IMPORT_ROW_THRESHOLD,
+      });
     }
 
     if (body.customers) {
@@ -55,8 +81,19 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
+
+      const rowLimitError = enforceImportRowLimit(parsed.rows.length);
+      if (rowLimitError) {
+        return NextResponse.json({ error: rowLimitError }, { status: 400 });
+      }
+
       const result = await importCustomers(user.id, business.businessId, parsed.rows);
-      return NextResponse.json({ ...result, skipped: parsed.skipped, parseErrors: parsed.errors });
+      return NextResponse.json({
+        ...result,
+        skipped: parsed.skipped,
+        parseErrors: parsed.errors,
+        largeImport: parsed.rows.length >= LARGE_IMPORT_ROW_THRESHOLD,
+      });
     }
 
     return NextResponse.json(

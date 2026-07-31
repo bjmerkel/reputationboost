@@ -22,7 +22,7 @@
     },
     {
       "path": "/api/cron/process-scheduled-sms",
-      "schedule": "*/15 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/process-scheduled-posts",

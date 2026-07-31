@@ -12,6 +12,7 @@ export interface SendSmsResult {
   sid?: string;
   error?: string;
   to: string;
+  statusCode?: number;
 }
 
 export function isTwilioConfigured(): boolean {
@@ -85,6 +86,7 @@ export async function sendSms(
         success: false,
         error: data.message ?? `Twilio error (${res.status})`,
         to: normalizedTo,
+        statusCode: res.status,
       };
     }
 

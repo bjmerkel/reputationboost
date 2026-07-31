@@ -23,6 +23,13 @@ import type { GeoRoutingDecision } from "@/lib/review-velocity/geo-router";
 import { buildReviewEmailContent } from "@/lib/email/template";
 import { getResendFromAddress, isResendConfigured, sendEmail } from "@/lib/email/resend";
 import type { OutreachChannel } from "@/lib/review-requests/channel";
+import { OUTREACH_CRON_BATCH_LIMIT, OUTREACH_SEND_DELAY_MS } from "@/lib/review-requests/bulk-config";
+import {
+  isRetryableProviderError,
+  nextRetryScheduledAt,
+  shouldRetryOutreach,
+  sleep,
+} from "@/lib/review-requests/outreach-retry";
 import { getOutreachTargets } from "@/lib/customers/outreach-targets";
 import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
@@ -40,6 +47,7 @@ export interface ScheduledSmsRecord {
   scheduled_at: string;
   status: string;
   focus_keyword: string | null;
+  retry_count: number;
 }
 
 function addHours(date: Date, hours: number): Date {
@@ -58,6 +66,7 @@ export interface ScheduledEmailRecord {
   scheduled_at: string;
   status: string;
   focus_keyword: string | null;
+  retry_count: number;
 }
 
 export async function scheduleReviewRequestEmail(input: {
@@ -100,12 +109,14 @@ export async function scheduleReviewRequestEmail(input: {
   return data.id as string;
 }
 
-export async function listDueScheduledEmail(limit = 50): Promise<ScheduledEmailRecord[]> {
+export async function listDueScheduledEmail(
+  limit = OUTREACH_CRON_BATCH_LIMIT
+): Promise<ScheduledEmailRecord[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("email_messages")
     .select(
-      "id, business_id, user_id, customer_id, to_email, subject, body_text, body_html, scheduled_at, status, focus_keyword"
+      "id, business_id, user_id, customer_id, to_email, subject, body_text, body_html, scheduled_at, status, focus_keyword, retry_count"
     )
     .eq("status", "scheduled")
     .lte("scheduled_at", new Date().toISOString())
@@ -113,7 +124,10 @@ export async function listDueScheduledEmail(limit = 50): Promise<ScheduledEmailR
     .limit(limit);
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as ScheduledEmailRecord[];
+  return (data ?? []).map((row) => ({
+    ...row,
+    retry_count: (row.retry_count as number) ?? 0,
+  })) as ScheduledEmailRecord[];
 }
 
 export async function scheduleReviewRequestSms(input: {
@@ -152,12 +166,14 @@ export async function scheduleReviewRequestSms(input: {
   return data.id as string;
 }
 
-export async function listDueScheduledSms(limit = 50): Promise<ScheduledSmsRecord[]> {
+export async function listDueScheduledSms(
+  limit = OUTREACH_CRON_BATCH_LIMIT
+): Promise<ScheduledSmsRecord[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("sms_messages")
     .select(
-      "id, business_id, user_id, customer_id, to_phone, body, scheduled_at, status, focus_keyword"
+      "id, business_id, user_id, customer_id, to_phone, body, scheduled_at, status, focus_keyword, retry_count"
     )
     .eq("status", "scheduled")
     .lte("scheduled_at", new Date().toISOString())
@@ -165,7 +181,10 @@ export async function listDueScheduledSms(limit = 50): Promise<ScheduledSmsRecor
     .limit(limit);
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as ScheduledSmsRecord[];
+  return (data ?? []).map((row) => ({
+    ...row,
+    retry_count: (row.retry_count as number) ?? 0,
+  })) as ScheduledSmsRecord[];
 }
 
 async function loadBusinessConfig(businessId: string): Promise<ClientConfig | null> {
@@ -401,6 +420,67 @@ async function markScheduledEmail(
   if (error) throw new Error(error.message);
 }
 
+async function deferScheduledSmsRetry(
+  messageId: string,
+  retryCount: number,
+  errorMessage: string
+): Promise<void> {
+  const supabase = createAdminClient();
+  const sendAt = nextRetryScheduledAt(retryCount + 1);
+  const { error } = await supabase
+    .from("sms_messages")
+    .update({
+      status: "scheduled",
+      scheduled_at: sendAt.toISOString(),
+      retry_count: retryCount + 1,
+      error_message: errorMessage,
+    })
+    .eq("id", messageId);
+
+  if (error) throw new Error(error.message);
+}
+
+async function deferScheduledEmailRetry(
+  messageId: string,
+  retryCount: number,
+  errorMessage: string
+): Promise<void> {
+  const supabase = createAdminClient();
+  const sendAt = nextRetryScheduledAt(retryCount + 1);
+  const { error } = await supabase
+    .from("email_messages")
+    .update({
+      status: "scheduled",
+      scheduled_at: sendAt.toISOString(),
+      retry_count: retryCount + 1,
+      error_message: errorMessage,
+    })
+    .eq("id", messageId);
+
+  if (error) throw new Error(error.message);
+}
+
+async function handleScheduledProviderFailure(
+  channel: "sms" | "email",
+  messageId: string,
+  retryCount: number,
+  errorMessage: string,
+  statusCode?: number
+): Promise<"retry" | "failed"> {
+  if (
+    shouldRetryOutreach(retryCount) &&
+    isRetryableProviderError(errorMessage, statusCode)
+  ) {
+    if (channel === "sms") {
+      await deferScheduledSmsRetry(messageId, retryCount, errorMessage);
+    } else {
+      await deferScheduledEmailRetry(messageId, retryCount, errorMessage);
+    }
+    return "retry";
+  }
+  return "failed";
+}
+
 export async function processDueScheduledEmail(): Promise<{
   processed: number;
   sent: number;
@@ -506,16 +586,29 @@ export async function processDueScheduledEmail(): Promise<{
         });
         sent++;
       } else {
-        await markScheduledEmail(message.id, {
-          status: "failed",
-          errorMessage: emailResult.error,
-        });
-        failed++;
+        const outcome = await handleScheduledProviderFailure(
+          "email",
+          message.id,
+          message.retry_count,
+          emailResult.error ?? "send_failed",
+          emailResult.statusCode
+        );
+        if (outcome === "failed") {
+          await markScheduledEmail(message.id, {
+            status: "failed",
+            errorMessage: emailResult.error,
+          });
+          failed++;
+        }
       }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : "processing_failed";
       await markScheduledEmail(message.id, { status: "failed", errorMessage: errMsg });
       failed++;
+    }
+
+    if (OUTREACH_SEND_DELAY_MS > 0) {
+      await sleep(OUTREACH_SEND_DELAY_MS);
     }
   }
 
@@ -636,16 +729,29 @@ export async function processDueScheduledSms(): Promise<{
         });
         sent++;
       } else {
-        await markScheduledMessage(message.id, {
-          status: "failed",
-          errorMessage: sms.error,
-        });
-        failed++;
+        const outcome = await handleScheduledProviderFailure(
+          "sms",
+          message.id,
+          message.retry_count,
+          sms.error ?? "send_failed",
+          sms.statusCode
+        );
+        if (outcome === "failed") {
+          await markScheduledMessage(message.id, {
+            status: "failed",
+            errorMessage: sms.error,
+          });
+          failed++;
+        }
       }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : "processing_failed";
       await markScheduledMessage(message.id, { status: "failed", errorMessage: errMsg });
       failed++;
+    }
+
+    if (OUTREACH_SEND_DELAY_MS > 0) {
+      await sleep(OUTREACH_SEND_DELAY_MS);
     }
   }
 

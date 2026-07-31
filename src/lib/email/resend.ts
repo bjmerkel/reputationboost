@@ -18,6 +18,7 @@ export interface SendEmailResult {
   messageId?: string;
   error?: string;
   to: string;
+  statusCode?: number;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -224,6 +225,7 @@ export async function sendEmail(
         success: false,
         error: data.message ?? data.name ?? `Resend error (${res.status})`,
         to: normalizedTo,
+        statusCode: res.status,
       };
     }
 

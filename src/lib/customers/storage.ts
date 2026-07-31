@@ -1,6 +1,6 @@
+import { bulkImportCustomers } from "@/lib/customers/bulk-upsert";
 import { createClient } from "@/lib/supabase/server";
 import { REVIEW_REQUEST_COOLDOWN_DAYS } from "@/lib/review-requests/eligibility";
-import { normalizeCustomerContact } from "@/lib/customers/contact";
 import { upsertCustomerRecord } from "@/lib/customers/upsert-customer";
 import type {
   CustomerInput,
@@ -81,56 +81,13 @@ export async function importCustomers(
   businessId: string,
   rows: ImportCustomerRow[]
 ): Promise<{ imported: number; updated: number; failed: number }> {
-  let imported = 0;
-  let updated = 0;
-  let failed = 0;
-
-  for (const row of rows) {
-    try {
-      const supabase = await createClient();
-      const { phone, email } = normalizeCustomerContact({
-        phone: row.phone,
-        email: row.email,
-      });
-
-      let existingId: string | null = null;
-      if (phone) {
-        const { data: byPhone } = await supabase
-          .from("customers")
-          .select("id")
-          .eq("business_id", businessId)
-          .eq("phone", phone)
-          .maybeSingle();
-        existingId = byPhone?.id ?? null;
-      }
-      if (!existingId && email) {
-        const { data: byEmail } = await supabase
-          .from("customers")
-          .select("id")
-          .eq("business_id", businessId)
-          .eq("email", email)
-          .maybeSingle();
-        existingId = byEmail?.id ?? null;
-      }
-
-      await createCustomer(userId, businessId, {
-        firstName: row.firstName,
-        lastName: row.lastName,
-        phone: row.phone,
-        email: row.email,
-        serviceNotes: row.serviceNotes,
-        lastServiceDate: row.lastServiceDate,
-        source: "import",
-      });
-
-      if (existingId) updated++;
-      else imported++;
-    } catch {
-      failed++;
-    }
+  const supabase = await createClient();
+  try {
+    return await bulkImportCustomers(supabase, userId, businessId, rows);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Import failed";
+    throw new Error(formatCustomerStorageError(message));
   }
-
-  return { imported, updated, failed };
 }
 
 export async function deleteCustomer(
