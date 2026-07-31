@@ -6,7 +6,7 @@ import OnboardingWizard, {
 } from "@/components/OnboardingWizard";
 import type { RankedGbpLocation } from "@/lib/google/gbp-onboarding-match";
 import { listGbpTokenSources } from "@/lib/google/gbp-import";
-import { getUser } from "@/lib/supabase/server";
+import { getPlatformViewerContext } from "@/lib/admin/platform-context";
 
 export const metadata: Metadata = {
   title: "Onboard | Reputation Boost",
@@ -28,13 +28,20 @@ interface PageProps {
 }
 
 export default async function OnboardPage({ searchParams }: PageProps) {
-  const user = await getUser();
-  if (!user) redirect("/login?next=/platform/onboard");
+  const ctx = await getPlatformViewerContext();
+  if (!ctx) redirect("/login?next=/platform/onboard");
+
+  if (ctx.isImpersonating) {
+    const query = ctx.impersonationBusinessId
+      ? `?businessId=${encodeURIComponent(ctx.impersonationBusinessId)}`
+      : "";
+    redirect(`/platform/audit${query}`);
+  }
 
   const params = await searchParams;
-  const existing = await getPrimaryBusiness(user.id);
+  const existing = await getPrimaryBusiness(ctx.viewerUserId);
   const addingLocation = params.add === "1" || params.change === "1";
-  const rows = await listUserBusinesses(user.id);
+  const rows = await listUserBusinesses(ctx.viewerUserId);
   const connectedAccounts: ConnectedGoogleAccount[] = listGbpTokenSources(rows);
   const hasConnectedAccounts = connectedAccounts.length > 0;
 

@@ -7,7 +7,7 @@ import { loadLatestAuditFromSupabase, loadPriorAuditFromSupabase } from "@/audit
 import { syncAuditToTrackedKeywords } from "@/audit/sync-tracked-keywords";
 import AuditDashboard from "@/components/AuditDashboard";
 import { getActiveBusiness } from "@/lib/business/active-business";
-import { getUser } from "@/lib/supabase/server";
+import { getPlatformViewerContext } from "@/lib/admin/platform-context";
 
 export const metadata: Metadata = {
   title: "Audit Engine | Reputation Boost",
@@ -29,23 +29,26 @@ function formatAddress(location: {
 }
 
 export default async function PlatformAuditPage({ searchParams }: PageProps) {
-  const user = await getUser();
-  if (!user) redirect("/login?next=/platform/audit");
+  const ctx = await getPlatformViewerContext();
+  if (!ctx) redirect("/login?next=/platform/audit");
 
   const params = await searchParams;
-  const business = await getActiveBusiness(user.id, params.businessId);
+  const business = await getActiveBusiness(
+    ctx.viewerUserId,
+    params.businessId ?? ctx.impersonationBusinessId ?? undefined
+  );
   if (!business) {
     redirect("/platform/onboard");
   }
 
   const gbpConnected = Boolean(business.onboardingComplete && business.gbpConnection);
 
-  const raw = await loadLatestAuditFromSupabase(user.id, business.id, {
+  const raw = await loadLatestAuditFromSupabase(ctx.viewerUserId, business.id, {
     businessName: business.name,
     businessUuid: business.businessId,
   });
   const priorRaw = raw
-    ? await loadPriorAuditFromSupabase(user.id, business.id, raw.completedAt)
+    ? await loadPriorAuditFromSupabase(ctx.viewerUserId, business.id, raw.completedAt)
     : null;
   const syncedRaw = raw
     ? syncAuditToTrackedKeywords(raw, business.keywords)
@@ -54,7 +57,7 @@ export default async function PlatformAuditPage({ searchParams }: PageProps) {
 
   const executionTasks =
     latestAudit
-      ? await listExecutionTasks(user.id, business.id, latestAudit.auditId)
+      ? await listExecutionTasks(ctx.viewerUserId, business.id, latestAudit.auditId)
       : [];
 
   const initialExecutionTasks =

@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { getUser } from "@/lib/supabase/server";
 import {
   listBusinessSummaries,
   resolveActiveBusinessId,
@@ -7,6 +6,8 @@ import {
 import Link from "next/link";
 import AppLogo from "@/components/AppLogo";
 import BusinessSwitcher from "@/components/BusinessSwitcher";
+import ImpersonationBanner from "@/components/admin/ImpersonationBanner";
+import { getPlatformViewerContext } from "@/lib/admin/platform-context";
 
 export const dynamic = "force-dynamic";
 
@@ -15,18 +16,29 @@ export default async function PlatformLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getUser();
-  const businesses = user ? await listBusinessSummaries(user.id) : [];
-  const activeBusinessId = user ? await resolveActiveBusinessId(user.id) : null;
-  const showSwitcher = Boolean(user && businesses.length > 0 && activeBusinessId);
+  const ctx = await getPlatformViewerContext();
+  const businesses = ctx ? await listBusinessSummaries(ctx.viewerUserId) : [];
+  const activeBusinessId = ctx
+    ? await resolveActiveBusinessId(
+        ctx.viewerUserId,
+        ctx.impersonationBusinessId ?? undefined
+      )
+    : null;
+  const showSwitcher = Boolean(ctx && businesses.length > 0 && activeBusinessId);
 
   function platformHref(path: string): string {
     if (!activeBusinessId) return path;
     return `${path}?businessId=${activeBusinessId}`;
   }
 
+  const viewerLabel =
+    ctx?.viewerName || ctx?.viewerEmail || (ctx?.isImpersonating ? "User" : null);
+
   return (
     <div className="platform-theme flex h-dvh flex-col overflow-hidden">
+      {ctx?.isImpersonating && viewerLabel ? (
+        <ImpersonationBanner viewerLabel={viewerLabel} adminEmail={ctx.sessionEmail} />
+      ) : null}
       <header className="shrink-0 border-b border-[#dadce0] bg-white">
         <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-4">
@@ -70,8 +82,10 @@ export default async function PlatformLayout({
             >
               Settings
             </Link>
-            {user && (
-              <span className="hidden text-sm text-[#80868b] md:inline">{user.email}</span>
+            {ctx && (
+              <span className="hidden text-sm text-[#80868b] md:inline">
+                {ctx.isImpersonating ? ctx.viewerEmail : ctx.sessionEmail}
+              </span>
             )}
             <form action="/auth/signout" method="post">
               <button

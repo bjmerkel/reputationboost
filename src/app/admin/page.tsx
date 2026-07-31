@@ -58,6 +58,12 @@ export default async function AdminCommandCenterPage() {
         />
       </div>
 
+      <div className="mb-4">
+        <Link href="/admin/tasks?status=pending_approval" className="text-sm text-[#818cf8] hover:text-[#a5b4fc]">
+          Open task queue →
+        </Link>
+      </div>
+
       <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Score movers (7d)"

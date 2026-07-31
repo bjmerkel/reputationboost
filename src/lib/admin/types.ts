@@ -83,3 +83,45 @@ export interface AdminUserListResult {
   page: number;
   pageSize: number;
 }
+
+export interface AdminTaskListItem extends AdminTaskSummary {
+  userId: string;
+  userEmail: string | null;
+  userName: string | null;
+  result: string | null;
+}
+
+export interface AdminTaskListResult {
+  tasks: AdminTaskListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface AdminNoteRecord {
+  id: string;
+  userId: string;
+  authorId: string | null;
+  authorEmail: string | null;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminBusinessDetail extends AdminBusinessSummary {
+  userId: string;
+  userEmail: string | null;
+  userName: string | null;
+  website: string | null;
+  phone: string | null;
+  failedTasks: number;
+  keywordsInPack: number | null;
+  totalKeywords: number | null;
+  auditScore: number | null;
+  auditGrade: HealthGrade | null;
+  visibility: number | null;
+  conversion: number | null;
+  revenueCapture: number | null;
+  scoreSeries: import("@/audit/types/timeseries").ScoreDailySnapshot[];
+  recentTasks: AdminTaskSummary[];
+}

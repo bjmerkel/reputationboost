@@ -9,7 +9,7 @@ import GoogleMapsLink from "@/components/GoogleMapsLink";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
 import RoiSettings from "@/components/RoiSettings";
 import { getActiveBusiness, listBusinessSummaries } from "@/lib/business/active-business";
-import { getUser } from "@/lib/supabase/server";
+import { getPlatformViewerContext } from "@/lib/admin/platform-context";
 
 export const metadata: Metadata = {
   title: "Settings | Reputation Boost",
@@ -21,19 +21,22 @@ interface PageProps {
 }
 
 export default async function SettingsPage({ searchParams }: PageProps) {
-  const user = await getUser();
-  if (!user) redirect("/login?next=/platform/settings");
+  const ctx = await getPlatformViewerContext();
+  if (!ctx) redirect("/login?next=/platform/settings");
 
   const params = await searchParams;
-  const business = await getActiveBusiness(user.id, params.businessId);
+  const business = await getActiveBusiness(
+    ctx.viewerUserId,
+    params.businessId ?? ctx.impersonationBusinessId ?? undefined
+  );
   if (!business) {
     redirect("/platform/onboard");
   }
 
-  const allBusinesses = await listBusinessSummaries(user.id);
+  const allBusinesses = await listBusinessSummaries(ctx.viewerUserId);
 
   const record = business.businessId
-    ? await getBusinessRecord(user.id, business.businessId)
+    ? await getBusinessRecord(ctx.viewerUserId, business.businessId)
     : null;
 
   const isConnected = Boolean(
@@ -149,7 +152,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
               <GbpPerformanceSetup
                 businessId={business.businessId}
                 reconnectHref={`/api/google/gbp/connect?businessId=${business.businessId}`}
-                platformEmail={user.email ?? undefined}
+                platformEmail={ctx.viewerEmail ?? undefined}
                 storedGoogleEmail={record?.gbp_google_email ?? business.gbpConnection?.googleEmail}
                 variant="light"
               />
@@ -175,7 +178,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
           )}
 
           <p className="text-center text-sm text-[#80868b]">
-            App login: <span className="text-[#3c4043]">{user.email}</span>
+            App login: <span className="text-[#3c4043]">{ctx.viewerEmail}</span>
             {(record?.gbp_google_email ?? business.gbpConnection?.googleEmail) && (
               <>
                 {" "}

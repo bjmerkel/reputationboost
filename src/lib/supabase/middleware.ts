@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { IMPERSONATE_COOKIE } from "@/lib/admin/impersonate";
 
 const PROTECTED_PREFIXES = [
   "/admin",
@@ -58,6 +59,16 @@ export async function updateSession(request: NextRequest) {
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   const isLogin = pathname === "/login";
   const isPasswordReset = pathname.startsWith("/login/reset-password");
+
+  const impersonating = Boolean(request.cookies.get(IMPERSONATE_COOKIE)?.value);
+  if (
+    impersonating &&
+    !["GET", "HEAD", "OPTIONS"].includes(request.method) &&
+    pathname.startsWith("/api/") &&
+    !pathname.startsWith("/api/admin/")
+  ) {
+    return NextResponse.json({ error: "Read-only impersonation mode" }, { status: 403 });
+  }
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone();

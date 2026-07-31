@@ -7,7 +7,7 @@ import {
   listBusinessSummaries,
   withBusinessId,
 } from "@/lib/business/active-business";
-import { getUser } from "@/lib/supabase/server";
+import { getPlatformViewerContext } from "@/lib/admin/platform-context";
 
 export const metadata: Metadata = {
   title: "Locations | Reputation Boost",
@@ -19,12 +19,15 @@ interface PageProps {
 }
 
 export default async function LocationsPage({ searchParams }: PageProps) {
-  const user = await getUser();
-  if (!user) redirect("/login?next=/platform/locations");
+  const ctx = await getPlatformViewerContext();
+  if (!ctx) redirect("/login?next=/platform/locations");
 
   const params = await searchParams;
-  const businesses = await listBusinessSummaries(user.id);
-  const activeBusiness = await getActiveBusiness(user.id, params.businessId);
+  const businesses = await listBusinessSummaries(ctx.viewerUserId);
+  const activeBusiness = await getActiveBusiness(
+    ctx.viewerUserId,
+    params.businessId ?? ctx.impersonationBusinessId ?? undefined
+  );
   const activeBusinessId = activeBusiness?.businessId ?? businesses[0]?.id;
 
   if (businesses.length === 0) {
@@ -33,7 +36,7 @@ export default async function LocationsPage({ searchParams }: PageProps) {
 
   const locations = await Promise.all(
     businesses.map(async (business) => {
-      const latestAudit = await loadLatestAuditFromSupabase(user.id, business.slug);
+      const latestAudit = await loadLatestAuditFromSupabase(ctx.viewerUserId, business.slug);
       return {
         ...business,
         score: latestAudit?.strategy?.scores.overall ?? null,
