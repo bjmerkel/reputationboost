@@ -13,12 +13,15 @@ const NAV_ITEMS = [
   { href: "/admin/audit-log", label: "Audit log", exact: false },
 ] as const;
 
-export default function AdminNav() {
+export default function AdminNav({ showTeamLink = false }: { showTeamLink?: boolean }) {
   const pathname = usePathname();
+  const items = showTeamLink
+    ? [...NAV_ITEMS, { href: "/admin/team", label: "Team", exact: false as const }]
+    : NAV_ITEMS;
 
   return (
     <nav className="flex items-center gap-1">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
         return (
           <Link

@@ -7,7 +7,8 @@ export const ROLE_RANK: Record<AdminRole, number> = {
   superadmin: 3,
 };
 
-function parseBootstrapEmails(): Set<string> {
+/** Emails with permanent god-mode access (env `ADMIN_BOOTSTRAP_EMAILS`). */
+export function getGodModeEmails(): Set<string> {
   const raw = process.env.ADMIN_BOOTSTRAP_EMAILS ?? "";
   return new Set(
     raw
@@ -17,7 +18,17 @@ function parseBootstrapEmails(): Set<string> {
   );
 }
 
+export function isGodModeEmail(email?: string | null): boolean {
+  const normalized = email?.trim().toLowerCase();
+  if (!normalized) return false;
+  return getGodModeEmails().has(normalized);
+}
+
 export async function getAdminRole(userId: string, email?: string | null): Promise<AdminRole | null> {
+  if (isGodModeEmail(email)) {
+    return "superadmin";
+  }
+
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -30,12 +41,7 @@ export async function getAdminRole(userId: string, email?: string | null): Promi
       return data.role as AdminRole;
     }
   } catch {
-    // Fall through to bootstrap emails when service role is unavailable.
-  }
-
-  const normalizedEmail = email?.trim().toLowerCase();
-  if (normalizedEmail && parseBootstrapEmails().has(normalizedEmail)) {
-    return "superadmin";
+    // Fall through when service role is unavailable.
   }
 
   return null;
@@ -43,4 +49,8 @@ export async function getAdminRole(userId: string, email?: string | null): Promi
 
 export function canManageOnBehalf(role: AdminRole | null): boolean {
   return role === "operator" || role === "superadmin";
+}
+
+export function canManageAdminTeam(email?: string | null): boolean {
+  return isGodModeEmail(email);
 }
