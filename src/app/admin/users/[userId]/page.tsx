@@ -9,6 +9,7 @@ import {
   StatusBadge,
 } from "@/components/admin/AdminBadges";
 import AdminNotesPanel from "@/components/admin/AdminNotesPanel";
+import { ChurnRiskBadge, HealthIndexBadge } from "@/components/admin/IntelligenceBadges";
 import ViewAsUserButton from "@/components/admin/ViewAsUserButton";
 import { logAdminAction, requireAdminPage } from "@/lib/admin/auth";
 import { listAdminNotes } from "@/lib/admin/notes";
@@ -67,24 +68,56 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
       ) : null}
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Health index" value={user.healthIndex ?? "—"} tone={user.healthIndex !== null && user.healthIndex < 50 ? "warning" : "default"} />
+        <KpiCard label="Churn risk" value={`${user.churnRisk}%`} tone={user.churnRiskLevel === "high" ? "danger" : user.churnRiskLevel === "medium" ? "warning" : "success"} />
         <KpiCard label="Reputation Boost Score" value={user.avgScore ?? "—"} />
         <KpiCard label="Score change (7d)" value={user.scoreDelta7d ?? "—"} />
-        <KpiCard
-          label="Pending tasks"
-          value={user.pendingTasks}
-          tone={user.pendingTasks > 0 ? "warning" : "default"}
-        />
-        <KpiCard label="Completed tasks" value={user.completedTasks} tone="success" />
       </div>
+
+      <section className="mt-8 grid gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border border-[#2d3348] bg-[#151923] p-6">
+          <h2 className="text-lg font-semibold text-white">Health signals</h2>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <HealthIndexBadge index={user.healthIndex} />
+            <ChurnRiskBadge risk={user.churnRisk} level={user.churnRiskLevel} />
+          </div>
+          <div className="mt-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-[#64748b]">Positive factors</p>
+            <ul className="mt-2 space-y-1 text-sm text-[#cbd5e1]">
+              {user.healthFactors.map((factor) => (
+                <li key={factor}>• {factor}</li>
+              ))}
+            </ul>
+          </div>
+          {user.churnSignals.length > 0 ? (
+            <div className="mt-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-[#64748b]">Risk signals</p>
+              <ul className="mt-2 space-y-1 text-sm text-amber-300">
+                {user.churnSignals.map((signal) => (
+                  <li key={signal}>• {signal}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="rounded-xl border border-[#2d3348] bg-[#151923] p-6">
+          <h2 className="text-lg font-semibold text-white">Activity snapshot</h2>
+          <dl className="mt-4 space-y-3 text-sm">
+            <InfoRow label="Pending tasks" value={String(user.pendingTasks)} />
+            <InfoRow label="Completed tasks" value={String(user.completedTasks)} />
+            <InfoRow label="Failed tasks" value={String(user.failedTasks)} />
+            <InfoRow label="Last audit" value={formatRelativeDate(user.lastAuditAt)} />
+            <InfoRow label="Autopilot mode" value={user.dominantAutopilotMode ?? "—"} />
+            <InfoRow label="Grade" value={user.grade ?? "—"} />
+          </dl>
+        </div>
+      </section>
 
       <div className="mt-8 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <InfoItem label="Businesses" value={`${user.onboardedCount} onboarded / ${user.businessCount} total`} />
         <InfoItem label="GBP connected" value={String(user.gbpConnectedCount)} />
-        <InfoItem label="Grade" value={<GradeBadge grade={user.grade} />} />
-        <InfoItem label="Autopilot mode" value={user.dominantAutopilotMode ?? "—"} />
-        <InfoItem label="Last audit" value={formatRelativeDate(user.lastAuditAt)} />
         <InfoItem label="Joined" value={new Date(user.createdAt).toLocaleDateString()} />
-        <InfoItem label="Failed tasks" value={String(user.failedTasks)} />
         <InfoItem label="7d score delta" value={<DeltaBadge delta={user.scoreDelta7d} />} />
       </div>
 
@@ -200,6 +233,15 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
       <div className="mt-10">
         <AdminNotesPanel userId={user.userId} notes={notes} canWrite={canWrite} />
       </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-[#64748b]">{label}</dt>
+      <dd className="text-[#e2e8f0]">{value}</dd>
     </div>
   );
 }

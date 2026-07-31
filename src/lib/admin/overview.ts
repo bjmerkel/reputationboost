@@ -1,11 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { buildAdminAlerts, type AdminAlert } from "@/lib/admin/alerts";
 import { getAllUserSummaries } from "@/lib/admin/users";
 import type { AdminOverview } from "@/lib/admin/types";
 import type { HealthGrade } from "@/audit/types";
 
-export async function getAdminOverview(): Promise<AdminOverview> {
+async function fetchOverviewMetrics(users: Awaited<ReturnType<typeof getAllUserSummaries>>) {
   const supabase = createAdminClient();
-  const users = await getAllUserSummaries();
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
@@ -17,12 +17,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
   const fourteenDaysAgo = new Date();
   fourteenDaysAgo.setUTCDate(fourteenDaysAgo.getUTCDate() - 14);
 
-  const [
-    activeBusinessesRes,
-    pendingTasksRes,
-    completedTasksRes,
-    lastIngestRes,
-  ] = await Promise.all([
+  const [activeBusinessesRes, pendingTasksRes, completedTasksRes, lastIngestRes] = await Promise.all([
     supabase
       .from("businesses")
       .select("id", { count: "exact", head: true })
@@ -74,6 +69,14 @@ export async function getAdminOverview(): Promise<AdminOverview> {
   }).length;
 
   const signups30d = users.filter((user) => new Date(user.createdAt) >= thirtyDaysAgo).length;
+  const highChurnRiskUsers = users.filter((user) => user.churnRiskLevel === "high").length;
+  const healthIndexes = users
+    .map((user) => user.healthIndex)
+    .filter((index): index is number => index !== null);
+  const avgHealthIndex =
+    healthIndexes.length > 0
+      ? Math.round(healthIndexes.reduce((sum, index) => sum + index, 0) / healthIndexes.length)
+      : null;
 
   const lastIngest = lastIngestRes.data
     ? {
@@ -86,7 +89,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
       }
     : null;
 
-  return {
+  const overview: AdminOverview = {
     totalUsers: users.length,
     activeBusinesses: activeBusinessesRes.count ?? 0,
     avgScore,
@@ -98,5 +101,27 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     staleAccounts,
     lastIngest,
     signups30d,
+    highChurnRiskUsers,
+    avgHealthIndex,
+    alertCount: 0,
   };
+
+  const alerts = buildAdminAlerts(users, overview);
+  overview.alertCount = alerts.length;
+
+  return { overview, alerts };
+}
+
+export async function getAdminOverview(): Promise<AdminOverview> {
+  const users = await getAllUserSummaries();
+  const { overview } = await fetchOverviewMetrics(users);
+  return overview;
+}
+
+export async function getAdminDashboardData(): Promise<{
+  overview: AdminOverview;
+  alerts: AdminAlert[];
+}> {
+  const users = await getAllUserSummaries();
+  return fetchOverviewMetrics(users);
 }

@@ -1,4 +1,5 @@
 import type { HealthGrade } from "@/audit/types";
+import type { ChurnRiskLevel } from "@/lib/admin/health";
 
 export type AdminRole = "viewer" | "operator" | "superadmin";
 
@@ -21,6 +22,9 @@ export interface AdminOverview {
     errorCount: number;
   } | null;
   signups30d: number;
+  alertCount: number;
+  highChurnRiskUsers: number;
+  avgHealthIndex: number | null;
 }
 
 export interface AdminUserBusinessPreview {
@@ -51,6 +55,11 @@ export interface AdminUserSummary {
   lastActivityAt: string | null;
   status: UserStatus;
   dominantAutopilotMode: string | null;
+  healthIndex: number | null;
+  churnRisk: number;
+  churnRiskLevel: ChurnRiskLevel;
+  healthFactors: string[];
+  churnSignals: string[];
 }
 
 export interface AdminUserDetail extends AdminUserSummary {

@@ -7,10 +7,13 @@ import {
   GradeBadge,
   StatusBadge,
 } from "@/components/admin/AdminBadges";
-import UserFilters from "@/components/admin/UserFilters";
 import BusinessListCell from "@/components/admin/BusinessListCell";
+import { ChurnRiskBadge, HealthIndexBadge } from "@/components/admin/IntelligenceBadges";
+import SegmentPills from "@/components/admin/SegmentPills";
+import UserFilters from "@/components/admin/UserFilters";
 import { logAdminAction, requireAdminPage } from "@/lib/admin/auth";
-import { listAdminUsers } from "@/lib/admin/users";
+import type { AdminSegmentId } from "@/lib/admin/segments";
+import { getAllUserSummaries, listAdminUsers } from "@/lib/admin/users";
 import type { HealthGrade } from "@/audit/types";
 import type { UserStatus } from "@/lib/admin/types";
 
@@ -26,6 +29,7 @@ interface PageProps {
     q?: string;
     grade?: string;
     status?: string;
+    segment?: string;
     page?: string;
   }>;
 }
@@ -34,12 +38,14 @@ function buildUsersHref(params: {
   q?: string;
   grade?: string;
   status?: string;
+  segment?: string;
   page: number;
 }): string {
   const search = new URLSearchParams();
   if (params.q) search.set("q", params.q);
   if (params.grade && params.grade !== "all") search.set("grade", params.grade);
   if (params.status && params.status !== "all") search.set("status", params.status);
+  if (params.segment && params.segment !== "all") search.set("segment", params.segment);
   if (params.page > 1) search.set("page", String(params.page));
   const query = search.toString();
   return query ? `/admin/users?${query}` : "/admin/users";
@@ -52,16 +58,20 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   const q = params.q?.trim();
   const grade = (params.grade ?? "all") as HealthGrade | "all";
   const status = (params.status ?? "all") as UserStatus | "all";
+  const segment = (params.segment ?? "all") as AdminSegmentId | "all";
   const page = Math.max(1, Number(params.page ?? "1"));
 
-  const result = await listAdminUsers({ q, grade, status, page });
+  const [result, allUsers] = await Promise.all([
+    listAdminUsers({ q, grade, status, segment, page }),
+    getAllUserSummaries(),
+  ]);
 
   await logAdminAction({
     adminUserId: userId,
     action: "view_page",
     targetType: "admin",
     targetId: "users",
-    metadata: { q, grade, status, page },
+    metadata: { q, grade, status, segment, page },
   });
 
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
@@ -76,7 +86,8 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
         </p>
       </div>
 
-      <div className="mb-6 rounded-xl border border-[#2d3348] bg-[#151923] p-4">
+      <div className="mb-6 space-y-4 rounded-xl border border-[#2d3348] bg-[#151923] p-4">
+        <SegmentPills users={allUsers} activeSegment={segment} />
         <Suspense fallback={<div className="h-16 animate-pulse rounded-lg bg-[#1e2433]" />}>
           <UserFilters />
         </Suspense>
@@ -88,19 +99,18 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
             <thead className="bg-[#1a1f2e] text-[#64748b]">
               <tr>
                 <th className="px-4 py-3 font-medium">User</th>
-                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Health</th>
+                <th className="px-4 py-3 font-medium">Churn risk</th>
                 <th className="px-4 py-3 font-medium">Locations</th>
                 <th className="px-4 py-3 font-medium">Score</th>
-                <th className="px-4 py-3 font-medium">Δ 7d</th>
                 <th className="px-4 py-3 font-medium">Tasks</th>
                 <th className="px-4 py-3 font-medium">Last audit</th>
-                <th className="px-4 py-3 font-medium">Joined</th>
               </tr>
             </thead>
             <tbody>
               {result.users.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-[#64748b]">
+                  <td colSpan={7} className="px-4 py-10 text-center text-[#64748b]">
                     No users match these filters.
                   </td>
                 </tr>
@@ -116,12 +126,16 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                       </Link>
                       {user.fullName && user.email ? (
                         <p className="text-xs text-[#64748b]">{user.email}</p>
-                      ) : !user.fullName && !user.email ? (
-                        <p className="font-mono text-xs text-[#64748b]">{user.userId}</p>
                       ) : null}
+                      <div className="mt-1">
+                        <StatusBadge status={user.status} />
+                      </div>
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={user.status} />
+                      <HealthIndexBadge index={user.healthIndex} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <ChurnRiskBadge risk={user.churnRisk} level={user.churnRiskLevel} />
                     </td>
                     <td className="px-4 py-3">
                       <BusinessListCell
@@ -136,9 +150,9 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                         <span className="font-medium text-white">{user.avgScore ?? "—"}</span>
                         <GradeBadge grade={user.grade} />
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <DeltaBadge delta={user.scoreDelta7d} />
+                      <div className="mt-1">
+                        <DeltaBadge delta={user.scoreDelta7d} />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-[#cbd5e1]">
                       <span className="text-amber-400">{user.pendingTasks}</span>
@@ -149,9 +163,6 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                       ) : null}
                     </td>
                     <td className="px-4 py-3 text-[#94a3b8]">{formatRelativeDate(user.lastAuditAt)}</td>
-                    <td className="px-4 py-3 text-[#94a3b8]">
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </td>
                   </tr>
                 ))
               )}
@@ -167,7 +178,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
             <div className="flex gap-2">
               {page > 1 ? (
                 <Link
-                  href={buildUsersHref({ q, grade, status, page: page - 1 })}
+                  href={buildUsersHref({ q, grade, status, segment, page: page - 1 })}
                   className="rounded-lg border border-[#334155] px-3 py-1.5 text-[#cbd5e1] hover:bg-[#1e2433]"
                 >
                   Previous
@@ -175,7 +186,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
               ) : null}
               {page < totalPages ? (
                 <Link
-                  href={buildUsersHref({ q, grade, status, page: page + 1 })}
+                  href={buildUsersHref({ q, grade, status, segment, page: page + 1 })}
                   className="rounded-lg border border-[#334155] px-3 py-1.5 text-[#cbd5e1] hover:bg-[#1e2433]"
                 >
                   Next
