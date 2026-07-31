@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ExecutionTask } from "@/audit/types";
+import type { ExecutionTask, GbpAttributeCoverage } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
 import { resolvePlanStepNumber } from "@/audit/phase3/plan-task-utils";
 import { usePlanTasks, type PlanTasksState } from "@/hooks/usePlanTasks";
 import { pendingBatchTasks, pendingRoutineTasks } from "@/lib/execution/pending-tasks";
 import { normalizeTextContent } from "@/lib/llm/normalize-content";
 import MediaTaskThumbnail, { isMediaMaintenanceTask } from "./MediaTaskThumbnail";
+import PlanStepAttributes from "./PlanStepAttributes";
 import PlanStepHours from "./PlanStepHours";
 import ReviewResponseKeywordHints, {
   reviewResponseCanSuggestWeave,
@@ -22,6 +23,9 @@ export default function BatchReviewSession({
   initialTasks,
   attributionByTaskId = {},
   sharedPlanTasks,
+  attributeCoverage,
+  businessPhone,
+  businessWebsite,
 }: {
   open: boolean;
   onClose: () => void;
@@ -31,6 +35,9 @@ export default function BatchReviewSession({
   initialTasks: ExecutionTask[];
   attributionByTaskId?: Record<string, ActionAttribution>;
   sharedPlanTasks?: PlanTasksState;
+  attributeCoverage?: GbpAttributeCoverage;
+  businessPhone?: string;
+  businessWebsite?: string;
 }) {
   const internalPlanTasks = usePlanTasks({
     clientId,
@@ -139,6 +146,10 @@ export default function BatchReviewSession({
     }
   }
 
+  const usesInlineEditor =
+    current?.type === "gbp_hours" ||
+    (current?.type === "gbp_attributes" && attributeTaskUsesInlineEditor(current));
+
   if (!open) return null;
 
   return (
@@ -178,6 +189,18 @@ export default function BatchReviewSession({
           ) : current ? (
             current.type === "gbp_hours" ? (
               <PlanStepHours task={current} gbpConnected={gbpConnected} actions={actions} />
+            ) : current.type === "gbp_attributes" && attributeTaskUsesInlineEditor(current) ? (
+              <div className="space-y-3">
+                <BatchReviewItemHeader task={current} />
+                <PlanStepAttributes
+                  task={current}
+                  gbpConnected={gbpConnected}
+                  actions={actions}
+                  coverage={attributeCoverage}
+                  businessPhone={businessPhone}
+                  businessWebsite={businessWebsite}
+                />
+              </div>
             ) : (
               <BatchReviewItem
                 task={current}
@@ -195,7 +218,7 @@ export default function BatchReviewSession({
           {error && <p className="mt-3 text-sm text-[#d93025]">{error}</p>}
         </div>
 
-        {pending.length > 0 && current && current.type !== "gbp_hours" && (
+        {pending.length > 0 && current && !usesInlineEditor && (
           <footer className="space-y-3 border-t border-[#e8eaed] px-5 py-4">
             {current.type === "gbp_photo" && typeof current.payload.previewDataUrl === "string" && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -275,6 +298,30 @@ export default function BatchReviewSession({
   );
 }
 
+function attributeTaskUsesInlineEditor(task: ExecutionTask): boolean {
+  if (task.payload.requiresUriInput === true) return true;
+  const attributes = task.payload.attributes;
+  return Array.isArray(attributes) && attributes.length > 0;
+}
+
+function BatchReviewItemHeader({ task }: { task: ExecutionTask }) {
+  const stepNumber = resolvePlanStepNumber(task);
+
+  return (
+    <>
+      {stepNumber != null && (
+        <p className="text-xs font-medium text-[#80868b]">
+          From plan step {stepNumber}
+          {typeof task.payload.gbpStepTitle === "string"
+            ? ` — ${task.payload.gbpStepTitle}`
+            : ""}
+        </p>
+      )}
+      <h3 className="text-base font-semibold text-[#202124]">{task.title}</h3>
+    </>
+  );
+}
+
 function BatchReviewItem({
   task,
   gbpConnected,
@@ -286,19 +333,9 @@ function BatchReviewItem({
   loading?: boolean;
   onSuggestKeywordWeave?: () => void;
 }) {
-  const stepNumber = resolvePlanStepNumber(task);
-
   return (
     <div className="space-y-3">
-      {stepNumber != null && (
-        <p className="text-xs font-medium text-[#80868b]">
-          From plan step {stepNumber}
-          {typeof task.payload.gbpStepTitle === "string"
-            ? ` — ${task.payload.gbpStepTitle}`
-            : ""}
-        </p>
-      )}
-      <h3 className="text-base font-semibold text-[#202124]">{task.title}</h3>
+      <BatchReviewItemHeader task={task} />
       <ReviewResponseKeywordHints
         task={task}
         loading={loading}

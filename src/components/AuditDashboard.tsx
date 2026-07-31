@@ -731,6 +731,9 @@ export default function AuditDashboard({
         initialTasks={tasks}
         attributionByTaskId={attributionData.attributionByTaskId}
         sharedPlanTasks={planTasks}
+        attributeCoverage={audit.gbp.attributeCoverage}
+        businessPhone={audit.gbp.identity.phone}
+        businessWebsite={audit.gbp.identity.website}
       />
 
       {view !== "audit" && (
