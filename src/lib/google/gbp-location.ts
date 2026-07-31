@@ -1208,7 +1208,12 @@ export async function patchGbpLocation(
 
   const data = (await res.json()) as Parameters<typeof formatGbpApiError>[0];
   if (!res.ok) {
-    throw new Error(formatGbpApiError(data, res.status, "description"));
+    const context = updateMask.includes("profile.description")
+      ? "description"
+      : updateMask.includes("attributes")
+        ? "attributes"
+        : "default";
+    throw new Error(formatGbpApiError(data, res.status, context));
   }
 }
 
