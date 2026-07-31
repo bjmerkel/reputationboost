@@ -5,6 +5,7 @@ import ReviewCampaignPlanCard from "@/components/review-requests/ReviewCampaignP
 import ReviewCampaignDashboard from "@/components/customers/ReviewCampaignDashboard";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
 import { REVIEW_REQUEST_COOLDOWN_DAYS } from "@/lib/review-requests/eligibility";
+import { IMMEDIATE_SEND_BATCH_MAX } from "@/lib/review-requests/bulk-config";
 import type { OutreachChannel } from "@/lib/review-requests/channel";
 import { channelDescription, channelLabel } from "@/lib/review-requests/channel";
 import type { ReviewCampaignPlan } from "@/lib/review-requests/campaign-plan";
@@ -341,7 +342,14 @@ export default function CustomersPageClient({
     setSendResult(null);
     try {
       const customerIds = selectedIds.size > 0 ? Array.from(selectedIds) : undefined;
-      const res = await fetch("/api/review-requests/send", {
+      const sendCount = customerIds?.length ?? eligibleCustomers.length;
+      const useCampaign = !dryRun && sendCount > IMMEDIATE_SEND_BATCH_MAX;
+
+      const endpoint = useCampaign
+        ? "/api/review-requests/campaigns"
+        : "/api/review-requests/send";
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -353,17 +361,33 @@ export default function CustomersPageClient({
           batchSize: selectedIds.size > 0 ? selectedIds.size : batchSize,
           focusKeyword,
           dryRun,
+          mode: useCampaign ? "campaign" : "immediate",
         }),
       });
       const data = await parseJsonResponse<{
-        sent: number;
-        failed: number;
-        skipped: number;
-        simulated: boolean;
-        channel: OutreachChannel;
+        sent?: number;
+        failed?: number;
+        skipped?: number;
+        simulated?: boolean;
+        channel?: OutreachChannel;
+        mode?: string;
+        campaign?: { id: string; status: string; queuedSmsCount: number; queuedEmailCount: number };
+        preview?: { eligible: number; estimatedDays: number; smsCount: number; emailCount: number };
         error?: string;
       }>(res);
       if (!res.ok) throw new Error(data.error ?? "Send failed");
+
+      if (data.mode === "campaign" || data.campaign) {
+        const sms = data.campaign?.queuedSmsCount ?? data.preview?.smsCount ?? 0;
+        const email = data.campaign?.queuedEmailCount ?? data.preview?.emailCount ?? 0;
+        const days = data.preview?.estimatedDays ?? 1;
+        setSendResult(
+          `Queued campaign for ${data.preview?.eligible ?? sendCount} customers (${sms} SMS, ${email} email). Sending over ~${days} day${days === 1 ? "" : "s"}.`
+        );
+        setCampaignRefreshKey((k) => k + 1);
+        await loadCustomers();
+        return;
+      }
 
       const channelName =
         data.channel === "auto" ? "outreach" : data.channel === "email" ? "email" : "SMS";
@@ -653,7 +677,9 @@ export default function CustomersPageClient({
             >
               {sending
                 ? "Sending…"
-                : `Send batch of ${selectedIds.size || Math.min(batchSize, eligibleCustomers.length)} customer(s)`}
+                : eligibleCustomers.length > IMMEDIATE_SEND_BATCH_MAX
+                  ? `Queue campaign (${selectedIds.size || eligibleCustomers.length} customers)`
+                  : `Send batch of ${selectedIds.size || Math.min(batchSize, eligibleCustomers.length)} customer(s)`}
             </button>
             <button
               type="button"
@@ -670,7 +696,8 @@ export default function CustomersPageClient({
             {channel === "auto" && emailEligibleCount > 0
               ? ` · ${emailEligibleCount} with email`
               : ""}
-            . Campaign suggests batches of {batchSize}
+            . Campaign suggests batches of {batchSize}. Sends above {IMMEDIATE_SEND_BATCH_MAX}{" "}
+            customers queue as a spread campaign automatically.
             {focusKeyword && matchedCustomers > 0 ? ` · ${matchedCustomers} match "${focusKeyword}"` : ""}.
           </p>
         </div>

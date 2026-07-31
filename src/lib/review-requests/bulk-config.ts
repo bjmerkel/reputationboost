@@ -20,6 +20,21 @@ export const OUTREACH_SEND_DELAY_MS = 150;
 
 export const DEFAULT_DAILY_SEND_CAP = 100;
 
+/** Max customers in a single outreach campaign. */
+export const MAX_OUTREACH_CAMPAIGN_SIZE = 10000;
+
+/** Immediate synchronous send cap (small batches). */
+export const IMMEDIATE_SEND_BATCH_MAX = 25;
+
+/** Planned entries queued synchronously before background queuing kicks in. */
+export const CAMPAIGN_IMMEDIATE_QUEUE_THRESHOLD = 100;
+
+/** Planned entries processed per campaign queue chunk. */
+export const CAMPAIGN_QUEUE_CHUNK_SIZE = 500;
+
+/** Max outreach campaigns draining queue per cron tick. */
+export const CAMPAIGN_QUEUE_JOBS_PER_CRON = 2;
+
 export const OUTREACH_MAX_RETRIES = 3;
 
 /** Minutes to defer a message after a retryable provider failure. */
