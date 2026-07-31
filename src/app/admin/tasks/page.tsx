@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { formatRelativeDate } from "@/components/admin/AdminBadges";
+import AdminTaskTable from "@/components/admin/AdminTaskTable";
 import TaskFilters from "@/components/admin/TaskFilters";
 import { logAdminAction, requireAdminPage } from "@/lib/admin/auth";
 import { listAdminTasks, listDistinctTaskTypes } from "@/lib/admin/tasks";
@@ -39,15 +39,8 @@ function buildTasksHref(params: {
   return query ? `/admin/tasks?${query}` : "/admin/tasks";
 }
 
-function statusClass(status: string): string {
-  if (status === "pending_approval") return "text-amber-400";
-  if (status === "completed") return "text-emerald-400";
-  if (status === "failed") return "text-red-400";
-  return "text-[#cbd5e1]";
-}
-
 export default async function AdminTasksPage({ searchParams }: PageProps) {
-  const { userId } = await requireAdminPage("viewer");
+  const { userId, role } = await requireAdminPage("viewer");
   const params = await searchParams;
   const page = Math.max(1, Number(params.page ?? "1"));
 
@@ -71,6 +64,7 @@ export default async function AdminTasksPage({ searchParams }: PageProps) {
   });
 
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
+  const canWrite = role === "operator" || role === "superadmin";
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -89,63 +83,7 @@ export default async function AdminTasksPage({ searchParams }: PageProps) {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-[#2d3348] bg-[#151923]">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-[#1a1f2e] text-[#64748b]">
-              <tr>
-                <th className="px-4 py-3 font-medium">Task</th>
-                <th className="px-4 py-3 font-medium">User</th>
-                <th className="px-4 py-3 font-medium">Business</th>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">Priority</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.tasks.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-[#64748b]">
-                    No tasks match these filters.
-                  </td>
-                </tr>
-              ) : (
-                result.tasks.map((task) => (
-                  <tr key={task.id} className="border-t border-[#2d3348]/60 hover:bg-[#1a1f2e]/60">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-white">{task.title}</p>
-                      {task.result ? (
-                        <p className="mt-1 max-w-xs truncate text-xs text-red-400">{task.result}</p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/users/${task.userId}`}
-                        className="text-[#cbd5e1] hover:text-[#a5b4fc]"
-                      >
-                        {task.userName || task.userEmail || task.userId}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/businesses/${task.businessId}`}
-                        className="text-[#94a3b8] hover:text-[#a5b4fc]"
-                      >
-                        {task.businessName}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-[#94a3b8]">{task.taskType}</td>
-                    <td className="px-4 py-3 text-[#cbd5e1]">{task.priority}</td>
-                    <td className={`px-4 py-3 font-medium ${statusClass(task.status)}`}>
-                      {task.status.replaceAll("_", " ")}
-                    </td>
-                    <td className="px-4 py-3 text-[#64748b]">{formatRelativeDate(task.createdAt)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <AdminTaskTable tasks={result.tasks} canWrite={canWrite} />
 
         {totalPages > 1 ? (
           <div className="flex items-center justify-between border-t border-[#2d3348] px-4 py-3 text-sm">

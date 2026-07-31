@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ActivityFeed from "@/components/admin/ActivityFeed";
 import AlertFeed from "@/components/admin/AlertFeed";
 import { KpiCard } from "@/components/admin/AdminBadges";
 import SegmentPills from "@/components/admin/SegmentPills";
+import { listRecentAdminActivity } from "@/lib/admin/audit-log";
 import { getAdminDashboardData } from "@/lib/admin/overview";
 import { logAdminAction, requireAdminPage } from "@/lib/admin/auth";
 import { getAllUserSummaries, listAdminUsers } from "@/lib/admin/users";
@@ -18,10 +20,11 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminCommandCenterPage() {
   const { userId } = await requireAdminPage("viewer");
-  const [dashboard, allUsers, attentionUsers] = await Promise.all([
+  const [dashboard, allUsers, attentionUsers, activity] = await Promise.all([
     getAdminDashboardData(),
     getAllUserSummaries(),
     listAdminUsers({ segment: "needs_attention", pageSize: 5 }),
+    listRecentAdminActivity(15),
   ]);
   const { overview, alerts } = dashboard;
 
@@ -111,63 +114,73 @@ export default async function AdminCommandCenterPage() {
         </section>
 
         <section className="rounded-xl border border-[#2d3348] bg-[#151923] p-6">
-          <h2 className="text-lg font-semibold text-white">Grade distribution</h2>
-          <div className="mt-4 space-y-3">
-            {(["healthy", "at_risk", "urgent"] as HealthGrade[]).map((grade) => {
-              const count = overview.gradeDistribution[grade];
-              const pct =
-                overview.totalUsers > 0 ? Math.round((count / overview.totalUsers) * 100) : 0;
-              return (
-                <div key={grade}>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-[#cbd5e1]">{gradeLabel(grade)}</span>
-                    <span className="text-[#94a3b8]">
-                      {count} ({pct}%)
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-[#1e2433]">
-                    <div
-                      className={`h-full rounded-full ${
-                        grade === "healthy"
-                          ? "bg-emerald-500"
-                          : grade === "at_risk"
-                            ? "bg-amber-500"
-                            : "bg-red-500"
-                      }`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h2 className="text-lg font-semibold text-white">Activity feed</h2>
+            <Link href="/admin/audit-log" className="text-sm text-[#818cf8] hover:text-[#a5b4fc]">
+              Full audit log →
+            </Link>
           </div>
-
-          <div className="mt-8 border-t border-[#2d3348] pt-6">
-            <div className="flex items-center justify-between gap-4">
-              <h3 className="text-sm font-semibold text-white">Nightly ingest</h3>
-              <Link href="/admin/operations" className="text-xs text-[#818cf8] hover:text-[#a5b4fc]">
-                View operations →
-              </Link>
-            </div>
-            {overview.lastIngest ? (
-              <dl className="mt-3 space-y-2 text-sm">
-                <div className="flex justify-between gap-4">
-                  <dt className="text-[#94a3b8]">Status</dt>
-                  <dd className="font-medium text-white">{overview.lastIngest.status}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-[#94a3b8]">Errors</dt>
-                  <dd className={overview.lastIngest.errorCount > 0 ? "text-red-400" : "text-emerald-400"}>
-                    {overview.lastIngest.errorCount}
-                  </dd>
-                </div>
-              </dl>
-            ) : (
-              <p className="mt-3 text-sm text-[#64748b]">No ingest runs recorded yet.</p>
-            )}
-          </div>
+          <ActivityFeed entries={activity} />
         </section>
       </div>
+
+      <section className="mt-8 rounded-xl border border-[#2d3348] bg-[#151923] p-6">
+        <h2 className="text-lg font-semibold text-white">Grade distribution</h2>
+        <div className="mt-4 space-y-3">
+          {(["healthy", "at_risk", "urgent"] as HealthGrade[]).map((grade) => {
+            const count = overview.gradeDistribution[grade];
+            const pct =
+              overview.totalUsers > 0 ? Math.round((count / overview.totalUsers) * 100) : 0;
+            return (
+              <div key={grade}>
+                <div className="mb-1 flex items-center justify-between text-sm">
+                  <span className="text-[#cbd5e1]">{gradeLabel(grade)}</span>
+                  <span className="text-[#94a3b8]">
+                    {count} ({pct}%)
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-[#1e2433]">
+                  <div
+                    className={`h-full rounded-full ${
+                      grade === "healthy"
+                        ? "bg-emerald-500"
+                        : grade === "at_risk"
+                          ? "bg-amber-500"
+                          : "bg-red-500"
+                    }`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-8 border-t border-[#2d3348] pt-6">
+          <div className="flex items-center justify-between gap-4">
+            <h3 className="text-sm font-semibold text-white">Nightly ingest</h3>
+            <Link href="/admin/operations" className="text-xs text-[#818cf8] hover:text-[#a5b4fc]">
+              View operations →
+            </Link>
+          </div>
+          {overview.lastIngest ? (
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#94a3b8]">Status</dt>
+                <dd className="font-medium text-white">{overview.lastIngest.status}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#94a3b8]">Errors</dt>
+                <dd className={overview.lastIngest.errorCount > 0 ? "text-red-400" : "text-emerald-400"}>
+                  {overview.lastIngest.errorCount}
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="mt-3 text-sm text-[#64748b]">No ingest runs recorded yet.</p>
+          )}
+        </div>
+      </section>
 
       <section className="mt-8 rounded-xl border border-[#2d3348] bg-[#151923] p-6">
         <div className="mb-4 flex items-center justify-between gap-4">

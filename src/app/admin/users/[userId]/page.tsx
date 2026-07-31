@@ -9,6 +9,7 @@ import {
   StatusBadge,
 } from "@/components/admin/AdminBadges";
 import AdminNotesPanel from "@/components/admin/AdminNotesPanel";
+import InterventionPlaybook from "@/components/admin/InterventionPlaybook";
 import { ChurnRiskBadge, HealthIndexBadge } from "@/components/admin/IntelligenceBadges";
 import ViewAsUserButton from "@/components/admin/ViewAsUserButton";
 import { logAdminAction, requireAdminPage } from "@/lib/admin/auth";
@@ -120,6 +121,16 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         <InfoItem label="Joined" value={new Date(user.createdAt).toLocaleDateString()} />
         <InfoItem label="7d score delta" value={<DeltaBadge delta={user.scoreDelta7d} />} />
       </div>
+
+      {(canWrite && (user.churnRiskLevel !== "low" || user.pendingTasks > 0)) ? (
+        <section className="mt-10">
+          <InterventionPlaybook
+            userId={user.userId}
+            pendingTasks={user.pendingTasks}
+            canWrite={canWrite}
+          />
+        </section>
+      ) : null}
 
       <section className="mt-10">
         <h2 className="text-lg font-semibold text-white">Businesses</h2>
