@@ -8,7 +8,10 @@ import {
   KpiCard,
   StatusBadge,
 } from "@/components/admin/AdminBadges";
+import AdminNotesPanel from "@/components/admin/AdminNotesPanel";
+import ViewAsUserButton from "@/components/admin/ViewAsUserButton";
 import { logAdminAction, requireAdminPage } from "@/lib/admin/auth";
+import { listAdminNotes } from "@/lib/admin/notes";
 import { getAdminUserDetail } from "@/lib/admin/users";
 
 export const metadata: Metadata = {
@@ -23,13 +26,16 @@ interface PageProps {
 }
 
 export default async function AdminUserDetailPage({ params }: PageProps) {
-  const { userId: adminUserId } = await requireAdminPage("viewer");
+  const { userId: adminUserId, role } = await requireAdminPage("viewer");
   const { userId } = await params;
-  const user = await getAdminUserDetail(userId);
+  const [user, notes] = await Promise.all([getAdminUserDetail(userId), listAdminNotes(userId)]);
 
   if (!user) {
     notFound();
   }
+
+  const canWrite = role === "operator" || role === "superadmin";
+  const canImpersonate = canWrite;
 
   await logAdminAction({
     adminUserId,
@@ -53,6 +59,12 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         </div>
         <StatusBadge status={user.status} />
       </div>
+
+      {canImpersonate ? (
+        <div className="mt-4">
+          <ViewAsUserButton userId={user.userId} />
+        </div>
+      ) : null}
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Reputation Boost Score" value={user.avgScore ?? "—"} />
@@ -89,7 +101,12 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="font-semibold text-white">{business.name}</h3>
+                    <Link
+                      href={`/admin/businesses/${business.id}`}
+                      className="font-semibold text-white hover:text-[#a5b4fc]"
+                    >
+                      {business.name}
+                    </Link>
                     <p className="text-sm text-[#94a3b8]">
                       {business.industry}
                       {business.location ? ` · ${business.location}` : ""}
@@ -129,6 +146,15 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                     <dd className="text-[#94a3b8]">{formatRelativeDate(business.lastAuditAt)}</dd>
                   </div>
                 </dl>
+                {canImpersonate ? (
+                  <div className="mt-4">
+                    <ViewAsUserButton
+                      userId={user.userId}
+                      businessId={business.id}
+                      label="View this location"
+                    />
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
@@ -170,6 +196,10 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
           </div>
         )}
       </section>
+
+      <div className="mt-10">
+        <AdminNotesPanel userId={user.userId} notes={notes} canWrite={canWrite} />
+      </div>
     </div>
   );
 }

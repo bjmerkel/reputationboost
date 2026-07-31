@@ -9,7 +9,7 @@ import { CUSTOMERS_TABS, parseCustomersTab } from "@/lib/customers/tabs";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 import { isResendConfigured } from "@/lib/email/resend";
 import { isTwilioConfigured } from "@/lib/sms/twilio";
-import { getUser } from "@/lib/supabase/server";
+import { getPlatformViewerContext } from "@/lib/admin/platform-context";
 
 export const metadata: Metadata = {
   title: "Customers | Reputation Boost",
@@ -21,11 +21,14 @@ interface PageProps {
 }
 
 export default async function CustomersPage({ searchParams }: PageProps) {
-  const user = await getUser();
-  if (!user) redirect("/login?next=/platform/customers");
+  const ctx = await getPlatformViewerContext();
+  if (!ctx) redirect("/login?next=/platform/customers");
 
   const params = await searchParams;
-  const business = await getActiveBusiness(user.id, params.businessId);
+  const business = await getActiveBusiness(
+    ctx.viewerUserId,
+    params.businessId ?? ctx.impersonationBusinessId ?? undefined
+  );
   if (!business) {
     redirect("/platform/onboard");
   }
