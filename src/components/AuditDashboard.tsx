@@ -33,6 +33,7 @@ import { useScoreHistory } from "@/hooks/useScoreHistory";
 import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 import { resolveScoreCalculatedAt } from "@/lib/scores/format-score-date";
 import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
+import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
 
 const RankingMap = dynamic(() => import("@/components/platform/RankingMap"), {
   ssr: false,
@@ -180,6 +181,30 @@ export default function AuditDashboard({
       applyAudit(applyTrackedKeywordsToAudit(audit, nextKeywords) as FullAuditPayload);
     },
     [audit, applyAudit]
+  );
+
+  const batchReviewEditorContext = useMemo(
+    () =>
+      audit
+        ? {
+            attributeCoverage: audit.gbp.attributeCoverage,
+            mediaCoverage: audit.gbp.content.mediaCoverage,
+            placeActionCoverage: audit.gbp.placeActions,
+            placeActionLinks: audit.gbp.placeActionLinks,
+            businessName: audit.clientName ?? businessName,
+            businessPhone: audit.gbp.identity.phone,
+            businessWebsite: audit.gbp.identity.website,
+            reviewUrl: googleReviewUrlForBusiness({
+              placeId: audit.gbp.identity.placeId,
+              mapsUrl: audit.gbp.identity.mapsUrl,
+              name: audit.clientName ?? businessName,
+              address: audit.gbp.identity.address,
+            }),
+            businessId: businessId ?? null,
+            initialFocusKeyword: focusPlanKeyword,
+          }
+        : {},
+    [audit, businessId, businessName, focusPlanKeyword]
   );
 
   const openBatchReview = useCallback(() => {
@@ -731,9 +756,7 @@ export default function AuditDashboard({
         initialTasks={tasks}
         attributionByTaskId={attributionData.attributionByTaskId}
         sharedPlanTasks={planTasks}
-        attributeCoverage={audit.gbp.attributeCoverage}
-        businessPhone={audit.gbp.identity.phone}
-        businessWebsite={audit.gbp.identity.website}
+        editorContext={batchReviewEditorContext}
       />
 
       {view !== "audit" && (

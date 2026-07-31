@@ -1,18 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ExecutionTask, GbpAttributeCoverage } from "@/audit/types";
+import type { ExecutionTask } from "@/audit/types";
 import type { ActionAttribution } from "@/audit/types/timeseries";
-import { resolvePlanStepNumber } from "@/audit/phase3/plan-task-utils";
 import { usePlanTasks, type PlanTasksState } from "@/hooks/usePlanTasks";
 import { pendingBatchTasks, pendingRoutineTasks } from "@/lib/execution/pending-tasks";
-import { normalizeTextContent } from "@/lib/llm/normalize-content";
-import MediaTaskThumbnail, { isMediaMaintenanceTask } from "./MediaTaskThumbnail";
-import PlanStepAttributes from "./PlanStepAttributes";
-import PlanStepHours from "./PlanStepHours";
-import ReviewResponseKeywordHints, {
-  reviewResponseCanSuggestWeave,
-} from "./ReviewResponseKeywordHints";
+import PlanBatchTaskEditor, { type PlanBatchTaskEditorContext } from "./PlanBatchTaskEditor";
 
 export default function BatchReviewSession({
   open,
@@ -23,9 +16,7 @@ export default function BatchReviewSession({
   initialTasks,
   attributionByTaskId = {},
   sharedPlanTasks,
-  attributeCoverage,
-  businessPhone,
-  businessWebsite,
+  editorContext = {},
 }: {
   open: boolean;
   onClose: () => void;
@@ -35,9 +26,7 @@ export default function BatchReviewSession({
   initialTasks: ExecutionTask[];
   attributionByTaskId?: Record<string, ActionAttribution>;
   sharedPlanTasks?: PlanTasksState;
-  attributeCoverage?: GbpAttributeCoverage;
-  businessPhone?: string;
-  businessWebsite?: string;
+  editorContext?: PlanBatchTaskEditorContext;
 }) {
   const internalPlanTasks = usePlanTasks({
     clientId,
@@ -45,6 +34,7 @@ export default function BatchReviewSession({
     initialTasks,
     enabled: open && !sharedPlanTasks,
   });
+  const planTasks = sharedPlanTasks ?? internalPlanTasks;
   const {
     tasks,
     loadingTaskId,
@@ -52,14 +42,22 @@ export default function BatchReviewSession({
     approveAndPublish,
     rejectTask,
     updateDraft,
+    checkEditStatus,
     publishPhoto,
     uploadPhotoFile,
+    uploadVideoFile,
+    uploadPhotoBatch,
     savePhotoPreview,
     ensurePhotoTasks,
     approveAllRoutine,
     regenerateReviewResponse,
+    cancelScheduledPost,
+    rescheduleGooglePost,
+    syncGoogleUpdates,
+    reconcilePlanNow,
+    reconciling,
     refresh,
-  } = sharedPlanTasks ?? internalPlanTasks;
+  } = planTasks;
 
   const [index, setIndex] = useState(0);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -101,36 +99,54 @@ export default function BatchReviewSession({
         options?: { draftContent?: string; retry?: boolean; payload?: Record<string, unknown> }
       ) => {
         await approveAndPublish(task, options);
-        advance();
+        await advance();
       },
       rejectTask: async (taskId: string) => {
         await rejectTask(taskId);
-        advance();
+        await advance();
       },
       updateDraft,
+      checkEditStatus,
       publishPhoto: async (task: ExecutionTask, preview?: string) => {
         await publishPhoto(task, preview);
-        advance();
+        await advance();
       },
       uploadPhotoFile,
+      uploadVideoFile,
+      uploadPhotoBatch,
       savePhotoPreview,
       ensurePhotoTasks,
       approveAllRoutine,
       regenerateReviewResponse,
+      cancelScheduledPost,
+      rescheduleGooglePost,
+      syncGoogleUpdates,
+      reconcilePlanNow,
+      refresh,
       loadingTaskId,
+      reconciling,
       error,
     }),
     [
       approveAndPublish,
       rejectTask,
       updateDraft,
+      checkEditStatus,
       publishPhoto,
       uploadPhotoFile,
+      uploadVideoFile,
+      uploadPhotoBatch,
       savePhotoPreview,
       ensurePhotoTasks,
       approveAllRoutine,
       regenerateReviewResponse,
+      cancelScheduledPost,
+      rescheduleGooglePost,
+      syncGoogleUpdates,
+      reconcilePlanNow,
+      refresh,
       loadingTaskId,
+      reconciling,
       error,
       advance,
     ]
@@ -146,16 +162,12 @@ export default function BatchReviewSession({
     }
   }
 
-  const usesInlineEditor =
-    current?.type === "gbp_hours" ||
-    (current?.type === "gbp_attributes" && attributeTaskUsesInlineEditor(current));
-
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
       <div
-        className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="batch-review-title"
@@ -187,97 +199,18 @@ export default function BatchReviewSession({
               Nothing ready to review right now. Check your Plan for photo tasks still generating.
             </p>
           ) : current ? (
-            current.type === "gbp_hours" ? (
-              <PlanStepHours task={current} gbpConnected={gbpConnected} actions={actions} />
-            ) : current.type === "gbp_attributes" && attributeTaskUsesInlineEditor(current) ? (
-              <div className="space-y-3">
-                <BatchReviewItemHeader task={current} />
-                <PlanStepAttributes
-                  task={current}
-                  gbpConnected={gbpConnected}
-                  actions={actions}
-                  coverage={attributeCoverage}
-                  businessPhone={businessPhone}
-                  businessWebsite={businessWebsite}
-                />
-              </div>
-            ) : (
-              <BatchReviewItem
-                task={current}
-                gbpConnected={gbpConnected}
-                loading={loadingTaskId === current.id}
-                onSuggestKeywordWeave={
-                  current.type === "review_response"
-                    ? () => void regenerateReviewResponse(current, { weaveKeyword: true })
-                    : undefined
-                }
-              />
-            )
+            <PlanBatchTaskEditor
+              task={current}
+              gbpConnected={gbpConnected}
+              actions={actions}
+              attribution={attributionByTaskId[current.id]}
+              context={editorContext}
+              onTaskCompleted={() => void advance()}
+            />
           ) : null}
 
           {error && <p className="mt-3 text-sm text-[#d93025]">{error}</p>}
         </div>
-
-        {pending.length > 0 && current && !usesInlineEditor && (
-          <footer className="space-y-3 border-t border-[#e8eaed] px-5 py-4">
-            {current.type === "gbp_photo" && typeof current.payload.previewDataUrl === "string" && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={String(current.payload.previewDataUrl)}
-                alt=""
-                className="mb-3 aspect-[3/2] w-full rounded-lg object-cover"
-              />
-            )}
-            {isMediaMaintenanceTask(current) && (
-              <div className="mb-3">
-                <MediaTaskThumbnail
-                  task={current}
-                  className="aspect-[3/2] w-full rounded-lg object-cover"
-                />
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {current.type === "review_response" && reviewResponseCanSuggestWeave(current) && (
-                  <button
-                    type="button"
-                    disabled={loadingTaskId === current.id}
-                    onClick={() => void regenerateReviewResponse(current, { weaveKeyword: true })}
-                    className="rounded-full border border-[#dadce0] px-5 py-2 text-sm font-medium text-[#1a73e8] hover:bg-[#f8f9fa] disabled:opacity-50"
-                  >
-                    {loadingTaskId === current.id ? "Regenerating…" : "Suggest keyword weave"}
-                  </button>
-                )}
-              {current.type !== "gbp_photo" && gbpConnected && (
-                <button
-                  type="button"
-                  disabled={loadingTaskId === current.id}
-                  onClick={() => void actions.approveAndPublish(current)}
-                  className="btn-primary rounded-full px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  {loadingTaskId === current.id ? "Publishing…" : "Approve & publish"}
-                </button>
-              )}
-              {current.type === "gbp_photo" && gbpConnected && (
-                <button
-                  type="button"
-                  disabled={loadingTaskId === current.id}
-                  onClick={() => void actions.approveAndPublish(current)}
-                  className="btn-primary rounded-full px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  {loadingTaskId === current.id ? "Uploading…" : "Approve & publish"}
-                </button>
-              )}
-              <button
-                type="button"
-                disabled={loadingTaskId === current.id}
-                onClick={() => void actions.rejectTask(current.id)}
-                className="rounded-full px-5 py-2 text-sm font-medium text-[#5f6368] hover:bg-[#f1f3f4] disabled:opacity-50"
-              >
-                Skip
-              </button>
-            </div>
-          </footer>
-        )}
 
         {routineCount > 1 && (
           <div className="border-t border-[#e8eaed] px-5 py-3">
@@ -294,62 +227,6 @@ export default function BatchReviewSession({
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function attributeTaskUsesInlineEditor(task: ExecutionTask): boolean {
-  if (task.payload.requiresUriInput === true) return true;
-  const attributes = task.payload.attributes;
-  return Array.isArray(attributes) && attributes.length > 0;
-}
-
-function BatchReviewItemHeader({ task }: { task: ExecutionTask }) {
-  const stepNumber = resolvePlanStepNumber(task);
-
-  return (
-    <>
-      {stepNumber != null && (
-        <p className="text-xs font-medium text-[#80868b]">
-          From plan step {stepNumber}
-          {typeof task.payload.gbpStepTitle === "string"
-            ? ` — ${task.payload.gbpStepTitle}`
-            : ""}
-        </p>
-      )}
-      <h3 className="text-base font-semibold text-[#202124]">{task.title}</h3>
-    </>
-  );
-}
-
-function BatchReviewItem({
-  task,
-  gbpConnected,
-  loading = false,
-  onSuggestKeywordWeave,
-}: {
-  task: ExecutionTask;
-  gbpConnected: boolean;
-  loading?: boolean;
-  onSuggestKeywordWeave?: () => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <BatchReviewItemHeader task={task} />
-      <ReviewResponseKeywordHints
-        task={task}
-        loading={loading}
-        onSuggestWeave={onSuggestKeywordWeave}
-      />
-      {isMediaMaintenanceTask(task) && <MediaTaskThumbnail task={task} />}
-      {task.type !== "gbp_photo" && (
-        <p className="whitespace-pre-wrap rounded-lg bg-[#f8f9fa] p-3 text-sm text-[#3c4043]">
-          {normalizeTextContent(task.draftContent)}
-        </p>
-      )}
-      {!gbpConnected && (
-        <p className="text-xs text-[#80868b]">Connect Google Business Profile to publish.</p>
-      )}
     </div>
   );
 }
