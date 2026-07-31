@@ -685,3 +685,15 @@ body {
 .google-maps-shell {
   background: #e8eaed;
 }
+
+/* ─── Admin: internal operations dashboard ─────────────────────────────────── */
+.admin-theme {
+  --background: #0f1117;
+  --foreground: #f8fafc;
+  --muted: #94a3b8;
+  --accent: #6366f1;
+  --card: #151923;
+  --card-border: #2d3348;
+  background: var(--background);
+  color: var(--foreground);
+}
