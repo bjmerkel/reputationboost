@@ -34,7 +34,7 @@ describe("zapier-embed", () => {
   it("returns tool-specific setup URLs without template env vars", () => {
     const config = getZapierEmbedConfig("https://example.com/webhook?token=wb_x");
     assert.equal(config.enabled, false);
-    assert.equal(config.templates.length, 4);
+    assert.equal(config.templates.length, 5);
     assert.match(config.createZapUrl, /webintent\/create-zap/);
 
     const jobber = config.templates.find((t) => t.id === "jobber-job-completed");
@@ -44,6 +44,10 @@ describe("zapier-embed", () => {
     const podium = config.templates.find((t) => t.id === "podium-invoice-paid");
     assert.match(podium?.createUrl ?? "", /podium\/integrations\/reputation-boost/);
     assert.equal(podium?.embedUrl, null);
+
+    const sheets = config.templates.find((t) => t.id === "google-sheets-new-row");
+    assert.match(sheets?.createUrl ?? "", /google-sheets\/integrations\/reputation-boost/);
+    assert.equal(sheets?.embedUrl, null);
   });
 
   it("includes embed iframe URL when template env vars are present", () => {

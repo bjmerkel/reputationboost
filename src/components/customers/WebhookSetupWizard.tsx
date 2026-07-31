@@ -80,6 +80,7 @@ const TOOL_ICONS: Record<string, string> = {
   "hcp-job-completed": "🏠",
   "square-payment-received": "💳",
   "podium-invoice-paid": "💬",
+  "google-sheets-new-row": "📊",
   custom: "⚡",
 };
 
@@ -93,6 +94,8 @@ function getTriggerLabel(template: ZapierTemplate): string {
       return "New Payment";
     case "podium-invoice-paid":
       return "New Paid Invoice";
+    case "google-sheets-new-row":
+      return "New Spreadsheet Row";
     default:
       return "your trigger event";
   }
@@ -126,6 +129,16 @@ function getNativeZapierSteps(template: ZapierTemplate): string[] {
     ];
   }
 
+  if (template.id === "google-sheets-new-row") {
+    return [
+      `Click "Set up in Zapier" below — your webhook URL is copied automatically.`,
+      `Set Google Sheets → ${triggerLabel} as the trigger and pick your spreadsheet.`,
+      "Use a header row with columns like Phone, Email, Name, Service, Address, City, and Zip — map each column to the matching Reputation Boost field.",
+      `Add Reputation Boost → ${actionName}, paste your webhook URL, and map phone or email, name, service, and address fields from the row.`,
+      "Add a test row to your sheet, test the Zap, then turn it on.",
+    ];
+  }
+
   return [
     `Click "Set up in Zapier" below — your webhook URL is copied automatically.`,
     `In Zapier, set ${toolName} → ${triggerLabel} as the trigger.`,
@@ -145,7 +158,9 @@ function getManualZapierSteps(template: ZapierTemplate, webhookUrl: string): str
           ? "Use Square → New Payment as the trigger. Map buyer phone or email into phone/email, customer name into name, payment note or order line into service, and amount into amount."
           : template.id === "podium-invoice-paid"
             ? "Use Podium → New Paid Invoice as the trigger. Map contact phone or email into phone/email, contact name into name, invoice line or description into service, and amount into amount."
-            : "Map customer phone, email, name, and job or service description into the matching JSON fields.";
+            : template.id === "google-sheets-new-row"
+              ? "Use Google Sheets → New Spreadsheet Row as the trigger. Map spreadsheet columns into phone, email, firstName/lastName or name, service, jobAddress, jobCity, jobZip, and amount."
+              : "Map customer phone, email, name, and job or service description into the matching JSON fields.";
 
   return [
     `Open the ${template.label.split("—")[0]?.trim() ?? "integration"} template in Zapier (button below).`,
@@ -200,6 +215,23 @@ function buildSamplePayload(
       jobAddress: "123 Oak Street",
       jobCity: "Maple Grove",
       jobZip: "55311",
+    };
+  }
+  if (template.id === "google-sheets-new-row") {
+    return {
+      ...base,
+      event: "job.completed",
+      source: "google_sheets",
+      phone: "2145550100",
+      email: "jane@example.com",
+      firstName: "Jane",
+      lastName: "Doe",
+      service: "ac repair",
+      jobAddress: "123 Oak Street",
+      jobCity: "Maple Grove",
+      jobZip: "55311",
+      amount: 350,
+      currency: "USD",
     };
   }
   return {
@@ -385,7 +417,7 @@ export default function WebhookSetupWizard() {
           <div>
             <h2 className="text-lg font-bold text-[#202124]">Connect your field service tool</h2>
             <p className="mt-1 max-w-2xl text-sm text-[#5f6368]">
-              A guided setup for Jobber, Housecall Pro, Square, Podium, or any tool via Zapier/Make.
+              A guided setup for Jobber, Housecall Pro, Square, Podium, Google Sheets, or any tool via Zapier/Make.
               We&apos;ll walk you through copying your webhook URL and wiring up review requests.
             </p>
           </div>
