@@ -22,13 +22,7 @@ function getWeekStart(date = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
-function parseBootstrapEmails(): string[] {
-  const raw = process.env.ADMIN_BOOTSTRAP_EMAILS ?? "";
-  return raw
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-}
+import { getGodModeEmails } from "@/lib/admin/auth-role";
 
 export async function getAdminDigestRecipients(): Promise<string[]> {
   const supabase = createAdminClient();
@@ -37,7 +31,7 @@ export async function getAdminDigestRecipients(): Promise<string[]> {
     .select("user_id, role")
     .in("role", ["operator", "superadmin"]);
 
-  const emails = new Set<string>(parseBootstrapEmails());
+  const emails = new Set<string>([...getGodModeEmails()]);
 
   if (!error && data && data.length > 0) {
     const userIds = data.map((row) => row.user_id as string);

@@ -4,14 +4,15 @@ import AdminNav from "@/components/admin/AdminNav";
 import { requireAdminPage } from "@/lib/admin/auth";
 import type { AdminRole } from "@/lib/admin/types";
 
-function roleLabel(role: AdminRole): string {
+function roleLabel(role: AdminRole, isGodMode: boolean): string {
+  if (isGodMode) return "God mode";
   if (role === "superadmin") return "Superadmin";
   if (role === "operator") return "Operator";
   return "Viewer";
 }
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { email, role } = await requireAdminPage("viewer");
+  const { email, role, isGodMode } = await requireAdminPage("viewer");
 
   return (
     <div className="admin-theme flex min-h-dvh flex-col">
@@ -24,11 +25,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 Admin
               </span>
             </Link>
-            <AdminNav />
+            <AdminNav showTeamLink={isGodMode} />
           </div>
           <div className="flex shrink-0 items-center gap-4">
-            <span className="hidden rounded-full border border-[#334155] bg-[#1e2433] px-2.5 py-1 text-xs font-medium text-[#94a3b8] sm:inline">
-              {roleLabel(role)}
+            <span
+              className={`hidden rounded-full border px-2.5 py-1 text-xs font-medium sm:inline ${
+                isGodMode
+                  ? "border-violet-500/30 bg-violet-500/15 text-violet-300"
+                  : "border-[#334155] bg-[#1e2433] text-[#94a3b8]"
+              }`}
+            >
+              {roleLabel(role, isGodMode)}
             </span>
             <span className="hidden text-sm text-[#64748b] md:inline">{email}</span>
             <Link

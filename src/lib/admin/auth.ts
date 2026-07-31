@@ -1,16 +1,17 @@
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAdminRole, ROLE_RANK } from "@/lib/admin/auth-role";
+import { getAdminRole, isGodModeEmail, ROLE_RANK } from "@/lib/admin/auth-role";
 import { getSessionUser } from "@/lib/supabase/server";
 import type { AdminRole } from "@/lib/admin/types";
 
-export { getAdminRole, canManageOnBehalf, ROLE_RANK } from "@/lib/admin/auth-role";
+export { getAdminRole, canManageOnBehalf, canManageAdminTeam, isGodModeEmail, ROLE_RANK } from "@/lib/admin/auth-role";
 
 export async function requireAdminPage(minRole: AdminRole = "viewer"): Promise<{
   userId: string;
   email: string | null;
   role: AdminRole;
+  isGodMode: boolean;
 }> {
   const user = await getSessionUser();
   if (!user) {
@@ -22,7 +23,20 @@ export async function requireAdminPage(minRole: AdminRole = "viewer"): Promise<{
     redirect("/platform/audit");
   }
 
-  return { userId: user.id, email: user.email ?? null, role };
+  return { userId: user.id, email: user.email ?? null, role, isGodMode: isGodModeEmail(user.email) };
+}
+
+export async function requireGodModePage(): Promise<{
+  userId: string;
+  email: string | null;
+  role: AdminRole;
+  isGodMode: true;
+}> {
+  const session = await requireAdminPage("superadmin");
+  if (!session.isGodMode) {
+    redirect("/admin");
+  }
+  return { ...session, isGodMode: true };
 }
 
 export async function requireAdminApi(minRole: AdminRole = "viewer") {
@@ -36,7 +50,16 @@ export async function requireAdminApi(minRole: AdminRole = "viewer") {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
-  return { user, role };
+  return { user, role, isGodMode: isGodModeEmail(user.email) };
+}
+
+export async function requireGodModeApi() {
+  const auth = await requireAdminApi("superadmin");
+  if (auth.error) return auth;
+  if (!auth.isGodMode) {
+    return { error: NextResponse.json({ error: "God mode required" }, { status: 403 }) };
+  }
+  return auth;
 }
 
 export async function logAdminAction(input: {
