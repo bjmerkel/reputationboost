@@ -37,6 +37,7 @@ import {
   routeCustomerGeoReview,
 } from "@/lib/review-velocity/resolve-geo-routing";
 import { googleReviewUrlForBusiness } from "@/lib/sms/review-link";
+import { personalizeReviewRequestSms } from "@/lib/sms/personalize";
 import { normalizePhoneE164 } from "@/lib/sms/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 
