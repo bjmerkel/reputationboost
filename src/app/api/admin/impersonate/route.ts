@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
   await logAdminAction({
     adminUserId: auth.user.id,
-    action: "start_impersonation",
+    action: "start_manage_as_user",
     targetType: "user",
     targetId: userId,
     metadata: { businessId },

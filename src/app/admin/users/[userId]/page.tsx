@@ -62,7 +62,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
 
       {canImpersonate ? (
         <div className="mt-4">
-          <ViewAsUserButton userId={user.userId} />
+          <ViewAsUserButton userId={user.userId} label="Manage as user" />
         </div>
       ) : null}
 
@@ -151,7 +151,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                     <ViewAsUserButton
                       userId={user.userId}
                       businessId={business.id}
-                      label="View this location"
+                      label="Manage this location"
                     />
                   </div>
                 ) : null}

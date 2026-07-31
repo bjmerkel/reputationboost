@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { IMPERSONATE_COOKIE } from "@/lib/admin/impersonate";
+import { canManageOnBehalf, getAdminRole } from "@/lib/admin/auth-role";
+import { IMPERSONATE_COOKIE, readImpersonationFromRequest } from "@/lib/admin/impersonate";
 
 const PROTECTED_PREFIXES = [
   "/admin",
@@ -60,14 +61,19 @@ export async function updateSession(request: NextRequest) {
   const isLogin = pathname === "/login";
   const isPasswordReset = pathname.startsWith("/login/reset-password");
 
-  const impersonating = Boolean(request.cookies.get(IMPERSONATE_COOKIE)?.value);
+  const impersonation = user
+    ? readImpersonationFromRequest(user.id, request.cookies.get(IMPERSONATE_COOKIE)?.value)
+    : null;
   if (
-    impersonating &&
+    impersonation &&
     !["GET", "HEAD", "OPTIONS"].includes(request.method) &&
     pathname.startsWith("/api/") &&
     !pathname.startsWith("/api/admin/")
   ) {
-    return NextResponse.json({ error: "Read-only impersonation mode" }, { status: 403 });
+    const role = await getAdminRole(user!.id, user!.email);
+    if (!canManageOnBehalf(role)) {
+      return NextResponse.json({ error: "Read-only impersonation mode" }, { status: 403 });
+    }
   }
 
   if (!user && isProtected) {

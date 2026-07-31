@@ -68,7 +68,7 @@ export default async function AdminBusinessDetailPage({ params }: PageProps) {
             <ViewAsUserButton
               userId={business.userId}
               businessId={business.id}
-              label="View as user"
+              label="Manage as user"
             />
           ) : null}
         </div>
