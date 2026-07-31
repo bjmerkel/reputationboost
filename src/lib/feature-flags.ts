@@ -32,6 +32,14 @@ export const MARKET_DATA_FLAGS = {
   rankPulseDaysUtc: [1, 15] as readonly number[],
 } as const;
 
+/** Nightly ingest guardrails for serverless timeouts. */
+export const INGEST_DAILY_FLAGS = {
+  /** Stop before the platform limit and optionally chain another invocation. */
+  timeBudgetMs: 4 * 60 * 1000,
+  /** When true, a partial run triggers a follow-up HTTP invocation. */
+  chainOnPartial: true,
+} as const;
+
 export const MARKET_REFRESH_FLAGS = {
   manualCooldownDays: 7,
   eventDelayDays: 5,

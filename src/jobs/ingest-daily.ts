@@ -1,10 +1,6 @@
 import { listOnboardedBusinesses } from "@/audit/businesses-admin";
 import { recomputeAttributionsForBusiness } from "@/audit/attribution";
-import { buildAndPersistLiveAuditForBusiness } from "@/audit/live-audit";
-import {
-  backfillScoreDailyForBusiness,
-  ingestScoreDailyForBusiness,
-} from "@/audit/phase2/score-ingest";
+import { persistNightlyScoreAndAuditForBusiness } from "@/audit/phase2/score-ingest";
 import { runRankPulseForBusiness } from "@/audit/market/rank-pulse";
 import { reconcilePlanForBusiness } from "@/audit/phase3/reconcile-plan";
 import { refreshGlobalScoreCalibration } from "@/audit/storage-calibration-global";
@@ -19,7 +15,12 @@ import {
   upsertPerformanceDaily,
 } from "@/audit/storage-timeseries";
 import type { DailyMetricPoint, IngestRunResult } from "@/audit/types/timeseries";
-import { MARKET_DATA_FLAGS, PLAN_RECONCILE_FLAGS, AUTOPILOT_FLAGS } from "@/lib/feature-flags";
+import {
+  INGEST_DAILY_FLAGS,
+  MARKET_DATA_FLAGS,
+  PLAN_RECONCILE_FLAGS,
+  AUTOPILOT_FLAGS,
+} from "@/lib/feature-flags";
 import { fetchGbpPerformanceDailySeries } from "@/lib/google/gbp-performance";
 import { getValidGbpConnectionForRecord } from "@/lib/google/token-store";
 
@@ -45,10 +46,31 @@ export interface IngestDailyOptions {
   runRankPulse?: boolean;
   /** UTC job execution date used for budget and idempotency periods. */
   runDate?: Date;
+  /** Resume processing onboarded businesses after this index. */
+  offset?: number;
+  /** Wall-clock budget for business processing (defaults to INGEST_DAILY_FLAGS). */
+  timeBudgetMs?: number;
 }
 
 export function shouldRunScheduledRankPulse(date: Date): boolean {
   return MARKET_DATA_FLAGS.rankPulseDaysUtc.includes(date.getUTCDate());
+}
+
+/** Slice businesses for resumable nightly ingest. */
+export function sliceBusinessesForIngest<T extends { id: string }>(
+  businesses: T[],
+  offset = 0
+): T[] {
+  if (offset <= 0) return businesses;
+  return businesses.slice(offset);
+}
+
+/** Whether another chained invocation is needed to finish the nightly run. */
+export function shouldChainIngestDaily(
+  businessesTotal: number,
+  nextOffset: number
+): boolean {
+  return nextOffset > 0 && nextOffset < businessesTotal;
 }
 
 function emptyResult(): IngestRunResult {
@@ -217,7 +239,9 @@ async function ingestBusiness(
   }
 
   try {
-    await recomputeAttributionsForBusiness(row.id);
+    await recomputeAttributionsForBusiness(row.id, 60, {
+      onlyOpenWindows: true,
+    });
   } catch (error) {
     result.errors.push({
       businessId: row.id,
@@ -239,26 +263,13 @@ async function ingestBusiness(
     });
   }
 
-  try {
-    const saved = await ingestScoreDailyForBusiness(row.id, targetDate);
-    if (saved) {
-      result.scoreRowsUpserted += 1;
-      const backfilled = await backfillScoreDailyForBusiness(row.id);
-      result.scoreRowsUpserted += backfilled;
-    }
-  } catch (error) {
-    result.errors.push({
-      businessId: row.id,
-      step: "score_daily",
-      message: error instanceof Error ? error.message : String(error),
-    });
-  }
-
   let liveAuditPersisted = false;
   try {
-    const persisted = await buildAndPersistLiveAuditForBusiness(row, targetDate);
-    liveAuditPersisted = Boolean(persisted);
-    if (!persisted) {
+    const persisted = await persistNightlyScoreAndAuditForBusiness(row, targetDate);
+    liveAuditPersisted = persisted;
+    if (persisted) {
+      result.scoreRowsUpserted += 1;
+    } else {
       result.errors.push({
         businessId: row.id,
         step: "live_audit",
@@ -268,7 +279,7 @@ async function ingestBusiness(
   } catch (error) {
     result.errors.push({
       businessId: row.id,
-      step: "live_audit",
+      step: "score_daily",
       message: error instanceof Error ? error.message : String(error),
     });
   }
@@ -345,6 +356,38 @@ async function ingestBusiness(
   result.businessesProcessed += 1;
 }
 
+async function runGlobalCalibrationSteps(result: IngestRunResult): Promise<void> {
+  try {
+    result.calibrationStepsUpdated = await refreshGlobalScoreCalibration();
+  } catch (error) {
+    result.errors.push({
+      businessId: "",
+      step: "calibration",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  try {
+    await refreshMarketScoreCalibration();
+  } catch (error) {
+    result.errors.push({
+      businessId: "",
+      step: "market_calibration",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  try {
+    await refreshGlobalScoreModel();
+  } catch (error) {
+    result.errors.push({
+      businessId: "",
+      step: "score_model",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 /**
  * Daily ingest: pull yesterday's GBP performance + business-pin keyword estimates
  * for all onboarded businesses,
@@ -359,6 +402,9 @@ export async function ingestDailyMetrics(
   const collectionDateStr = formatDateYmd(runDate);
   const runRankPulse =
     options.runRankPulse ?? shouldRunScheduledRankPulse(runDate);
+  const offset = Math.max(0, options.offset ?? 0);
+  const timeBudgetMs = options.timeBudgetMs ?? INGEST_DAILY_FLAGS.timeBudgetMs;
+  const startedAt = Date.now();
   const result = emptyResult();
 
   let runId: string | null = null;
@@ -367,9 +413,18 @@ export async function ingestDailyMetrics(
   }
 
   try {
-    const businesses = await listOnboardedBusinesses();
+    const allBusinesses = await listOnboardedBusinesses();
+    result.businessesTotal = allBusinesses.length;
+    const businesses = sliceBusinessesForIngest(allBusinesses, offset);
+    let nextOffset = offset;
 
     for (const row of businesses) {
+      if (Date.now() - startedAt >= timeBudgetMs) {
+        result.partial = true;
+        result.nextOffset = nextOffset;
+        break;
+      }
+
       await ingestBusiness(
         row,
         targetDateStr,
@@ -377,36 +432,14 @@ export async function ingestDailyMetrics(
         result,
         runRankPulse
       );
+      nextOffset += 1;
     }
 
-    try {
-      result.calibrationStepsUpdated = await refreshGlobalScoreCalibration();
-    } catch (error) {
-      result.errors.push({
-        businessId: "",
-        step: "calibration",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
+    const finishedAllBusinesses =
+      !result.partial && nextOffset >= allBusinesses.length;
 
-    try {
-      await refreshMarketScoreCalibration();
-    } catch (error) {
-      result.errors.push({
-        businessId: "",
-        step: "market_calibration",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    try {
-      await refreshGlobalScoreModel();
-    } catch (error) {
-      result.errors.push({
-        businessId: "",
-        step: "score_model",
-        message: error instanceof Error ? error.message : String(error),
-      });
+    if (finishedAllBusinesses) {
+      await runGlobalCalibrationSteps(result);
     }
 
     if (runId) {
@@ -421,4 +454,23 @@ export async function ingestDailyMetrics(
     }
     throw error;
   }
+}
+
+/** Fire a follow-up ingest invocation when the nightly run hit its time budget. */
+export async function chainIngestDailyContinuation(
+  nextOffset: number,
+  requestUrl: string
+): Promise<void> {
+  const secret = process.env.CRON_SECRET?.trim();
+  if (!secret || !INGEST_DAILY_FLAGS.chainOnPartial) return;
+
+  const url = new URL(requestUrl);
+  url.searchParams.set("offset", String(nextOffset));
+
+  await fetch(url, {
+    method: "GET",
+    headers: {
+      authorization: `Bearer ${secret}`,
+    },
+  });
 }

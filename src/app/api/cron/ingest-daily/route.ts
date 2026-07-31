@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { ingestDailyMetrics } from "@/jobs/ingest-daily";
+import {
+  chainIngestDailyContinuation,
+  ingestDailyMetrics,
+  shouldChainIngestDaily,
+} from "@/jobs/ingest-daily";
 import {
   cronFailureResponse,
   dynamic,
@@ -18,13 +22,33 @@ export async function GET(request: Request) {
   const rejected = verifyCronRequest(request, JOB_NAME);
   if (rejected) return rejected;
 
+  const { searchParams } = new URL(request.url);
+  const offset = Number(searchParams.get("offset") ?? "0");
+
   try {
-    const result = await ingestDailyMetrics();
+    const result = await ingestDailyMetrics({
+      offset: Number.isFinite(offset) ? offset : 0,
+    });
     console.info(`[cron/${JOB_NAME}] completed`, {
       businessesProcessed: result.businessesProcessed,
+      businessesTotal: result.businessesTotal,
+      partial: result.partial ?? false,
+      nextOffset: result.nextOffset ?? null,
       scoreRowsUpserted: result.scoreRowsUpserted,
       errorCount: result.errors.length,
     });
+
+    if (
+      result.partial &&
+      result.nextOffset != null &&
+      result.businessesTotal != null &&
+      shouldChainIngestDaily(result.businessesTotal, result.nextOffset)
+    ) {
+      void chainIngestDailyContinuation(result.nextOffset, request.url).catch((error) => {
+        console.error(`[cron/${JOB_NAME}] continuation failed:`, error);
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       ...result,

@@ -70,6 +70,12 @@ export interface IngestRunResult {
   placesCallsReserved?: number;
   /** Collections skipped because they were complete, in-flight, or over budget. */
   placesCollectionsSkipped?: number;
+  /** True when the cron stopped early to avoid a platform timeout. */
+  partial?: boolean;
+  /** Total onboarded businesses eligible for this run. */
+  businessesTotal?: number;
+  /** Resume offset for a chained follow-up invocation. */
+  nextOffset?: number;
   errors: Array<{ businessId: string; step: string; message: string }>;
 }
 

@@ -3,7 +3,12 @@ import {
   applyRankSnapshotsToAudit,
   computeScoreDailySnapshot,
 } from "@/audit/phase2/score-snapshot";
-import { hydrateAuditFromTimeseries } from "@/audit/live-audit";
+import {
+  buildLiveAudit,
+  hydrateAuditFromTimeseries,
+  persistLiveAuditSnapshot,
+} from "@/audit/live-audit";
+import type { BusinessRecord } from "@/audit/businesses";
 import {
   listRankSnapshotsForBusinessRange,
   listScoreDailyForBusinessAdmin,
@@ -85,6 +90,38 @@ export async function ingestScoreDailyForBusiness(
   if (!audit) return false;
 
   await writeScoreDailyForDate(businessId, audit, targetDate, "ingest");
+  return true;
+}
+
+/**
+ * Nightly path: one hydrate pass writes score_daily and refreshes audit_runs.
+ * GBP profile is refreshed during plan reconcile, not here.
+ */
+export async function persistNightlyScoreAndAuditForBusiness(
+  row: BusinessRecord,
+  targetDate: string
+): Promise<boolean> {
+  const bundle = await buildLiveAudit(row.id, {
+    targetDate,
+    refreshGbp: false,
+    businessRow: row,
+    userId: row.user_id,
+    clientSlug: row.slug,
+    avgCustomerValue: row.avg_customer_value,
+    currency: row.avg_customer_value_currency,
+  });
+  if (!bundle) return false;
+
+  const model = await loadGlobalScoreModelAdmin();
+  const snapshot = computeScoreDailySnapshot(
+    bundle.audit,
+    targetDate,
+    "ingest",
+    model
+  );
+  snapshot.businessId = row.id;
+  await upsertScoreDaily(snapshot);
+  await persistLiveAuditSnapshot(row.id, bundle.audit);
   return true;
 }
 

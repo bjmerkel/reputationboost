@@ -527,12 +527,23 @@ async function prepareRecordWithProjectionSnapshot(
 
 export async function recomputeAttributionsForBusiness(
   businessId: string,
-  lookbackDays = 60
+  lookbackDays = 60,
+  options?: { onlyOpenWindows?: boolean }
 ): Promise<number> {
   const { listCompletedTasksForBusiness } = await import("@/audit/storage-attribution");
   const tasks = await listCompletedTasksForBusiness(businessId, lookbackDays);
+  const now = new Date();
+  const filtered = options?.onlyOpenWindows
+    ? tasks.filter((record) => {
+        if (!record.task.completedAt) return false;
+        const windowDays = resolveAttributionWindowDays(record.task.type);
+        const postEnd = new Date(record.task.completedAt);
+        postEnd.setUTCDate(postEnd.getUTCDate() + windowDays);
+        return now < postEnd;
+      })
+    : tasks;
 
-  for (const record of tasks) {
+  for (const record of filtered) {
     try {
       await computeAttributionForTask(record);
     } catch (error) {
@@ -543,7 +554,7 @@ export async function recomputeAttributionsForBusiness(
     }
   }
 
-  return tasks.length;
+  return filtered.length;
 }
 
 export async function computeAttributionAfterTaskCompletion(

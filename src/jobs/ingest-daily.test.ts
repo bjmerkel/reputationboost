@@ -4,7 +4,9 @@ import type { IngestRunResult } from "@/audit/types/timeseries";
 import {
   normalizePerformancePoints,
   recordPlanReconcileMetrics,
+  shouldChainIngestDaily,
   shouldRunScheduledRankPulse,
+  sliceBusinessesForIngest,
 } from "./ingest-daily";
 
 function emptyResult(): IngestRunResult {
@@ -114,5 +116,23 @@ describe("shouldRunScheduledRankPulse", () => {
       shouldRunScheduledRankPulse(new Date("2026-07-14T06:00:00.000Z")),
       false
     );
+  });
+});
+
+describe("sliceBusinessesForIngest", () => {
+  it("resumes from the requested offset", () => {
+    const businesses = [{ id: "a" }, { id: "b" }, { id: "c" }];
+    assert.deepEqual(sliceBusinessesForIngest(businesses, 1), [
+      { id: "b" },
+      { id: "c" },
+    ]);
+  });
+});
+
+describe("shouldChainIngestDaily", () => {
+  it("chains when more businesses remain", () => {
+    assert.equal(shouldChainIngestDaily(5, 3), true);
+    assert.equal(shouldChainIngestDaily(5, 5), false);
+    assert.equal(shouldChainIngestDaily(5, 0), false);
   });
 });
