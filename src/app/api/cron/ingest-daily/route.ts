@@ -6,11 +6,11 @@ import {
 } from "@/jobs/ingest-daily";
 import {
   cronFailureResponse,
-  dynamic,
   verifyCronRequest,
 } from "@/lib/cron/route";
 
-export { dynamic };
+/** Prevent Vercel from serving a cached cron response (silent no-op in logs). */
+export const dynamic = "force-dynamic";
 
 /** Daily ingest can process every onboarded business sequentially. */
 export const maxDuration = 300;

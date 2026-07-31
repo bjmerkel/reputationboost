@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminSupabaseConfigured } from "@/lib/supabase/admin";
 
-/** Prevent Vercel from serving a cached cron response (silent no-op in logs). */
-export const dynamic = "force-dynamic";
-
 function trimSecret(value: string | undefined): string | undefined {
   return value?.trim() || undefined;
 }
