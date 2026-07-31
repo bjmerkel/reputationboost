@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -19,7 +20,6 @@ import PerformancePermissionBanner from "@/components/PerformancePermissionBanne
 import MapsSearchBar from "@/components/platform/MapsSearchBar";
 import PlaceCard from "@/components/platform/PlaceCard";
 import PlatformShell from "@/components/platform/PlatformShell";
-import RankingMap from "@/components/platform/RankingMap";
 import ViewAsCustomerModal from "@/components/platform/ViewAsCustomerModal";
 import HomeView from "@/components/home/HomeView";
 import BatchReviewSession from "@/components/plan/BatchReviewSession";
@@ -33,6 +33,18 @@ import { useScoreHistory } from "@/hooks/useScoreHistory";
 import { planApprovalBadgeCount } from "@/lib/execution/pending-counts";
 import { resolveScoreCalculatedAt } from "@/lib/scores/format-score-date";
 import { needsGoogleUpdateRefresh } from "@/lib/google/gbp-update-helpers";
+
+const RankingMap = dynamic(() => import("@/components/platform/RankingMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full min-h-[240px] items-center justify-center bg-[#e8eaed] lg:min-h-0">
+      <div className="text-center">
+        <div className="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-2 border-[#dadce0] border-t-[#1a73e8]" />
+        <p className="text-xs text-[#5f6368]">Loading map…</p>
+      </div>
+    </div>
+  ),
+});
 
 interface BusinessLocation {
   lat: number;
@@ -629,8 +641,31 @@ export default function AuditDashboard({
         </PlaceCard>
 
         <div className="relative h-full min-h-0 w-full">
-          {view === "audit" ? (
-            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f8f9fa]">
+          <div className="h-full">
+            <RankingMap
+              lat={businessLocation.lat}
+              lng={businessLocation.lng}
+              address={businessLocation.address}
+              businessName={businessName}
+              keywordRank={keywordRank}
+              competitors={activeCompetitors}
+              gbp={audit.gbp}
+              activeKeyword={activeKeyword}
+              visibilitySummary={visibilitySummary}
+              selectedZoneId={selectedZoneId}
+              onZoneSelect={setSelectedZoneId}
+              onOpenPlan={openPlan}
+              topCompetitorThreat={topThreat}
+              competitorThreats={competitorThreats}
+              currency={avgCustomerValueCurrency}
+              clientId={clientId}
+              gridDiff={gridDiff}
+              diffActive={diffActive}
+              onDiffChange={handleDiffChange}
+            />
+          </div>
+          {view === "audit" && (
+            <div className="absolute inset-0 z-10 flex min-h-0 flex-col overflow-hidden bg-[#f8f9fa]">
               <div className="flex shrink-0 items-center justify-end gap-3 border-b border-[#e8eaed] bg-white px-4 py-3 sm:px-6">
                 <p className="mr-auto text-xs text-[#80868b]">
                   Market observed{" "}
@@ -675,28 +710,6 @@ export default function AuditDashboard({
                 </div>
               </div>
             </div>
-          ) : (
-          <RankingMap
-            lat={businessLocation.lat}
-            lng={businessLocation.lng}
-            address={businessLocation.address}
-            businessName={businessName}
-            keywordRank={keywordRank}
-            competitors={activeCompetitors}
-            gbp={audit.gbp}
-            activeKeyword={activeKeyword}
-            visibilitySummary={visibilitySummary}
-            selectedZoneId={selectedZoneId}
-            onZoneSelect={setSelectedZoneId}
-            onOpenPlan={openPlan}
-            topCompetitorThreat={topThreat}
-            competitorThreats={competitorThreats}
-            currency={avgCustomerValueCurrency}
-            clientId={clientId}
-            gridDiff={gridDiff}
-            diffActive={diffActive}
-            onDiffChange={handleDiffChange}
-          />
           )}
         </div>
       </PlatformShell>

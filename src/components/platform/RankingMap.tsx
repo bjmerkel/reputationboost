@@ -30,7 +30,7 @@ import MapLayerControls, {
   type MapLayerState,
 } from "@/components/platform/MapLayerControls";
 import { getPlaceGeometry, storedPlaceGeometry } from "@/lib/google/place-geometry";
-import { loadGoogleMaps } from "@/lib/google/maps-loader";
+import { loadGoogleMaps, loadGoogleMapsCore } from "@/lib/google/maps-loader";
 import {
   createBusinessPinIcon,
   createCompetitorMarkerIcon,
@@ -129,8 +129,8 @@ export default function RankingMap({
   const lastFittedKeywordRef = useRef<string | null>(null);
   const lastSizeRef = useRef({ width: 0, height: 0 });
   const [error, setError] = useState<string | null>(null);
+  const [mapLoading, setMapLoading] = useState(true);
   const [ready, setReady] = useState(false);
-  const [mapVisible, setMapVisible] = useState(false);
   const [layers, setLayers] = useState<MapLayerState>(createDefaultMapLayers);
   const [gridPoints, setGridPoints] = useState<GeoGridPoint[] | undefined>(
     disableGridFetch ? keywordRank?.geoGrid : undefined
@@ -206,6 +206,11 @@ export default function RankingMap({
     async function loadGrid() {
       setGridLoading(true);
       try {
+        if (keywordRank?.geoGrid?.length) {
+          if (!cancelled) setGridPoints(keywordRank.geoGrid);
+          return;
+        }
+
         if (clientId) {
           const storedRes = await fetch(
             `/api/metrics/grid-latest?clientId=${encodeURIComponent(clientId)}&keyword=${encodeURIComponent(activeKeyword!)}`
@@ -217,11 +222,6 @@ export default function RankingMap({
             setGridPoints(stored.geoGrid);
             return;
           }
-        }
-
-        if (keywordRank?.geoGrid?.length) {
-          if (!cancelled) setGridPoints(keywordRank.geoGrid);
-          return;
         }
 
         if (!allowLivePlacesGrid) return;
@@ -256,7 +256,12 @@ export default function RankingMap({
   ]);
 
   useEffect(() => {
-    if (!clientId || !HEATMAP_FLAGS.gbpServiceArea || disableGridFetch) {
+    if (
+      !clientId ||
+      !HEATMAP_FLAGS.gbpServiceArea ||
+      disableGridFetch ||
+      !layers.showServiceArea
+    ) {
       setGbpServiceAreaRing(null);
       return;
     }
@@ -286,7 +291,7 @@ export default function RankingMap({
     return () => {
       cancelled = true;
     };
-  }, [clientId, disableGridFetch]);
+  }, [clientId, disableGridFetch, layers.showServiceArea]);
 
   useEffect(() => {
     let cancelled = false;
@@ -306,7 +311,8 @@ export default function RankingMap({
       lastSizeRef.current = { width, height };
 
       try {
-        const google = await loadGoogleMaps();
+        setMapLoading(true);
+        const google = await loadGoogleMapsCore();
         if (cancelled || !mapRef.current) return;
 
         let center: google.maps.LatLngLiteral = { lat, lng };
@@ -324,6 +330,7 @@ export default function RankingMap({
             });
           });
           if (!geocoded) {
+            setMapLoading(false);
             setError("Could not locate business on the map.");
             return;
           }
@@ -344,13 +351,15 @@ export default function RankingMap({
           });
 
           setReady(true);
-          setMapVisible(true);
+          setMapLoading(false);
         } else {
           preserveMapView(mapInstance.current, center);
           businessMarkerRef.current?.setPosition(center);
+          setMapLoading(false);
         }
       } catch (e) {
         if (!cancelled) {
+          setMapLoading(false);
           setError(e instanceof Error ? e.message : "Map failed to load");
         }
       }
@@ -378,7 +387,7 @@ export default function RankingMap({
       businessMarkerRef.current = null;
       lastSizeRef.current = { width: 0, height: 0 };
       setReady(false);
-      setMapVisible(false);
+      setMapLoading(true);
     };
   }, [lat, lng, address, businessName]);
 
@@ -692,10 +701,16 @@ export default function RankingMap({
   return (
     <div
       ref={mapContainerRef}
-      className={`relative h-full min-h-[240px] w-full flex-1 bg-[#e8eaed] transition-opacity duration-150 ${
-        mapVisible ? "opacity-100" : "opacity-0"
-      }`}
+      className="relative h-full min-h-[240px] w-full flex-1 bg-[#e8eaed] lg:min-h-0"
     >
+      {mapLoading && !error && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#e8eaed]">
+          <div className="text-center">
+            <div className="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-2 border-[#dadce0] border-t-[#1a73e8]" />
+            <p className="text-xs text-[#5f6368]">Loading map…</p>
+          </div>
+        </div>
+      )}
       <MapLayerControls layers={layers} onChange={setLayers} />
       <div ref={mapRef} className="absolute inset-0" />
       {HEATMAP_FLAGS.insightPanel && visibilitySummary && (
