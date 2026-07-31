@@ -32,7 +32,7 @@ export function buildAdminAlerts(
       severity: "critical",
       title: "Nightly ingest errors",
       detail: `${overview.lastIngest.errorCount} error(s) in the last ingest run`,
-      href: "/admin",
+      href: "/admin/operations",
     });
   }
 
@@ -42,7 +42,7 @@ export function buildAdminAlerts(
       severity: "critical",
       title: "Nightly ingest failed",
       detail: "Last ingest run did not complete successfully",
-      href: "/admin",
+      href: "/admin/operations",
     });
   }
 

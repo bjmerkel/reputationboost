@@ -103,8 +103,8 @@ export default async function AdminCommandCenterPage() {
         <section className="rounded-xl border border-[#2d3348] bg-[#151923] p-6">
           <div className="mb-4 flex items-center justify-between gap-4">
             <h2 className="text-lg font-semibold text-white">Alert feed</h2>
-            <Link href="/admin/users?segment=needs_attention" className="text-sm text-[#818cf8] hover:text-[#a5b4fc]">
-              View at-risk users →
+            <Link href="/admin/outreach" className="text-sm text-[#818cf8] hover:text-[#a5b4fc]">
+              Outreach queue →
             </Link>
           </div>
           <AlertFeed alerts={alerts} />
@@ -143,7 +143,12 @@ export default async function AdminCommandCenterPage() {
           </div>
 
           <div className="mt-8 border-t border-[#2d3348] pt-6">
-            <h3 className="text-sm font-semibold text-white">Nightly ingest</h3>
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="text-sm font-semibold text-white">Nightly ingest</h3>
+              <Link href="/admin/operations" className="text-xs text-[#818cf8] hover:text-[#a5b4fc]">
+                View operations →
+              </Link>
+            </div>
             {overview.lastIngest ? (
               <dl className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between gap-4">
