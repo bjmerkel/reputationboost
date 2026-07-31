@@ -70,6 +70,7 @@ export async function POST(request: Request) {
       smsCount: preview.smsCount,
       emailCount: preview.emailCount,
       estimatedDays: preview.estimatedDays,
+      dailySendCap: preview.dailySendCap,
       skipped: preview.skipped,
     });
   } catch (error) {

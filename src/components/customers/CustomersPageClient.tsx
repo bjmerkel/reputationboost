@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ReviewCampaignPlanCard from "@/components/review-requests/ReviewCampaignPlanCard";
 import ReviewCampaignDashboard from "@/components/customers/ReviewCampaignDashboard";
+import BulkOutreachCampaignPanel from "@/components/customers/BulkOutreachCampaignPanel";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
 import { REVIEW_REQUEST_COOLDOWN_DAYS } from "@/lib/review-requests/eligibility";
 import { IMMEDIATE_SEND_BATCH_MAX } from "@/lib/review-requests/bulk-config";
@@ -47,6 +48,7 @@ interface CustomersPageProps {
 }
 
 const CHANNELS: OutreachChannel[] = ["auto", "email", "sms"];
+const CUSTOMERS_PAGE_SIZE = 50;
 
 function formatPhone(phone: string | null): string {
   if (!phone?.trim()) return "—";
@@ -93,6 +95,16 @@ export default function CustomersPageClient({
   const [campaignRefreshKey, setCampaignRefreshKey] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sendResult, setSendResult] = useState<string | null>(null);
+  const [customerPage, setCustomerPage] = useState(0);
+  const [campaignPreview, setCampaignPreview] = useState<{
+    eligible: number;
+    smsCount: number;
+    emailCount: number;
+    estimatedDays: number;
+    dailySendCap: number;
+    skipped: Record<string, number>;
+  } | null>(null);
+  const [campaignPreviewLoading, setCampaignPreviewLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCustomer, setNewCustomer] = useState({
     firstName: "",
@@ -107,23 +119,28 @@ export default function CustomersPageClient({
     [customers, channel]
   );
 
-  const loadCustomers = useCallback(async () => {
+  const loadCustomers = useCallback(async (page?: number) => {
+    const targetPage = page ?? customerPage;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/customers?limit=200");
+      const offset = targetPage * CUSTOMERS_PAGE_SIZE;
+      const res = await fetch(
+        `/api/customers?limit=${CUSTOMERS_PAGE_SIZE}&offset=${offset}`
+      );
       const data = await parseJsonResponse<{ customers: Customer[]; total: number; error?: string }>(
         res
       );
       if (!res.ok) throw new Error(data.error ?? "Failed to load customers");
       setCustomers(data.customers);
       setTotal(data.total);
+      setCustomerPage(targetPage);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load customers");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [customerPage]);
 
   const loadMessageTemplate = useCallback(
     async (keywordOverride?: string | null, channelOverride?: OutreachChannel) => {
@@ -174,9 +191,69 @@ export default function CustomersPageClient({
   );
 
   useEffect(() => {
-    void loadCustomers();
+    void loadCustomers(0);
     void loadMessageTemplate();
-  }, [loadCustomers, loadMessageTemplate]);
+  }, [loadMessageTemplate]);
+
+  const loadCampaignPreview = useCallback(async () => {
+    const sendCount =
+      selectedIds.size > 0 ? selectedIds.size : eligibleCustomers.length;
+    if (sendCount <= IMMEDIATE_SEND_BATCH_MAX) {
+      setCampaignPreview(null);
+      return;
+    }
+
+    setCampaignPreviewLoading(true);
+    try {
+      const customerIds = selectedIds.size > 0 ? Array.from(selectedIds) : undefined;
+      const res = await fetch("/api/review-requests/campaigns/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel,
+          template,
+          smsTemplate: channel === "auto" ? smsTemplate : undefined,
+          subject: channel === "sms" ? undefined : subject,
+          customerIds,
+          focusKeyword,
+        }),
+      });
+      const data = await parseJsonResponse<{
+        eligible: number;
+        smsCount: number;
+        emailCount: number;
+        estimatedDays: number;
+        dailySendCap: number;
+        skipped?: Record<string, number>;
+        error?: string;
+      }>(res);
+      if (!res.ok) throw new Error(data.error ?? "Preview failed");
+      setCampaignPreview({
+        eligible: data.eligible,
+        smsCount: data.smsCount,
+        emailCount: data.emailCount,
+        estimatedDays: data.estimatedDays,
+        dailySendCap: data.dailySendCap,
+        skipped: data.skipped ?? {},
+      });
+    } catch {
+      setCampaignPreview(null);
+    } finally {
+      setCampaignPreviewLoading(false);
+    }
+  }, [
+    channel,
+    eligibleCustomers.length,
+    focusKeyword,
+    selectedIds,
+    smsTemplate,
+    subject,
+    template,
+  ]);
+
+  useEffect(() => {
+    void loadCampaignPreview();
+  }, [loadCampaignPreview]);
 
   async function handleChannelChange(nextChannel: OutreachChannel) {
     setChannel(nextChannel);
@@ -220,7 +297,7 @@ export default function CustomersPageClient({
         ].filter(Boolean);
         setSendResult(`Import complete: ${parts.join(", ")}`);
         setImportProgress(null);
-        await loadCustomers();
+        await loadCustomers(0);
         await loadMessageTemplate();
         return;
       }
@@ -271,7 +348,7 @@ export default function CustomersPageClient({
       ].filter(Boolean);
 
       setSendResult(`Import complete: ${parts.join(", ")}`);
-      await loadCustomers();
+      await loadCustomers(0);
       await loadMessageTemplate();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");
@@ -385,7 +462,7 @@ export default function CustomersPageClient({
           `Queued campaign for ${data.preview?.eligible ?? sendCount} customers (${sms} SMS, ${email} email). Sending over ~${days} day${days === 1 ? "" : "s"}.`
         );
         setCampaignRefreshKey((k) => k + 1);
-        await loadCustomers();
+        await loadCustomers(0);
         return;
       }
 
@@ -406,7 +483,7 @@ export default function CustomersPageClient({
 
       if (!dryRun) {
         setSelectedIds(new Set());
-        await loadCustomers();
+        await loadCustomers(0);
         await loadMessageTemplate(focusKeyword);
         setCampaignRefreshKey((key) => key + 1);
       }
@@ -459,6 +536,8 @@ export default function CustomersPageClient({
           void loadMessageTemplate(keyword);
         }}
       />
+
+      <BulkOutreachCampaignPanel refreshKey={campaignRefreshKey} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-[#dadce0] bg-white p-6 shadow-sm">
@@ -668,6 +747,26 @@ export default function CustomersPageClient({
             </p>
           )}
 
+          {eligibleCustomers.length > IMMEDIATE_SEND_BATCH_MAX && (
+            <div className="mt-4 rounded-lg border border-[#e8f0fe] bg-[#e8f0fe]/40 px-4 py-3 text-sm text-[#3c4043]">
+              {campaignPreviewLoading ? (
+                <p>Calculating campaign spread…</p>
+              ) : campaignPreview ? (
+                <>
+                  <p className="font-semibold text-[#202124]">Bulk campaign preview</p>
+                  <p className="mt-1">
+                    {campaignPreview.eligible} customers · {campaignPreview.smsCount} SMS ·{" "}
+                    {campaignPreview.emailCount} email · ~{campaignPreview.estimatedDays} day
+                    {campaignPreview.estimatedDays === 1 ? "" : "s"} at{" "}
+                    {campaignPreview.dailySendCap}/day
+                  </p>
+                </>
+              ) : (
+                <p>Large send will queue as a spread campaign automatically.</p>
+              )}
+            </div>
+          )}
+
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
@@ -714,9 +813,16 @@ export default function CustomersPageClient({
             onClick={selectAllEligible}
             className="text-sm font-semibold text-[#1a73e8] hover:underline"
           >
-            Select all eligible ({eligibleCustomers.length})
+            Select all eligible on page ({eligibleCustomers.length})
           </button>
         </div>
+
+        {total > CUSTOMERS_PAGE_SIZE && (
+          <p className="border-b border-[#dadce0] px-6 py-2 text-xs text-[#80868b]">
+            Showing {customerPage * CUSTOMERS_PAGE_SIZE + 1}–
+            {Math.min((customerPage + 1) * CUSTOMERS_PAGE_SIZE, total)} of {total} customers
+          </p>
+        )}
 
         {loading ? (
           <p className="px-6 py-8 text-sm text-[#5f6368]">Loading customers…</p>
@@ -788,6 +894,30 @@ export default function CustomersPageClient({
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {total > CUSTOMERS_PAGE_SIZE && !loading && customers.length > 0 && (
+          <div className="flex items-center justify-between border-t border-[#dadce0] px-6 py-3">
+            <button
+              type="button"
+              disabled={customerPage === 0}
+              onClick={() => void loadCustomers(customerPage - 1)}
+              className="text-sm font-semibold text-[#1a73e8] hover:underline disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="text-xs text-[#80868b]">
+              Page {customerPage + 1} of {Math.ceil(total / CUSTOMERS_PAGE_SIZE)}
+            </span>
+            <button
+              type="button"
+              disabled={(customerPage + 1) * CUSTOMERS_PAGE_SIZE >= total}
+              onClick={() => void loadCustomers(customerPage + 1)}
+              className="text-sm font-semibold text-[#1a73e8] hover:underline disabled:opacity-40"
+            >
+              Next
+            </button>
           </div>
         )}
       </div>
