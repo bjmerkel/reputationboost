@@ -38,6 +38,7 @@ import {
   sanitizeGbpDescriptionForPublish,
 } from "./gbp-description";
 import { patchGbpLocationValidated } from "./gbp-patch";
+import { buildStorefrontAddressFromCanonical } from "./gbp-postal-address";
 import type { NapCanonical, NapDriftFieldName } from "./nap-drift";
 import {
   createGbpMediaFromUrl,
@@ -633,11 +634,14 @@ export async function applyStorefrontAddress(
   const trimmed = address.trim();
   if (!trimmed) throw new Error("Address cannot be empty.");
 
+  const profile = await getGbpLocationProfile(connection);
+  const storefrontAddress = buildStorefrontAddressFromCanonical(
+    trimmed,
+    profile.storefrontAddress
+  );
+
   await patchGbpLocationValidated(connection, "storefrontAddress", {
-    storefrontAddress: {
-      addressLines: [trimmed],
-      regionCode: "US",
-    },
+    storefrontAddress,
   });
 
   return {
@@ -866,15 +870,16 @@ function resolveStorefrontAddressPayload(
     }
   }
 
-  if (profile.storefrontAddress) {
+  if (profile.storefrontAddress && !trimmed) {
     return profile.storefrontAddress;
   }
 
   const line = trimmed || profile.address;
-  return {
-    addressLines: line ? [line] : [],
-    regionCode: "US",
-  };
+  if (!line) {
+    return profile.storefrontAddress ?? { addressLines: [], regionCode: "US" };
+  }
+
+  return buildStorefrontAddressFromCanonical(line, profile.storefrontAddress);
 }
 
 async function patchGoogleFieldValue(
