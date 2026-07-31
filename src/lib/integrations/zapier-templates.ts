@@ -85,6 +85,25 @@ export const ZAPIER_TEMPLATES: ZapierTemplate[] = [
       "paidAt",
     ]),
   },
+  {
+    id: "google-sheets-new-row",
+    label: "Google Sheets — New Row",
+    description: "Send a review request when a new row is added to a spreadsheet.",
+    templateUrl: "https://zapier.com/apps/google-sheets/integrations/reputation-boost",
+    eventType: "job.completed",
+    sampleFields: withZapierContactFields([
+      "firstName",
+      "lastName",
+      "name",
+      "service",
+      "jobAddress",
+      "jobCity",
+      "jobZip",
+      "externalId",
+      "amount",
+      "currency",
+    ]),
+  },
 ];
 
 export const ZAPIER_SETUP_STEPS = [

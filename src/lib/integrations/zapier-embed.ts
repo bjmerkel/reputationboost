@@ -19,6 +19,7 @@ const TEMPLATE_ENV_KEYS: Record<string, string> = {
   "hcp-job-completed": "ZAPIER_TEMPLATE_HCP",
   "square-payment-received": "ZAPIER_TEMPLATE_SQUARE",
   "podium-invoice-paid": "ZAPIER_TEMPLATE_PODIUM",
+  "google-sheets-new-row": "ZAPIER_TEMPLATE_GOOGLE_SHEETS",
 };
 
 const TRIGGER_APP_SLUGS: Record<string, string> = {
@@ -26,6 +27,7 @@ const TRIGGER_APP_SLUGS: Record<string, string> = {
   "hcp-job-completed": "housecall-pro",
   "square-payment-received": "square",
   "podium-invoice-paid": "podium",
+  "google-sheets-new-row": "google-sheets",
   custom: "webhook",
 };
 
@@ -45,6 +47,10 @@ const TEMPLATE_LABELS: Record<string, { label: string; description: string }> = 
   "podium-invoice-paid": {
     label: "Podium → Reputation Boost",
     description: "When a Podium invoice is paid, send a review request.",
+  },
+  "google-sheets-new-row": {
+    label: "Google Sheets → Reputation Boost",
+    description: "When a new spreadsheet row is added, send a review request.",
   },
 };
 
