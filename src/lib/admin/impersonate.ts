@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { getAdminRole } from "@/lib/admin/auth";
+import { getAdminRole } from "@/lib/admin/auth-role";
 
 export const IMPERSONATE_COOKIE = "rb_admin_impersonate";
 

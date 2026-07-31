@@ -1,55 +1,18 @@
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getUser } from "@/lib/supabase/server";
+import { getAdminRole, ROLE_RANK } from "@/lib/admin/auth-role";
+import { getSessionUser } from "@/lib/supabase/server";
 import type { AdminRole } from "@/lib/admin/types";
 
-const ROLE_RANK: Record<AdminRole, number> = {
-  viewer: 1,
-  operator: 2,
-  superadmin: 3,
-};
-
-function parseBootstrapEmails(): Set<string> {
-  const raw = process.env.ADMIN_BOOTSTRAP_EMAILS ?? "";
-  return new Set(
-    raw
-      .split(",")
-      .map((email) => email.trim().toLowerCase())
-      .filter(Boolean)
-  );
-}
-
-export async function getAdminRole(userId: string, email?: string | null): Promise<AdminRole | null> {
-  try {
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("admin_users")
-      .select("role")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (!error && data?.role) {
-      return data.role as AdminRole;
-    }
-  } catch {
-    // Fall through to bootstrap emails when service role is unavailable.
-  }
-
-  const normalizedEmail = email?.trim().toLowerCase();
-  if (normalizedEmail && parseBootstrapEmails().has(normalizedEmail)) {
-    return "superadmin";
-  }
-
-  return null;
-}
+export { getAdminRole, canManageOnBehalf, ROLE_RANK } from "@/lib/admin/auth-role";
 
 export async function requireAdminPage(minRole: AdminRole = "viewer"): Promise<{
   userId: string;
   email: string | null;
   role: AdminRole;
 }> {
-  const user = await getUser();
+  const user = await getSessionUser();
   if (!user) {
     redirect("/login?next=/admin");
   }
@@ -63,7 +26,7 @@ export async function requireAdminPage(minRole: AdminRole = "viewer"): Promise<{
 }
 
 export async function requireAdminApi(minRole: AdminRole = "viewer") {
-  const user = await getUser();
+  const user = await getSessionUser();
   if (!user) {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }

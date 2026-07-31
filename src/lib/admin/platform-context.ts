@@ -1,6 +1,7 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { canManageOnBehalf, getAdminRole } from "@/lib/admin/auth-role";
 import { getImpersonationState } from "@/lib/admin/impersonate";
-import { getUser } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getActingUser, getSessionUser } from "@/lib/supabase/server";
 
 export interface PlatformViewerContext {
   sessionUserId: string;
@@ -10,10 +11,11 @@ export interface PlatformViewerContext {
   viewerName: string | null;
   isImpersonating: boolean;
   impersonationBusinessId: string | null;
+  canManageOnBehalf: boolean;
 }
 
 export async function getPlatformViewerContext(): Promise<PlatformViewerContext | null> {
-  const sessionUser = await getUser();
+  const sessionUser = await getSessionUser();
   if (!sessionUser) return null;
 
   const impersonation = await getImpersonationState(sessionUser.id);
@@ -26,9 +28,12 @@ export async function getPlatformViewerContext(): Promise<PlatformViewerContext 
       viewerName: null,
       isImpersonating: false,
       impersonationBusinessId: null,
+      canManageOnBehalf: false,
     };
   }
 
+  const actingUser = await getActingUser();
+  const role = await getAdminRole(sessionUser.id, sessionUser.email);
   const supabase = createAdminClient();
   const { data: profile } = await supabase
     .from("profiles")
@@ -39,10 +44,11 @@ export async function getPlatformViewerContext(): Promise<PlatformViewerContext 
   return {
     sessionUserId: sessionUser.id,
     sessionEmail: sessionUser.email ?? null,
-    viewerUserId: impersonation.userId,
-    viewerEmail: profile?.email ?? null,
+    viewerUserId: actingUser?.id ?? impersonation.userId,
+    viewerEmail: profile?.email ?? actingUser?.email ?? null,
     viewerName: profile?.full_name ?? null,
     isImpersonating: true,
     impersonationBusinessId: impersonation.businessId,
+    canManageOnBehalf: canManageOnBehalf(role),
   };
 }

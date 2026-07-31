@@ -1,7 +1,7 @@
 export default function ViewAsUserButton({
   userId,
   businessId,
-  label = "View as user",
+  label = "Manage as user",
 }: {
   userId: string;
   businessId?: string;

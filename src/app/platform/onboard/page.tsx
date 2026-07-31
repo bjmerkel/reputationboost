@@ -31,7 +31,7 @@ export default async function OnboardPage({ searchParams }: PageProps) {
   const ctx = await getPlatformViewerContext();
   if (!ctx) redirect("/login?next=/platform/onboard");
 
-  if (ctx.isImpersonating) {
+  if (ctx.isImpersonating && !ctx.canManageOnBehalf) {
     const query = ctx.impersonationBusinessId
       ? `?businessId=${encodeURIComponent(ctx.impersonationBusinessId)}`
       : "";

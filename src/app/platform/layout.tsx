@@ -37,7 +37,11 @@ export default async function PlatformLayout({
   return (
     <div className="platform-theme flex h-dvh flex-col overflow-hidden">
       {ctx?.isImpersonating && viewerLabel ? (
-        <ImpersonationBanner viewerLabel={viewerLabel} adminEmail={ctx.sessionEmail} />
+        <ImpersonationBanner
+          viewerLabel={viewerLabel}
+          adminEmail={ctx.sessionEmail}
+          canManageOnBehalf={ctx.canManageOnBehalf}
+        />
       ) : null}
       <header className="shrink-0 border-b border-[#dadce0] bg-white">
         <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6">
