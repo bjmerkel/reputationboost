@@ -102,23 +102,19 @@ export interface CsvParseResult {
   errors: string[];
 }
 
-export function enforceImportRowLimit(rowCount: number): string | null {
-  if (rowCount <= MAX_CSV_ROWS) return null;
-  return `Import exceeds the maximum of ${MAX_CSV_ROWS.toLocaleString()} rows. Split the file or contact support for larger imports.`;
-}
+export type CsvColumnKey = keyof ImportCustomerRow | "name" | null;
+export type CsvColumnMap = CsvColumnKey[];
 
-export function parseCustomerCsv(text: string): CsvParseResult {
-  const lines = text
+function splitCsvLines(text: string): string[] {
+  return text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
 
-  if (lines.length === 0) {
-    return { rows: [], skipped: 0, errors: ["CSV file is empty"] };
-  }
-
-  const headerFields = parseCsvLine(lines[0]);
-  const columnMap: Array<keyof ImportCustomerRow | "name" | null> = headerFields.map((header) => {
+function buildColumnMap(headerLine: string): { columnMap: CsvColumnMap } | { errors: string[] } {
+  const headerFields = parseCsvLine(headerLine);
+  const columnMap: CsvColumnMap = headerFields.map((header) => {
     const normalized = normalizeHeader(header);
     if (normalized === "name" || normalized === "full_name" || normalized === "customer_name") {
       return "name";
@@ -129,13 +125,158 @@ export function parseCustomerCsv(text: string): CsvParseResult {
   const hasPhoneColumn = columnMap.includes("phone");
   const hasEmailColumn = columnMap.includes("email");
   if (!hasPhoneColumn && !hasEmailColumn) {
+    return { errors: ["CSV must include a phone or email column"] };
+  }
+
+  return { columnMap };
+}
+
+export function countCsvDataRows(text: string): number {
+  const lines = splitCsvLines(text);
+  return Math.max(0, lines.length - 1);
+}
+
+export function validateCsvForImport(text: string): { ok: true } | { ok: false; errors: string[] } {
+  const lines = splitCsvLines(text);
+  if (lines.length === 0) {
+    return { ok: false, errors: ["CSV file is empty"] };
+  }
+
+  const header = buildColumnMap(lines[0]);
+  if ("errors" in header) {
+    return { ok: false, errors: header.errors };
+  }
+
+  return { ok: true };
+}
+
+export interface CsvChunkParseResult {
+  rows: ImportCustomerRow[];
+  skipped: number;
+  errors: string[];
+  linesConsumed: number;
+  done: boolean;
+}
+
+export function parseCustomerCsvChunk(
+  text: string,
+  dataLineOffset: number,
+  maxLines: number
+): CsvChunkParseResult {
+  const lines = splitCsvLines(text);
+  if (lines.length === 0) {
+    return { rows: [], skipped: 0, errors: ["CSV file is empty"], linesConsumed: 0, done: true };
+  }
+
+  const header = buildColumnMap(lines[0]);
+  if ("errors" in header) {
     return {
       rows: [],
       skipped: 0,
-      errors: ["CSV must include a phone or email column"],
+      errors: header.errors,
+      linesConsumed: 0,
+      done: true,
     };
   }
 
+  const columnMap = header.columnMap;
+  const rows: ImportCustomerRow[] = [];
+  const errors: string[] = [];
+  let skipped = 0;
+
+  const startLine = 1 + dataLineOffset;
+  const endLine = Math.min(lines.length, startLine + maxLines);
+  let linesConsumed = 0;
+
+  for (let i = startLine; i < endLine; i++) {
+    linesConsumed++;
+    const fields = parseCsvLine(lines[i]);
+    const row: Partial<ImportCustomerRow> = {};
+
+    columnMap.forEach((key, index) => {
+      const value = fields[index]?.trim();
+      if (!value || !key) return;
+      if (key === "name") {
+        const { firstName, lastName } = splitFullName(value);
+        row.firstName = firstName;
+        row.lastName = lastName;
+      } else {
+        row[key] = value;
+      }
+    });
+
+    const contact = parseContactRow({
+      phone: row.phone,
+      email: row.email,
+      rowLabel: `Row ${i + 1}`,
+      errors,
+    });
+    if (!contact) {
+      skipped++;
+      continue;
+    }
+
+    rows.push({
+      firstName: row.firstName?.trim() ?? "",
+      lastName: row.lastName?.trim() ?? "",
+      phone: contact.phone,
+      email: contact.email,
+      serviceNotes: row.serviceNotes?.trim(),
+      lastServiceDate: row.lastServiceDate?.trim(),
+    });
+  }
+
+  return {
+    rows,
+    skipped,
+    errors,
+    linesConsumed,
+    done: endLine >= lines.length,
+  };
+}
+
+export interface JsonChunkParseResult {
+  rows: ImportCustomerRow[];
+  skipped: number;
+  errors: string[];
+  itemsConsumed: number;
+  done: boolean;
+}
+
+export function parseCustomerJsonChunk(
+  data: unknown[],
+  offset: number,
+  maxItems: number
+): JsonChunkParseResult {
+  const slice = data.slice(offset, offset + maxItems);
+  const parsed = parseCustomerJson(slice);
+  return {
+    rows: parsed.rows,
+    skipped: parsed.skipped,
+    errors: parsed.errors,
+    itemsConsumed: slice.length,
+    done: offset + maxItems >= data.length,
+  };
+}
+
+export function enforceImportRowLimit(rowCount: number): string | null {
+  if (rowCount <= MAX_CSV_ROWS) return null;
+  return `Import exceeds the maximum of ${MAX_CSV_ROWS.toLocaleString()} rows. Split the file or contact support for larger imports.`;
+}
+
+export function parseCustomerCsv(text: string): CsvParseResult {
+  const lines = splitCsvLines(text);
+
+  if (lines.length === 0) {
+    return { rows: [], skipped: 0, errors: ["CSV file is empty"] };
+  }
+
+  const header = buildColumnMap(lines[0]);
+  if ("errors" in header) {
+    return { rows: [], skipped: 0, errors: header.errors };
+  }
+
+  const columnMap = header.columnMap;
   const rows: ImportCustomerRow[] = [];
   const errors: string[] = [];
   let skipped = 0;

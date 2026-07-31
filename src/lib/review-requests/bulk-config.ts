@@ -6,6 +6,12 @@ export const IMPORT_CHUNK_SIZE = 500;
 
 export const LARGE_IMPORT_ROW_THRESHOLD = 500;
 
+/** Max import jobs processed per cron invocation. */
+export const IMPORT_JOBS_PER_CRON_RUN = 2;
+
+/** Max CSV/JSON chunks processed per job per cron tick. */
+export const IMPORT_CHUNKS_PER_JOB_PER_CRON = 5;
+
 /** Per-channel batch size when draining scheduled outreach in cron. */
 export const OUTREACH_CRON_BATCH_LIMIT = 200;
 
