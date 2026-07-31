@@ -14,7 +14,8 @@ import {
 import { syncRecommendedGbpNotifications } from "@/lib/google/gbp-notifications";
 import { createGbpPlaceActionLink, type GbpPlaceActionType } from "@/lib/google/gbp-place-actions";
 import { generateGbpPhotoImage } from "@/lib/llm/gbp-photos";
-import { sendReviewRequests } from "@/lib/sms/send-review-requests";
+import { sendOutreachReviewRequests } from "@/lib/review-requests/send-outreach";
+import type { OutreachChannel } from "@/lib/review-requests/channel";
 import { isValidReviewId } from "./plan-task-utils";
 
 export interface ExecuteTaskContext {
@@ -67,19 +68,30 @@ export async function executeTask(
 
   if (task.type === "review_request" && context) {
     try {
-      const result = await sendReviewRequests({
+      const channel = (task.payload.channel as OutreachChannel | undefined) ?? "sms";
+      const emailTemplate = String(task.payload.emailTemplate ?? task.draftContent ?? "").trim();
+      const smsTemplate = String(task.payload.smsTemplate ?? task.draftContent ?? "").trim();
+      const subjectTemplate = String(task.payload.subject ?? task.payload.subjectTemplate ?? "").trim();
+
+      const result = await sendOutreachReviewRequests({
         userId: context.userId,
         business: context.business,
-        template: task.draftContent,
+        channel,
+        template: channel === "sms" ? smsTemplate : emailTemplate,
+        smsTemplate: channel === "auto" ? smsTemplate : undefined,
+        subjectTemplate: channel === "sms" ? undefined : subjectTemplate,
         customerIds: Array.isArray(task.payload.customerIds)
           ? (task.payload.customerIds as string[])
           : undefined,
         batchSize: Number(task.payload.batchSize) || 15,
         executionTaskId: task.id,
+        manualSend: true,
       });
 
+      const channelLabel =
+        channel === "email" ? "email" : channel === "auto" ? "outreach" : "SMS";
       const mode = result.simulated ? "simulated" : "sent";
-      const summary = `${mode === "simulated" ? "Simulated" : "Sent"} ${result.sent} SMS review request${result.sent === 1 ? "" : "s"}${result.failed > 0 ? ` (${result.failed} failed)` : ""}.`;
+      const summary = `${mode === "simulated" ? "Simulated" : "Sent"} ${result.sent} ${channelLabel} review request${result.sent === 1 ? "" : "s"}${result.failed > 0 ? ` (${result.failed} failed)` : ""}.`;
 
       return {
         ...task,

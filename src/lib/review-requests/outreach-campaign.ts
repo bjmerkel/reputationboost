@@ -322,6 +322,24 @@ export async function getOutreachCampaign(
   return data ? rowToCampaign(data) : null;
 }
 
+export async function listOutreachCampaigns(
+  businessId: string,
+  userId: string,
+  limit = 10
+): Promise<OutreachCampaignRecord[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("outreach_campaigns")
+    .select("*")
+    .eq("business_id", businessId)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => rowToCampaign(row));
+}
+
 export async function createOutreachCampaign(input: {
   userId: string;
   business: ClientConfig;

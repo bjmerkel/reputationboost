@@ -4,9 +4,35 @@ import { ensureStrategy } from "@/audit/ensure-strategy";
 import { loadLatestAuditFromSupabase } from "@/audit/storage-supabase";
 import type { OutreachChannel } from "@/lib/review-requests/channel";
 import { auditHasReviewGap } from "@/lib/review-requests/eligibility";
-import { createOutreachCampaign } from "@/lib/review-requests/outreach-campaign";
+import { createOutreachCampaign, listOutreachCampaigns } from "@/lib/review-requests/outreach-campaign";
 import { getUser } from "@/lib/supabase/server";
 import { parseJsonBody } from "@/lib/http/parse-json-body";
+
+export async function GET() {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const business = await getActiveBusiness(user.id);
+  if (!business?.businessId) {
+    return NextResponse.json({ error: "No business configured" }, { status: 400 });
+  }
+
+  try {
+    const campaigns = await listOutreachCampaigns(business.businessId, user.id, 15);
+    const active = campaigns.filter((c) =>
+      ["planning", "queuing", "active"].includes(c.status)
+    );
+    const completed = campaigns.filter((c) =>
+      ["completed", "cancelled", "failed"].includes(c.status)
+    );
+    return NextResponse.json({ campaigns, active, completed });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to list campaigns";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   const user = await getUser();
