@@ -1,4 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { computeUserHealthMetrics } from "@/lib/admin/health";
+import { userMatchesSegment, type AdminSegmentId } from "@/lib/admin/segments";
 import { gradeFromScore } from "@/lib/scores/grade";
 import type {
   AdminBusinessSummary,
@@ -232,6 +234,18 @@ function buildUserSummaries(data: Awaited<ReturnType<typeof fetchAdminBaseData>>
     const lastAuditAt = lastAuditByUser.get(profile.id) ?? null;
     const lastActivityAt = lastAuditAt;
     const businessPreviews = sortBusinessesForDisplay(businesses, scoreByBusiness);
+    const health = computeUserHealthMetrics({
+      avgScore,
+      scoreDelta7d,
+      pendingTasks: taskCount.pending,
+      completedTasks: taskCount.completed,
+      failedTasks: taskCount.failed,
+      lastAuditAt,
+      onboardedCount: onboarded.length,
+      businessCount: businesses.length,
+      gbpConnectedCount: gbpConnected.length,
+      grade,
+    });
 
     return {
       userId: profile.id,
@@ -257,6 +271,11 @@ function buildUserSummaries(data: Awaited<ReturnType<typeof fetchAdminBaseData>>
         lastActivityAt,
       }),
       dominantAutopilotMode: dominantMode(businesses.map((b) => b.autopilot_mode)),
+      healthIndex: health.healthIndex,
+      churnRisk: health.churnRisk,
+      churnRiskLevel: health.churnRiskLevel,
+      healthFactors: health.healthFactors,
+      churnSignals: health.churnSignals,
     };
   });
 }
@@ -265,6 +284,7 @@ export interface ListAdminUsersOptions {
   q?: string;
   grade?: HealthGrade | "all";
   status?: UserStatus | "all";
+  segment?: AdminSegmentId | "all";
   page?: number;
   pageSize?: number;
 }
@@ -297,6 +317,12 @@ export async function listAdminUsers(options: ListAdminUsersOptions = {}): Promi
   if (options.status && options.status !== "all") {
     users = users.filter((user) => user.status === options.status);
   }
+
+  if (options.segment && options.segment !== "all") {
+    users = users.filter((user) => userMatchesSegment(user, options.segment as AdminSegmentId));
+  }
+
+  users.sort((a, b) => (b.churnRisk ?? 0) - (a.churnRisk ?? 0));
 
   const total = users.length;
   const start = (page - 1) * pageSize;
