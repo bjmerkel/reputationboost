@@ -2,6 +2,7 @@ import type { FullAuditPayload, GeoGridPoint, Phase1AuditPayload } from "../type
 import type { RankSnapshotRow, ScoreDailySnapshot } from "../types/timeseries";
 import type { LearnedScoreModel } from "./score-learning";
 import { DEFAULT_LEARNED_SCORE_MODEL } from "./score-learning";
+import { sanitizeScoreComponent } from "./score-sanitize";
 import { computeHealthScores } from "./scoring";
 import { isRadialRankGrid, summarizeRadialRanks } from "@/lib/google/radial-rankings";
 
@@ -154,12 +155,12 @@ export function computeScoreDailySnapshot(
   return {
     businessId: audit.clientId,
     date,
-    overall: scores.overall,
-    driverScore: scores.driverScore,
-    outcomeIndex: scores.outcomeIndex,
-    visibility: scores.visibility,
-    conversion: scores.conversion,
-    revenueCapture: scores.revenueCapture,
+    overall: sanitizeScoreComponent(scores.overall),
+    driverScore: sanitizeScoreComponent(scores.driverScore),
+    outcomeIndex: sanitizeScoreComponent(scores.outcomeIndex),
+    visibility: sanitizeScoreComponent(scores.visibility),
+    conversion: sanitizeScoreComponent(scores.conversion),
+    revenueCapture: sanitizeScoreComponent(scores.revenueCapture),
     source,
   };
 }

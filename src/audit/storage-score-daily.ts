@@ -1,5 +1,6 @@
 import type { FullAuditPayload } from "@/audit/types";
 import type { RankSnapshotRow, ScoreDailySnapshot } from "@/audit/types/timeseries";
+import { sanitizeScoreComponent } from "@/audit/phase2/score-sanitize";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessIdForSlug } from "@/audit/storage-supabase";
@@ -47,16 +48,19 @@ export async function upsertScoreDaily(snapshot: ScoreDailySnapshot): Promise<vo
   const baseRow = {
     business_id: snapshot.businessId,
     date: snapshot.date,
-    overall: snapshot.overall,
-    visibility: snapshot.visibility,
-    conversion: snapshot.conversion,
-    revenue_capture: snapshot.revenueCapture,
+    overall: sanitizeScoreComponent(snapshot.overall),
+    visibility: sanitizeScoreComponent(snapshot.visibility),
+    conversion: sanitizeScoreComponent(snapshot.conversion),
+    revenue_capture: sanitizeScoreComponent(snapshot.revenueCapture),
     source: snapshot.source,
   };
   const extendedRow = {
     ...baseRow,
-    driver_score: snapshot.driverScore ?? snapshot.conversion,
-    outcome_index: snapshot.outcomeIndex,
+    driver_score: sanitizeScoreComponent(snapshot.driverScore ?? snapshot.conversion),
+    outcome_index:
+      snapshot.outcomeIndex != null
+        ? sanitizeScoreComponent(snapshot.outcomeIndex)
+        : null,
   };
 
   const { error } = await supabase

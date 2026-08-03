@@ -321,11 +321,22 @@ export function buildLearnedScoreModel(input: {
   };
 }
 
+function isValidClickShare(curve: ClickShareCurve): boolean {
+  return (
+    curve.pack1 > 0 &&
+    [curve.pack1, curve.pack2, curve.pack3, curve.outsidePack, curve.deepOutside].every(
+      (value) => typeof value === "number" && Number.isFinite(value) && value >= 0
+    )
+  );
+}
+
 export function effectiveScoreModel(model?: LearnedScoreModel | null): LearnedScoreModel {
   if (!model) return DEFAULT_LEARNED_SCORE_MODEL;
+  if (!isValidClickShare(model.clickShare)) return DEFAULT_LEARNED_SCORE_MODEL;
   return model;
 }
 
 export function topClickSharePercent(model?: LearnedScoreModel | null): number {
-  return effectiveScoreModel(model).clickShare.pack1;
+  const pack1 = effectiveScoreModel(model).clickShare.pack1;
+  return pack1 > 0 ? pack1 : DEFAULT_CLICK_SHARE_CURVE.pack1;
 }

@@ -21,6 +21,7 @@ import {
   computeOverallFromDriverOutcome,
   computeOutcomeIndex,
 } from "./score-driver-outcome";
+import { safeFiniteNumber } from "./score-sanitize";
 import {
   DEFAULT_CLICK_SHARE_CURVE,
   DEFAULT_LEARNED_SCORE_MODEL,
@@ -372,8 +373,11 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
   const avgLeaderReviews =
     audit.rankings.keywords.reduce((s, k) => s + k.packLeaderReviewCount, 0) /
     Math.max(audit.rankings.keywords.length, 1);
-  const ratingScore = clamp(((gbp.engagement.averageRating - 3.5) / 1.5) * 100);
-  const volumeRatio = gbp.engagement.reviewCount / Math.max(avgLeaderReviews, 1);
+  const ratingScore = clamp(
+    ((safeFiniteNumber(gbp.engagement.averageRating, 3.5) - 3.5) / 1.5) * 100
+  );
+  const volumeRatio =
+    safeFiniteNumber(gbp.engagement.reviewCount, 0) / Math.max(avgLeaderReviews, 1);
   const reviewStrength = clamp(ratingScore * 0.5 + Math.min(volumeRatio, 1) * 50);
 
   const completeness = gbp.completeness.completenessScore;
@@ -410,7 +414,7 @@ export function computeConversionScore(audit: Phase1AuditPayload): number {
     }
   }
 
-  let responseScore = clamp(gbp.engagement.responseRate * 100);
+  let responseScore = clamp(safeFiniteNumber(gbp.engagement.responseRate, 0) * 100);
   const reviewCoverage = reviews.coverage ?? gbp.reviewCoverage;
   if (reviewCoverage?.apiAvailable) {
     responseScore = clamp(
@@ -585,8 +589,11 @@ export function computeHealthScores(
   const avgLeaderReviews =
     audit.rankings.keywords.reduce((s, k) => s + k.packLeaderReviewCount, 0) /
     Math.max(audit.rankings.keywords.length, 1);
-  const ratingScore = clamp(((audit.gbp.engagement.averageRating - 3.5) / 1.5) * 100);
-  const volumeRatio = audit.gbp.engagement.reviewCount / Math.max(avgLeaderReviews, 1);
+  const ratingScore = clamp(
+    ((safeFiniteNumber(audit.gbp.engagement.averageRating, 3.5) - 3.5) / 1.5) * 100
+  );
+  const volumeRatio =
+    safeFiniteNumber(audit.gbp.engagement.reviewCount, 0) / Math.max(avgLeaderReviews, 1);
   const reviewStrength = clamp(ratingScore * 0.5 + Math.min(volumeRatio, 1) * 50);
 
   const outcomes = computeEngagementOutcomes(audit);
