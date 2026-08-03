@@ -313,11 +313,11 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
     input.gbpConnected &&
     (reviewRequestPending > 0 || auditHasReviewRequestPlanStep(input.audit));
 
-  if (needsReviewCampaign) {
+  if (needsReviewCampaign && input.audit != null) {
+    const audit = input.audit;
     const reviewCampaignPending =
       reviewRequestPending > 0 ||
-      (input.audit.rankings.keywords.length > 0 &&
-        auditNeedsReviewVelocityBoost(input.audit));
+      (audit.rankings.keywords.length > 0 && auditNeedsReviewVelocityBoost(audit));
 
     items.push({
       id: "review-campaign-plan",
