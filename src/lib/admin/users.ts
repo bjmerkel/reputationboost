@@ -1,4 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  latestScoreDateForBusinesses,
+  maxActivityTimestamp,
+} from "@/lib/admin/activity-timestamp";
 import { computeUserHealthMetrics } from "@/lib/admin/health";
 import { userMatchesSegment, type AdminSegmentId } from "@/lib/admin/segments";
 import { gradeFromScore } from "@/lib/scores/grade";
@@ -53,12 +57,12 @@ interface TaskAggRow {
 
 interface AuditAggRow {
   user_id: string;
-  completed_at: string;
+  last_audit_at: string;
 }
 
 interface BusinessAuditRow {
   business_id: string;
-  completed_at: string;
+  last_audit_at: string;
 }
 
 function formatLocation(location: BusinessRow["location"]): string {
@@ -121,8 +125,8 @@ async function fetchAdminBaseData() {
       .select("business_id, overall, date")
       .eq("date", sevenDaysAgo.toISOString().slice(0, 10)),
     supabase.from("execution_tasks").select("user_id, status, business_id, id, title, task_type, priority, created_at, completed_at"),
-    supabase.from("audit_runs").select("user_id, completed_at").order("completed_at", { ascending: false }),
-    supabase.from("audit_runs").select("business_id, completed_at").order("completed_at", { ascending: false }),
+    supabase.from("admin_latest_audits_by_user").select("user_id, last_audit_at"),
+    supabase.from("admin_latest_audits_by_business").select("business_id, last_audit_at"),
   ]);
 
   if (profilesRes.error) throw new Error(profilesRes.error.message);
@@ -193,12 +197,9 @@ function buildUserSummaries(data: Awaited<ReturnType<typeof fetchAdminBaseData>>
     taskCounts.set(task.user_id, current);
   }
 
-  const lastAuditByUser = new Map<string, string>();
-  for (const audit of data.audits) {
-    if (!lastAuditByUser.has(audit.user_id)) {
-      lastAuditByUser.set(audit.user_id, audit.completed_at);
-    }
-  }
+  const lastAuditByUser = new Map(
+    data.audits.map((audit) => [audit.user_id, audit.last_audit_at])
+  );
 
   return data.profiles.map((profile) => {
     const businesses = businessesByUser.get(profile.id) ?? [];
@@ -231,7 +232,12 @@ function buildUserSummaries(data: Awaited<ReturnType<typeof fetchAdminBaseData>>
         : null;
 
     const taskCount = taskCounts.get(profile.id) ?? { pending: 0, completed: 0, failed: 0 };
-    const lastAuditAt = lastAuditByUser.get(profile.id) ?? null;
+    const lastAuditRunAt = lastAuditByUser.get(profile.id) ?? null;
+    const latestScoreDate = latestScoreDateForBusinesses(
+      businesses.map((business) => business.id),
+      scoreByBusiness
+    );
+    const lastAuditAt = maxActivityTimestamp(lastAuditRunAt, latestScoreDate);
     const lastActivityAt = lastAuditAt;
     const businessPreviews = sortBusinessesForDisplay(businesses, scoreByBusiness);
     const health = computeUserHealthMetrics({
@@ -348,12 +354,9 @@ export async function getAdminUserDetail(userId: string): Promise<AdminUserDetai
     taskCountsByBusiness.set(task.business_id, current);
   }
 
-  const lastAuditByBusiness = new Map<string, string>();
-  for (const audit of data.businessAudits) {
-    if (!lastAuditByBusiness.has(audit.business_id)) {
-      lastAuditByBusiness.set(audit.business_id, audit.completed_at);
-    }
-  }
+  const lastAuditByBusiness = new Map(
+    data.businessAudits.map((audit) => [audit.business_id, audit.last_audit_at])
+  );
 
   const businessSummaries: AdminBusinessSummary[] = businesses.map((business) => {
     const scoreRow = scoreByBusiness.get(business.id);
@@ -374,7 +377,10 @@ export async function getAdminUserDetail(userId: string): Promise<AdminUserDetai
       scoreDate: scoreRow?.score_date ?? null,
       pendingTasks: counts.pending,
       completedTasks: counts.completed,
-      lastAuditAt: lastAuditByBusiness.get(business.id) ?? null,
+      lastAuditAt: maxActivityTimestamp(
+        lastAuditByBusiness.get(business.id) ?? null,
+        scoreRow?.score_date ?? null
+      ),
     };
   });
 

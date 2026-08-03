@@ -90,7 +90,7 @@ export default async function AdminBusinessDetailPage({ params }: PageProps) {
             <InfoRow label="Autopilot" value={business.autopilotMode} />
             <InfoRow label="Website" value={business.website ?? "—"} />
             <InfoRow label="Phone" value={business.phone ?? "—"} />
-            <InfoRow label="Last audit" value={formatRelativeDate(business.lastAuditAt)} />
+            <InfoRow label="Last updated" value={formatRelativeDate(business.lastAuditAt)} />
             <InfoRow label="Score date" value={business.scoreDate ?? "—"} />
           </dl>
         </section>

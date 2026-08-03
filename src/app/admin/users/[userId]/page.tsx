@@ -108,7 +108,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
             <InfoRow label="Pending tasks" value={String(user.pendingTasks)} />
             <InfoRow label="Completed tasks" value={String(user.completedTasks)} />
             <InfoRow label="Failed tasks" value={String(user.failedTasks)} />
-            <InfoRow label="Last audit" value={formatRelativeDate(user.lastAuditAt)} />
+            <InfoRow label="Last updated" value={formatRelativeDate(user.lastAuditAt)} />
             <InfoRow label="Autopilot mode" value={user.dominantAutopilotMode ?? "—"} />
             <InfoRow label="Grade" value={user.grade ?? "—"} />
           </dl>
@@ -186,7 +186,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[#64748b]">Last audit</dt>
+                    <dt className="text-[#64748b]">Last updated</dt>
                     <dd className="text-[#94a3b8]">{formatRelativeDate(business.lastAuditAt)}</dd>
                   </div>
                 </dl>

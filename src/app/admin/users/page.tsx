@@ -104,7 +104,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                 <th className="px-4 py-3 font-medium">Locations</th>
                 <th className="px-4 py-3 font-medium">Score</th>
                 <th className="px-4 py-3 font-medium">Tasks</th>
-                <th className="px-4 py-3 font-medium">Last audit</th>
+                <th className="px-4 py-3 font-medium">Last updated</th>
               </tr>
             </thead>
             <tbody>
