@@ -4,11 +4,23 @@ import { gradeLabel } from "@/lib/scores/grade";
 
 export function formatRelativeDate(iso: string | null): string {
   if (!iso) return "—";
-  const date = new Date(iso);
-  const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (days === 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 30) return `${days}d ago`;
+
+  const normalized = iso.length === 10 ? `${iso}T12:00:00.000Z` : iso;
+  const date = new Date(normalized);
+  if (!Number.isFinite(date.getTime())) return "—";
+
+  const now = new Date();
+  const startOfTodayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const startOfDateUtc = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate()
+  );
+  const dayDiff = Math.floor((startOfTodayUtc - startOfDateUtc) / (1000 * 60 * 60 * 24));
+
+  if (dayDiff === 0) return "Today";
+  if (dayDiff === 1) return "Yesterday";
+  if (dayDiff < 30) return `${dayDiff}d ago`;
   return date.toLocaleDateString();
 }
 

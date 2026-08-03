@@ -2,6 +2,7 @@ import { businessRecordToClientConfig } from "@/audit/businesses";
 import { getBusinessRecordByIdAdmin } from "@/audit/businesses-admin";
 import { loadLatestAuditForBusinessAdmin } from "@/audit/storage-supabase-admin";
 import { listScoreDailyForBusinessAdmin } from "@/audit/storage-score-daily";
+import { maxActivityTimestamp } from "@/lib/admin/activity-timestamp";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { gradeFromScore } from "@/lib/scores/grade";
 import type { AdminBusinessDetail } from "@/lib/admin/types";
@@ -78,7 +79,10 @@ export async function getAdminBusinessDetail(businessId: string): Promise<AdminB
     pendingTasks,
     completedTasks,
     failedTasks,
-    lastAuditAt: auditsRes.data?.completed_at ?? null,
+    lastAuditAt: maxActivityTimestamp(
+      auditsRes.data?.completed_at ?? null,
+      scoreRes.data?.score_date ?? null
+    ),
     keywordsInPack: rankings?.keywordsInPack ?? null,
     totalKeywords: rankings?.totalKeywords ?? null,
     auditScore: scores?.overall ?? null,
