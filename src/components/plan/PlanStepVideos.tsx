@@ -46,42 +46,59 @@ export default function PlanStepVideos({
         <p className={`text-sm ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>{message}</p>
       )}
 
-      {pending.map((task) => (
-        <label
-          key={task.id}
-          className={`flex cursor-pointer flex-col gap-3 rounded-lg border px-3 py-3 ${
-            isLight ? "border-[#dadce0] bg-white" : "border-white/8 bg-white/[0.02]"
-          }`}
-        >
-          <div className="min-w-0">
-            <p className={`text-sm font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
-              {task.title.replace(/^Step \d+: /, "")}
-            </p>
-            {typeof task.payload.hint === "string" && (
-              <p className={`mt-1 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
-                {task.payload.hint}
+      {pending.map((task) => {
+        const loading = actions.loadingTaskId === task.id || uploading;
+        return (
+          <div
+            key={task.id}
+            className={`flex flex-col gap-3 rounded-lg border px-3 py-3 ${
+              isLight ? "border-[#dadce0] bg-white" : "border-white/8 bg-white/[0.02]"
+            }`}
+          >
+            <div className="min-w-0">
+              <p className={`text-sm font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
+                {task.title.replace(/^Step \d+: /, "")}
               </p>
+              {typeof task.payload.hint === "string" && (
+                <p className={`mt-1 text-xs ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
+                  {task.payload.hint}
+                </p>
+              )}
+            </div>
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                accept="video/mp4,video/quicktime,video/*"
+                className="block w-full min-w-0 max-w-full text-xs"
+                disabled={loading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setUploading(true);
+                  setMessage("");
+                  void actions
+                    .uploadVideoFile(task, file)
+                    .then(() => setMessage("Video uploaded to Google."))
+                    .catch(() => undefined)
+                    .finally(() => setUploading(false));
+                }}
+              />
+            </label>
+            {task.status === "pending_approval" && (
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => void actions.rejectTask(task.id)}
+                className={`self-start rounded-full px-4 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                  isLight ? "text-[#5f6368] hover:bg-[#f1f3f4]" : "text-slate-400 hover:bg-white/5"
+                }`}
+              >
+                Skip
+              </button>
             )}
           </div>
-          <input
-            type="file"
-            accept="video/mp4,video/quicktime,video/*"
-            className="block w-full min-w-0 max-w-full text-xs"
-            disabled={actions.loadingTaskId === task.id || uploading}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              setUploading(true);
-              setMessage("");
-              void actions
-                .uploadVideoFile(task, file)
-                .then(() => setMessage("Video uploaded to Google."))
-                .catch(() => undefined)
-                .finally(() => setUploading(false));
-            }}
-          />
-        </label>
-      ))}
+        );
+      })}
 
       {videoTasks.every((t) => t.status === "completed") && (
         <p className={`text-sm ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>

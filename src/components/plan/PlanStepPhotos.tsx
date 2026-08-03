@@ -210,14 +210,28 @@ export default function PlanStepPhotos({
                 <p className={`text-sm font-medium ${isLight ? "text-[#202124]" : "text-white"}`}>
                   {task.title.replace(/^Step \d+: /, "")}
                 </p>
-                <button
-                  type="button"
-                  disabled={actions.loadingTaskId === task.id}
-                  onClick={() => void actions.publishPhoto(task)}
-                  className="btn-primary mt-3 rounded-full px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                >
-                  {actions.loadingTaskId === task.id ? "Uploading…" : "Approve & publish"}
-                </button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={actions.loadingTaskId === task.id}
+                    onClick={() => void actions.publishPhoto(task)}
+                    className="btn-primary rounded-full px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  >
+                    {actions.loadingTaskId === task.id ? "Uploading…" : "Approve & publish"}
+                  </button>
+                  {task.status === "pending_approval" && (
+                    <button
+                      type="button"
+                      disabled={actions.loadingTaskId === task.id}
+                      onClick={() => void actions.rejectTask(task.id)}
+                      className={`rounded-full px-4 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                        isLight ? "text-[#5f6368] hover:bg-[#f1f3f4]" : "text-slate-400 hover:bg-white/5"
+                      }`}
+                    >
+                      Skip
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -267,26 +281,42 @@ export default function PlanStepPhotos({
             <p className={`text-xs ${isLight ? "text-[#137333]" : "text-emerald-400"}`}>{batchMessage}</p>
           )}
           {manualTasks.map((task) => (
-            <label
+            <div
               key={task.id}
-              className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2 ${
+              className={`flex flex-col gap-2 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between ${
                 isLight ? "border-[#dadce0] bg-white" : "border-white/8 bg-white/[0.02]"
               }`}
             >
               <span className={`text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
                 {task.title.replace(/^Step \d+: /, "")}
               </span>
-              <input
-                type="file"
-                accept="image/*"
-                className="text-xs"
-                disabled={actions.loadingTaskId === task.id}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void actions.uploadPhotoFile(task, file);
-                }}
-              />
-            </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="text-xs"
+                    disabled={actions.loadingTaskId === task.id}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void actions.uploadPhotoFile(task, file);
+                    }}
+                  />
+                </label>
+                {task.status === "pending_approval" && (
+                  <button
+                    type="button"
+                    disabled={actions.loadingTaskId === task.id}
+                    onClick={() => void actions.rejectTask(task.id)}
+                    className={`rounded-full px-4 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                      isLight ? "text-[#5f6368] hover:bg-[#f1f3f4]" : "text-slate-400 hover:bg-white/5"
+                    }`}
+                  >
+                    Skip
+                  </button>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       )}
