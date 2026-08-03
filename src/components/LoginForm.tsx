@@ -30,17 +30,20 @@ export default function LoginForm() {
     const supabase = createClient();
 
     if (mode === "signup") {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-        },
       });
 
       if (error) {
         setMessage(error.message);
         setLoading(false);
+        return;
+      }
+
+      if (data.session) {
+        router.push(next);
+        router.refresh();
         return;
       }
 
