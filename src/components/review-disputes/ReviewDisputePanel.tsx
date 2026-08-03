@@ -49,7 +49,7 @@ const WORKFLOW_STEPS = [
   {
     title: "Submit & repeat",
     detail:
-      "Press Submit in Google, then Mark submitted here. Google often needs multiple reports — we'll put this review back on your plan for another dispute round.",
+      "Press Submit in Google, then Mark submitted here. If the review is still up, you can file another report.",
   },
 ] as const;
 
@@ -324,7 +324,9 @@ export default function ReviewDisputePanel({
               Dispute illegitimate reviews
             </p>
             <p className={`mt-1 max-w-2xl text-sm leading-relaxed ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
-              Flag policy-violating reviews, file them in Google Business Profile, and track outcomes. Google has no public dispute API — we guide you through the manual process. After you mark a report submitted, we put the review back on your plan so you can dispute again (Google often needs multiple attempts).
+              Report reviews that may violate Google&apos;s policies, file them in Google Business Profile,
+              and track what happens. We&apos;ll walk you through each step — and if Google doesn&apos;t remove
+              a review right away, you can dispute it again.
             </p>
           </div>
           {gainLabel > 0 && (
@@ -560,7 +562,7 @@ export default function ReviewDisputePanel({
                 : activeCandidate.priorSubmissionAt ||
                     activeDispute?.status === "submitted" ||
                     activeDispute?.status === "under_review"
-                  ? "Mark submitted — queue next dispute"
+                  ? "Mark submitted — dispute again"
                   : "Mark submitted"}
             </button>
             <a
