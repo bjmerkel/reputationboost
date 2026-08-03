@@ -171,6 +171,64 @@ describe("buildProductPlaybook", () => {
     assert.match(roiItem?.title ?? "", /visit value/i);
   });
 
+  it("surfaces review campaign plan for connected businesses with an audit", () => {
+    const audit = minimalAudit({
+      rankings: {
+        keywords: [],
+        keywordsInPack: 3,
+        totalKeywords: 3,
+      },
+      strategy: {
+        ...minimalAudit().strategy,
+        gbpPlan: {
+          title: "Plan",
+          businessName: "Test Biz",
+          address: "1 Main",
+          objective: "Grow",
+          targetKeywords: ["plumber"],
+          currentState: {
+            reviewCount: 10,
+            averageRating: 4.5,
+            photoCount: 5,
+            postCount: 0,
+            completenessScore: 50,
+          },
+          keywordRankings: [],
+          steps: [
+            {
+              stepNumber: 10,
+              title: "Request more reviews",
+              instruction: "Send SMS review requests.",
+            },
+          ],
+          keywordPriority: [],
+          weeklyCadence: [],
+          monthlyCadence: [],
+        },
+      },
+      execution: {
+        generatedAt: "2026-07-01T00:00:00.000Z",
+        tasksCreated: 0,
+        pendingApproval: 0,
+        autoApproved: 0,
+        tasks: [],
+      },
+    });
+
+    const playbook = buildProductPlaybook({
+      gbpConnected: true,
+      audit,
+      tasks: [],
+      avgCustomerValue: 500,
+    });
+
+    const item = playbook.items.find((entry) => entry.id === "review-campaign-plan");
+    assert.ok(item, "expected review-campaign-plan in playbook");
+    assert.equal(item?.title, "Review campaign plan");
+    assert.equal(item?.planStepNumber, 10);
+    assert.equal(item?.action, "open_plan");
+  });
+
   it("keeps Profile Guide setup pending until published", () => {
     const playbook = buildProductPlaybook({
       gbpConnected: true,
