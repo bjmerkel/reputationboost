@@ -16,6 +16,9 @@ interface ReviewRequestPanelProps {
   initialFocusKeyword?: string | null;
   variant?: "light" | "dark";
   onSent?: (summary: string) => void;
+  canSkip?: boolean;
+  onSkip?: () => void;
+  skipLoading?: boolean;
 }
 
 export default function ReviewRequestPanel({
@@ -27,6 +30,9 @@ export default function ReviewRequestPanel({
   initialFocusKeyword,
   variant = "light",
   onSent,
+  canSkip = false,
+  onSkip,
+  skipLoading = false,
 }: ReviewRequestPanelProps) {
   const isLight = variant === "light";
   const [template, setTemplate] = useState("");
@@ -301,6 +307,18 @@ export default function ReviewRequestPanel({
             >
               Import customers →
             </Link>
+            {canSkip && onSkip && (
+              <button
+                type="button"
+                disabled={sending || skipLoading}
+                onClick={() => void onSkip()}
+                className={`rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50 ${
+                  isLight ? "text-[#5f6368] hover:bg-[#f1f3f4]" : "text-slate-400 hover:bg-white/5"
+                }`}
+              >
+                Skip
+              </button>
+            )}
           </div>
 
           <p className={`text-xs ${isLight ? "text-[#80868b]" : "text-slate-500"}`}>
