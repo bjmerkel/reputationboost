@@ -1,5 +1,8 @@
 import type { ExecutionTask, FullAuditPayload, GapFlag } from "@/audit/types";
 import { buildPathToHealthy } from "@/audit/phase2/path-to-healthy";
+import {
+  auditNeedsReviewVelocityBoost,
+} from "@/audit/phase2/review-velocity";
 import { pendingBatchTasks } from "@/lib/execution/pending-tasks";
 import { getPendingApprovalCounts } from "@/lib/execution/pending-counts";
 import { getGoogleDiffFields } from "@/lib/google/gbp-update-helpers";
@@ -95,6 +98,17 @@ const PRIORITY = {
   low: 30,
   habit: 40,
 } as const;
+
+const REVIEW_REQUEST_PLAN_STEP = 10;
+
+function auditHasReviewRequestPlanStep(audit: FullAuditPayload): boolean {
+  const steps = audit.strategy?.gbpPlan?.steps;
+  if (steps?.length) {
+    return steps.some((step) => step.stepNumber === REVIEW_REQUEST_PLAN_STEP);
+  }
+  // Template GBP plans always include step 10 (Request more reviews).
+  return true;
+}
 
 function daysSince(iso: string | null | undefined): number {
   if (!iso) return 999;
@@ -288,6 +302,37 @@ export function buildProductPlaybook(input: PlaybookInput): ProductPlaybook {
       status: reviewPending === 0 && unrespondedNegative === 0 ? "done" : "pending",
       action: reviewPending > 0 ? "review_approvals" : "open_plan",
       estimatedMinutes: Math.max(2, reviewPending * 2),
+    });
+  }
+
+  const reviewRequestPending = input.tasks.filter(
+    (task) => task.type === "review_request" && task.status === "pending_approval"
+  ).length;
+  const needsReviewCampaign =
+    input.audit != null &&
+    input.gbpConnected &&
+    (reviewRequestPending > 0 || auditHasReviewRequestPlanStep(input.audit));
+
+  if (needsReviewCampaign) {
+    const reviewCampaignPending =
+      reviewRequestPending > 0 ||
+      (input.audit.rankings.keywords.length > 0 &&
+        auditNeedsReviewVelocityBoost(input.audit));
+
+    items.push({
+      id: "review-campaign-plan",
+      stage: "execute",
+      title: "Review campaign plan",
+      description:
+        reviewRequestPending > 0
+          ? "Open your keyword targets and send the next batch of SMS review requests."
+          : "See keyword targets, monthly review goals, and how to request reviews that mention your priority services.",
+      why: "Fresh reviews with the right keywords help you break into the Local 3-Pack.",
+      priority: PRIORITY.high,
+      status: reviewCampaignPending ? "pending" : "done",
+      action: reviewRequestPending > 0 ? "review_approvals" : "open_plan",
+      planStepNumber: REVIEW_REQUEST_PLAN_STEP,
+      estimatedMinutes: 8,
     });
   }
 
