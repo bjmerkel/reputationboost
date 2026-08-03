@@ -166,6 +166,9 @@ export default function PlanBatchTaskEditor({
           planBullets={planBullets}
           initialFocusKeyword={context.initialFocusKeyword}
           onSent={() => onTaskCompleted?.()}
+          canSkip={task.status === "pending_approval"}
+          onSkip={() => void actions.rejectTask(task.id)}
+          skipLoading={actions.loadingTaskId === task.id}
         />
       </div>
     );

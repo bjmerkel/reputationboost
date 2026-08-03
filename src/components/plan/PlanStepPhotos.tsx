@@ -173,17 +173,45 @@ export default function PlanStepPhotos({
       )}
 
       {pendingAi.length > 0 && !generating && (
-        <button
-          type="button"
-          onClick={() => void generatePending()}
-          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-            isLight
-              ? "border-[#9334e6] bg-[#f3e8fd] text-[#9334e6] hover:bg-[#e9d5ff]"
-              : "border-violet-400/40 bg-violet-400/15 text-violet-300 hover:bg-violet-400/25"
-          }`}
-        >
-          Generate {pendingAi.length} AI preview{pendingAi.length === 1 ? "" : "s"}
-        </button>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => void generatePending()}
+            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+              isLight
+                ? "border-[#9334e6] bg-[#f3e8fd] text-[#9334e6] hover:bg-[#e9d5ff]"
+                : "border-violet-400/40 bg-violet-400/15 text-violet-300 hover:bg-violet-400/25"
+            }`}
+          >
+            Generate {pendingAi.length} AI preview{pendingAi.length === 1 ? "" : "s"}
+          </button>
+          <ul className="space-y-1">
+            {pendingAi.map((task) => (
+              <li
+                key={task.id}
+                className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
+                  isLight ? "border-[#dadce0] bg-white" : "border-white/8 bg-white/[0.02]"
+                }`}
+              >
+                <span className={`text-sm ${isLight ? "text-[#3c4043]" : "text-slate-300"}`}>
+                  {task.title.replace(/^Step \d+: /, "")}
+                </span>
+                {task.status === "pending_approval" && (
+                  <button
+                    type="button"
+                    disabled={actions.loadingTaskId === task.id}
+                    onClick={() => void actions.rejectTask(task.id)}
+                    className={`rounded-full px-4 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                      isLight ? "text-[#5f6368] hover:bg-[#f1f3f4]" : "text-slate-400 hover:bg-white/5"
+                    }`}
+                  >
+                    Skip
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {readyAi.length > 0 && (

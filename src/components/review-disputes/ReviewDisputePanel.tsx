@@ -249,6 +249,7 @@ export default function ReviewDisputePanel({
   }
 
   if (candidates.length === 0 && disputes.length === 0) {
+    const skippableTasks = tasks.filter((task) => task.status === "pending_approval");
     return (
       <div className={`${shell} p-8 text-center`}>
         <p className={`text-lg font-semibold ${isLight ? "text-[#137333]" : "text-emerald-300"}`}>
@@ -257,6 +258,23 @@ export default function ReviewDisputePanel({
         <p className={`mx-auto mt-2 max-w-md text-sm leading-relaxed ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
           When we detect low-star reviews that may violate Google&apos;s policies, they&apos;ll appear here with policy recommendations and score impact estimates.
         </p>
+        {skippableTasks.length > 0 && (
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {skippableTasks.map((task) => (
+              <button
+                key={task.id}
+                type="button"
+                disabled={actions.loadingTaskId === task.id}
+                onClick={() => void actions.rejectTask(task.id)}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-50 ${
+                  isLight ? "text-[#5f6368] hover:bg-[#f1f3f4]" : "text-slate-400 hover:bg-white/5"
+                }`}
+              >
+                Skip
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -522,6 +540,18 @@ export default function ReviewDisputePanel({
             >
               Open reviews in Google ↗
             </a>
+            {activeTask?.status === "pending_approval" && (
+              <button
+                type="button"
+                disabled={saving || actions.loadingTaskId === activeTask.id}
+                onClick={() => void actions.rejectTask(activeTask.id)}
+                className={`rounded-xl px-5 py-2.5 text-sm font-medium disabled:opacity-50 ${
+                  isLight ? "text-[#5f6368] hover:bg-[#f1f3f4]" : "text-slate-400 hover:bg-white/5"
+                }`}
+              >
+                Skip
+              </button>
+            )}
           </div>
 
           {activeDispute && ["submitted", "under_review", "flagged"].includes(activeDispute.status) && (

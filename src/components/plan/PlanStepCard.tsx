@@ -438,6 +438,9 @@ export default function PlanStepCard({
                 initialFocusKeyword={initialFocusKeyword}
                 variant={variant}
                 onSent={() => onReviewRequestSent?.()}
+                canSkip={reviewRequestTask.status === "pending_approval"}
+                onSkip={() => void actions.rejectTask(reviewRequestTask.id)}
+                skipLoading={actions.loadingTaskId === reviewRequestTask.id}
               />
             </div>
           )}
