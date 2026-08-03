@@ -181,6 +181,7 @@ export default function PlanBatchTaskEditor({
         <ReviewDisputePanel
           tasks={[task]}
           actions={actions}
+          focusTaskId={task.id}
           onDisputeUpdated={() => onTaskCompleted?.()}
         />
       </div>

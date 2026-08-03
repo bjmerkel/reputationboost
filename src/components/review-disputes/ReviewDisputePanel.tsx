@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ExecutionTask } from "@/audit/types";
 import type { PlanTaskActions } from "@/hooks/usePlanTasks";
 import { parseJsonResponse } from "@/lib/http/parse-json-response";
@@ -20,6 +20,25 @@ interface ReviewDisputePanelProps {
   projectedStepGain?: number;
   variant?: "light" | "dark";
   onDisputeUpdated?: () => void;
+  /** Batch review: always offer Skip for this task even if another review is selected. */
+  focusTaskId?: string;
+}
+
+function resolveDisputeSkipTask(
+  tasks: ExecutionTask[],
+  options: { focusTaskId?: string; activeTask?: ExecutionTask }
+): ExecutionTask | undefined {
+  const skippable = tasks.filter((task) => task.status === "pending_approval");
+  if (skippable.length === 0) return undefined;
+
+  if (options.focusTaskId) {
+    const focused = skippable.find((task) => task.id === options.focusTaskId);
+    if (focused) return focused;
+  }
+
+  if (options.activeTask?.status === "pending_approval") return options.activeTask;
+  if (skippable.length === 1) return skippable[0];
+  return undefined;
 }
 
 const WORKFLOW_STEPS = [
@@ -87,6 +106,7 @@ export default function ReviewDisputePanel({
   projectedStepGain,
   variant = "light",
   onDisputeUpdated,
+  focusTaskId,
 }: ReviewDisputePanelProps) {
   const isLight = variant === "light";
   const [loading, setLoading] = useState(true);
@@ -123,13 +143,29 @@ export default function ReviewDisputePanel({
       setReportUrl(data.reportUrl);
       setProjectedOverallGain(data.projectedOverallGain);
 
+      const focusReviewId = focusTaskId
+        ? tasks.find((task) => task.id === focusTaskId)?.payload.reviewId
+        : undefined;
+      const preferredReviewId =
+        typeof focusReviewId === "string" || typeof focusReviewId === "number"
+          ? String(focusReviewId)
+          : null;
+
       setActiveReviewId((prev) => {
-        const nextId =
-          prev && data.candidates.some((c) => c.reviewId === prev)
-            ? prev
-            : data.candidates[0]?.reviewId ?? null;
+        if (prev && data.candidates.some((c) => c.reviewId === prev)) return prev;
+        if (
+          preferredReviewId &&
+          data.candidates.some((candidate) => candidate.reviewId === preferredReviewId)
+        ) {
+          const candidate = data.candidates.find(
+            (item) => item.reviewId === preferredReviewId
+          );
+          if (candidate) setPolicyViolation(candidate.suggestedViolation);
+          return preferredReviewId;
+        }
+        const nextId = data.candidates[0]?.reviewId ?? null;
         const nextCandidate = data.candidates.find((c) => c.reviewId === nextId);
-        if (nextCandidate && nextId !== prev) {
+        if (nextCandidate) {
           setPolicyViolation(nextCandidate.suggestedViolation);
         }
         return nextId;
@@ -139,7 +175,7 @@ export default function ReviewDisputePanel({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [focusTaskId, tasks]);
 
   useEffect(() => {
     void loadDisputes();
@@ -152,6 +188,10 @@ export default function ReviewDisputePanel({
   );
   const activeDispute = disputes.find(
     (d) => d.reviewId === (activeCandidate?.reviewId ?? activeReviewId ?? "")
+  );
+  const skipTask = useMemo(
+    () => resolveDisputeSkipTask(tasks, { focusTaskId, activeTask }),
+    [tasks, focusTaskId, activeTask]
   );
 
   const gainLabel = projectedStepGain ?? projectedOverallGain;
@@ -249,7 +289,7 @@ export default function ReviewDisputePanel({
   }
 
   if (candidates.length === 0 && disputes.length === 0) {
-    const skippableTasks = tasks.filter((task) => task.status === "pending_approval");
+    const emptySkipTask = resolveDisputeSkipTask(tasks, { focusTaskId });
     return (
       <div className={`${shell} p-8 text-center`}>
         <p className={`text-lg font-semibold ${isLight ? "text-[#137333]" : "text-emerald-300"}`}>
@@ -258,22 +298,17 @@ export default function ReviewDisputePanel({
         <p className={`mx-auto mt-2 max-w-md text-sm leading-relaxed ${isLight ? "text-[#5f6368]" : "text-slate-400"}`}>
           When we detect low-star reviews that may violate Google&apos;s policies, they&apos;ll appear here with policy recommendations and score impact estimates.
         </p>
-        {skippableTasks.length > 0 && (
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {skippableTasks.map((task) => (
-              <button
-                key={task.id}
-                type="button"
-                disabled={actions.loadingTaskId === task.id}
-                onClick={() => void actions.rejectTask(task.id)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-50 ${
-                  isLight ? "text-[#5f6368] hover:bg-[#f1f3f4]" : "text-slate-400 hover:bg-white/5"
-                }`}
-              >
-                Skip
-              </button>
-            ))}
-          </div>
+        {emptySkipTask && (
+          <button
+            type="button"
+            disabled={actions.loadingTaskId === emptySkipTask.id}
+            onClick={() => void actions.rejectTask(emptySkipTask.id)}
+            className={`mt-4 rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-50 ${
+              isLight ? "text-[#5f6368] hover:bg-[#f1f3f4]" : "text-slate-400 hover:bg-white/5"
+            }`}
+          >
+            Skip
+          </button>
         )}
       </div>
     );
@@ -540,11 +575,11 @@ export default function ReviewDisputePanel({
             >
               Open reviews in Google ↗
             </a>
-            {activeTask?.status === "pending_approval" && (
+            {skipTask && (
               <button
                 type="button"
-                disabled={saving || actions.loadingTaskId === activeTask.id}
-                onClick={() => void actions.rejectTask(activeTask.id)}
+                disabled={saving || actions.loadingTaskId === skipTask.id}
+                onClick={() => void actions.rejectTask(skipTask.id)}
                 className={`rounded-xl px-5 py-2.5 text-sm font-medium disabled:opacity-50 ${
                   isLight ? "text-[#5f6368] hover:bg-[#f1f3f4]" : "text-slate-400 hover:bg-white/5"
                 }`}
