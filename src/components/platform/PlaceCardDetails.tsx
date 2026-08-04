@@ -1,6 +1,6 @@
 "use client";
 
-import type { FullAuditPayload } from "@/audit/types";
+import type { FullAuditPayload, GbpConfiguredProfileLink } from "@/audit/types";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import ScoreBreakdown from "@/components/audit/ScoreBreakdown";
 import InfoTooltip from "@/components/ui/InfoTooltip";
@@ -30,6 +30,7 @@ export default function PlaceCardDetails({
   const score = resolved?.overall ?? scores?.overall ?? 0;
   const grade = scores?.grade ?? "at_risk";
   const website = gbp.identity.website?.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const socialProfileLinks = configuredSocialProfileLinks(gbp.attributeCoverage);
 
   const gradeColor =
     grade === "healthy" ? "#188038" : grade === "urgent" ? "#d93025" : "#e37400";
@@ -115,6 +116,17 @@ export default function PlaceCardDetails({
           className="inline-flex text-xs font-medium text-[#1a73e8] hover:underline"
           label="View on Google Maps →"
         />
+        {socialProfileLinks.map((link) => (
+          <a
+            key={link.name}
+            href={link.uri}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex text-xs font-medium text-[#1a73e8] hover:underline"
+          >
+            View on {link.displayName}
+          </a>
+        ))}
         {onPreviewCustomer && (
           <button
             type="button"
@@ -127,6 +139,35 @@ export default function PlaceCardDetails({
       </div>
     </div>
   );
+}
+
+const SOCIAL_PROFILE_PLATFORMS = ["instagram", "facebook"] as const;
+
+function socialProfilePlatform(link: GbpConfiguredProfileLink): string | null {
+  if (link.platform && SOCIAL_PROFILE_PLATFORMS.includes(link.platform as "instagram" | "facebook")) {
+    return link.platform;
+  }
+  const haystack = `${link.displayName} ${link.name}`.toLowerCase();
+  if (haystack.includes("instagram")) return "instagram";
+  if (haystack.includes("facebook")) return "facebook";
+  return null;
+}
+
+function configuredSocialProfileLinks(
+  coverage: FullAuditPayload["gbp"]["attributeCoverage"]
+): GbpConfiguredProfileLink[] {
+  const links = coverage?.configuredProfileLinks ?? [];
+  const byPlatform = new Map<string, GbpConfiguredProfileLink>();
+
+  for (const link of links) {
+    const platform = socialProfilePlatform(link);
+    if (!platform || byPlatform.has(platform)) continue;
+    byPlatform.set(platform, link);
+  }
+
+  return SOCIAL_PROFILE_PLATFORMS
+    .map((platform) => byPlatform.get(platform))
+    .filter((link): link is GbpConfiguredProfileLink => Boolean(link));
 }
 
 function DetailRow({
