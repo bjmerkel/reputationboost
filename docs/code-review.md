@@ -182,7 +182,7 @@ The company name and the metric also collide: “Reputation Boost” vs “Reput
 
 The asset is the Google Maps pin. “Pinwise” sounds like a product, not a growth hack, and it does not sit next to Reputation.com / Podium / Birdeye. Two syllables, easy on a call with an HVAC owner. Works for the nightly number (“your pin is a 62”) and for the ops platform around it.
 
-Domains to try: `pinwise.com` / `pinwise.ai` / `getpinwise.com`.
+`pinwise.com` is registered.
 
 ### 2. Packlift
 
@@ -190,7 +190,7 @@ Domains to try: `pinwise.com` / `pinwise.ai` / `getpinwise.com`.
 
 Names the outcome the sales pitch already uses: get into, or stay in, the Local 3-Pack. “Lift” is about rank movement, not review volume. Pairs cleanly with geo-grid language already in the UI (cells, radii, pack leader). Slightly more coined than Pinwise; stronger if the company wants to own “the pack” as a category word.
 
-Domains to try: `packlift.com` / `packlift.ai`.
+`packlift.com` is registered.
 
 ### 3. Mapmeter
 
@@ -198,7 +198,26 @@ Domains to try: `packlift.com` / `packlift.ai`.
 
 Leans into the loop that actually separates this from BrightLocal-style one-time audits: measure the listing every night, show what moved, point at the next action. Immediately understandable. Slightly more “tool” than “brand,” which is a feature if the score is the wedge (homepage CTA is already “Get your free score”).
 
-Domains to try: `mapmeter.com` / `mapmeter.ai`.
+`mapmeter.com` is registered.
+
+### 10 more with unregistered `.com` domains
+
+Checked against Verisign’s `.com` RDAP (HTTP 404 = not in the registry). Confirm at a registrar before buying — unregistered names can still be registry-premium priced. Grab soon if you like one.
+
+| Name | Domain | Score name | Why |
+|---|---|---|---|
+| **Lucidpin** | lucidpin.com | Lucidpin Score | Clearest brand of the set. The Maps pin, made obvious. Premium, not spammy. |
+| **Honestpin** | honestpin.com | Honestpin Score | Trust positioning vs review mills. Says you measure the listing, not juice stars. |
+| **Mapswise** | mapswise.com | Mapswise Score | Closest available cousin to Pinwise. About Maps, not “reputation.” |
+| **Mapsgrade** | mapsgrade.com | Mapsgrade | Score-first. Homepage CTA can stay “Get your free Mapsgrade.” |
+| **Mapsmeter** | mapsmeter.com | Mapsmeter Score | Nightly measurement loop, with a free `.com` (mapmeter.com is taken). |
+| **Radiuspack** | radiuspack.com | Radiuspack Score | Product-specific: 1/3/5-mile radii + Local 3-Pack. Hard to confuse with anything else. |
+| **Packbeacon** | packbeacon.com | Packbeacon Score | Visibility in the pack — being found, not “boosted.” |
+| **Packthree** | packthree.com | Packthree Score | Literal Local 3-Pack. Clunkier, but nobody misses what you do. |
+| **Visiblepin** | visiblepin.com | Visiblepin Score | The outcome in plain English: make the pin show up. |
+| **Nightlypin** | nightlypin.com | Nightlypin Score | Names the differentiator vs one-shot PDF audits. A bit long; very on-product. |
+
+Skipped `pinmeter.com` (also free) because “pin meter” is already a moisture-meter category.
 
 ### How to use a new name
 
